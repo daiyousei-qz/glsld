@@ -1,0 +1,12 @@
+
+TranslationUnit :=
+| ExternalDecl
+| TranslationUnit ExternalDecl
+
+ExternalDecl :=
+| FunctionDefinition
+| BlockDecl
+| TypeQualifier IdentifierList? semicolon
+
+TypeQualifier :=
+| layout...
