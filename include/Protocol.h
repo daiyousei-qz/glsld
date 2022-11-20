@@ -56,6 +56,62 @@ namespace glsld::lsp
         std::any result;
     };
 
+    struct Position
+    {
+        // /**
+        //  * Line position in a document (zero-based).
+        //  */
+        // line: uinteger;
+        uint32_t line;
+
+        // /**
+        //  * Character offset on a line in a document (zero-based). The meaning of this
+        //  * offset is determined by the negotiated `PositionEncodingKind`.
+        //  *
+        //  * If the character value is greater than the line length it defaults back
+        //  * to the line length.
+        //  */
+        // character: uinteger;
+        uint32_t character;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, const Position& value) -> bool
+    {
+        if (!mapper.Map("line", value.line)) {
+            return false;
+        }
+        if (!mapper.Map("character", value.character)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct Range
+    {
+        // /**
+        //  * The range's start position.
+        //  */
+        // start: Position;
+        Position start;
+
+        // /**
+        //  * The range's end position.
+        //  */
+        // end: Position;
+        Position end;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, const Range& value) -> bool
+    {
+        if (!mapper.Map("start", value.start)) {
+            return false;
+        }
+        if (!mapper.Map("end", value.end)) {
+            return false;
+        }
+
+        return true;
+    }
+
 #pragma region Show Message
 
     inline constexpr const char* LSPMethod_ShowMessage = "window/showMessage";
@@ -111,6 +167,230 @@ namespace glsld::lsp
     }
 
 #pragma endregion
+
+#pragma region Document Symbol
+
+    //
+    // Document Symbol
+    //
+
+    inline constexpr const char* LSPMethod_DocumentSymbol = "textDocument/documentSymbol";
+
+    struct DocumentSymbolClientCapabilities
+    {
+        // /**
+        //  * Whether document symbol supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * Specific capabilities for the `SymbolKind` in the
+        //  * `textDocument/documentSymbol` request.
+        //  */
+        // symbolKind?: {
+        // 	/**
+        // 	 * The symbol kind values the client supports. When this
+        // 	 * property exists the client also guarantees that it will
+        // 	 * handle values outside its set gracefully and falls back
+        // 	 * to a default value when unknown.
+        // 	 *
+        // 	 * If this property is not present the client only supports
+        // 	 * the symbol kinds from `File` to `Array` as defined in
+        // 	 * the initial version of the protocol.
+        // 	 */
+        // 	valueSet?: SymbolKind[];
+        // };
+
+        // /**
+        //  * The client supports hierarchical document symbols.
+        //  */
+        // hierarchicalDocumentSymbolSupport?: boolean;
+
+        // /**
+        //  * The client supports tags on `SymbolInformation`. Tags are supported on
+        //  * `DocumentSymbol` if `hierarchicalDocumentSymbolSupport` is set to true.
+        //  * Clients supporting tags have to handle unknown tags gracefully.
+        //  *
+        //  * @since 3.16.0
+        //  */
+        // tagSupport?: {
+        // 	/**
+        // 	 * The tags supported by the client.
+        // 	 */
+        // 	valueSet: SymbolTag[];
+        // };
+
+        // /**
+        //  * The client supports an additional label presented in the UI when
+        //  * registering a document symbol provider.
+        //  *
+        //  * @since 3.16.0
+        //  */
+        // labelSupport?: boolean;
+    };
+
+    struct DocumentSymbolParams
+    {
+        // /**
+        //  * The text document.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, DocumentSymbolParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * A symbol kind.
+    //  */
+    enum class SymbolKind
+    {
+        // export const File = 1;
+        File = 1,
+        // export const Module = 2;
+        Module = 2,
+        // export const Namespace = 3;
+        Namespace = 3,
+        // export const Package = 4;
+        Package = 4,
+        // export const Class = 5;
+        Class = 5,
+        // export const Method = 6;
+        Method = 6,
+        // export const Property = 7;
+        Property = 7,
+        // export const Field = 8;
+        Field = 8,
+        // export const Constructor = 9;
+        Constructor = 9,
+        // export const Enum = 10;
+        Enum = 10,
+        // export const Interface = 11;
+        Interface = 11,
+        // export const Function = 12;
+        Function = 12,
+        // export const Variable = 13;
+        Variable = 13,
+        // export const Constant = 14;
+        Constant = 14,
+        // export const String = 15;
+        String = 15,
+        // export const Number = 16;
+        Number = 16,
+        // export const Boolean = 17;
+        Boolean = 17,
+        // export const Array = 18;
+        Array = 18,
+        // export const Object = 19;
+        Object = 19,
+        // export const Key = 20;
+        Key = 20,
+        // export const Null = 21;
+        Null = 21,
+        // export const EnumMember = 22;
+        EnumMember = 22,
+        // export const Struct = 23;
+        Struct = 23,
+        // export const Event = 24;
+        Event = 24,
+        // export const Operator = 25;
+        Operator = 25,
+        // export const TypeParameter = 26;
+        TypeParameter = 26,
+    };
+
+    // /**
+    //  * Symbol tags are extra annotations that tweak the rendering of a symbol.
+    //  *
+    //  * @since 3.16
+    //  */
+    enum class SymbolTag
+    {
+        // /**
+        //  * Render a symbol as obsolete, usually using a strike-out.
+        //  */
+        // export const Deprecated: 1 = 1;
+        Deprecated = 1,
+    };
+
+    struct DocumentSymbol
+    {
+        // /**
+        //  * The name of this symbol. Will be displayed in the user interface and
+        //  * therefore must not be an empty string or a string only consisting of
+        //  * white spaces.
+        //  */
+        // name: string;
+        std::string name;
+
+        // /**
+        //  * More detail for this symbol, e.g the signature of a function.
+        //  */
+        // detail?: string;
+
+        // /**
+        //  * The kind of this symbol.
+        //  */
+        // kind: SymbolKind;
+        SymbolKind kind;
+
+        // /**
+        //  * Tags for this document symbol.
+        //  *
+        //  * @since 3.16.0
+        //  */
+        // tags?: SymbolTag[];
+
+        // /**
+        //  * Indicates if this symbol is deprecated.
+        //  *
+        //  * @deprecated Use tags instead
+        //  */
+        // deprecated?: boolean;
+
+        // /**
+        //  * The range enclosing this symbol not including leading/trailing whitespace
+        //  * but everything else like comments. This information is typically used to
+        //  * determine if the clients cursor is inside the symbol to reveal in the
+        //  * symbol in the UI.
+        //  */
+        // range: Range;
+        Range range;
+
+        // /**
+        //  * The range that should be selected and revealed when this symbol is being
+        //  * picked, e.g. the name of a function. Must be contained by the `range`.
+        //  */
+        // selectionRange: Range;
+        Range selectionRange;
+
+        // /**
+        //  * Children of this symbol, e.g. properties of a class.
+        //  */
+        // children?: DocumentSymbol[];
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, const DocumentSymbol& value) -> bool
+    {
+        if (!mapper.Map("name", value.name)) {
+            return false;
+        }
+        if (!mapper.Map("kind", static_cast<int32_t>(value.kind))) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+        if (!mapper.Map("selectionRange", value.selectionRange)) {
+            return false;
+        }
+        return true;
+    }
 
 #pragma region Semantic Tokens
 
@@ -371,6 +651,240 @@ namespace glsld::lsp
 
 #pragma endregion
 
+#pragma region Text Document Synchronization
+
+    //
+    // Text Document Synchronization
+    //
+
+    // /**
+    //  * Defines how the host (editor) should sync document changes to the language
+    //  * server.
+    //  */
+    enum class TextDocumentSyncKind
+    {
+        // /**
+        //  * Documents should not be synced at all.
+        //  */
+        // export const None = 0;
+        None = 0,
+
+        // /**
+        //  * Documents are synced by always sending the full content
+        //  * of the document.
+        //  */
+        // export const Full = 1;
+        Full = 1,
+
+        // /**
+        //  * Documents are synced by sending the full content on open.
+        //  * After that only incremental updates to the document are
+        //  * sent.
+        //  */
+        // export const Incremental = 2;
+        Incremental = 2,
+    };
+
+    struct TextDocumentSyncOptions
+    {
+        // /**
+        //  * Open and close notifications are sent to the server. If omitted open
+        //  * close notifications should not be sent.
+        //  */
+        // openClose?: boolean;
+        bool openClose;
+
+        // /**
+        //  * Change notifications are sent to the server. See
+        //  * TextDocumentSyncKind.None, TextDocumentSyncKind.Full and
+        //  * TextDocumentSyncKind.Incremental. If omitted it defaults to
+        //  * TextDocumentSyncKind.None.
+        //  */
+        // change?: TextDocumentSyncKind;
+        TextDocumentSyncKind change;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, const TextDocumentSyncOptions& value) -> bool
+    {
+        if (!mapper.Map("openClose", value.openClose)) {
+            return false;
+        }
+        if (!mapper.Map("change", static_cast<int32_t>(value.change))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct TextDocumentItem
+    {
+        // /**
+        //  * The text document's URI.
+        //  */
+        // uri: DocumentUri;
+        DocumentUri uri;
+
+        // /**
+        //  * The text document's language identifier.
+        //  */
+        // languageId: string;
+        std::string languageId;
+
+        // /**
+        //  * The version number of this document (it will increase after each
+        //  * change, including undo/redo).
+        //  */
+        // version: integer;
+        int32_t version;
+
+        // /**
+        //  * The content of the opened text document.
+        //  */
+        // text: string;
+        std::string text;
+    };
+
+    inline constexpr const char* LSPMethod_DidOpenTextDocument = "textDocument/didOpen";
+
+    struct DidOpenTextDocumentParams
+    {
+        // /**
+        //  * The document that was opened.
+        //  */
+        // textDocument: TextDocumentItem;
+        TextDocumentItem textDocument;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, DidOpenTextDocumentParams& value) -> bool
+    {
+        {
+            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
+            if (!mapper.Map("uri", value.textDocument.uri)) {
+                return false;
+            }
+            if (!mapper.Map("languageId", value.textDocument.languageId)) {
+                return false;
+            }
+            if (!mapper.Map("version", value.textDocument.version)) {
+                return false;
+            }
+            if (!mapper.Map("text", value.textDocument.text)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    struct TextDocumentContentChangeEvent
+    {
+        // /**
+        //  * The range of the document that changed.
+        //  */
+        // range: Range;
+
+        // /**
+        //  * The optional length of the range that got replaced.
+        //  *
+        //  * @deprecated use range instead.
+        //  */
+        // rangeLength?: uinteger;
+
+        // /**
+        //  * The new text for the provided range.
+        //  */
+        // text: string;
+        // ---
+        // /**
+        //  * The new text of the whole document.
+        //  */
+        // text: string;
+        std::string text;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
+    {
+        if (!mapper.Map("text", value.text)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    inline constexpr const char* LSPMethod_DidChangeTextDocument = "textDocument/didChange";
+
+    // /**
+    //  * An event describing a change to a text document. If only a text is provided
+    //  * it is considered to be the full content of the document.
+    //  */
+    struct DidChangeTextDocumentParams
+    {
+        // /**
+        //  * The document that did change. The version number points
+        //  * to the version after all provided content changes have
+        //  * been applied.
+        //  */
+        // textDocument: VersionedTextDocumentIdentifier;
+        VersionedTextDocumentIdentifier textDocument;
+
+        // /**
+        //  * The actual content changes. The content changes describe single state
+        //  * changes to the document. So if there are two content changes c1 (at
+        //  * array index 0) and c2 (at array index 1) for a document in state S then
+        //  * c1 moves the document from S to S' and c2 from S' to S''. So c1 is
+        //  * computed on the state S and c2 is computed on the state S'.
+        //  *
+        //  * To mirror the content of a document using change events use the following
+        //  * approach:
+        //  * - start with the same initial content
+        //  * - apply the 'textDocument/didChange' notifications in the order you
+        //  *   receive them.
+        //  * - apply the `TextDocumentContentChangeEvent`s in a single notification
+        //  *   in the order you receive them.
+        //  */
+        // contentChanges: TextDocumentContentChangeEvent[];
+        std::vector<TextDocumentContentChangeEvent> contentChanges;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, DidChangeTextDocumentParams& value) -> bool
+    {
+        {
+            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
+            if (!mapper.Map("uri", value.textDocument.uri)) {
+                return false;
+            }
+            if (!mapper.Map("version", value.textDocument.version)) {
+                return false;
+            }
+        }
+
+        if (!mapper.Map("contentChanges", value.contentChanges)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    inline constexpr const char* LSPMethod_DidCloseTextDocument = "textDocument/didClose";
+
+    struct DidCloseTextDocumentParams
+    {
+        // /**
+        //  * The document that was closed.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, DidCloseTextDocumentParams& value) -> bool
+    {
+        {
+            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
+            if (!mapper.Map("uri", value.textDocument)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
     //
     // Capabilities
     //
@@ -413,6 +927,22 @@ namespace glsld::lsp
 
     struct ServerCapabilities
     {
+
+        // /**
+        //  * Defines how text documents are synced. Is either a detailed structure
+        //  * defining each notification or for backwards compatibility the
+        //  * TextDocumentSyncKind number. If omitted it defaults to
+        //  * `TextDocumentSyncKind.None`.
+        //  */
+        // textDocumentSync?: TextDocumentSyncOptions | TextDocumentSyncKind;
+        TextDocumentSyncOptions textDocumentSync;
+
+        // /**
+        //  * The server provides document symbol support.
+        //  */
+        // documentSymbolProvider ?: boolean | DocumentSymbolOptions;
+        bool documentSymbolProvider;
+
         /**
          * The server provides semantic tokens support.
          *
@@ -423,6 +953,13 @@ namespace glsld::lsp
     };
     inline auto MapJson(JsonToObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
+        if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
+            return false;
+        }
+        if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -569,7 +1106,7 @@ namespace glsld::lsp
         }
 
         {
-            mapper.EnterObjectScoped("serverInfo");
+            auto scopeGuard = mapper.EnterObjectScoped("serverInfo");
 
             if (!mapper.Map("name", value.serverInfo.name)) {
                 return false;
@@ -597,219 +1134,6 @@ namespace glsld::lsp
     {
         if (!mapper.Map("retry", value.retry)) {
             return false;
-        }
-
-        return true;
-    }
-
-    //
-    // Text Document Synchronization
-    //
-
-    // /**
-    //  * Defines how the host (editor) should sync document changes to the language
-    //  * server.
-    //  */
-    enum class TextDocumentSyncKind
-    {
-        // /**
-        //  * Documents should not be synced at all.
-        //  */
-        // export const None = 0;
-        None = 0,
-
-        // /**
-        //  * Documents are synced by always sending the full content
-        //  * of the document.
-        //  */
-        // export const Full = 1;
-        Full = 1,
-
-        // /**
-        //  * Documents are synced by sending the full content on open.
-        //  * After that only incremental updates to the document are
-        //  * sent.
-        //  */
-        // export const Incremental = 2;
-        Incremental = 2,
-    };
-
-    struct TextDocumentSyncOptions
-    {
-        // /**
-        //  * Open and close notifications are sent to the server. If omitted open
-        //  * close notifications should not be sent.
-        //  */
-        // openClose?: boolean;
-        bool openClose;
-
-        // /**
-        //  * Change notifications are sent to the server. See
-        //  * TextDocumentSyncKind.None, TextDocumentSyncKind.Full and
-        //  * TextDocumentSyncKind.Incremental. If omitted it defaults to
-        //  * TextDocumentSyncKind.None.
-        //  */
-        // change?: TextDocumentSyncKind;
-        TextDocumentSyncKind change;
-    };
-
-    struct TextDocumentItem
-    {
-        // /**
-        //  * The text document's URI.
-        //  */
-        // uri: DocumentUri;
-        DocumentUri uri;
-
-        // /**
-        //  * The text document's language identifier.
-        //  */
-        // languageId: string;
-        std::string languageId;
-
-        // /**
-        //  * The version number of this document (it will increase after each
-        //  * change, including undo/redo).
-        //  */
-        // version: integer;
-        int32_t version;
-
-        // /**
-        //  * The content of the opened text document.
-        //  */
-        // text: string;
-        std::string text;
-    };
-
-    struct DidOpenTextDocumentParams
-    {
-        // /**
-        //  * The document that was opened.
-        //  */
-        // textDocument: TextDocumentItem;
-        TextDocumentItem textDocument;
-    };
-    inline auto MapJson(JsonToObjectMapper& mapper, DidOpenTextDocumentParams& value) -> bool
-    {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument.uri)) {
-                return false;
-            }
-            if (!mapper.Map("languageId", value.textDocument.languageId)) {
-                return false;
-            }
-            if (!mapper.Map("version", value.textDocument.version)) {
-                return false;
-            }
-            if (!mapper.Map("text", value.textDocument.text)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    struct TextDocumentContentChangeEvent
-    {
-        // /**
-        //  * The range of the document that changed.
-        //  */
-        // range: Range;
-
-        // /**
-        //  * The optional length of the range that got replaced.
-        //  *
-        //  * @deprecated use range instead.
-        //  */
-        // rangeLength?: uinteger;
-
-        // /**
-        //  * The new text for the provided range.
-        //  */
-        // text: string;
-        // ---
-        // /**
-        //  * The new text of the whole document.
-        //  */
-        // text: string;
-        std::string text;
-    };
-    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
-    {
-        if (!mapper.Map("text", value.text)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    // /**
-    //  * An event describing a change to a text document. If only a text is provided
-    //  * it is considered to be the full content of the document.
-    //  */
-    struct DidChangeTextDocumentParams
-    {
-        // /**
-        //  * The document that did change. The version number points
-        //  * to the version after all provided content changes have
-        //  * been applied.
-        //  */
-        // textDocument: VersionedTextDocumentIdentifier;
-        VersionedTextDocumentIdentifier textDocument;
-
-        // /**
-        //  * The actual content changes. The content changes describe single state
-        //  * changes to the document. So if there are two content changes c1 (at
-        //  * array index 0) and c2 (at array index 1) for a document in state S then
-        //  * c1 moves the document from S to S' and c2 from S' to S''. So c1 is
-        //  * computed on the state S and c2 is computed on the state S'.
-        //  *
-        //  * To mirror the content of a document using change events use the following
-        //  * approach:
-        //  * - start with the same initial content
-        //  * - apply the 'textDocument/didChange' notifications in the order you
-        //  *   receive them.
-        //  * - apply the `TextDocumentContentChangeEvent`s in a single notification
-        //  *   in the order you receive them.
-        //  */
-        // contentChanges: TextDocumentContentChangeEvent[];
-        std::vector<TextDocumentContentChangeEvent> contentChanges;
-    };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DidChangeTextDocumentParams& value) -> bool
-    {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument.uri)) {
-                return false;
-            }
-            if (!mapper.Map("version", value.textDocument.version)) {
-                return false;
-            }
-        }
-
-        if (!mapper.Map("contentChanges", value.contentChanges)) {
-            return false;
-        }
-
-        return true;
-    }
-
-    struct DidCloseTextDocumentParams
-    {
-        // /**
-        //  * The document that was closed.
-        //  */
-        // textDocument: TextDocumentIdentifier;
-        TextDocumentIdentifier textDocument;
-    };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DidCloseTextDocumentParams& value) -> bool
-    {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument)) {
-                return false;
-            }
         }
 
         return true;

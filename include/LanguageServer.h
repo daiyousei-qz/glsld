@@ -12,6 +12,15 @@
 
 namespace glsld
 {
+    struct LSPMethodDesc
+    {
+        static constexpr const char* id = "initialize";
+
+        using ClientMessageType = lsp::InitializeParams;
+        using ServerMessageType = lsp::InitializedResult;
+        using ServerErrorType   = lsp::InitializeError;
+    };
+
     // handles jsonrpc
     class LanguageServer : public LanguageServerCallback
     {
@@ -21,39 +30,107 @@ namespace glsld
             using namespace std::literals;
 
             Initialize();
+            // std::this_thread::sleep_for(10s);
+
+            // std::jthread thd{[](LanguageServer* server) {
+            //                      while (true) {
+            //                          std::this_thread::sleep_for(5s);
+            //                          lsp::ShowMessageParams params{
+            //                              .type    = lsp::MessageType::Info,
+            //                              .message = "hello lsp!",
+            //                          };
+            //                          server->language->ShowMessage(params);
+            //                      }
+            //                  },
+            //                  this};
 
             while (true) {
+                std::this_thread::sleep_for(100ms);
                 transport->PullMessage();
-                std::this_thread::sleep_for(1000ms);
-
-                lsp::ShowMessageParams params{
-                    .type    = lsp::MessageType::Info,
-                    .message = "hello lsp!",
-                };
-                language->ShowMessage(params);
             }
         }
 
-    protected:
-        auto DoHandleClientRequest(lsp::JsonObject rpcBlob) -> void override
+    private:
+        auto Initialize() -> void
         {
-            const auto& jreqid = rpcBlob["id"];
-            if (!jreqid.is_number_integer()) {
-                return;
-            }
+            language  = std::make_unique<LanguageService>(this);
+            transport = std::make_unique<TransportService>(stdin, stdout, this);
+            // auto inFile = fopen("test_lsp.txt", "rb");
+            // transport   = std::make_unique<TransportService>(inFile, stdout, this);
+        }
+
+        template <typename ParamType>
+        auto DispatchClientRequest(int requestId, ParamType params)
+        {
+        }
+
+        auto DispatchClientMessage(std::string_view method, const lsp::JsonObject& rpcBlob) -> void
+        {
+            static const std::map<std::string, std::function<void(const lsp::JsonObject&)>> requestHandlers{
+
+            };
+        }
+
+    protected:
+        auto DoHandleClientMessage(lsp::JsonObject rpcBlob) -> void override
+        {
             const auto& jmethod = rpcBlob["method"];
             if (!jmethod.is_string()) {
                 return;
             }
 
-            int requestId = jreqid;
             std::string s = jmethod;
             if (s == lsp::LSPMethod_Initialize) {
+                const auto& jreqid = rpcBlob["id"];
+                if (!jreqid.is_number_integer()) {
+                    return;
+                }
+                int requestId = jreqid;
+
                 lsp::InitializeParams params;
                 if (lsp::FromJson(rpcBlob["params"], params)) {
                     language->Initialize(requestId, params);
                 }
             }
+            if (s == lsp::LSPMethod_DocumentSymbol) {
+                const auto& jreqid = rpcBlob["id"];
+                if (!jreqid.is_number_integer()) {
+                    return;
+                }
+                int requestId = jreqid;
+
+                lsp::DocumentSymbolParams params;
+                if (lsp::FromJson(rpcBlob["params"], params)) {
+                    language->DocumentSymbol(requestId, params);
+                }
+            }
+            else if (s == lsp::LSPMethod_DidOpenTextDocument) {
+                lsp::DidOpenTextDocumentParams params;
+                if (lsp::FromJson(rpcBlob["params"], params)) {
+                    language->DidOpenTextDocument(params);
+                }
+            }
+            else if (s == lsp::LSPMethod_DidChangeTextDocument) {
+                lsp::DidChangeTextDocumentParams params;
+                if (lsp::FromJson(rpcBlob["params"], params)) {
+                    language->DidChangeTextDocument(params);
+                }
+            }
+            else if (s == lsp::LSPMethod_DidCloseTextDocument) {
+                lsp::DidCloseTextDocumentParams params;
+                if (lsp::FromJson(rpcBlob["params"], params)) {
+                    language->DidCloseTextDocument(params);
+                }
+            }
+        }
+
+        auto DoHandleBadClientMessage(std::string_view messageText) -> void override
+        {
+            // FIXME: log this?
+        }
+
+        auto DoHandleServerRequest(int requestId, lsp::JsonObject params) -> void override
+        {
         }
 
         auto DoHandleServerResponse(int requestId, lsp::JsonObject result, bool isError) -> void override
@@ -81,15 +158,6 @@ namespace glsld
 
             auto payload = rpcBlob.dump();
             transport->PushMessage(payload);
-        }
-
-    private:
-        auto Initialize() -> void
-        {
-            language = std::make_unique<LanguageService>(this);
-            // transport = std::make_unique<TransportService>(stdin, stdout, this);
-            auto inFile = fopen("test_lsp.txt", "rb");
-            transport   = std::make_unique<TransportService>(inFile, stdout, this);
         }
 
         std::unique_ptr<LanguageService> language;

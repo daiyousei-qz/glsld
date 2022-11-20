@@ -54,6 +54,16 @@ namespace glsld::lsp
         return JsonSerializer<T>::ToJson(value);
     }
 
+    inline auto ParseJson(std::string_view s) noexcept -> std::optional<JsonObject>
+    {
+        auto result = JsonObject::parse(s, nullptr, false, true);
+        if (result.is_discarded()) {
+            return std::nullopt;
+        }
+
+        return std::move(result);
+    }
+
     // To serialize an object type T
     // template <JsonMappingMode M>
     // auto MapJson(JsonObjectMapper<M> mapper, JsonMappingRef<M, T> value) -> bool
@@ -345,7 +355,7 @@ namespace glsld::lsp
             return traversalStack.back();
         }
 
-        JsonObject root;
+        JsonObject root = JsonObject::object_t{};
         std::vector<JsonObject*> traversalStack;
     };
 

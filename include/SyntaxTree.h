@@ -10,14 +10,37 @@
 
 namespace glsld
 {
+    struct SyntaxLocationInfo
+    {
+        int file;
+        int offset;
+        int line;
+        int column;
+    };
+
     struct SyntaxLocation
     {
+    public:
+        SyntaxLocation()
+        {
+        }
+        SyntaxLocation(int index) : index(index)
+        {
+        }
+
+        int GetIndex()
+        {
+            return index;
+        }
+
+    private:
+        int index = -1;
     };
 
     struct SyntaxRange
     {
-        int begin;
-        int end;
+        SyntaxLocation begin;
+        SyntaxLocation end;
     };
 
     enum class TokenKlass
@@ -62,11 +85,11 @@ namespace glsld
 
     struct SyntaxToken
     {
-        SyntaxRange range;
         TokenKlass klass;
 
         // string hosted in the atom table
         std::string_view text;
+        SyntaxRange range;
     };
 
     class SyntaxNode
@@ -76,13 +99,18 @@ namespace glsld
         {
         }
 
+        auto GetRange() -> SyntaxRange
+        {
+            return range;
+        }
+
         auto UpdateRange(SyntaxRange range) -> void
         {
-            range_ = range;
+            this->range = range;
         }
 
     private:
-        SyntaxRange range_;
+        SyntaxRange range;
     };
 
     class AstExpr;
@@ -92,7 +120,7 @@ namespace glsld
     class AstUnaryExpr;
     class AstBinaryExpr;
     class AstSelectExpr;
-    class AstFuncionCallExpr;
+    class AstInvokeExpr;
 
     class AstCompoundStmt;
     class AstExprStmt;
@@ -104,6 +132,24 @@ namespace glsld
     class AstBreakStmt;
     class AstDiscardStmt;
     class AstReturnStmt;
+
+    // Identifier of a declared/used symbol
+    class AstDeclId : public SyntaxNode
+    {
+    public:
+        AstDeclId(std::string_view id) : id(id)
+        {
+        }
+
+        auto GetIdentifier() -> std::string_view
+        {
+            return id;
+        }
+
+    private:
+        // The actual memory is hosted in the LexContext
+        std::string_view id;
+    };
 
     class AstExpr : public SyntaxNode
     {
@@ -123,20 +169,22 @@ namespace glsld
 
     using AstStmt = AstExpr;
 
-    template <size_t N> class AstExprImpl : public AstExpr
+    template <size_t N>
+    class AstExprImpl : public AstExpr
     {
     public:
         using AstExpr::AstExpr;
 
         auto GetChildren() -> std::span<AstExpr*>
         {
-            return children_;
+            return children;
         }
 
     protected:
-        std::array<AstExpr*, N> children_ = {};
+        std::array<AstExpr*, N> children = {};
     };
-    template <> class AstExprImpl<0> : public AstExpr
+    template <>
+    class AstExprImpl<0> : public AstExpr
     {
     public:
         using AstExpr::AstExpr;
@@ -172,22 +220,36 @@ namespace glsld
     class AstConstantExpr final : public AstExprImpl<0>
     {
     public:
-        AstConstantExpr(std::string value) : AstExprImpl(ExprOp::Const), value_(std::move(value))
+        AstConstantExpr(std::string_view value) : AstExprImpl(ExprOp::Const), value(value)
         {
         }
 
     private:
-        std::string value_;
+        // The actual memory is hosted in the LexContext
+        std::string_view value;
     };
-    class AstVarAccessExpr final : public AstExprImpl<0>
+    class AstVarAccessExpr final : public AstExprImpl<1>
     {
     public:
-        AstVarAccessExpr(std::string name) : AstExprImpl(ExprOp::VarAccess), varName(std::move(name))
+        AstVarAccessExpr(AstExpr* accessChain, std::string_view accessName)
+            : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+        {
+        }
+        AstVarAccessExpr(std::string_view accessName) : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
         {
         }
 
+        auto GetAccessChain() -> AstExpr*
+        {
+            return children[0];
+        }
+        auto GetAccessName() -> std::string_view
+        {
+            return accessName;
+        }
+
     private:
-        std::string varName;
+        std::string_view accessName;
     };
 
     class AstUnaryExpr final : public AstExprImpl<1>
@@ -196,12 +258,12 @@ namespace glsld
         AstUnaryExpr(ExprOp op, AstExpr* operand) : AstExprImpl(op)
         {
             // TODO: assert op is unary
-            children_[0] = operand;
+            children[0] = operand;
         }
 
         auto GetOperandExpr() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
 
     private:
@@ -212,17 +274,17 @@ namespace glsld
         AstBinaryExpr(ExprOp op, AstExpr* lhs, AstExpr* rhs) : AstExprImpl(op)
         {
             // TODO: assert op is binary
-            children_[0] = lhs;
-            children_[1] = rhs;
+            children[0] = lhs;
+            children[1] = rhs;
         }
 
         auto GetLeftOperandExpr() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
         auto GetRightOperandExpr() -> AstExpr*
         {
-            return children_[1];
+            return children[1];
         }
 
     private:
@@ -232,29 +294,52 @@ namespace glsld
     public:
         AstSelectExpr(AstExpr* predicate, AstExpr* positive, AstExpr* negative) : AstExprImpl(ExprOp::Select)
         {
-            children_[0] = predicate;
-            children_[1] = positive;
-            children_[2] = negative;
+            children[0] = predicate;
+            children[1] = positive;
+            children[2] = negative;
         }
 
         auto GetConditionExpr() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
         auto GetPositiveExpr() -> AstExpr*
         {
-            return children_[1];
+            return children[1];
         }
         auto GetNegativeExpr() -> AstExpr*
         {
-            return children_[2];
+            return children[2];
         }
 
     private:
     };
-    class AstFuncionCallExpr final : public AstExprImpl<0>
+
+    enum class InvocationType
+    {
+        FunctionCall,
+        Indexing,
+    };
+    class AstInvokeExpr final : public AstCompoundExprImpl
     {
     public:
+        AstInvokeExpr(InvocationType type, AstExpr* invokedExpr, std::vector<AstExpr*> args)
+            : AstCompoundExprImpl(type == InvocationType::FunctionCall ? ExprOp::FunctionCall : ExprOp::IndexAccess)
+        {
+            children.push_back(invokedExpr);
+            std::ranges::copy(args, std::back_inserter(children));
+        }
+
+        auto GetInvokedExpr() -> AstExpr*
+        {
+            return children[0];
+        }
+
+        auto GetArguments() -> std::span<AstExpr*>
+        {
+            return std::span<AstExpr*>(children).subspan(1);
+        }
+
     private:
     };
 
@@ -273,7 +358,7 @@ namespace glsld
     public:
         AstExprStmt(AstExpr* expr) : AstExprImpl(ExprOp::ExprStmt)
         {
-            children_[0] = expr;
+            children[0] = expr;
         }
     };
     // class AstDeclarationStmt final : public AstStmt
@@ -295,17 +380,17 @@ namespace glsld
     public:
         AstWhileStmt(AstExpr* predicate, AstExpr* loop_body) : AstExprImpl(ExprOp::WhileStmt)
         {
-            children_[0] = predicate;
-            children_[1] = loop_body;
+            children[0] = predicate;
+            children[1] = loop_body;
         }
 
         auto GetPredicateExpr() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
         auto GetLoopedStmt() -> AstExpr*
         {
-            return children_[1];
+            return children[1];
         }
     };
     class AstIfStmt final : public AstExprImpl<3>
@@ -313,28 +398,28 @@ namespace glsld
     public:
         AstIfStmt(AstExpr* predicate, AstExpr* positive) : AstExprImpl(ExprOp::IfStmt)
         {
-            children_[0] = predicate;
-            children_[1] = positive;
-            children_[2] = nullptr;
+            children[0] = predicate;
+            children[1] = positive;
+            children[2] = nullptr;
         }
         AstIfStmt(AstExpr* predicate, AstExpr* positive, AstExpr* negative) : AstExprImpl(ExprOp::IfStmt)
         {
-            children_[0] = predicate;
-            children_[1] = positive;
-            children_[2] = negative;
+            children[0] = predicate;
+            children[1] = positive;
+            children[2] = negative;
         }
 
         auto GetPredicateExpr() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
         auto GetPositiveStmt() -> AstStmt*
         {
-            return children_[1];
+            return children[1];
         }
         auto GetNegativeStmt() -> AstStmt*
         {
-            return children_[2];
+            return children[2];
         }
     };
     class AstSwitchStmt final : public AstCompoundExprImpl
@@ -378,35 +463,18 @@ namespace glsld
     public:
         AstReturnStmt() : AstExprImpl(ExprOp::ReturnStmt)
         {
-            children_[0] = nullptr;
+            children[0] = nullptr;
         }
         AstReturnStmt(AstExpr* expr) : AstExprImpl(ExprOp::ReturnStmt)
         {
             GLSLD_ASSERT(expr != nullptr);
-            children_[0] = expr;
+            children[0] = expr;
         }
 
         auto GetReturnedValue() -> AstExpr*
         {
-            return children_[0];
+            return children[0];
         }
-    };
-
-    // identifier
-    class AstDeclId : public SyntaxNode
-    {
-    public:
-        AstDeclId(std::string id) : id(std::move(id))
-        {
-        }
-
-        auto GetId() -> const std::string&
-        {
-            return id;
-        }
-
-    private:
-        std::string id;
     };
 
     class AstLayoutQualifier : public SyntaxNode
@@ -609,8 +677,13 @@ namespace glsld
 
     struct VariableDeclarator
     {
+        // Symbol identifier
         AstDeclId* id;
+
+        // Array specifier
         AstArraySpec* arraySize;
+
+        // Initializer
         AstExpr* init;
     };
 
@@ -649,6 +722,11 @@ namespace glsld
         {
         }
 
+        auto GetName() -> AstDeclId*
+        {
+            return id;
+        }
+
     private:
         AstQualType* type;
         AstDeclId* id;
@@ -669,7 +747,22 @@ namespace glsld
         {
         }
 
-        auto GetFunctionBody() -> AstCompoundStmt*
+        auto GetReturnType() -> AstQualType*
+        {
+            return returnType;
+        }
+
+        auto GetParams() -> std::span<AstParamDecl*>
+        {
+            return params;
+        }
+
+        auto GetName() -> AstDeclId*
+        {
+            return id;
+        }
+
+        auto GetBody() -> AstCompoundStmt*
         {
             return body;
         }

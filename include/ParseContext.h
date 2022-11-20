@@ -1,5 +1,7 @@
 #pragma once
-#include "DiagnosticManager.h"
+#include "DiagnosticContext.h"
+#include "LexContext.h"
+#include "ParsedAst.h"
 #include "Tokenizer.h"
 
 #include <memory>
@@ -11,7 +13,8 @@ namespace glsld
 {
     class ParseContext;
 
-    template <typename T> struct ParseResult
+    template <typename T>
+    struct ParseResult
     {
         std::optional<T*> result;
     };
@@ -21,13 +24,19 @@ namespace glsld
     using ParseResultDecl = std::optional<AstDecl*>;
     using ParseResultType = std::optional<AstQualType*>;
 
-    template <typename Parser> using ParserResultType = std::invoke_result_t<Parser, ParseContext>;
-
+    template <typename Parser>
+    using ParserResultType = std::invoke_result_t<Parser, ParseContext>;
     class ParseContext
     {
     public:
-        ParseContext(std::vector<SyntaxToken> tokens) : currentTokIndex(0), tokenStream(tokens)
+        ParseContext(DiagnosticContext* diagCtx, LexContext* lexer) : diagCtx(diagCtx), lexer(lexer)
         {
+            RestoreTokenIndex(0);
+        }
+
+        auto GetAst() -> const ParsedAst*
+        {
+            return &ast;
         }
 
         auto Eof() -> bool
@@ -35,7 +44,8 @@ namespace glsld
             return PeekToken().klass == TokenKlass::Eof;
         }
 
-        template <typename Parser> auto SepBy(TokenKlass sep, Parser elemParser)
+        template <typename Parser>
+        auto SepBy(TokenKlass sep, Parser elemParser)
         {
             std::vector<int> result;
         }
@@ -52,10 +62,18 @@ namespace glsld
             return {std::move(result1), std::move(result2)};
         }
 
+        auto ParsePermissiveSemicolon() -> void
+        {
+            if (!TryConsumeToken(TokenKlass::Semicolon)) {
+                ReportError("expecting ';'");
+                // However, we don't do error recovery as if the ';' is inferred by the parser.
+            }
+        }
+
         auto ParseDeclId() -> std::optional<AstDeclId*>
         {
             if (PeekToken().klass == TokenKlass::Identifier) {
-                auto result = CreateAstNode<AstDeclId>({}, std::string{PeekToken().text});
+                auto result = CreateAstNode<AstDeclId>({}, PeekToken().text);
                 ConsumeToken();
                 return result;
             }
@@ -157,18 +175,18 @@ namespace glsld
                 AstDeclId* id = *ParseDeclId();
 
                 AstArraySpec* arraySpec = nullptr;
-                if (TryToken(TokenKlass::LBracket)) {
+                if (TryTestToken(TokenKlass::LBracket)) {
                     arraySpec = ParseArraySpec();
                 }
 
                 AstExpr* init = nullptr;
-                if (TryToken(TokenKlass::Assign)) {
+                if (TryTestToken(TokenKlass::Assign)) {
                     // parse init
                     GLSLD_NO_IMPL();
                 }
 
                 result.push_back(VariableDeclarator{.id = id, .arraySize = arraySpec, .init = init});
-                if (TryToken(TokenKlass::Comma)) {
+                if (TryTestToken(TokenKlass::Comma)) {
                     ConsumeToken();
                 }
                 else {
@@ -180,12 +198,12 @@ namespace glsld
         }
 
         // EXPECT: LBrace
-        // PARSE: { }
+        // PARSE: '{' member_decl... '}'
         auto ParseStructBody() -> std::vector<AstStructMemberDecl*>
         {
             ConsumeTokenAssert(TokenKlass::LBrace);
 
-            if (TryToken(TokenKlass::RBrace)) {
+            if (TryTestToken(TokenKlass::RBrace)) {
                 // empty struct body
                 return {};
             }
@@ -197,13 +215,13 @@ namespace glsld
                 // TODO: support multiple declarators
                 AstDeclId* id = *ParseDeclId();
 
-                if (!TryToken(TokenKlass::Semicolon, TokenKlass::RBrace)) {
+                if (!TryTestToken(TokenKlass::Semicolon, TokenKlass::RBrace)) {
                     // error recovery
                 }
-                if (TryToken(TokenKlass::Semicolon)) {
+                if (TryTestToken(TokenKlass::Semicolon)) {
                     ConsumeToken();
                 }
-                if (TryToken(TokenKlass::RBrace)) {
+                if (TryTestToken(TokenKlass::RBrace)) {
                     ConsumeToken();
                     break;
                 }
@@ -216,11 +234,11 @@ namespace glsld
         {
             ConsumeTokenAssert(TokenKlass::K_struct);
             AstDeclId* name = nullptr;
-            if (TryToken(TokenKlass::Identifier)) {
+            if (TryTestToken(TokenKlass::Identifier)) {
                 // TODO: parse name
             }
 
-            if (TryToken(TokenKlass::LBrace)) {
+            if (TryTestToken(TokenKlass::LBrace)) {
                 ParseStructBody();
             }
 
@@ -230,14 +248,13 @@ namespace glsld
 
         // EXPECT: LBracket
         // PARSE: [N]...
-        // ER: continue
         auto ParseArraySpec() -> AstArraySpec*
         {
             std::vector<AstExpr*> sizes;
-            while (TryToken(TokenKlass::LBracket)) {
+            while (TryTestToken(TokenKlass::LBracket)) {
                 ConsumeTokenAssert(TokenKlass::LBracket);
 
-                if (TryToken(TokenKlass::RBracket)) {
+                if (TryTestToken(TokenKlass::RBracket)) {
                     sizes.push_back(nullptr);
                     continue;
                 }
@@ -245,7 +262,7 @@ namespace glsld
                 AstExpr* dimSize = ParseExpr();
                 sizes.push_back(dimSize);
 
-                if (TryToken(TokenKlass::RBracket)) {
+                if (TryTestToken(TokenKlass::RBracket)) {
                     ConsumeToken();
                 }
                 else {
@@ -258,7 +275,7 @@ namespace glsld
 
         auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*
         {
-            if (TryToken(TokenKlass::K_struct)) {
+            if (TryTestToken(TokenKlass::K_struct)) {
                 return ParseStructDefinition();
             }
 
@@ -293,9 +310,15 @@ namespace glsld
             ConsumeTokenAssert(TokenKlass::LParen);
 
             // empty parameter list
-            if (TryToken(TokenKlass::RParen)) {
-                ConsumeToken();
+            if (TryConsumeToken(TokenKlass::RParen)) {
                 return result;
+            }
+
+            // TODO: needed? spec doesn't include this grammar.
+            if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
+                ConsumeToken();
+                ConsumeToken();
+                return {};
             }
 
             // parse parameters
@@ -306,7 +329,7 @@ namespace glsld
                     result.push_back(CreateAstNode<AstParamDecl>({}, *type, *id));
                 }
 
-                if (TryToken(TokenKlass::Comma)) {
+                if (TryTestToken(TokenKlass::Comma)) {
                     ConsumeToken();
                 }
                 else {
@@ -314,7 +337,7 @@ namespace glsld
                 }
             }
 
-            if (TryToken(TokenKlass::RParen)) {
+            if (TryTestToken(TokenKlass::RParen)) {
                 ConsumeToken();
             }
             else {
@@ -341,11 +364,11 @@ namespace glsld
             //
             auto params = ParseFunctionParamList();
 
-            if (TryToken(TokenKlass::Semicolon)) {
+            if (TryTestToken(TokenKlass::Semicolon)) {
                 ConsumeToken();
                 return CreateAstNode<AstFunctionDecl>({}, returnType, id, std::move(params));
             }
-            else if (TryToken(TokenKlass::LBrace)) {
+            else if (TryTestToken(TokenKlass::LBrace)) {
                 auto body = ParseFunctionBody();
                 return CreateAstNode<AstFunctionDecl>({}, returnType, id, std::move(params), body);
             }
@@ -384,51 +407,51 @@ namespace glsld
         //   - type-qual? type-spec id(...) { ... }
         auto DoParseExternalDecl() -> void
         {
-            if (TryToken(TokenKlass::Semicolon)) {
+            if (TryTestToken(TokenKlass::Semicolon)) {
                 // empty decl
                 GLSLD_NO_IMPL();
             }
 
-            if (TryToken(TokenKlass::K_precision)) {
+            if (TryTestToken(TokenKlass::K_precision)) {
                 // precision decl
                 GLSLD_NO_IMPL();
                 // return ParseTypePrecisionDecl();
             }
 
             auto quals = ParseTypeQualifiers();
-            if (TryToken(TokenKlass::Semicolon)) {
+            if (TryTestToken(TokenKlass::Semicolon)) {
                 // early return
                 // for example, "layout(...) in;"
                 GLSLD_NO_IMPL();
             }
 
-            if (TryToken(TokenKlass::LBrace, 1) || TryToken(TokenKlass::LBrace)) {
+            if (TryTestToken(TokenKlass::LBrace, 1) || TryTestToken(TokenKlass::LBrace)) {
                 // interface blocks
                 // for example, uniform UBO { ... }
-                if (!TryToken(TokenKlass::Identifier)) {
+                if (!TryTestToken(TokenKlass::Identifier)) {
                     // need a block name
                 }
                 GLSLD_NO_IMPL();
             }
             else {
                 auto type = ParseType(quals);
-                if (TryToken(TokenKlass::LParen, 1)) {
+                if (TryTestToken(TokenKlass::LParen, 1)) {
                     // function decl
-                    externalDecls.push_back(ParseFunctionDecl(type));
+                    ast.AddFunction(ParseFunctionDecl(type));
                 }
                 else {
                     // variable decl
                     auto decl = CreateAstNode<AstVariableDecl>({}, type, ParseVariableDeclarators());
-                    externalDecls.push_back(decl);
+                    ast.AddGlobalVariable(decl);
                 }
             }
 
             // if error
             if (false) {
-                RecoverFromError(RecoveryMode::Semi);
+                RecoverFromError(RecoveryMode::GlobalSemi);
             }
 
-            if (TryToken(TokenKlass::Semicolon)) {
+            if (TryTestToken(TokenKlass::Semicolon)) {
                 ConsumeToken();
             }
             else {
@@ -443,431 +466,107 @@ namespace glsld
             }
         }
 
-        auto ParseExpr() -> AstExpr*
-        {
-            auto lhs = ParseAssignmentExpr();
+        // EXPECT: '('
 
-            while (TryToken(TokenKlass::Comma)) {
-                ConsumeToken();
-                auto rhs = ParseAssignmentExpr();
-
-                lhs = CreateAstNode<AstBinaryExpr>({}, ExprOp::Comma, lhs, rhs);
-            }
-
-            return lhs;
-        }
-        auto ParseAssignmentExpr() -> AstExpr*
-        {
-            auto lhs = ParseUnaryExpr();
-
-            auto opDesc = GetAssignmentOpDesc(PeekToken().klass);
-            if (opDesc) {
-                ConsumeToken();
-                return CreateAstNode<AstBinaryExpr>({}, *opDesc, lhs, ParseAssignmentExpr());
-            }
-            else {
-                return ParseConditionalExpr(lhs);
-            }
-        }
-
-        auto ParseConditionalExpr(AstExpr* firstTerm) -> AstExpr*
-        {
-            auto predicateOrExpr = ParseBinaryExpr(firstTerm, 0);
-
-            if (PeekToken().klass != TokenKlass::Question) {
-                return predicateOrExpr;
-            }
-
-            auto positveExpr = ParseExpr();
-            if (PeekToken().klass != TokenKlass::Colon) {
-                // emit error
-            }
-            auto negativeExpr = ParseAssignmentExpr();
-
-            return CreateAstNode<AstSelectExpr>({}, predicateOrExpr, positveExpr, negativeExpr);
-        }
-
-        auto GetPrefixUnaryOpDesc(TokenKlass klass) -> std::optional<ExprOp>
-        {
-            switch (PeekToken().klass) {
-            case TokenKlass::Plus:
-                return ExprOp::Plus;
-            case TokenKlass::Dash:
-                return ExprOp::Minus;
-            case TokenKlass::Tilde:
-                return ExprOp::BitwiseNot;
-            case TokenKlass::Bang:
-                return ExprOp::LogicalNot;
-            case TokenKlass::Increment:
-                return ExprOp::PrefixInc;
-            case TokenKlass::Decrement:
-                return ExprOp::PrefixDec;
-            default:
-                return std::nullopt;
-            }
-        }
-
-        // These are all left-associative operators
-        struct BinaryOpDesc
-        {
-            ExprOp op;
-            int precedence;
-        };
-        auto GetBinaryOpDesc(TokenKlass tok) -> std::optional<BinaryOpDesc>
-        {
-            switch (tok) {
-            case TokenKlass::Or:
-                return BinaryOpDesc{ExprOp::LogicalOr, 0};
-            case TokenKlass::Xor:
-                return BinaryOpDesc{ExprOp::LogicalXor, 1};
-            case TokenKlass::And:
-                return BinaryOpDesc{ExprOp::LogicalAnd, 2};
-            case TokenKlass::VerticalBar:
-                return BinaryOpDesc{ExprOp::BitwiseOr, 3};
-            case TokenKlass::Caret:
-                return BinaryOpDesc{ExprOp::BitwiseXor, 4};
-            case TokenKlass::Ampersand:
-                return BinaryOpDesc{ExprOp::BitwiseAnd, 5};
-            case TokenKlass::Equal:
-                return BinaryOpDesc{ExprOp::Equal, 6};
-            case TokenKlass::NotEqual:
-                return BinaryOpDesc{ExprOp::NotEqual, 6};
-            case TokenKlass::LAngle:
-                return BinaryOpDesc{ExprOp::Less, 7};
-            case TokenKlass::RAngle:
-                return BinaryOpDesc{ExprOp::Greater, 7};
-            case TokenKlass::LessEq:
-                return BinaryOpDesc{ExprOp::LessEq, 7};
-            case TokenKlass::GreaterEq:
-                return BinaryOpDesc{ExprOp::GreaterEq, 7};
-            case TokenKlass::LShift:
-                return BinaryOpDesc{ExprOp::ShiftLeft, 8};
-            case TokenKlass::RShift:
-                return BinaryOpDesc{ExprOp::ShiftRight, 8};
-            case TokenKlass::Plus:
-                return BinaryOpDesc{ExprOp::Plus, 9};
-            case TokenKlass::Dash:
-                return BinaryOpDesc{ExprOp::Minus, 9};
-            case TokenKlass::Star:
-                return BinaryOpDesc{ExprOp::Mul, 10};
-            case TokenKlass::Slash:
-                return BinaryOpDesc{ExprOp::Div, 10};
-            case TokenKlass::Percent:
-                return BinaryOpDesc{ExprOp::Modulo, 10};
-            default:
-                return std::nullopt;
-            }
-        };
-
-        auto GetAssignmentOpDesc(TokenKlass klass) -> std::optional<ExprOp>
-        {
-            switch (klass) {
-            case TokenKlass::Assign:
-                return ExprOp::Assign;
-            case TokenKlass::MulAssign:
-                return ExprOp::MulAssign;
-            case TokenKlass::DivAssign:
-                return ExprOp::DivAssign;
-            case TokenKlass::ModAssign:
-                return ExprOp::ModAssign;
-            case TokenKlass::AddAssign:
-                return ExprOp::AddAssign;
-            case TokenKlass::SubAssign:
-                return ExprOp::SubAssign;
-            case TokenKlass::LShiftAssign:
-                return ExprOp::LShiftAssign;
-            case TokenKlass::RShiftAssign:
-                return ExprOp::RShiftAssign;
-            case TokenKlass::AndAssign:
-                return ExprOp::AndAssign;
-            case TokenKlass::XorAssign:
-                return ExprOp::XorAssign;
-            case TokenKlass::OrAssign:
-                return ExprOp::OrAssign;
-            default:
-                return std::nullopt;
-            }
-        }
-
-        // term for this is a unary expression
-        auto ParseBinaryExpr(AstExpr* firstTerm, int minPrecedence) -> AstExpr*
-        {
-
-            auto lhs = firstTerm;
-            while (true) {
-                auto opDesc = GetBinaryOpDesc(PeekToken().klass);
-                if (!(opDesc.has_value() && opDesc->precedence >= minPrecedence)) {
-                    break;
-                }
-
-                ConsumeToken();
-                auto rhs = ParseUnaryExpr();
-
-                while (true) {
-                    auto opDescNext = GetBinaryOpDesc(PeekToken().klass);
-                    if (!(opDescNext.has_value() && opDescNext->precedence > opDesc->precedence)) {
-                        break;
-                    }
-
-                    rhs = ParseBinaryExpr(rhs, opDesc->precedence + 1);
-                }
-
-                lhs = CreateAstNode<AstBinaryExpr>({}, opDesc->op, lhs, rhs);
-            }
-
-            return lhs;
-        }
-
-        // unary-expr:
-        // - [unary-op]... postfix_expr
-        auto ParseUnaryExpr() -> AstExpr*
-        {
-            // TODO: avoid recursion
-            auto opDesc = GetPrefixUnaryOpDesc(PeekToken().klass);
-            if (opDesc) {
-                ConsumeToken();
-                return CreateAstNode<AstUnaryExpr>({}, *opDesc, ParseUnaryExpr());
-            }
-            else {
-                return ParsePostfixExpr();
-            }
-        }
-
-        // postfix-expr:
-        // - primary_expr [postfix]...
-        auto ParsePostfixExpr() -> AstExpr*
-        {
-            auto result = ParsePrimaryExpr();
-
-            while (true) {
-                bool parsedPostfix = false;
-                switch (PeekToken().klass) {
-                case TokenKlass::LParen:
-                    // function call
-                    break;
-                case TokenKlass::LBracket:
-                    // indexing
-                    break;
-                case TokenKlass::Dot:
-                    // access chain
-                    break;
-                case TokenKlass::Increment:
-                case TokenKlass::Decrement:
-                    // inc/dec
-                    break;
-                default:
-                    break;
-                }
-
-                if (!parsedPostfix) {
-                    break;
-                }
-            }
-
-            return result;
-        }
-
-        // primary-expr:
-        // - identifier
-        // - int-constant
-        // - float-constant
-        // - bool-constant
-        // - paren-wrapped-expr
-        auto ParsePrimaryExpr() -> AstExpr*
-        {
-            auto range = PeekToken().range;
-            auto text  = PeekToken().text;
-
-            switch (PeekToken().klass) {
-            case TokenKlass::Identifier:
-                // variable name
-                ConsumeToken();
-                return CreateAstNode<AstVarAccessExpr>({}, std::string{text});
-            case TokenKlass::IntegerConstant:
-            case TokenKlass::FloatConstant:
-                // integer/float constant
-                ConsumeToken();
-                return CreateAstNode<AstConstantExpr>({}, std::string{text});
-            case TokenKlass::K_true:
-                // bool constant (true)
-                return CreateAstNode<AstConstantExpr>(range, "true");
-            case TokenKlass::K_false:
-                // bool constant (false)
-                return CreateAstNode<AstConstantExpr>(range, "false");
-            case TokenKlass::LParen:
-                // expr in wrapped parens
-                return ParseParenWrappedExpr();
-            default:
-                // error
-                return CreateAstNode<AstErrorExpr>({});
-            }
-        }
-
-        auto ParseParenWrappedExpr() -> AstExpr*
+        auto ParseFunctionArgumentList() -> std::vector<AstExpr*>
         {
             ConsumeTokenAssert(TokenKlass::LParen);
 
-            auto result = ParseExpr();
+            if (TryConsumeToken(TokenKlass::RParen)) {
+                return {};
+            }
 
-            // consume ")"
-            if (!ConsumeTokenIf(TokenKlass::RParen)) {
-                // emit error
+            if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
+                ConsumeToken();
+                ConsumeToken();
+                return {};
+            }
+
+            std::vector<AstExpr*> result;
+            while (!Eof()) {
+                auto arg = ParseAssignmentExpr();
+                result.push_back(arg);
+
+                if (!TryConsumeToken(TokenKlass::Comma)) {
+                    break;
+                }
+            }
+
+            // FIXME: error handling
+            if (!TryConsumeToken(TokenKlass::RParen)) {
+                GLSLD_NO_IMPL();
             }
 
             return result;
-        };
-
-        auto ParseCompoundStmt() -> AstCompoundStmt*
-        {
-            // consume "{"
-            ConsumeTokenAssert(TokenKlass::LBrace);
-
-            std::vector<AstExpr*> children;
-            while (!Eof()) {
-                if (TryToken(TokenKlass::RBrace)) {
-                    // consume "}"
-                    ConsumeToken();
-                    return CreateAstNode<AstCompoundStmt>({}, std::move(children));
-                }
-
-                auto stmt = ParseStmt();
-                GLSLD_ASSERT(stmt != nullptr);
-
-                children.push_back(stmt);
-            }
-
-            // TODO: error handling
-            return nullptr;
         }
 
-        auto ParseSelectionStmt() -> AstIfStmt*
+        auto ParseIndexingAccess() -> void
         {
-            // consume "if"
-            ConsumeTokenAssert(TokenKlass::K_if);
-
-            auto predicateExpr = ParseParenWrappedExpr();
-            auto positiveStmt  = ParseStmt();
-
-            if (PeekToken().klass != TokenKlass::K_else) {
-                return CreateAstNode<AstIfStmt>({}, predicateExpr, positiveStmt);
-            }
-
-            ConsumeTokenAssert(TokenKlass::K_else);
-
-            // TODO: check with if?
-            auto negativeStmt = ParseStmt();
-            return CreateAstNode<AstIfStmt>({}, predicateExpr, positiveStmt, negativeStmt);
         }
 
-        auto ParseForStmt() -> AstForStmt*
-        {
-            GLSLD_NO_IMPL();
-        }
+#pragma region Parsing Expr
 
-        auto ParseWhileStmt() -> AstWhileStmt*
-        {
-            ConsumeTokenAssert(TokenKlass::K_while);
+        auto ParseExpr() -> AstExpr*;
 
-            auto predicateExpr = ParseParenWrappedExpr();
-            auto bodyStmt      = ParseStmt();
+        auto ParseAssignmentExpr() -> AstExpr*;
 
-            return CreateAstNode<AstWhileStmt>({}, predicateExpr, bodyStmt);
-        }
+        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
-        auto ParseSwitchStmt() -> AstSwitchStmt*
-        {
-            ConsumeTokenAssert(TokenKlass::K_while);
+        auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
 
-            GLSLD_NO_IMPL();
-        }
+        auto ParseUnaryExpr() -> AstExpr*;
 
-        // TODO: unify jump stmt?
-        auto ParseJumpStmt() -> AstExpr*
-        {
-            auto range = PeekToken().range;
+        auto ParsePostfixExpr() -> AstExpr*;
 
-            switch (PeekToken().klass) {
-            case TokenKlass::K_break:
-            case TokenKlass::K_continue:
-            case TokenKlass::K_discard:
-                ConsumeToken();
-                if (!ConsumeTokenIf(TokenKlass::Semicolon)) {
-                    // emit error
-                }
-                // TODO: break/continue/discard
-                return CreateAstNode<AstBreakStmt>(range);
-            case TokenKlass::K_return:
-                ConsumeToken();
-                if (ConsumeTokenIf(TokenKlass::Semicolon)) {
-                    return CreateAstNode<AstReturnStmt>(range);
-                }
-                else {
-                    auto returnValue = ParseExpr();
-                    if (!ConsumeTokenIf(TokenKlass::Semicolon)) {
-                        // emit error
-                    }
+        auto ParsePrimaryExpr() -> AstExpr*;
 
-                    return CreateAstNode<AstReturnStmt>(range, returnValue);
-                }
-            default:
-                GLSLD_UNREACHABLE();
-            }
-        }
+        auto ParseParenWrappedExpr() -> AstExpr*;
 
-        auto ParseExprStmt() -> AstStmt*
-        {
-            auto expr = ParseExpr();
-            if (!ConsumeTokenIf(TokenKlass::Semicolon)) {
-                // emit error
-            }
+#pragma endregion
 
-            return CreateAstNode<AstExprStmt>({}, expr);
-        }
+#pragma region Parsing Stmt
 
-        auto ParseStmt() -> AstExpr*
-        {
-            auto range = PeekToken().range;
+        auto ParseStmt() -> AstExpr*;
 
-            switch (PeekToken().klass) {
-            case TokenKlass::LBrace:
-                // compound stmt
-                return ParseCompoundStmt();
-            case TokenKlass::K_if:
-                // selection stmt
-                return ParseSelectionStmt();
-            case TokenKlass::K_while:
-                // iteration stmt (while)
-                return ParseWhileStmt();
-            case TokenKlass::K_for:
-                // iteration stmt (for)
-                return ParseForStmt();
-            case TokenKlass::K_switch:
-                // switch stmt
-                return ParseSwitchStmt();
-            case TokenKlass::Semicolon:
-                // expression stmt (empty)
-                ConsumeToken();
-                return CreateAstNode<AstExprStmt>(range, nullptr);
-            case TokenKlass::K_break:
-            case TokenKlass::K_continue:
-            case TokenKlass::K_discard:
-            case TokenKlass::K_return:
-                // jump stmt
-                return ParseJumpStmt();
-            default:
-                // expression/declaration stmt
-                return ParseExprStmt();
-            }
-        }
+        auto ParseCompoundStmt() -> AstCompoundStmt*;
+
+        auto ParseSelectionStmt() -> AstIfStmt*;
+
+        auto ParseForStmt() -> AstForStmt*;
+
+        auto ParseWhileStmt() -> AstWhileStmt*;
+
+        auto ParseSwitchStmt() -> AstSwitchStmt*;
+
+        auto ParseJumpStmt() -> AstExpr*;
+
+        auto ParseDeclOrExprStmt() -> AstStmt*;
+
+#pragma endregion
 
         enum class RecoveryMode
         {
-            Paren   = static_cast<int>(TokenKlass::RParen),
+            // Assuming a leading '('
+            // Skip until we i) consumed next balanced ')' ii) stopped before next ';' in the same scope
+            Paren = static_cast<int>(TokenKlass::RParen),
+
+            // Assuming a leading '['
+            // Skip until we i) consumed next balanced ']' ii) stopped before next ';' in the same scope
             Bracket = static_cast<int>(TokenKlass::RBracket),
-            Brace   = static_cast<int>(TokenKlass::RBrace),
-            Semi    = static_cast<int>(TokenKlass::Semicolon),
+
+            // Assuming a leading '{'
+            // Skip until we i)  stopped before balanced '}' ii) stopped before next ';' in the parent scope
+            Brace = static_cast<int>(TokenKlass::RBrace),
+
+            // Assuming a leading '{'
+            // Skip until we i) stopped before next ';' in the same scope ii) stopped before next balanced '}'
+            LocalSemi = static_cast<int>(TokenKlass::Semicolon),
+
+            // Skip until we consumed next ';' in the same scope
+            GlobalSemi = static_cast<int>(TokenKlass::Semicolon),
         };
 
+        // FIXME: implement correctly
         auto RecoverFromError(RecoveryMode mode) -> int
         {
             auto desiredToken = static_cast<TokenKlass>(mode);
@@ -907,9 +606,9 @@ namespace glsld
             return 0;
         }
 
-        auto TryToken(TokenKlass klass, int lookahead = 0) -> bool
+        auto TryTestToken(TokenKlass klass, int lookahead = 0) -> bool
         {
-            const auto& tok = PeekToken(lookahead);
+            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
             if (tok.klass == klass) {
                 return true;
             }
@@ -917,9 +616,9 @@ namespace glsld
                 return false;
             }
         }
-        auto TryToken(TokenKlass klass1, TokenKlass klass2, int lookahead = 0) -> bool
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, int lookahead = 0) -> bool
         {
-            const auto& tok = PeekToken(lookahead);
+            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
             if (tok.klass == klass1 || tok.klass == klass2) {
                 return true;
             }
@@ -927,9 +626,9 @@ namespace glsld
                 return false;
             }
         }
-        auto TryToken(TokenKlass klass1, TokenKlass klass2, TokenKlass klass3, int lookahead = 0) -> bool
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, TokenKlass klass3, int lookahead = 0) -> bool
         {
-            const auto& tok = PeekToken(lookahead);
+            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
             if (tok.klass == klass1 || tok.klass == klass2 || tok.klass == klass3) {
                 return true;
             }
@@ -938,49 +637,39 @@ namespace glsld
             }
         }
 
-        auto ReportError(size_t tokenIndexBegin, std::string message) -> void
+        auto ReportError(size_t tokIndex, std::string message) -> void
         {
-            SyntaxRange range{
-                .begin = tokenStream[tokenIndexBegin].range.begin,
-                .end   = tokenStream[currentTokIndex].range.end,
-            };
-
-            diagManger->ReportError(range, std::move(message));
+            diagCtx->ReportError(lexer->GetSyntaxRange(tokIndex), std::move(message));
         }
         auto ReportError(std::string message) -> void
         {
-            SyntaxRange range{
-                .begin = tokenStream[currentTokIndex].range.begin,
-                .end   = tokenStream[currentTokIndex].range.end,
-            };
-
-            diagManger->ReportError(range, std::move(message));
+            ReportError(GetTokenIndex(), std::move(message));
         }
 
-        auto GetScannerLocation() -> size_t
+        auto PeekToken() -> const SyntaxToken&
+        {
+            return currentTok;
+        }
+
+        auto PeekToken(size_t lookahead) -> SyntaxToken
+        {
+            return lexer->GetToken(currentTokIndex + lookahead);
+        }
+
+        auto GetTokenIndex() -> size_t
         {
             return currentTokIndex;
         }
 
-        auto RestoreScannerLocation(size_t index) -> size_t
+        auto RestoreTokenIndex(size_t index) -> void
         {
             currentTokIndex = index;
-        }
-
-        auto PeekToken(size_t lookahead = 0) -> const SyntaxToken&
-        {
-            auto index = currentTokIndex + lookahead;
-            if (index < tokenStream.size()) {
-                return tokenStream[index];
-            }
-            else {
-                return tokenStream.back();
-            }
+            currentTok      = lexer->GetToken(currentTokIndex);
         }
 
         auto ConsumeToken() -> void
         {
-            currentTokIndex += 1;
+            RestoreTokenIndex(currentTokIndex + 1);
         }
 
         auto ConsumeTokenAssert(TokenKlass klass) -> void
@@ -990,7 +679,7 @@ namespace glsld
         }
 
         // TODO: error recovery
-        auto ConsumeTokenIf(TokenKlass klass) -> bool
+        auto TryConsumeToken(TokenKlass klass) -> bool
         {
             if (PeekToken().klass == klass) {
                 ConsumeToken();
@@ -1003,6 +692,24 @@ namespace glsld
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<SyntaxNode, T>
+        auto CreateRangedAstNode2(size_t beginTokIndex, size_t endTokIndex, Args&&... args) -> T*
+        {
+            auto result = new T{std::forward<Args>(args)...};
+            result->UpdateRange(lexer->GetSyntaxRange(beginTokIndex, endTokIndex));
+            return result;
+        }
+
+        template <typename T, typename... Args>
+            requires std::is_base_of_v<SyntaxNode, T>
+        auto CreateRangedAstNode(size_t beginTokIndex, Args&&... args) -> T*
+        {
+            auto result = new T{std::forward<Args>(args)...};
+            result->UpdateRange(lexer->GetSyntaxRange(beginTokIndex, GetTokenIndex()));
+            return result;
+        }
+
+        template <typename T, typename... Args>
+            requires std::is_base_of_v<SyntaxNode, T>
         auto CreateAstNode(const SyntaxRange& range, Args&&... args) -> T*
         {
             auto result = new T{std::forward<Args>(args)...};
@@ -1011,14 +718,13 @@ namespace glsld
         }
 
     private:
+        LexContext* lexer      = nullptr;
         size_t currentTokIndex = 0;
-        std::vector<SyntaxToken> tokenStream;
+        SyntaxToken currentTok = {};
 
-        std::vector<AstDecl*> externalDecls;
-        std::vector<AstDecl*> variableDecls;
-        std::vector<AstDecl*> functionDecls;
+        ParsedAst ast;
 
-        std::shared_ptr<DiagnosticManager> diagManger;
+        DiagnosticContext* diagCtx;
     };
 
 } // namespace glsld

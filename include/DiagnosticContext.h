@@ -1,6 +1,8 @@
 #pragma once
 #include "SyntaxTree.h"
 
+#include <fmt/format.h>
+
 namespace glsld
 {
     struct DiagnosticMessage
@@ -9,11 +11,13 @@ namespace glsld
         std::string message;
     };
 
-    class DiagnosticManager
+    class DiagnosticContext
     {
     public:
         void ReportError(SyntaxRange range, std::string message)
         {
+            // TODO: implement this
+            fmt::print("[{}:{}] {}\n", range.begin.GetIndex(), range.end.GetIndex(), message);
         }
 
     private:

@@ -8,9 +8,15 @@ namespace glsld
     class LanguageServerCallback
     {
     public:
-        auto HandleClientRequest(std::string_view rpcBlob) -> void
+        auto HandleClientMessage(std::string_view messageText) -> void
         {
-            DoHandleClientRequest(lsp::JsonObject::parse(rpcBlob));
+            auto message = lsp::ParseJson(messageText);
+            if (message) {
+                DoHandleClientMessage(std::move(*message));
+            }
+            else {
+                DoHandleBadClientMessage(messageText);
+            }
         }
 
         template <typename T>
@@ -20,17 +26,19 @@ namespace glsld
         }
 
         template <typename T>
-        auto HandleServerNotification(const char* method, const T& params)
+        auto HandleServerNotification(const char* method, const T& params) -> void
         {
             DoHandleNotification(method, lsp::ToJson(params));
         }
 
     protected:
-        virtual auto DoHandleClientRequest(lsp::JsonObject rpcBlob) -> void = 0;
+        virtual auto DoHandleBadClientMessage(std::string_view messageText) -> void = 0;
 
-        // virtual auto DoHandleServerRequest(lsp::JsonObject result) -> void = 0;
+        virtual auto DoHandleClientMessage(lsp::JsonObject rpcBlob) -> void = 0;
 
-        virtual auto DoHandleServerResponse(int requestId, lsp::JsonObject result, bool isError) -> void = 0;
+        virtual auto DoHandleServerRequest(int requestId, lsp::JsonObject params) -> void = 0;
+
+        virtual auto DoHandleServerResponse(int requestId, lsp::JsonObject resultOrError, bool isError) -> void = 0;
 
         virtual auto DoHandleNotification(const char* method, lsp::JsonObject param) -> void = 0;
     };

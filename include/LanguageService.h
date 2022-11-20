@@ -14,7 +14,15 @@ namespace glsld
         auto Initialize(int requestId, lsp::InitializeParams params) -> void
         {
             auto result = lsp::InitializedResult{
-                .capabilities = {},
+                .capabilities =
+                    {
+                        .textDocumentSync =
+                            {
+                                .openClose = true,
+                                .change    = lsp::TextDocumentSyncKind::Full,
+                            },
+                        .documentSymbolProvider = true,
+                    },
                 .serverInfo =
                     {
                         .name    = "glsld",
@@ -26,19 +34,53 @@ namespace glsld
 
 #pragma region Document Synchronization
 
-        auto DidOpenTextDocument(int requestId, lsp::DidOpenTextDocumentParams params) -> void
+        auto DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
         {
+            sourceMap[params.textDocument.uri] = params.textDocument.text;
         }
-        auto DidChangeTextDocument(int requestId, lsp::DidChangeTextDocumentParams params) -> void
+        auto DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
         {
+            sourceMap[params.textDocument.uri] = params.contentChanges[0].text;
         }
-        auto DidCloseDocument(int requestId, lsp::DidCloseTextDocumentParams params) -> void
+        auto DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
         {
+            sourceMap.erase(params.textDocument);
         }
 
 #pragma endregion
 
 #pragma region Language Features
+
+        auto DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
+        {
+            std::vector<lsp::DocumentSymbol> result;
+            lsp::Range testRange{
+                .start =
+                    {
+                        .line      = 0,
+                        .character = 0,
+                    },
+                .end =
+                    {
+                        .line      = 0,
+                        .character = 1,
+                    },
+            };
+            result.push_back(lsp::DocumentSymbol{
+                .name           = "firstSymbol",
+                .kind           = lsp::SymbolKind::Variable,
+                .range          = testRange,
+                .selectionRange = testRange,
+            });
+            result.push_back(lsp::DocumentSymbol{
+                .name           = "secondSymbol",
+                .kind           = lsp::SymbolKind::Function,
+                .range          = testRange,
+                .selectionRange = testRange,
+            });
+
+            server->HandleServerResponse(requestId, result, false);
+        }
 
         auto SemanticTokensFull(lsp::SemanticTokensParam params) -> void
         {
@@ -56,6 +98,9 @@ namespace glsld
 #pragma endregion
 
     private:
+        // uri -> source
+        std::map<std::string, std::string> sourceMap;
+
         LanguageServerCallback* server;
     };
 } // namespace glsld

@@ -1,3 +1,4 @@
+#include "LexContext.h"
 #include "Tokenizer.h"
 #include "ParseContext.h"
 #include "AstVisitor.h"
@@ -38,12 +39,12 @@
 //     test = tmp;
 // }
 // )";
-const char* kTestShader = R"(
+const char* testShader = R"(
     in float x, y;
     out float z;
 
     float foo(const float x, const float y) {
-        return x + y;
+        return x + y
     }
     void main(int x)
     {
@@ -106,17 +107,12 @@ int main()
     glsld::lsp::DidChangeTextDocumentParams c;
     bool success = glsld::lsp::JsonSerializer<glsld::lsp::DidChangeTextDocumentParams>::FromJson(json, c);
 
-    glsld::Tokenizer tokenizer{kTestShader};
-    std::vector<glsld::SyntaxToken> tokens;
-    while (true) {
-        auto tok = tokenizer.NextToken();
-        tokens.push_back(tok);
-        if (tok.klass == glsld::TokenKlass::Eof) {
-            break;
-        }
-    }
-    glsld::ParseContext ctx{tokens};
-    ctx.DoParseTranslationUnit();
+    glsld::DiagnosticContext diagCtx{};
+    glsld::LexContext lexer{testShader};
+    glsld::ParseContext parser{&diagCtx, &lexer};
+    parser.DoParseTranslationUnit();
+
+    auto ast = parser.GetAst();
     // MyAstVisitor{}.TraverseInternal(expr);
     return 0;
 }

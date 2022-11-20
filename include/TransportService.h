@@ -20,143 +20,126 @@
 
 namespace glsld
 {
-    struct LSPHeader
-    {
-        // The length of the content part in bytes. This header is required.
-        size_t contentLength = 0;
-
-        // The mime type of the content part. Defaults to application/vscode-jsonrpc; charset=utf-8
-        std::string contentType = {};
-    };
-
+    // FIXME: figure out why vscode is requiring \n instead of \r\n
     class TransportService
     {
     public:
         TransportService(FILE* inFile, FILE* outFile, LanguageServerCallback* server)
             : inFile(inFile), outFile(outFile), server(server)
         {
+            setvbuf(inFile, nullptr, _IOFBF, 64 * 1024);
+            payloadBuffer.reserve(4096);
         }
 
         auto PullMessage() -> bool
         {
-            if (transportOffset >= sizeof(transportBuffer)) {
-                // We are running out of the buffer for communication
-                // This could be caused by rediculously long header
-                std::abort();
+            lineBuffer.clear();
+            payloadBuffer.clear();
+
+            // Read LSP headers from input file
+            // Although LSP requires "\r\n" as end-line, we allow "\n" as well.
+            size_t payloadLength = 0;
+            while (true) {
+                if (!ReadLine(lineBuffer)) {
+                    return false;
+                }
+
+                std::string_view headerView = Trim(lineBuffer);
+
+                if (headerView.empty()) {
+                    break;
+                }
+
+                if (headerView.starts_with("Content-Length: ")) {
+                    headerView.remove_prefix(16);
+
+                    // TODO: handle error
+                    std::from_chars(headerView.data(), headerView.data() + headerView.size(), payloadLength);
+                }
+                else if (headerView.starts_with("Content-Type: ")) {
+                    headerView.remove_prefix(14);
+                    // do nothing...
+                }
+
+                // We ignore any unknown header fields
             }
 
-            auto len = fread(transportBuffer + transportOffset, sizeof(char), sizeof(transportBuffer), inFile);
-            if (len == 0) {
-                return false; // eof
+            // If payload size provided is too large, close the transport as if EOF is reached
+            if (payloadLength > 10 * 1024 * 1024) {
+                return false;
             }
 
-            transportOffset += len;
-            std::string_view bufferView{transportBuffer, transportOffset};
-            if (extraPayloadSize == 0) {
-                ProcessFromHeader(bufferView);
-            }
-            else {
-                ProcessFromPayload(bufferView);
+            payloadBuffer.resize(payloadLength);
+
+            size_t readSize = 0;
+            while (readSize < payloadLength) {
+                auto len = fread(payloadBuffer.data() + readSize, sizeof(char), payloadLength - readSize, inFile);
+
+                if (len == 0) {
+                    return false; // eof
+                }
+
+                readSize += len;
             }
 
+            server->HandleClientMessage(std::string_view{payloadBuffer.data(), payloadBuffer.size()});
             return true;
         }
 
         auto PushMessage(const std::string_view& payload)
         {
             // TODO: optimize this
-            std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.size());
+            std::string header = fmt::format("Content-Length: {}\n\n", payload.size());
 
-            fwrite(header.data(), sizeof(char), header.size(), outFile);
-            fwrite(payload.data(), sizeof(char), payload.size(), outFile);
-            fflush(outFile);
+            std::cout << header << payload;
+            std::cout.flush();
+            // fwrite(header.data(), sizeof(char), header.size(), outFile);
+            // fwrite(payload.data(), sizeof(char), payload.size(), outFile);
+            // fflush(outFile);
         }
 
     private:
-        auto ReadHeaderLine(std::string_view data) -> std::tuple<std::string_view, std::string_view>
+        auto Trim(std::string_view s) -> std::string_view
         {
-            bool CRFlag = false;
-            for (size_t i = 0; i < data.size(); ++i) {
-                if (CRFlag && data[i] == '\n') {
-                    auto readLine      = data.substr(0, i + 1);
-                    auto remainingData = data.substr(i + 1);
-                    return {readLine, remainingData};
-                }
-
-                CRFlag = data[i] == '\r';
-            }
-
-            return {std::string_view{}, data};
-        }
-
-        auto ProcessFromHeader(std::string_view bufferView) -> void
-        {
-            // initialize message buffer
-            headerBuffer = {};
-            payloadBuffer.clear();
-
-            // parse header
-            while (true) {
-                auto [headerView, remainingView] = ReadHeaderLine(bufferView);
-
-                bufferView = remainingView;
-                if (!headerView.empty()) {
-                    GLSLD_ASSERT(headerView.ends_with("\r\n"));
-                    headerView.remove_suffix(2);
-
-                    if (headerView.empty()) {
-                        break;
-                    }
-
-                    if (headerView.starts_with("Content-Length: ")) {
-                        headerView.remove_prefix(16);
-
-                        // TODO: handle error
-                        std::from_chars(headerView.data(), headerView.data() + headerView.size(),
-                                        headerBuffer.contentLength);
-                    }
-                    else if (headerView.starts_with("Content-Type: ")) {
-                        headerView.remove_prefix(14);
-
-                        headerBuffer.contentType = std::string{headerView};
-                    }
-                    else {
-                        // We ignore unknown header fields
-                    }
+            for (char ch : s) {
+                if (isspace(ch)) {
+                    s.remove_prefix(1);
                 }
                 else {
-                    // The buffer view given cannot form a complete header
-                    // so we give up and wait for more data to come
-                    return;
+                    break;
+                }
+            }
+            for (char ch : std::views::reverse(s)) {
+                if (isspace(ch)) {
+                    s.remove_suffix(1);
+                }
+                else {
+                    break;
                 }
             }
 
-            extraPayloadSize = headerBuffer.contentLength;
-            ProcessFromPayload(bufferView);
+            return s;
         }
-        auto ProcessFromPayload(std::string_view bufferView) -> void
+
+        auto ReadLine(std::string& buf) -> bool
         {
-            auto payloadView = bufferView.substr(0, extraPayloadSize);
-            auto remainingView =
-                extraPayloadSize < bufferView.size() ? bufferView.substr(extraPayloadSize) : std::string_view{};
+            buf.clear();
 
-            // Copy payload to payload buffer
-            extraPayloadSize -= payloadView.size();
-            std::ranges::copy(payloadView, std::back_inserter(payloadBuffer));
+            while (true) {
+                int ch = std::cin.get();
+                if (std::cin.eof()) {
+                    return false;
+                }
+                else {
+                    buf.push_back(ch);
+                    if (ch == '\n') {
+                        return true;
+                    }
+                }
 
-            if (remainingView.size() > 0) {
-                // Copy remaining data back to the begining of the transport buffer
-                std::ranges::copy(remainingView, transportBuffer);
-                transportOffset = remainingView.size();
-            }
-            else {
-                // Clear transport buffer since every byte is consumed
-                transportOffset = 0;
-            }
-
-            if (extraPayloadSize == 0) {
-                // We have everything for one message ready
-                server->HandleClientRequest(std::string_view{payloadBuffer.data(), payloadBuffer.size()});
+                if (buf.size() > 10 * 1024 * 1024) {
+                    return false;
+                }
             }
         }
 
@@ -164,11 +147,7 @@ namespace glsld
         FILE* outFile;
         LanguageServerCallback* server;
 
-        size_t transportOffset     = 0;
-        char transportBuffer[4096] = {};
-
-        size_t extraPayloadSize         = 0;
-        LSPHeader headerBuffer          = {};
+        std::string lineBuffer;
         std::vector<char> payloadBuffer = {};
     };
 

@@ -58,8 +58,8 @@ DECL_EXPROP(ShiftRight, AstBinaryExpr)
 DECL_EXPROP(Select, AstSelectExpr)
 
 /* misc ops */
-DECL_EXPROP(IndexAccess, AstErrorExpr)
-DECL_EXPROP(FunctionCall, AstFuncionCallExpr)
+DECL_EXPROP(IndexAccess, AstInvokeExpr)
+DECL_EXPROP(FunctionCall, AstInvokeExpr)
 
 /* stmt ops */
 DECL_EXPROP(CompoundStmt, AstCompoundStmt)
