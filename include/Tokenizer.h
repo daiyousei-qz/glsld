@@ -1,6 +1,7 @@
 #pragma once
 #include "Common.h"
-#include "SyntaxTree.h"
+#include "SyntaxToken.h"
+
 #include <unordered_map>
 #include <string_view>
 #include <optional>
@@ -67,6 +68,15 @@ namespace glsld
             return *cursor_;
         }
 
+        auto Peek(int lookahead) -> char
+        {
+            if (end_ - cursor_ > lookahead) {
+                return cursor_[lookahead];
+            }
+
+            return '\0';
+        }
+
         auto Consume() -> char
         {
             GLSLD_ASSERT(!Eof());
@@ -92,28 +102,61 @@ namespace glsld
         const char* end_;
     };
 
+    // FIXME: tokenizer may issue error?
     class Tokenizer
     {
     public:
-        Tokenizer(std::string_view source) : source_view_(source)
+        Tokenizer(std::string_view source) : sourceView(source)
         {
+        }
+
+        // TODO: return comment as token?
+        auto SkipCommentAndWhitespace() -> void
+        {
+            bool consumedAny = true;
+            while (!sourceView.Eof() && consumedAny) {
+                consumedAny = false;
+
+                while (!sourceView.Eof() && IsWhitespace(sourceView.Peek())) {
+                    consumedAny = true;
+                    sourceView.Consume();
+                }
+
+                if (sourceView.Peek() == '/' && sourceView.Peek(1) == '/') {
+                    while (!sourceView.Eof() && sourceView.Peek() != '\n') {
+                        consumedAny = true;
+                        sourceView.Consume();
+                    }
+                }
+
+                if (sourceView.Peek() == '/' && sourceView.Peek(1) == '*') {
+                    while (!sourceView.Eof() && (sourceView.Peek() != '*' && sourceView.Peek(1) != '/')) {
+                        consumedAny = true;
+                        sourceView.Consume();
+                    }
+                    if (!sourceView.Eof()) {
+                        consumedAny = true;
+                        sourceView.Consume();
+                    }
+                    if (!sourceView.Eof()) {
+                        consumedAny = true;
+                        sourceView.Consume();
+                    }
+                }
+            }
         }
 
         auto NextToken(std::string& buf) -> TokenInfo
         {
+            SkipCommentAndWhitespace();
+
             TokenInfo result;
+            result.rawOffset   = sourceView.CurrentCursor() - sourceView.HeadCursor();
+            result.lineBegin   = sourceView.GetLineNum();
+            result.columnBegin = sourceView.GetColumnNum();
 
-            // Skip leading whitespaces
-            while (!source_view_.Eof() && IsWhitespace(source_view_.Peek())) {
-                source_view_.Consume();
-            }
-
-            result.rawOffset   = source_view_.CurrentCursor() - source_view_.HeadCursor();
-            result.lineBegin   = source_view_.GetLineNum();
-            result.columnBegin = source_view_.GetColumnNum();
-
-            auto beginCursor = source_view_.CurrentCursor();
-            if (source_view_.Eof()) {
+            auto beginCursor = sourceView.CurrentCursor();
+            if (sourceView.Eof()) {
                 result.klass     = TokenKlass::Eof;
                 result.rawSize   = 0;
                 result.lineEnd   = result.lineBegin;
@@ -121,7 +164,7 @@ namespace glsld
                 return result;
             }
 
-            char firstChar   = source_view_.Consume();
+            char firstChar   = sourceView.Consume();
             TokenKlass klass = TokenKlass::Error;
             if (firstChar == '\0') {
                 // eof
@@ -140,12 +183,12 @@ namespace glsld
                 klass = ParsePunctuation(firstChar);
             }
 
-            auto endCursor = source_view_.CurrentCursor();
+            auto endCursor = sourceView.CurrentCursor();
             result.klass   = klass;
             result.rawSize = endCursor - beginCursor;
             // FIXME: this is actually one character ahead of the token
-            result.lineEnd   = source_view_.GetLineNum();
-            result.columnEnd = source_view_.GetColumnNum();
+            result.lineEnd   = sourceView.GetLineNum();
+            result.columnEnd = sourceView.GetColumnNum();
 
             buf.append(beginCursor, endCursor);
             return result;
@@ -156,13 +199,13 @@ namespace glsld
         {
             std::string s{firstChar};
             while (true) {
-                if (source_view_.Eof()) {
+                if (sourceView.Eof()) {
                     break;
                 }
 
-                char ch = source_view_.Peek();
+                char ch = sourceView.Peek();
                 if (IsAlphanum(ch) || ch == '_') {
-                    s.push_back(source_view_.Consume());
+                    s.push_back(sourceView.Consume());
                 }
                 else {
                     break;
@@ -184,13 +227,13 @@ namespace glsld
         auto ParseNumberLiteral(char firstChar) -> TokenKlass
         {
             while (true) {
-                if (source_view_.Eof()) {
+                if (sourceView.Eof()) {
                     break;
                 }
 
-                char ch = source_view_.Peek();
+                char ch = sourceView.Peek();
                 if (IsDigit(ch)) {
-                    source_view_.Consume();
+                    sourceView.Consume();
                 }
                 else {
                     break;
@@ -214,10 +257,10 @@ namespace glsld
                 result = it->second;
             }
 
-            s.push_back(source_view_.Peek());
+            s.push_back(sourceView.Peek());
             if (auto it = punctLookup.find(s); it != punctLookup.end()) {
                 // test two-char puncts
-                source_view_.Consume();
+                sourceView.Consume();
                 result = it->second;
             }
 
@@ -249,6 +292,6 @@ namespace glsld
             return IsAlpha(ch) || IsDigit(ch);
         }
 
-        RawSourceView source_view_;
+        RawSourceView sourceView;
     };
 } // namespace glsld

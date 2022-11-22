@@ -2,6 +2,7 @@
 #error "missing DECL_PUNCT macro"
 #else
 
+// DECL_PUNCT(EXPR_OP, OP_TEXT)
 DECL_PUNCT(LShift, "<<")
 DECL_PUNCT(RShift, ">>")
 DECL_PUNCT(Increment, "++")

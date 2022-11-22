@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SyntaxTree.h"
+#include "Ast.h"
 
 #include <vector>
 
@@ -19,6 +19,29 @@ namespace glsld
         {
             globalDecls.push_back(decl);
             functionDecls.push_back(decl);
+        }
+
+        // FIXME: for debug
+        auto GetVarSymbols() const -> std::vector<std::string>
+        {
+            std::vector<std::string> result;
+            for (auto var : variableDecls) {
+                for (auto declarator : var->GetDeclarators()) {
+                    result.push_back(std::string{declarator.id->GetIdentifier()});
+                }
+            }
+
+            return result;
+        }
+
+        auto GetFuncSymbols() const -> std::vector<std::string>
+        {
+            std::vector<std::string> result;
+            for (auto f : functionDecls) {
+                result.push_back(std::string{f->GetName()->GetIdentifier()});
+            }
+
+            return result;
         }
 
     private:

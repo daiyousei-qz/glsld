@@ -1,6 +1,7 @@
 #pragma once
-#include "SyntaxTree.h"
+#include "SyntaxToken.h"
 
+#include <vector>
 #include <fmt/format.h>
 
 namespace glsld
@@ -17,7 +18,12 @@ namespace glsld
         void ReportError(SyntaxRange range, std::string message)
         {
             // TODO: implement this
-            fmt::print("[{}:{}] {}\n", range.begin.GetIndex(), range.end.GetIndex(), message);
+            fmt::print("[ERROR@{}:{}] {}\n", range.begin.GetIndex(), range.end.GetIndex(), message);
+        }
+        void ReportWarning(SyntaxRange range, std::string message)
+        {
+            // TODO: implement this
+            fmt::print("[WARNING@{}:{}] {}\n", range.begin.GetIndex(), range.end.GetIndex(), message);
         }
 
     private:

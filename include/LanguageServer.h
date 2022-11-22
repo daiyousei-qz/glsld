@@ -5,6 +5,7 @@
 #include "LanguageServerInterface.h"
 #include "TransportService.h"
 #include "LanguageService.h"
+#include "ThreadingService.h"
 
 #include <memory>
 #include <thread>
@@ -12,15 +13,6 @@
 
 namespace glsld
 {
-    struct LSPMethodDesc
-    {
-        static constexpr const char* id = "initialize";
-
-        using ClientMessageType = lsp::InitializeParams;
-        using ServerMessageType = lsp::InitializedResult;
-        using ServerErrorType   = lsp::InitializeError;
-    };
-
     // handles jsonrpc
     class LanguageServer : public LanguageServerCallback
     {
@@ -55,20 +47,9 @@ namespace glsld
         {
             language  = std::make_unique<LanguageService>(this);
             transport = std::make_unique<TransportService>(stdin, stdout, this);
-            // auto inFile = fopen("test_lsp.txt", "rb");
-            // transport   = std::make_unique<TransportService>(inFile, stdout, this);
-        }
+            threading = std::make_unique<ThreadingService>();
 
-        template <typename ParamType>
-        auto DispatchClientRequest(int requestId, ParamType params)
-        {
-        }
-
-        auto DispatchClientMessage(std::string_view method, const lsp::JsonObject& rpcBlob) -> void
-        {
-            static const std::map<std::string, std::function<void(const lsp::JsonObject&)>> requestHandlers{
-
-            };
+            InitializeClientMessageHandler();
         }
 
     protected:
@@ -76,51 +57,16 @@ namespace glsld
         {
             const auto& jmethod = rpcBlob["method"];
             if (!jmethod.is_string()) {
+                // FIXME: handle bad rpc blob
                 return;
             }
+            std::string method = jmethod;
 
-            std::string s = jmethod;
-            if (s == lsp::LSPMethod_Initialize) {
-                const auto& jreqid = rpcBlob["id"];
-                if (!jreqid.is_number_integer()) {
-                    return;
-                }
-                int requestId = jreqid;
-
-                lsp::InitializeParams params;
-                if (lsp::FromJson(rpcBlob["params"], params)) {
-                    language->Initialize(requestId, params);
-                }
+            if (auto it = dispatcherMap.find(method); it != dispatcherMap.end()) {
+                it->second(*this, rpcBlob);
             }
-            if (s == lsp::LSPMethod_DocumentSymbol) {
-                const auto& jreqid = rpcBlob["id"];
-                if (!jreqid.is_number_integer()) {
-                    return;
-                }
-                int requestId = jreqid;
-
-                lsp::DocumentSymbolParams params;
-                if (lsp::FromJson(rpcBlob["params"], params)) {
-                    language->DocumentSymbol(requestId, params);
-                }
-            }
-            else if (s == lsp::LSPMethod_DidOpenTextDocument) {
-                lsp::DidOpenTextDocumentParams params;
-                if (lsp::FromJson(rpcBlob["params"], params)) {
-                    language->DidOpenTextDocument(params);
-                }
-            }
-            else if (s == lsp::LSPMethod_DidChangeTextDocument) {
-                lsp::DidChangeTextDocumentParams params;
-                if (lsp::FromJson(rpcBlob["params"], params)) {
-                    language->DidChangeTextDocument(params);
-                }
-            }
-            else if (s == lsp::LSPMethod_DidCloseTextDocument) {
-                lsp::DidCloseTextDocumentParams params;
-                if (lsp::FromJson(rpcBlob["params"], params)) {
-                    language->DidCloseTextDocument(params);
-                }
+            else {
+                // FIXME: handle unknown method
             }
         }
 
@@ -160,7 +106,60 @@ namespace glsld
             transport->PushMessage(payload);
         }
 
+    private:
+        auto InitializeClientMessageHandler() -> void
+        {
+            AddRequestHandler(lsp::LSPMethod_Initialize, &LanguageService::Initialize);
+            AddRequestHandler(lsp::LSPMethod_DocumentSymbol, &LanguageService::DocumentSymbol);
+
+            AddNotificationHandler(lsp::LSPMethod_DidOpenTextDocument, &LanguageService::DidOpenTextDocument);
+            AddNotificationHandler(lsp::LSPMethod_DidChangeTextDocument, &LanguageService::DidChangeTextDocument);
+            AddNotificationHandler(lsp::LSPMethod_DidCloseTextDocument, &LanguageService::DidCloseTextDocument);
+        };
+
+        template <typename ParamType>
+        using RequestHandlerType = void (LanguageService::*)(int requestId, ParamType params);
+
+        template <typename ParamType>
+        auto AddRequestHandler(std::string_view methodName, RequestHandlerType<ParamType> handler) -> void
+        {
+            auto [it, inserted] = dispatcherMap.insert_or_assign(
+                std::string{methodName}, [=](LanguageServer& server, const lsp::JsonObject& rpcBlob) {
+                    const auto& jreqid = rpcBlob["id"];
+                    if (!jreqid.is_number_integer()) {
+                        return;
+                    }
+                    int requestId = jreqid;
+
+                    ParamType params;
+                    if (lsp::FromJson(rpcBlob["params"], params)) {
+                        std::invoke(handler, server.language.get(), requestId, std::move(params));
+                    }
+                });
+            GLSLD_ASSERT(inserted);
+        }
+
+        template <typename ParamType>
+        using NotificationHandlerType = void (LanguageService::*)(ParamType params);
+
+        template <typename ParamType>
+        auto AddNotificationHandler(std::string_view methodName, NotificationHandlerType<ParamType> handler) -> void
+        {
+            auto [it, inserted] = dispatcherMap.insert_or_assign(
+                std::string{methodName}, [=](LanguageServer& server, const lsp::JsonObject& rpcBlob) {
+                    ParamType params;
+                    if (lsp::FromJson(rpcBlob["params"], params)) {
+                        std::invoke(handler, server.language.get(), std::move(params));
+                    }
+                });
+            GLSLD_ASSERT(inserted);
+        }
+
+        using MessageDispatcherType = std::function<void(LanguageServer& server, const lsp::JsonObject& rpcBlob)>;
+        std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
+
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TransportService> transport;
+        std::unique_ptr<ThreadingService> threading;
     };
 } // namespace glsld

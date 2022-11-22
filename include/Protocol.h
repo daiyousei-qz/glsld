@@ -15,23 +15,48 @@ namespace glsld::lsp
     // using uinteger = uint32_t;
     // using decimal  = float;
 
-    using TextDocumentIdentifier = std::string;
-    using Uri                    = std::string;
-    using DocumentUri            = Uri;
+    using Uri         = std::string;
+    using DocumentUri = Uri;
+
+    struct TextDocumentIdentifier
+    {
+        // /**
+        //  * The text document's URI.
+        //  */
+        // uri: DocumentUri;
+        DocumentUri uri;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, const TextDocumentIdentifier& value) -> bool
+    {
+        if (!mapper.Map("uri", value.uri)) {
+            return false;
+        }
+
+        return true;
+    }
+    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentIdentifier& value) -> bool
+    {
+        if (!mapper.Map("uri", value.uri)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct VersionedTextDocumentIdentifier
     {
-        /**
-         * The text document's URI.
-         */
+        // /**
+        //  * The text document's URI.
+        //  */
+        // uri: DocumentUri;
         DocumentUri uri;
 
-        /**
-         * The version number of this document.
-         *
-         * The version number of a document will increase after each change,
-         * including undo/redo. The number doesn't need to be consecutive.
-         */
+        // /**
+        //  * The version number of this document.
+        //  *
+        //  * The version number of a document will increase after each change,
+        //  * including undo/redo. The number doesn't need to be consecutive.
+        //  */
         // version: integer;
         int32_t version;
     };
@@ -943,11 +968,11 @@ namespace glsld::lsp
         // documentSymbolProvider ?: boolean | DocumentSymbolOptions;
         bool documentSymbolProvider;
 
-        /**
-         * The server provides semantic tokens support.
-         *
-         * @since 3.16.0
-         */
+        // /**
+        //  * The server provides semantic tokens support.
+        //  *
+        //  * @since 3.16.0
+        //  */
         // semanticTokensProvider?: SemanticTokensOptions
         //     | SemanticTokensRegistrationOptions;
     };

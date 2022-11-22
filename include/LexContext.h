@@ -1,7 +1,8 @@
 #pragma once
-#include "SyntaxTree.h"
+#include "SyntaxToken.h"
 #include "Tokenizer.h"
 
+#include <string>
 #include <vector>
 #include <unordered_set>
 
@@ -74,12 +75,12 @@ namespace glsld
                 buffer.clear();
                 auto tokInfo = tokenizer.NextToken(buffer);
 
-                std::string_view tokText;
+                LexString tokText;
                 if (auto it = atomTable.find(buffer); it != atomTable.end()) {
-                    tokText = *it;
+                    tokText = LexString{it->c_str()};
                 }
                 else {
-                    tokText = *atomTable.insert(buffer).first;
+                    tokText = LexString{atomTable.insert(buffer).first->c_str()};
                 }
 
                 tokens.push_back(SyntaxToken{
@@ -101,6 +102,7 @@ namespace glsld
 
         std::string sourceText;
 
+        // TODO: optimize memory layout
         std::unordered_set<std::string> atomTable;
 
         std::vector<SyntaxToken> tokens;

@@ -1,9 +1,15 @@
 #pragma once
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
+#include "Compiler.h"
 
 namespace glsld
 {
+    // this class manages online source codes
+    class SourceManager
+    {
+    };
+
     class LanguageService
     {
     public:
@@ -44,7 +50,7 @@ namespace glsld
         }
         auto DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
         {
-            sourceMap.erase(params.textDocument);
+            sourceMap.erase(params.textDocument.uri);
         }
 
 #pragma endregion
@@ -53,6 +59,9 @@ namespace glsld
 
         auto DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
         {
+            GlsldCompiler compiler;
+            compiler.Compile(sourceMap[params.textDocument.uri]);
+
             std::vector<lsp::DocumentSymbol> result;
             lsp::Range testRange{
                 .start =
@@ -66,18 +75,35 @@ namespace glsld
                         .character = 1,
                     },
             };
-            result.push_back(lsp::DocumentSymbol{
-                .name           = "firstSymbol",
-                .kind           = lsp::SymbolKind::Variable,
-                .range          = testRange,
-                .selectionRange = testRange,
-            });
-            result.push_back(lsp::DocumentSymbol{
-                .name           = "secondSymbol",
-                .kind           = lsp::SymbolKind::Function,
-                .range          = testRange,
-                .selectionRange = testRange,
-            });
+
+            for (auto var : compiler.GetAst()->GetVarSymbols()) {
+                result.push_back(lsp::DocumentSymbol{
+                    .name           = var,
+                    .kind           = lsp::SymbolKind::Variable,
+                    .range          = testRange,
+                    .selectionRange = testRange,
+                });
+            }
+            for (auto f : compiler.GetAst()->GetFuncSymbols()) {
+                result.push_back(lsp::DocumentSymbol{
+                    .name           = f,
+                    .kind           = lsp::SymbolKind::Function,
+                    .range          = testRange,
+                    .selectionRange = testRange,
+                });
+            }
+            // result.push_back(lsp::DocumentSymbol{
+            //     .name           = "firstSymbol",
+            //     .kind           = lsp::SymbolKind::Variable,
+            //     .range          = testRange,
+            //     .selectionRange = testRange,
+            // });
+            // result.push_back(lsp::DocumentSymbol{
+            //     .name           = "secondSymbol",
+            //     .kind           = lsp::SymbolKind::Function,
+            //     .range          = testRange,
+            //     .selectionRange = testRange,
+            // });
 
             server->HandleServerResponse(requestId, result, false);
         }

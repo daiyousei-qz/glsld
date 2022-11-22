@@ -139,8 +139,6 @@ namespace glsld
         }
     }
 
-    // Parse
-    // `firstTerm` is the first terminal in the condition
     auto ParseContext::ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*
     {
         auto predicateOrExpr = ParseBinaryExpr(beginTokIndex, firstTerm, 0);
@@ -160,7 +158,6 @@ namespace glsld
         return CreateRangedAstNode<AstSelectExpr>(beginTokIndex, predicateOrExpr, positveExpr, negativeExpr);
     }
 
-    // `firstTerm` for this is a unary expression, which might already be parsed
     auto ParseContext::ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*
     {
         auto lhs = firstTerm;
@@ -193,8 +190,6 @@ namespace glsld
         return lhs;
     }
 
-    // unary-expr:
-    // - [unary-op]... postfix_expr
     auto ParseContext::ParseUnaryExpr() -> AstExpr*
     {
         auto opDesc = GetPrefixUnaryOpDesc(PeekToken().klass);
@@ -210,8 +205,6 @@ namespace glsld
         }
     }
 
-    // postfix-expr:
-    // - primary_expr [postfix]...
     auto ParseContext::ParsePostfixExpr() -> AstExpr*
     {
         auto beginTokIndex = GetTokenIndex();
@@ -267,12 +260,6 @@ namespace glsld
         return result;
     }
 
-    // primary-expr:
-    // - identifier
-    // - int-constant
-    // - float-constant
-    // - bool-constant
-    // - paren-wrapped-expr
     auto ParseContext::ParsePrimaryExpr() -> AstExpr*
     {
         auto beginTokIndex = GetTokenIndex();
@@ -305,7 +292,6 @@ namespace glsld
         }
     }
 
-    // EXPECT: '('
     auto ParseContext::ParseParenWrappedExpr() -> AstExpr*
     {
         ConsumeTokenAssert(TokenKlass::LParen);
@@ -442,12 +428,11 @@ namespace glsld
 
     auto ParseContext::ParseSwitchStmt() -> AstSwitchStmt*
     {
-        ConsumeTokenAssert(TokenKlass::K_while);
+        ConsumeTokenAssert(TokenKlass::K_switch);
 
         GLSLD_NO_IMPL();
     }
 
-    // TODO: unify jump stmt?
     auto ParseContext::ParseJumpStmt() -> AstExpr*
     {
         auto beginTokIndex = GetTokenIndex();
@@ -456,15 +441,15 @@ namespace glsld
         case TokenKlass::K_break:
             ConsumeToken();
             ParsePermissiveSemicolon();
-            return CreateRangedAstNode<AstBreakStmt>(beginTokIndex);
+            return CreateRangedAstNode<AstJumpStmt>(beginTokIndex, JumpType::Break);
         case TokenKlass::K_continue:
             ConsumeToken();
             ParsePermissiveSemicolon();
-            return CreateRangedAstNode<AstContinueStmt>(beginTokIndex);
+            return CreateRangedAstNode<AstJumpStmt>(beginTokIndex, JumpType::Continue);
         case TokenKlass::K_discard:
             ConsumeToken();
             ParsePermissiveSemicolon();
-            return CreateRangedAstNode<AstDiscardStmt>(beginTokIndex);
+            return CreateRangedAstNode<AstJumpStmt>(beginTokIndex, JumpType::Discard);
         case TokenKlass::K_return:
             ConsumeToken();
             if (TryConsumeToken(TokenKlass::Semicolon)) {

@@ -3,6 +3,7 @@
 #include "LexContext.h"
 #include "ParsedAst.h"
 #include "Tokenizer.h"
+#include "Typing.h"
 
 #include <memory>
 #include <optional>
@@ -16,7 +17,20 @@ namespace glsld
     template <typename T>
     struct ParseResult
     {
-        std::optional<T*> result;
+        ParseResult(T&& result) : result(std::forward<T>(result)), success(true)
+        {
+        }
+        ParseResult(T&& result, bool success) : result(std::forward<T>(result)), success(success)
+        {
+        }
+
+        operator bool()
+        {
+            return success;
+        }
+
+        T result;
+        bool success;
     };
 
     using ParseResultExpr = std::optional<AstExpr*>;
@@ -62,6 +76,8 @@ namespace glsld
             return {std::move(result1), std::move(result2)};
         }
 
+        // Consume a ';' if available, otherwise issue an error and return
+        // This is used to semi-infer a required ';'
         auto ParsePermissiveSemicolon() -> void
         {
             if (!TryConsumeToken(TokenKlass::Semicolon)) {
@@ -69,6 +85,97 @@ namespace glsld
                 // However, we don't do error recovery as if the ';' is inferred by the parser.
             }
         }
+
+        // - global (in/out/uniform)
+        //   - type-qual? type-spec;
+        //   - type-qual? type-spec id = init;
+        //   - type-qual? type-spec id[N] = init;
+        //   - type-qual? type-spec id = init, ...;
+        // - precision settings
+        //   - precision precision-qual type;
+        // - other settings
+        //   - type-qual;
+        //   - type-qual id;
+        //   - type-qual id, ...;
+        // - block {in/out/uniform/buffer}
+        //   - type-qual id { ... };
+        //   - type-qual id { ... } id;
+        //   - type-qual id { ... } id[N];
+        // - struct
+        //   - struct id? { ... };
+        //   - struct id? { ... } id;
+        //   - struct id? { ... } id[N];
+        // - function
+        //   - type-qual? type-spec id(...);
+        //   - type-qual? type-spec id(...) { ... }
+        auto DoParseExternalDecl() -> void
+        {
+            auto beginTokIndex = 0;
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                // empty decl
+                // TODO: report a warning
+                return;
+            }
+
+            if (TryTestToken(TokenKlass::K_precision)) {
+                // precision decl
+                GLSLD_NO_IMPL();
+                // return ParseTypePrecisionDecl();
+            }
+
+            auto quals = ParseTypeQualifiers();
+            if (TryTestToken(TokenKlass::Semicolon)) {
+                // early return
+                // for example, "layout(...) in;"
+                GLSLD_NO_IMPL();
+            }
+
+            // FIXME: if can declare interface block?
+            if (TryTestToken(TokenKlass::LBrace, 1) || TryTestToken(TokenKlass::LBrace)) {
+                // interface blocks
+                // for example, uniform UBO { ... }
+
+                if (!TryTestToken(TokenKlass::Identifier)) {
+                    // need a block name
+                }
+                auto blockBody = ParseStructBody();
+                auto blockName = ParseVariableDeclarators();
+                GLSLD_NO_IMPL();
+            }
+            else {
+                auto type = ParseType(quals);
+                if (TryTestToken(TokenKlass::LParen, 1)) {
+                    // function decl
+                    ast.AddFunction(ParseFunctionDecl(beginTokIndex, type));
+                }
+                else {
+                    // variable decl
+                    auto decl = CreateAstNode<AstVariableDecl>({}, type, ParseVariableDeclarators());
+                    ast.AddGlobalVariable(decl);
+                }
+            }
+
+            // if error
+            if (false) {
+                RecoverFromError(RecoveryMode::GlobalSemi);
+            }
+
+            if (TryTestToken(TokenKlass::Semicolon)) {
+                ConsumeToken();
+            }
+            else {
+                // TODO: sometimes ; is not needed, like function definition
+            }
+        }
+
+        auto DoParseTranslationUnit() -> void
+        {
+            while (!Eof()) {
+                DoParseExternalDecl();
+            }
+        }
+
+#pragma region Parsing Decl
 
         auto ParseDeclId() -> std::optional<AstDeclId*>
         {
@@ -83,8 +190,22 @@ namespace glsld
             }
         }
 
+        // EXPECT: 'K_layout'
+        // PARSE: layout_qual
+        //        layout_qual := 'layout' '(' ')'
+        //        layout_qual := 'layout' '(' layout_spec [',' layout_spec]... ')'
+        //        layout_spec := 'ID'
+        //        layout_spec := 'ID' '=' assignment_expr
+        auto ParseLayoutQualifier() -> void
+        {
+        }
+
+        // Try to parse a sequence of qualifiers
+        // PARSE: qual_seq
+        //      - qual_seq := ???
         auto ParseTypeQualifiers() -> AstTypeQualifierSeq*
         {
+            auto beginTokIndex = GetTokenIndex();
             AstTypeQualifierSeq result;
 
             bool inQualSeq = true;
@@ -162,11 +283,14 @@ namespace glsld
             }
 
             // TODO: return nullptr if not set
-            return CreateAstNode<AstTypeQualifierSeq>({}, result);
+            return CreateRangedAstNode<AstTypeQualifierSeq>(beginTokIndex, result);
         }
 
-        // EXPECT: ID
-        // PARSE: (ID[N] = init) ,...
+        // EXPECT: 'ID'
+        // PARSE: declarator_list
+        //      - declarator_list := declarator [',' declarator]...
+        //      - declarator := 'ID' [array_spec] ['=' initializer]
+        //      - initializer := ?
         auto ParseVariableDeclarators() -> std::vector<VariableDeclarator>
         {
             std::vector<VariableDeclarator> result;
@@ -185,7 +309,7 @@ namespace glsld
                     GLSLD_NO_IMPL();
                 }
 
-                result.push_back(VariableDeclarator{.id = id, .arraySize = arraySpec, .init = init});
+                result.push_back(VariableDeclarator{.declTok = id, .arraySize = arraySpec, .init = init});
                 if (TryTestToken(TokenKlass::Comma)) {
                     ConsumeToken();
                 }
@@ -197,8 +321,10 @@ namespace glsld
             return result;
         }
 
-        // EXPECT: LBrace
-        // PARSE: '{' member_decl... '}'
+        // EXPECT: '{'
+        // PARSE: struct_body
+        //      - struct_body := '{' member_decl... '}'
+        //      - member_decl := ?
         auto ParseStructBody() -> std::vector<AstStructMemberDecl*>
         {
             ConsumeTokenAssert(TokenKlass::LBrace);
@@ -230,6 +356,8 @@ namespace glsld
         }
 
         // EXPECT: K_struct
+        // PARSE: struct_definition
+        //      - struct_definition := 'struct' ['ID'] struct_body
         auto ParseStructDefinition() -> AstQualType*
         {
             ConsumeTokenAssert(TokenKlass::K_struct);
@@ -246,10 +374,11 @@ namespace glsld
             GLSLD_NO_IMPL();
         }
 
-        // EXPECT: LBracket
-        // PARSE: [N]...
+        // EXPECT: '['
+        // PARSE: '[' [expr] ']'
         auto ParseArraySpec() -> AstArraySpec*
         {
+            auto beginTokIndex = GetTokenIndex();
             std::vector<AstExpr*> sizes;
             while (TryTestToken(TokenKlass::LBracket)) {
                 ConsumeTokenAssert(TokenKlass::LBracket);
@@ -270,39 +399,47 @@ namespace glsld
                 }
             }
 
-            return CreateAstNode<AstArraySpec>({}, std::move(sizes));
+            return CreateRangedAstNode<AstArraySpec>(beginTokIndex, std::move(sizes));
         }
 
+        // PARSE: type_spec
+        //      - type_spec := struct_definition
+        //      - type_spec := 'ID'
+        //      - type_spec := 'K_???'
         auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*
         {
             if (TryTestToken(TokenKlass::K_struct)) {
                 return ParseStructDefinition();
             }
 
-            switch (PeekToken().klass) {
-            case TokenKlass::K_void:
+            auto beginTokIndex = GetTokenIndex();
+            if (TryTestToken(TokenKlass::Identifier) || GetBuiltinType(PeekToken()).has_value()) {
+                auto tok = PeekToken();
                 ConsumeToken();
-                return CreateAstNode<AstQualType>({}, "void", quals);
-            case TokenKlass::K_int:
-                ConsumeToken();
-                return CreateAstNode<AstQualType>({}, "int", quals);
-            case TokenKlass::K_float:
-                ConsumeToken();
-                return CreateAstNode<AstQualType>({}, "float", quals);
-            default:
-                // error
-                return nullptr;
+                return CreateRangedAstNode<AstQualType>(beginTokIndex, quals, tok);
             }
+
+            // TODO: handle error
+            return nullptr;
         }
+
+        // PARSE: qualified_type_spec
+        //        qualified_type_spec := [qual_seq] type_spec
         auto ParseQualType() -> ParseResultType
         {
             auto qualifiers = ParseTypeQualifiers();
             return ParseType(qualifiers);
         }
 
-        // EXPECT: (
-        // PARSE: (...)
+        // EXPECT: '('
+        // PARSE: func_param_list
+        //      - func_param_list := '(' ')'
+        //      - func_param_list := '(' 'K_void' ')'
+        //      - func_param_list := '(' func_param_decl [',' func_param_decl]...  ')'
+        //      - func_param_decl := qualified_type_spec 'ID'
+        //
         // ERROR: skip after ) or before ;
+        // WHAT'S AN ERROR SECTION?
         auto ParseFunctionParamList() -> std::vector<AstParamDecl*>
         {
             std::vector<AstParamDecl*> result;
@@ -323,10 +460,11 @@ namespace glsld
 
             // parse parameters
             while (PeekToken().klass != TokenKlass::Eof) {
-                auto [type, id] = Seq(&ParseContext::ParseQualType, &ParseContext::ParseDeclId);
+                auto beginTokIndex = GetTokenIndex();
+                auto [type, id]    = Seq(&ParseContext::ParseQualType, &ParseContext::ParseDeclId);
 
                 if (type && id) {
-                    result.push_back(CreateAstNode<AstParamDecl>({}, *type, *id));
+                    result.push_back(CreateRangedAstNode<AstParamDecl>(beginTokIndex, *type, *id));
                 }
 
                 if (TryTestToken(TokenKlass::Comma)) {
@@ -347,16 +485,11 @@ namespace glsld
             return result;
         }
 
-        // EXPECT: {
-        // PARSE: { ... }
-        auto ParseFunctionBody() -> AstCompoundStmt*
-        {
-            return ParseCompoundStmt();
-        }
-
-        // EXPECT: ID
-        // PARSE: ID(...) [{...}]
-        auto ParseFunctionDecl(AstQualType* returnType) -> AstFunctionDecl*
+        // EXPECT: 'ID'
+        // PARSE: func_decl
+        //      - func_decl := 'ID' func_param_list ';'
+        //      - func_decl := 'ID' func_param_list compound_stmt
+        auto ParseFunctionDecl(size_t beginTokIndex, AstQualType* returnType) -> AstFunctionDecl*
         {
             // assert, never fail
             auto id = *ParseDeclId();
@@ -366,108 +499,78 @@ namespace glsld
 
             if (TryTestToken(TokenKlass::Semicolon)) {
                 ConsumeToken();
-                return CreateAstNode<AstFunctionDecl>({}, returnType, id, std::move(params));
+                return CreateRangedAstNode<AstFunctionDecl>(beginTokIndex, returnType, id, std::move(params));
             }
             else if (TryTestToken(TokenKlass::LBrace)) {
-                auto body = ParseFunctionBody();
-                return CreateAstNode<AstFunctionDecl>({}, returnType, id, std::move(params), body);
+                auto body = ParseCompoundStmt();
+                return CreateRangedAstNode<AstFunctionDecl>(beginTokIndex, returnType, id, std::move(params), body);
             }
 
             // error recovery, return a function anyway
             GLSLD_NO_IMPL();
         }
 
-        // EXPECT: K_precision
+        // EXPECT: 'K_precision'
+        // PARSE: precision_decl
+        //      - precision_decl := ???
         auto ParseTypePrecisionDecl() -> AstDecl*
         {
             GLSLD_NO_IMPL();
         }
 
-        // - global (in/out/uniform)
-        //   - type-qual? type-spec;
-        //   - type-qual? type-spec id = init;
-        //   - type-qual? type-spec id[N] = init;
-        //   - type-qual? type-spec id = init, ...;
-        // - precision settings
-        //   - precision precision-qual type;
-        // - other settings
-        //   - type-qual;
-        //   - type-qual id;
-        //   - type-qual id, ...;
-        // - block {in/out/uniform/buffer}
-        //   - type-qual id { ... };
-        //   - type-qual id { ... } id;
-        //   - type-qual id { ... } id[N];
-        // - struct
-        //   - struct id? { ... };
-        //   - struct id? { ... } id;
-        //   - struct id? { ... } id[N];
-        // - function
-        //   - type-qual? type-spec id(...);
-        //   - type-qual? type-spec id(...) { ... }
-        auto DoParseExternalDecl() -> void
-        {
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                // empty decl
-                GLSLD_NO_IMPL();
-            }
+#pragma endregion
 
-            if (TryTestToken(TokenKlass::K_precision)) {
-                // precision decl
-                GLSLD_NO_IMPL();
-                // return ParseTypePrecisionDecl();
-            }
+#pragma region Parsing Expr
 
-            auto quals = ParseTypeQualifiers();
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                // early return
-                // for example, "layout(...) in;"
-                GLSLD_NO_IMPL();
-            }
+        // TODO: is associativity in grammar correct?
+        // PARSE: expr
+        //        expr := assignment_expr [',' assignment_expr]
+        auto ParseExpr() -> AstExpr*;
 
-            if (TryTestToken(TokenKlass::LBrace, 1) || TryTestToken(TokenKlass::LBrace)) {
-                // interface blocks
-                // for example, uniform UBO { ... }
-                if (!TryTestToken(TokenKlass::Identifier)) {
-                    // need a block name
-                }
-                GLSLD_NO_IMPL();
-            }
-            else {
-                auto type = ParseType(quals);
-                if (TryTestToken(TokenKlass::LParen, 1)) {
-                    // function decl
-                    ast.AddFunction(ParseFunctionDecl(type));
-                }
-                else {
-                    // variable decl
-                    auto decl = CreateAstNode<AstVariableDecl>({}, type, ParseVariableDeclarators());
-                    ast.AddGlobalVariable(decl);
-                }
-            }
+        // PARSE: assignment_expr
+        //      - assignment_expr := unary_expr '?=' assignment_expr
+        //      - assignment_expr := binary_or_conditional_expr
+        auto ParseAssignmentExpr() -> AstExpr*;
 
-            // if error
-            if (false) {
-                RecoverFromError(RecoveryMode::GlobalSemi);
-            }
+        // PARSE: binary_or_conditional_expr
+        //      - binary_or_conditional_expr := binary_expr
+        //      - binary_or_conditional_expr := binary_expr '?' expr ':' assignment_expr
+        //
+        // `firstTerm` is the first terminal in the condition
+        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                ConsumeToken();
-            }
-            else {
-                // TODO: sometimes ; is not needed, like function definition
-            }
-        }
+        // PARSE: binary_expr
+        //      - binary_expr := ??
+        //
+        // `firstTerm` for this is a unary expression, which might already be parsed
+        auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
 
-        auto DoParseTranslationUnit() -> void
-        {
-            while (!Eof()) {
-                DoParseExternalDecl();
-            }
-        }
+        // PARSE: unary_expr
+        //        unary_expr := ['unary_op']... postfix_expr
+        auto ParseUnaryExpr() -> AstExpr*;
+
+        // PARSE: postfix_expr
+        //      - postfix_expr := primary_expr [postfix]...
+        //      - postfix := 'incdec'
+        //      - postfix := '.' 'ID'
+        //      - postfix := array_spec
+        //      - postfix := func_arg_list
+        auto ParsePostfixExpr() -> AstExpr*;
+
+        // PARSE: primary_expr
+        //      - primary_expr := 'ID'
+        //      - primary_expr := 'constant'
+        //      - primary_expr := '(' expr ')'
+        auto ParsePrimaryExpr() -> AstExpr*;
 
         // EXPECT: '('
+        auto ParseParenWrappedExpr() -> AstExpr*;
 
+        // EXPECT: '('
+        // PARSE: func_arg_list
+        //      - func_arg_list := '(' ')'
+        //      - func_arg_list := '(' 'K_void' ')'
+        //      - func_arg_list := '(' assignment_expr [',' assignment_expr]... ')'
         auto ParseFunctionArgumentList() -> std::vector<AstExpr*>
         {
             ConsumeTokenAssert(TokenKlass::LParen);
@@ -503,24 +606,6 @@ namespace glsld
         auto ParseIndexingAccess() -> void
         {
         }
-
-#pragma region Parsing Expr
-
-        auto ParseExpr() -> AstExpr*;
-
-        auto ParseAssignmentExpr() -> AstExpr*;
-
-        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
-
-        auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
-
-        auto ParseUnaryExpr() -> AstExpr*;
-
-        auto ParsePostfixExpr() -> AstExpr*;
-
-        auto ParsePrimaryExpr() -> AstExpr*;
-
-        auto ParseParenWrappedExpr() -> AstExpr*;
 
 #pragma endregion
 
