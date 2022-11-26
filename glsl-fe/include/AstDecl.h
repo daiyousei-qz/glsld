@@ -6,6 +6,8 @@
 
 namespace glsld
 {
+    class AstDecl;
+    class AstStructDecl;
 
     class AstLayoutQualifier : public SyntaxNode
     {
@@ -175,15 +177,24 @@ namespace glsld
         AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName) : qualifiers(qualifiers), typeName(typeName)
         {
         }
+        AstQualType(AstTypeQualifierSeq* qualifiers, AstStructDecl* structDecl)
+            : qualifiers(qualifiers), structDecl(structDecl)
+        {
+        }
 
     private:
         AstTypeQualifierSeq* qualifiers = nullptr;
         AstArraySpec* arraySpec         = nullptr;
 
-        SyntaxToken typeName = {};
+        SyntaxToken typeName      = {};
+        AstStructDecl* structDecl = nullptr;
     };
 
     class AstDecl : public SyntaxNode
+    {
+    };
+
+    struct AstEmptyDecl : public AstDecl
     {
     };
 
@@ -201,6 +212,7 @@ namespace glsld
 
     struct AstStructMemberDecl : public AstDecl
     {
+    public:
     private:
         AstQualType* type;
         VariableDeclarator declarator;
@@ -208,15 +220,25 @@ namespace glsld
 
     class AstStructDecl : public AstDecl
     {
+    public:
+        AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstStructMemberDecl*> members)
+            : declTok(declTok), members(std::move(members))
+        {
+        }
+
     private:
-        AstDeclId* name;
-        std::vector<AstStructMemberDecl*> members;
+        std::optional<SyntaxToken> declTok        = std::nullopt;
+        std::vector<AstStructMemberDecl*> members = {};
     };
 
     // declares variables
     class AstVariableDecl : public AstDecl
     {
     public:
+        AstVariableDecl(AstQualType* type) : type(type)
+        {
+            // Yes, a variable decl could declare no variable
+        }
         AstVariableDecl(AstQualType* type, std::vector<VariableDeclarator> decls) : type(type), decls(decls)
         {
         }
@@ -239,32 +261,31 @@ namespace glsld
     class AstParamDecl : public AstDecl
     {
     public:
-        AstParamDecl(AstQualType* type, AstDeclId* id) : type(type), id(id)
+        AstParamDecl(AstQualType* type, SyntaxToken declTok) : type(type), declTok(declTok)
         {
         }
 
-        auto GetName() -> AstDeclId*
+        auto GetName() -> const SyntaxToken&
         {
-            return id;
+            return declTok;
         }
 
     private:
         AstQualType* type;
-        AstDeclId* id;
+        SyntaxToken declTok;
     };
 
     // declares a function
     class AstFunctionDecl : public AstDecl
     {
     public:
-        AstFunctionDecl(AstQualType* returnType, AstDeclId* id, std::vector<AstParamDecl*> params)
-            : returnType(returnType), id(id), params(std::move(params)), body(nullptr)
+        AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params)
+            : returnType(returnType), declTok(declTok), params(std::move(params)), body(nullptr)
         {
         }
 
-        AstFunctionDecl(AstQualType* returnType, AstDeclId* id, std::vector<AstParamDecl*> params,
-                        AstCompoundStmt* body)
-            : returnType(returnType), id(id), params(std::move(params)), body(body)
+        AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params, AstStmt* body)
+            : returnType(returnType), declTok(declTok), params(std::move(params)), body(body)
         {
         }
 
@@ -278,24 +299,39 @@ namespace glsld
             return params;
         }
 
-        auto GetName() -> AstDeclId*
+        auto GetName() -> const SyntaxToken&
         {
-            return id;
+            return declTok;
         }
 
-        auto GetBody() -> AstCompoundStmt*
+        auto GetBody() -> AstStmt*
         {
             return body;
         }
 
     private:
         AstQualType* returnType;
-        AstDeclId* id;
+        SyntaxToken declTok;
         std::vector<AstParamDecl*> params;
-        AstCompoundStmt* body;
+        AstStmt* body;
     };
 
-    class AstGlobalBlockDecl : public AstDecl
+    class AstInterfaceBlockDecl : public AstDecl
     {
+    private:
+        AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members)
+            : declTok(declTok), members(std::move(members))
+        {
+        }
+        AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members,
+                              VariableDeclarator declarator)
+            : declTok(declTok), members(std::move(members)), declarator(declarator)
+        {
+        }
+
+    private:
+        SyntaxToken declTok                          = {};
+        std::vector<AstStructMemberDecl*> members    = {};
+        std::optional<VariableDeclarator> declarator = std::nullopt;
     };
 } // namespace glsld

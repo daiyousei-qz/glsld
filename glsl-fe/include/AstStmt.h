@@ -19,6 +19,8 @@ namespace glsld
     class AstDiscardStmt;
     class AstReturnStmt;
 
+    using AstErrorStmt = AstErrorExpr;
+
     class AstCompoundStmt final : public AstCompoundExprImpl
     {
     public:
@@ -37,12 +39,11 @@ namespace glsld
             children[0] = expr;
         }
     };
-    // FIXME: how to handle children?
+
     class AstDeclStmt final : public AstExprImpl<0>
     {
     public:
-        // FIXME: give correct ExprOp
-        AstDeclStmt() : AstExprImpl(ExprOp::Error)
+        AstDeclStmt(AstDecl* decl) : AstExprImpl(ExprOp::DeclStmt), decl(decl)
         {
         }
 

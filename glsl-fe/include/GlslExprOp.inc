@@ -7,7 +7,7 @@ DECL_EXPROP(Error, AstErrorExpr)
 
 /* constant */
 DECL_EXPROP(Const, AstConstantExpr)
-DECL_EXPROP(VarAccess, AstVarAccessExpr)
+DECL_EXPROP(VarAccess, AstNameAccessExpr)
 
 /* unary ops */
 DECL_EXPROP(Identity, AstUnaryExpr)
@@ -64,13 +64,14 @@ DECL_EXPROP(FunctionCall, AstInvokeExpr)
 /* stmt ops */
 DECL_EXPROP(CompoundStmt, AstCompoundStmt)
 DECL_EXPROP(ExprStmt, AstExprStmt)
+DECL_EXPROP(DeclStmt, AstDeclStmt)
 DECL_EXPROP(IfStmt, AstIfStmt)
 DECL_EXPROP(ForStmt, AstForStmt)
 DECL_EXPROP(WhileStmt, AstWhileStmt)
 DECL_EXPROP(SwitchStmt, AstSwitchStmt)
-DECL_EXPROP(ContinueStmt, AstContinueStmt)
-DECL_EXPROP(BreakStmt, AstBreakStmt)
-DECL_EXPROP(DiscardStmt, AstDiscardStmt)
+DECL_EXPROP(ContinueStmt, AstJumpStmt)
+DECL_EXPROP(BreakStmt, AstJumpStmt)
+DECL_EXPROP(DiscardStmt, AstJumpStmt)
 DECL_EXPROP(ReturnStmt, AstReturnStmt)
 
 #endif

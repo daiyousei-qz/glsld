@@ -122,6 +122,9 @@ namespace glsld
                     sourceView.Consume();
                 }
 
+                if (sourceView.Eof()) {
+                    break;
+                }
                 if (sourceView.Peek() == '/' && sourceView.Peek(1) == '/') {
                     while (!sourceView.Eof() && sourceView.Peek() != '\n') {
                         consumedAny = true;
@@ -129,6 +132,9 @@ namespace glsld
                     }
                 }
 
+                if (sourceView.Eof()) {
+                    break;
+                }
                 if (sourceView.Peek() == '/' && sourceView.Peek(1) == '*') {
                     while (!sourceView.Eof() && (sourceView.Peek() != '*' && sourceView.Peek(1) != '/')) {
                         consumedAny = true;

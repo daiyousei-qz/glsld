@@ -14,4 +14,12 @@ namespace glsld
         FunctionCall,
         Indexing,
     };
+
+    enum class InterfaceBlockType
+    {
+        In,
+        Out,
+        Uniform,
+        Buffer,
+    };
 } // namespace glsld

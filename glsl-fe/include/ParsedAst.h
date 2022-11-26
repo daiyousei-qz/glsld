@@ -18,7 +18,17 @@ namespace glsld
         auto AddFunction(AstFunctionDecl* decl) -> void
         {
             globalDecls.push_back(decl);
-            functionDecls.push_back(decl);
+        }
+
+        auto Add(AstDecl* decl) -> void
+        {
+            globalDecls.push_back(decl);
+            if (auto p = dynamic_cast<AstFunctionDecl*>(decl)) {
+                functionDecls.push_back(p);
+            }
+            if (auto p = dynamic_cast<AstVariableDecl*>(decl)) {
+                variableDecls.push_back(p);
+            }
         }
 
         // FIXME: for debug
@@ -27,7 +37,7 @@ namespace glsld
             std::vector<std::string> result;
             for (auto var : variableDecls) {
                 for (auto declarator : var->GetDeclarators()) {
-                    result.push_back(std::string{declarator.id->GetIdentifier()});
+                    result.push_back(declarator.declTok.text.Str());
                 }
             }
 
@@ -38,7 +48,7 @@ namespace glsld
         {
             std::vector<std::string> result;
             for (auto f : functionDecls) {
-                result.push_back(std::string{f->GetName()->GetIdentifier()});
+                result.push_back(f->GetName().text.Str());
             }
 
             return result;

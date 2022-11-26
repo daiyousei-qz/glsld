@@ -33,10 +33,12 @@ namespace glsld
         }
     }
 
+    class AstQualType;
+
     class AstExpr;
     class AstErrorExpr;
     class AstConstantExpr;
-    class AstVarAccessExpr;
+    class AstNameAccessExpr;
     class AstUnaryExpr;
     class AstBinaryExpr;
     class AstSelectExpr;
@@ -128,28 +130,41 @@ namespace glsld
         // The actual memory is hosted in the LexContext
         LexString value;
     };
-    class AstVarAccessExpr final : public AstExprImpl<1>
+    class AstConstructorExpr final : public AstExprImpl<0>
     {
     public:
-        AstVarAccessExpr(AstExpr* accessChain, LexString accessName)
-            : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+        // FIXME: use correct expr op
+        AstConstructorExpr(AstQualType* type) : AstExprImpl(ExprOp::Error), type(type)
         {
         }
-        AstVarAccessExpr(LexString accessName) : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+
+    private:
+        AstQualType* type;
+    };
+    class AstNameAccessExpr final : public AstExprImpl<1>
+    {
+    public:
+        AstNameAccessExpr(AstExpr* accessChain, SyntaxToken accessName)
+            : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
         {
+            children[0] = accessChain;
+        }
+        AstNameAccessExpr(SyntaxToken accessName) : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+        {
+            children[0] = nullptr;
         }
 
         auto GetAccessChain() -> AstExpr*
         {
             return children[0];
         }
-        auto GetAccessName() -> LexString
+        auto GetAccessName() -> SyntaxToken
         {
             return accessName;
         }
 
     private:
-        LexString accessName;
+        SyntaxToken accessName;
     };
 
     class AstUnaryExpr final : public AstExprImpl<1>
