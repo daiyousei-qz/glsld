@@ -90,9 +90,16 @@ namespace glsld
 
     struct SyntaxLocationInfo
     {
+        // Index of the file that this location is marked
         int file;
+
+        // Offset into the file that this location is marked
         int offset;
+
+        // Line number of the location (zero-based)
         int line;
+
+        // Column number of the location (zero-based)
         int column;
     };
 
@@ -126,26 +133,5 @@ namespace glsld
         TokenKlass klass  = TokenKlass::Error;
         LexString text    = {};
         SyntaxRange range = {};
-    };
-
-    class SyntaxNode
-    {
-    public:
-        virtual ~SyntaxNode()
-        {
-        }
-
-        auto GetRange() -> SyntaxRange
-        {
-            return range;
-        }
-
-        auto UpdateRange(SyntaxRange range) -> void
-        {
-            this->range = range;
-        }
-
-    private:
-        SyntaxRange range;
     };
 } // namespace glsld

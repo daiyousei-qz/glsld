@@ -8,6 +8,9 @@
 
 namespace glsld
 {
+    // This class manages everything about the source texts and tokens
+    // FIXME: support token stream other than std::string
+    // FIXME: support dynamic lexing
     class LexContext
     {
     public:
@@ -16,18 +19,18 @@ namespace glsld
             Initialize();
         }
 
-        auto GetToken(size_t tokIndex) -> SyntaxToken
+        auto GetToken(size_t tokIndex) const -> SyntaxToken
         {
             return GetTokenRef(tokIndex);
         }
 
-        auto GetSyntaxRange(size_t tokIndex) -> SyntaxRange
+        auto GetSyntaxRange(size_t tokIndex) const -> SyntaxRange
         {
             return GetTokenRef(tokIndex).range;
         }
 
         //
-        auto GetSyntaxRange(size_t beginTokIndex, size_t endTokIndex) -> SyntaxRange
+        auto GetSyntaxRange(size_t beginTokIndex, size_t endTokIndex) const -> SyntaxRange
         {
             GLSLD_ASSERT(beginTokIndex <= endTokIndex);
             if (beginTokIndex == endTokIndex) {
@@ -44,8 +47,22 @@ namespace glsld
             }
         }
 
+        auto LookupSyntaxLocation(SyntaxLocation location) const -> SyntaxLocationInfo
+        {
+            if (location.GetIndex() < 0 || location.GetIndex() > locationInfo.size()) {
+                return SyntaxLocationInfo{
+                    .file   = -1,
+                    .offset = -1,
+                    .line   = -1,
+                    .column = -1,
+                };
+            }
+
+            return locationInfo[location.GetIndex()];
+        }
+
     private:
-        auto GetTokenRef(size_t tokIndex) -> const SyntaxToken&
+        auto GetTokenRef(size_t tokIndex) const -> const SyntaxToken&
         {
             if (tokIndex < tokens.size()) {
                 return tokens[tokIndex];
@@ -102,7 +119,7 @@ namespace glsld
 
         std::string sourceText;
 
-        // TODO: optimize memory layout
+        // FIXME: optimize memory layout
         std::unordered_set<std::string> atomTable;
 
         std::vector<SyntaxToken> tokens;

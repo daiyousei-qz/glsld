@@ -1,193 +1,263 @@
 #pragma once
-#include "SyntaxToken.h"
-#include "AstExpr.h"
+#include "AstBase.h"
+#include "AstMisc.h"
 #include "Semantic.h"
+#include <span>
+#include <array>
 
 namespace glsld
 {
-    class AstDecl;
-    using AstStmt = AstExpr;
+    class AstStmt : public AstNodeBase
+    {
+    };
 
-    class AstCompoundStmt;
-    class AstExprStmt;
-    class AstIfStmt;
-    class AstForStmt;
-    class AstWhileStmt;
-    class AstSwitchStmt;
-    class AstContinueStmt;
-    class AstBreakStmt;
-    class AstDiscardStmt;
-    class AstReturnStmt;
-
-    using AstErrorStmt = AstErrorExpr;
-
-    class AstCompoundStmt final : public AstCompoundExprImpl
+    class AstErrorStmt final : public AstStmt
     {
     public:
-        AstCompoundStmt(std::vector<AstExpr*> children) : AstCompoundExprImpl(ExprOp::CompoundStmt)
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
         {
-            this->children = std::move(children);
+        }
+    };
+
+    class AstCompoundStmt final : public AstStmt
+    {
+    public:
+        AstCompoundStmt(std::vector<AstStmt*> children) : children(std::move(children))
+        {
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            for (auto stmt : children) {
+                visitor.Traverse(*stmt);
+            }
         }
 
     private:
+        std::vector<AstStmt*> children;
     };
-    class AstExprStmt final : public AstExprImpl<1>
+    class AstExprStmt final : public AstStmt
     {
     public:
-        AstExprStmt(AstExpr* expr) : AstExprImpl(ExprOp::ExprStmt)
+        AstExprStmt(AstExpr* expr) : expr(expr)
         {
-            children[0] = expr;
         }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*expr);
+        }
+
+    private:
+        AstExpr* expr;
     };
 
-    class AstDeclStmt final : public AstExprImpl<0>
+    class AstDeclStmt final : public AstStmt
     {
     public:
-        AstDeclStmt(AstDecl* decl) : AstExprImpl(ExprOp::DeclStmt), decl(decl)
+        AstDeclStmt(AstDecl* decl) : decl(decl)
         {
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*decl);
         }
 
     private:
         AstDecl* decl;
     };
-    class AstForStmt final : public AstExprImpl<4>
+    class AstForStmt final : public AstStmt
     {
     public:
         AstForStmt(AstStmt* initClause, AstStmt* testClause, AstStmt* proceedClause, AstStmt* loopBody)
-            : AstExprImpl(ExprOp::ForStmt)
+            : initClause(initClause), testClause(testClause), proceedClause(proceedClause), loopBody(loopBody)
         {
-            children[0] = initClause;
-            children[1] = testClause;
-            children[2] = proceedClause;
-            children[3] = loopBody;
         }
 
         auto GetInitClause() -> AstStmt*
         {
-            return children[0];
+            return initClause;
         }
         auto GetTestClause() -> AstStmt*
         {
-            return children[1];
+            return testClause;
         }
         auto GetProceedClause() -> AstStmt*
         {
-            return children[2];
+            return proceedClause;
         }
         auto GetLoopBody() -> AstStmt*
         {
-            return children[3];
+            return loopBody;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*initClause);
+            visitor.Traverse(*testClause);
+            visitor.Traverse(*proceedClause);
+            visitor.Traverse(*loopBody);
         }
 
     private:
+        AstStmt* initClause;
+        AstStmt* testClause;
+        AstStmt* proceedClause;
+        AstStmt* loopBody;
     };
-    class AstWhileStmt final : public AstExprImpl<2>
+    class AstWhileStmt final : public AstStmt
     {
     public:
-        AstWhileStmt(AstExpr* predicate, AstStmt* loopBody) : AstExprImpl(ExprOp::WhileStmt)
+        AstWhileStmt(AstExpr* predicate, AstStmt* loopBody) : predicate(predicate), loopBody(loopBody)
         {
-            children[0] = predicate;
-            children[1] = loopBody;
         }
 
         auto GetPredicateExpr() -> AstExpr*
         {
-            return children[0];
+            return predicate;
         }
-        auto GetLoopBody() -> AstExpr*
+        auto GetLoopBody() -> AstStmt*
         {
-            return children[1];
+            return loopBody;
         }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*predicate);
+            visitor.Traverse(*loopBody);
+        }
+
+    private:
+        AstExpr* predicate;
+        AstStmt* loopBody;
     };
-    class AstIfStmt final : public AstExprImpl<3>
+    class AstIfStmt final : public AstStmt
     {
     public:
-        AstIfStmt(AstExpr* predicate, AstExpr* positive) : AstExprImpl(ExprOp::IfStmt)
+        AstIfStmt(AstExpr* predicate, AstStmt* ifBranch) : predicate(predicate), ifBranch(ifBranch), elseBranch(nullptr)
         {
-            children[0] = predicate;
-            children[1] = positive;
-            children[2] = nullptr;
         }
-        AstIfStmt(AstExpr* predicate, AstExpr* positive, AstExpr* negative) : AstExprImpl(ExprOp::IfStmt)
+        AstIfStmt(AstExpr* predicate, AstStmt* ifBranch, AstStmt* elseBranch)
+            : predicate(predicate), ifBranch(ifBranch), elseBranch(elseBranch)
         {
-            children[0] = predicate;
-            children[1] = positive;
-            children[2] = negative;
         }
 
         auto GetPredicateExpr() -> AstExpr*
         {
-            return children[0];
+            return predicate;
         }
-        auto GetPositiveStmt() -> AstStmt*
+        auto GetIfBranch() -> AstStmt*
         {
-            return children[1];
+            return ifBranch;
         }
-        auto GetNegativeStmt() -> AstStmt*
+        auto GetElseBranch() -> AstStmt*
         {
-            return children[2];
+            return elseBranch;
         }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*predicate);
+            visitor.Traverse(*ifBranch);
+            if (elseBranch) {
+                visitor.Traverse(*elseBranch);
+            }
+        }
+
+    private:
+        AstExpr* predicate;
+        AstStmt* ifBranch;
+        AstStmt* elseBranch;
     };
-    class AstLabeledStmt final : public AstExprImpl<1>
+    class AstLabeledStmt final : public AstStmt
     {
     public:
         // FIXME: give correct ExprOp
-        AstLabeledStmt(AstStmt* stmt) : AstExprImpl(ExprOp::Error)
+        AstLabeledStmt(AstStmt* innerStmt) : innerStmt(innerStmt)
         {
-            children[0] = stmt;
+        }
+
+        auto GetInnerStmt() -> AstStmt*
+        {
+            return innerStmt;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            if (innerStmt) {
+                visitor.Traverse(*innerStmt);
+            }
         }
 
     private:
         // FIXME: case label/default label
+        AstStmt* innerStmt;
     };
-    class AstSwitchStmt final : public AstCompoundExprImpl
+    class AstSwitchStmt final : public AstStmt
     {
     public:
-        AstSwitchStmt(std::vector<AstStmt*> body) : AstCompoundExprImpl(ExprOp::SwitchStmt)
-        {
-            children = std::move(body);
-        }
-
-    private:
-    };
-    class AstJumpStmt final : public AstExprImpl<0>
-    {
-    public:
-        AstJumpStmt(JumpType type) : AstExprImpl(GetJumpOp(type))
+        AstSwitchStmt(std::vector<AstStmt*> children) : children(children)
         {
         }
 
-    private:
-        static constexpr auto GetJumpOp(JumpType type) -> ExprOp
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
         {
-            switch (type) {
-            case JumpType::Break:
-                return ExprOp::BreakStmt;
-            case JumpType::Continue:
-                return ExprOp::ContinueStmt;
-            case JumpType::Discard:
-                return ExprOp::DiscardStmt;
-            default:
-                GLSLD_UNREACHABLE();
+            for (auto stmt : children) {
+                visitor.Traverse(*stmt);
             }
         }
+
+    private:
+        std::vector<AstStmt*> children;
     };
-    class AstReturnStmt final : public AstExprImpl<1>
+    class AstJumpStmt final : public AstStmt
     {
     public:
-        AstReturnStmt() : AstExprImpl(ExprOp::ReturnStmt)
+        AstJumpStmt(JumpType type) : type(type)
         {
-            children[0] = nullptr;
-        }
-        AstReturnStmt(AstExpr* expr) : AstExprImpl(ExprOp::ReturnStmt)
-        {
-            GLSLD_ASSERT(expr != nullptr);
-            children[0] = expr;
         }
 
-        auto GetReturnedValue() -> AstExpr*
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
         {
-            return children[0];
         }
+
+    private:
+        JumpType type;
+    };
+    class AstReturnStmt final : public AstStmt
+    {
+    public:
+        AstReturnStmt() : returnValue(nullptr)
+        {
+        }
+        AstReturnStmt(AstExpr* returnValue) : returnValue(returnValue)
+        {
+            GLSLD_ASSERT(returnValue != nullptr);
+        }
+
+        auto GetReturnValue() -> AstExpr*
+        {
+            return returnValue;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*returnValue);
+        }
+
+    private:
+        AstExpr* returnValue;
     };
 } // namespace glsld

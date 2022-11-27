@@ -1,6 +1,6 @@
 #pragma once
 #include "Common.h"
-#include "SyntaxToken.h"
+#include "AstBase.h"
 #include "Typing.h"
 #include "Semantic.h"
 
@@ -33,96 +33,40 @@ namespace glsld
         }
     }
 
-    class AstQualType;
-
-    class AstExpr;
-    class AstErrorExpr;
-    class AstConstantExpr;
-    class AstNameAccessExpr;
-    class AstUnaryExpr;
-    class AstBinaryExpr;
-    class AstSelectExpr;
-    class AstInvokeExpr;
-
-    class AstExpr : public SyntaxNode
+    class AstExpr : public AstNodeBase
     {
     public:
-        AstExpr(ExprOp op) : op(op)
-        {
-        }
-
-        auto GetOp() -> ExprOp
-        {
-            return op;
-        }
-
-        auto IsStmt() -> bool
-        {
-            // FIXME: implement this
-            return false;
-        }
-
     private:
-        ExprOp op;
-
         // Ast
         //
 
         TypeDesc* deducedType = nullptr;
     };
 
-    template <size_t N>
-    class AstExprImpl : public AstExpr
+    class AstErrorExpr final : public AstExpr
     {
     public:
-        using AstExpr::AstExpr;
-
-        auto GetChildren() -> std::span<AstExpr*>
+        AstErrorExpr()
         {
-            return children;
         }
 
-    protected:
-        std::array<AstExpr*, N> children = {};
-    };
-    template <>
-    class AstExprImpl<0> : public AstExpr
-    {
-    public:
-        using AstExpr::AstExpr;
-
-        auto GetChildren() -> std::span<AstExpr*>
-        {
-            return {};
-        }
-    };
-    class AstCompoundExprImpl : public AstExpr
-    {
-    public:
-        using AstExpr::AstExpr;
-
-        auto GetChildren() -> std::span<AstExpr*>
-        {
-            return children;
-        }
-
-    protected:
-        std::vector<AstExpr*> children;
-    };
-
-    class AstErrorExpr final : public AstExprImpl<0>
-    {
-    public:
-        AstErrorExpr() : AstExprImpl(ExprOp::Error)
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
         {
         }
 
     private:
     };
-    class AstConstantExpr final : public AstExprImpl<0>
+
+    class AstConstantExpr final : public AstExpr
     {
     public:
-        AstConstantExpr(LexString value) : AstExprImpl(ExprOp::Const), value(value)
+        AstConstantExpr(LexString value) : value(value)
+        {
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
         {
         }
 
@@ -130,126 +74,176 @@ namespace glsld
         // The actual memory is hosted in the LexContext
         LexString value;
     };
-    class AstConstructorExpr final : public AstExprImpl<0>
+    class AstConstructorExpr final : public AstExpr
     {
     public:
         // FIXME: use correct expr op
-        AstConstructorExpr(AstQualType* type) : AstExprImpl(ExprOp::Error), type(type)
+        AstConstructorExpr(AstQualType* type) : type(type)
         {
+            GLSLD_ASSERT(type != nullptr);
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*type);
         }
 
     private:
         AstQualType* type;
     };
-    class AstNameAccessExpr final : public AstExprImpl<1>
+    class AstNameAccessExpr final : public AstExpr
     {
     public:
         AstNameAccessExpr(AstExpr* accessChain, SyntaxToken accessName)
-            : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+            : accessChain(accessChain), accessName(accessName)
         {
-            children[0] = accessChain;
         }
-        AstNameAccessExpr(SyntaxToken accessName) : AstExprImpl(ExprOp::VarAccess), accessName(accessName)
+        AstNameAccessExpr(SyntaxToken accessName) : accessChain(nullptr), accessName(accessName)
         {
-            children[0] = nullptr;
         }
 
         auto GetAccessChain() -> AstExpr*
         {
-            return children[0];
+            return accessChain;
         }
         auto GetAccessName() -> SyntaxToken
         {
             return accessName;
         }
 
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            if (accessChain) {
+                Traverse(*accessChain);
+            }
+        }
+
     private:
+        AstExpr* accessChain;
         SyntaxToken accessName;
     };
 
-    class AstUnaryExpr final : public AstExprImpl<1>
+    class AstUnaryExpr final : public AstExpr
     {
     public:
-        AstUnaryExpr(ExprOp op, AstExpr* operand) : AstExprImpl(op)
+        AstUnaryExpr(UnaryOp op, AstExpr* operand) : op(op), operand(operand)
         {
-            // TODO: assert op is unary
-            children[0] = operand;
+        }
+
+        auto GetOperator() -> UnaryOp
+        {
+            return op;
         }
 
         auto GetOperandExpr() -> AstExpr*
         {
-            return children[0];
+            return operand;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
         }
 
     private:
+        UnaryOp op;
+        AstExpr* operand;
     };
-    class AstBinaryExpr final : public AstExprImpl<2>
+    class AstBinaryExpr final : public AstExpr
     {
     public:
-        AstBinaryExpr(ExprOp op, AstExpr* lhs, AstExpr* rhs) : AstExprImpl(op)
+        AstBinaryExpr(BinaryOp op, AstExpr* lhs, AstExpr* rhs) : op(op), lhs(lhs), rhs(rhs)
         {
-            // TODO: assert op is binary
-            children[0] = lhs;
-            children[1] = rhs;
         }
 
         auto GetLeftOperandExpr() -> AstExpr*
         {
-            return children[0];
+            return lhs;
         }
         auto GetRightOperandExpr() -> AstExpr*
         {
-            return children[1];
+            return rhs;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor)
+        {
+            visitor.Traverse(*lhs);
+            visitor.Traverse(*rhs);
         }
 
     private:
+        BinaryOp op;
+        AstExpr* lhs;
+        AstExpr* rhs;
     };
-    class AstSelectExpr final : public AstExprImpl<3>
+    class AstSelectExpr final : public AstExpr
     {
     public:
-        AstSelectExpr(AstExpr* predicate, AstExpr* positive, AstExpr* negative) : AstExprImpl(ExprOp::Select)
+        AstSelectExpr(AstExpr* predicate, AstExpr* ifBranch, AstExpr* elseBranch)
+            : predicate(predicate), ifBranch(ifBranch), elseBranch(elseBranch)
         {
-            children[0] = predicate;
-            children[1] = positive;
-            children[2] = negative;
         }
 
-        auto GetConditionExpr() -> AstExpr*
+        auto GetPredicateExpr() -> AstExpr*
         {
-            return children[0];
+            return predicate;
         }
-        auto GetPositiveExpr() -> AstExpr*
+        auto GetIfBranchExpr() -> AstExpr*
         {
-            return children[1];
+            return ifBranch;
         }
-        auto GetNegativeExpr() -> AstExpr*
+        auto GetElseBranchExpr() -> AstExpr*
         {
-            return children[2];
+            return elseBranch;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*predicate);
+            visitor.Traverse(*ifBranch);
+            visitor.Traverse(*elseBranch);
         }
 
     private:
+        AstExpr* predicate;
+        AstExpr* ifBranch;
+        AstExpr* elseBranch;
     };
 
-    class AstInvokeExpr final : public AstCompoundExprImpl
+    class AstInvokeExpr final : public AstExpr
     {
     public:
         AstInvokeExpr(InvocationType type, AstExpr* invokedExpr, std::vector<AstExpr*> args)
-            : AstCompoundExprImpl(type == InvocationType::FunctionCall ? ExprOp::FunctionCall : ExprOp::IndexAccess)
+            : type(type), invokedExpr(invokedExpr), args(std::move(args))
         {
-            children.push_back(invokedExpr);
-            std::ranges::copy(args, std::back_inserter(children));
         }
 
         auto GetInvokedExpr() -> AstExpr*
         {
-            return children[0];
+            return invokedExpr;
         }
 
-        auto GetArguments() -> std::span<AstExpr*>
+        auto GetArguments() -> std::span<AstExpr* const>
         {
-            return std::span<AstExpr*>(children).subspan(1);
+            return args;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*invokedExpr);
+            for (auto arg : args) {
+                visitor.Traverse(*arg);
+            }
         }
 
     private:
+        InvocationType type;
+        AstExpr* invokedExpr;
+        std::vector<AstExpr*> args;
     };
 } // namespace glsld

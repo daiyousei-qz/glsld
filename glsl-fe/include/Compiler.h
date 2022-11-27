@@ -2,7 +2,8 @@
 
 #include "DiagnosticContext.h"
 #include "LexContext.h"
-#include "ParseContext.h"
+#include "AstContext.h"
+#include "Parser.h"
 
 #include <memory>
 #include <string>
@@ -24,18 +25,26 @@ namespace glsld
         {
             GLSLD_ASSERT(!compiled);
 
-            diagContext  = std::make_unique<DiagnosticContext>();
-            lexContext   = std::make_unique<LexContext>(std::move(sourceText));
-            parseContext = std::make_unique<ParseContext>(diagContext.get(), lexContext.get());
+            diagContext = std::make_unique<DiagnosticContext>();
+            lexContext  = std::make_unique<LexContext>(std::move(sourceText));
+            astContext  = std::make_unique<AstContext>();
 
-            parseContext->DoParseTranslationUnit();
+            Parser parser{lexContext.get(), astContext.get(), diagContext.get()};
+            parser.DoParseTranslationUnit();
             compiled = true;
         }
 
-        auto GetAst() -> const ParsedAst*
+        auto GetDiagnosticContext() -> const DiagnosticContext&
         {
-            GLSLD_ASSERT(compiled);
-            return parseContext->GetAst();
+            return *diagContext;
+        }
+        auto GetLexContext() -> const LexContext&
+        {
+            return *lexContext;
+        }
+        auto GetAstContext() -> const AstContext&
+        {
+            return *astContext;
         }
 
     private:
@@ -43,6 +52,6 @@ namespace glsld
 
         std::unique_ptr<DiagnosticContext> diagContext = nullptr;
         std::unique_ptr<LexContext> lexContext         = nullptr;
-        std::unique_ptr<ParseContext> parseContext     = nullptr;
+        std::unique_ptr<AstContext> astContext         = nullptr;
     };
 } // namespace glsld

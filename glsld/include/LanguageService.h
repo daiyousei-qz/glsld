@@ -5,6 +5,9 @@
 
 namespace glsld
 {
+    auto ComputeDocumentSymbol(GlsldCompiler& compiler) -> std::vector<lsp::DocumentSymbol>;
+    auto ComputeSemanticTokens() -> lsp::SemanticTokens;
+
     // this class manages online source codes
     class SourceManager
     {
@@ -62,49 +65,7 @@ namespace glsld
             GlsldCompiler compiler;
             compiler.Compile(sourceMap[params.textDocument.uri]);
 
-            std::vector<lsp::DocumentSymbol> result;
-            lsp::Range testRange{
-                .start =
-                    {
-                        .line      = 0,
-                        .character = 0,
-                    },
-                .end =
-                    {
-                        .line      = 0,
-                        .character = 1,
-                    },
-            };
-
-            for (auto var : compiler.GetAst()->GetVarSymbols()) {
-                result.push_back(lsp::DocumentSymbol{
-                    .name           = var,
-                    .kind           = lsp::SymbolKind::Variable,
-                    .range          = testRange,
-                    .selectionRange = testRange,
-                });
-            }
-            for (auto f : compiler.GetAst()->GetFuncSymbols()) {
-                result.push_back(lsp::DocumentSymbol{
-                    .name           = f,
-                    .kind           = lsp::SymbolKind::Function,
-                    .range          = testRange,
-                    .selectionRange = testRange,
-                });
-            }
-            // result.push_back(lsp::DocumentSymbol{
-            //     .name           = "firstSymbol",
-            //     .kind           = lsp::SymbolKind::Variable,
-            //     .range          = testRange,
-            //     .selectionRange = testRange,
-            // });
-            // result.push_back(lsp::DocumentSymbol{
-            //     .name           = "secondSymbol",
-            //     .kind           = lsp::SymbolKind::Function,
-            //     .range          = testRange,
-            //     .selectionRange = testRange,
-            // });
-
+            std::vector<lsp::DocumentSymbol> result = ComputeDocumentSymbol(compiler);
             server->HandleServerResponse(requestId, result, false);
         }
 

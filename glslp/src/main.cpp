@@ -1,5 +1,6 @@
 #include "CommandLine.h"
-#include "ParseContext.h"
+#include "Compiler.h"
+#include "AstVisitor.h"
 
 #include <string_view>
 #include <fstream>
@@ -58,34 +59,30 @@ cl::Opt<std::string> intputFile(cl::Positional, cl::Desc("input file"), cl::Valu
 //     }
 // )";
 
-// class MyAstVisitor : public glsld::AstVisitor<MyAstVisitor>
-// {
-// public:
-//     auto EnterAstExpr(glsld::AstExpr* expr) -> glsld::AstVisitPolicy
-//     {
-//         depth += 1;
-//         return glsld::AstVisitPolicy::Traverse;
-//     }
-//     auto ExitAstExpr(glsld::AstExpr* expr) -> void
-//     {
-//         depth -= 1;
-//     }
-//     auto VisitAstExpr(glsld::AstExpr* expr) -> void
-//     {
-//         PrintIdent();
-//         fmt::print("{}\n", glsld::ExprOpToString(expr->GetOp()));
-//     }
+class MyAstVisitor : public glsld::AstVisitor<MyAstVisitor>
+{
+public:
+    auto VisitAstNodeBase(glsld::AstNodeBase& node) -> void
+    {
+        PrintIdent();
+        depth += 1;
+        fmt::print("{}\n", glsld::AstNodeTagToString(node.GetTag()));
+    }
+    auto ExitAstNodeBase(glsld::AstNodeBase& node) -> void
+    {
+        depth -= 1;
+    }
 
-// private:
-//     auto PrintIdent() -> void
-//     {
-//         for (int i = 0; i < depth; ++i) {
-//             fmt::print("  ");
-//         }
-//     }
+private:
+    auto PrintIdent() -> void
+    {
+        for (int i = 0; i < depth; ++i) {
+            fmt::print("  ");
+        }
+    }
 
-//     int depth = 0;
-// };
+    int depth = 0;
+};
 
 auto ReadFile(const std::string& fileName) -> std::optional<std::string>
 {
@@ -109,10 +106,9 @@ auto DoMain() -> void
         fmt::print("failed to read file\n");
     }
 
-    glsld::DiagnosticContext diagCtx{};
-    glsld::LexContext lexer{*inputData};
-    glsld::ParseContext parser{&diagCtx, &lexer};
-    parser.DoParseTranslationUnit();
+    glsld::GlsldCompiler compiler;
+    compiler.Compile(*inputData);
+    MyAstVisitor{}.TraverseAst(compiler.GetAstContext());
     fmt::print("succussfully parsed input file\n");
 }
 

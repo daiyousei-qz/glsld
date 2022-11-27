@@ -1,5 +1,6 @@
 #pragma once
 #include "Ast.h"
+#include "AstContext.h"
 
 #include <type_traits>
 
@@ -24,59 +25,107 @@ namespace glsld
             static_assert(std::is_base_of_v<AstVisitor, Derived>);
         }
 
-    public:
-        auto TraverseInternal(AstExpr* expr) -> void
+        auto TraverseAst(const AstContext& ast) -> void
         {
-            if (expr == nullptr) {
-                return;
+            for (auto decl : ast.globalDecls) {
+                Traverse(*decl);
             }
+        }
+
+        auto Traverse(AstNodeBase& astNode) -> void
+        {
+            TraverseInternal(astNode);
+        }
+        auto Traverse(AstNodeBase* astNode) -> void
+        {
+            if (astNode) {
+                TraverseInternal(*astNode);
+            }
+        }
+
+    public:
+        auto TraverseInternal(AstNodeBase& astNode) -> void
+        {
+            GLSLD_ASSERT(astNode.GetTag() != AstNodeTag::Invalid);
 
             auto& visitor = static_cast<Derived&>(*this);
 
-            switch (expr->GetOp()) {
-                // TODO: warn misuse
-#define DECL_EXPROP(OPNAME, AST_TYPE)                                                                                  \
-    case ExprOp::OPNAME:                                                                                               \
+            switch (astNode.GetTag()) {
+#define DECL_AST_BEGIN_BASE(TYPE)
+#define DECL_AST_END_BASE(TYPE)
+#define DECL_AST_TYPE(TYPE)                                                                                            \
+    case AstNodeTag::TYPE:                                                                                             \
     {                                                                                                                  \
-        auto dispatchedExpr = static_cast<AST_TYPE*>(expr);                                                            \
+        auto dispatchedNode = static_cast<TYPE&>(astNode);                                                             \
         auto visitPolicy    = AstVisitPolicy::Traverse;                                                                \
-        if constexpr (requires { visitor.Enter##AST_TYPE(dispatchedExpr); }) {                                         \
-            visitPolicy = visitor.Enter##AST_TYPE(dispatchedExpr);                                                     \
+        /* Enter */                                                                                                    \
+        if constexpr (requires { visitor.Enter##TYPE(dispatchedNode); }) {                                             \
+            visitPolicy = visitor.Enter##TYPE(dispatchedNode);                                                         \
         }                                                                                                              \
-        else if constexpr (requires { visitor.EnterAstExpr(expr); }) {                                                 \
-            visitPolicy = visitor.EnterAstExpr(expr);                                                                  \
+        else if constexpr (requires { visitor.EnterAstExpr(dispatchedNode); }) {                                       \
+            visitPolicy = visitor.EnterAstExpr(dispatchedNode);                                                        \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.EnterAstStmt(dispatchedNode); }) {                                       \
+            visitPolicy = visitor.EnterAstStmt(dispatchedNode);                                                        \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.EnterAstDecl(dispatchedNode); }) {                                       \
+            visitPolicy = visitor.EnterAstDecl(dispatchedNode);                                                        \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.EnterAstNodeBase(dispatchedNode); }) {                                   \
+            visitPolicy = visitor.EnterAstNodeBase(dispatchedNode);                                                    \
         }                                                                                                              \
         if (visitPolicy == AstVisitPolicy::Leave) {                                                                    \
             break;                                                                                                     \
         }                                                                                                              \
                                                                                                                        \
-        if constexpr (requires { visitor.Visit##AST_TYPE(dispatchedExpr); }) {                                         \
-            visitor.Visit##AST_TYPE(dispatchedExpr);                                                                   \
+        /* Visit */                                                                                                    \
+        if constexpr (requires { visitor.Visit##TYPE(dispatchedNode); }) {                                             \
+            visitor.Visit##TYPE(dispatchedNode);                                                                       \
         }                                                                                                              \
-        else if constexpr (requires { visitor.VisitAstExpr(expr); }) {                                                 \
-            visitor.VisitAstExpr(expr);                                                                                \
+        else if constexpr (requires { visitor.VisitAstExpr(dispatchedNode); }) {                                       \
+            visitor.VisitAstExpr(dispatchedNode);                                                                      \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.VisitAstStmt(dispatchedNode); }) {                                       \
+            visitor.VisitAstStmt(dispatchedNode);                                                                      \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.VisitAstDecl(dispatchedNode); }) {                                       \
+            visitor.VisitAstDecl(dispatchedNode);                                                                      \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.VisitAstNodeBase(dispatchedNode); }) {                                   \
+            visitor.VisitAstNodeBase(dispatchedNode);                                                                  \
         }                                                                                                              \
         if (visitPolicy == AstVisitPolicy::Visit) {                                                                    \
             break;                                                                                                     \
         }                                                                                                              \
                                                                                                                        \
-        for (auto child : dispatchedExpr->GetChildren()) {                                                             \
-            TraverseInternal(child);                                                                                   \
-        }                                                                                                              \
+        /* Traverse */                                                                                                 \
+        dispatchedNode.Traverse(visitor);                                                                              \
                                                                                                                        \
-        if constexpr (requires { visitor.Exit##AST_TYPE(dispatchedExpr); }) {                                          \
-            visitor.Exit##AST_TYPE(dispatchedExpr);                                                                    \
+        /* Exit */                                                                                                     \
+        if constexpr (requires { visitor.Exit##TYPE(dispatchedNode); }) {                                              \
+            visitor.Exit##TYPE(dispatchedNode);                                                                        \
         }                                                                                                              \
-        else if constexpr (requires { visitor.ExitAstExpr(expr); }) {                                                  \
-            visitor.ExitAstExpr(expr);                                                                                 \
+        else if constexpr (requires { visitor.ExitAstExpr(dispatchedNode); }) {                                        \
+            visitor.ExitAstExpr(dispatchedNode);                                                                       \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.ExitAstStmt(dispatchedNode); }) {                                        \
+            visitor.ExitAstStmt(dispatchedNode);                                                                       \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.ExitAstDecl(dispatchedNode); }) {                                        \
+            visitor.ExitAstDecl(dispatchedNode);                                                                       \
+        }                                                                                                              \
+        else if constexpr (requires { visitor.ExitAstNodeBase(dispatchedNode); }) {                                    \
+            visitor.ExitAstNodeBase(dispatchedNode);                                                                   \
         }                                                                                                              \
         break;                                                                                                         \
     }
-#include "GlslExprOp.inc"
-#undef DECL_EXPROP
+#include "GlslAst.inc"
+#undef DECL_AST_BEGIN_BASE
+#undef DECL_AST_END_BASE
+#undef DECL_AST_TYPE
             default:
                 GLSLD_UNREACHABLE();
             }
         }
-    }; // namespace glsld
+    };
 } // namespace glsld
