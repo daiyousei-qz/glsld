@@ -1,12 +1,15 @@
 
 ### Phase 1
 - Basic compiler interface
+- Treat preprocessor as comment
 - File synchronization (full content)
-- Document Symbol
-- Semantic Tokens
+- Document Symbol (global decl)
+- Semantic Tokens (keyword/function name)
+- Hover
 
 ### Phase 2
 - File synchronization (edit)
+- Completion Proposals (all identifier)
 
 
 ### Should have LSP Feature

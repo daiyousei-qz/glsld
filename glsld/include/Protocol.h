@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common.h"
 #include "ObjectMapper.h"
 
 #include <cstdint>
@@ -26,7 +27,7 @@ namespace glsld::lsp
         // uri: DocumentUri;
         DocumentUri uri;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const TextDocumentIdentifier& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const TextDocumentIdentifier& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -34,7 +35,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentIdentifier& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentIdentifier& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -99,7 +100,7 @@ namespace glsld::lsp
         // character: uinteger;
         uint32_t character;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const Position& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const Position& value) -> bool
     {
         if (!mapper.Map("line", value.line)) {
             return false;
@@ -125,7 +126,7 @@ namespace glsld::lsp
         // end: Position;
         Position end;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const Range& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const Range& value) -> bool
     {
         if (!mapper.Map("start", value.start)) {
             return false;
@@ -136,6 +137,70 @@ namespace glsld::lsp
 
         return true;
     }
+
+    // FIXME: should we use enum?
+    // /**
+    //  * Describes the content type that a client supports in various
+    //  * result literals like `Hover`, `ParameterInfo` or `CompletionItem`.
+    //  *
+    //  * Please note that `MarkupKinds` must not start with a `$`. This kinds
+    //  * are reserved for internal usage.
+    //  */
+    enum class MarkupKind
+    {
+        // /**
+        //  * Plain text is supported as a content format
+        //  */
+        // export const PlainText: 'plaintext' = 'plaintext';
+        PlainText,
+
+        // /**
+        //  * Markdown is supported as a content format
+        //  */
+        // export const Markdown: 'markdown' = 'markdown';
+        Markdown,
+    };
+
+    // /**
+    //  * A `MarkupContent` literal represents a string value which content is
+    //  * interpreted base on its kind flag. Currently the protocol supports
+    //  * `plaintext` and `markdown` as markup kinds.
+    //  *
+    //  * If the kind is `markdown` then the value can contain fenced code blocks like
+    //  * in GitHub issues.
+    //  *
+    //  * Here is an example how such a string can be constructed using
+    //  * JavaScript / TypeScript:
+    //  * ```typescript
+    //  * let markdown: MarkdownContent = {
+    //  *     kind: MarkupKind.Markdown,
+    //  *     value: [
+    //  *         '# Header',
+    //  *         'Some text',
+    //  *         '```typescript',
+    //  *         'someCode();',
+    //  *         '```'
+    //  *     ].join('\n')
+    //  * };
+    //  * ```
+    //  *
+    //  * *Please Note* that clients might sanitize the return markdown. A client could
+    //  * decide to remove HTML from the markdown to avoid script execution.
+    //  */
+    struct MarkupContent
+    {
+        // /**
+        //  * The type of the Markup
+        //  */
+        // kind: MarkupKind;
+        MarkupKind kind;
+
+        // /**
+        //  * The content itself
+        //  */
+        // value: string;
+        std::string value;
+    };
 
 #pragma region Show Message
 
@@ -179,7 +244,7 @@ namespace glsld::lsp
         // message: string;
         std::string message;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const ShowMessageParams& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const ShowMessageParams& value) -> bool
     {
         if (!mapper.Map("type", static_cast<int32_t>(value.type))) {
             return false;
@@ -190,6 +255,57 @@ namespace glsld::lsp
 
         return true;
     }
+
+#pragma endregion
+
+#pragma region Hover
+
+    //
+    // Hover
+    //
+
+    inline constexpr const char* LSPMethod_Hover = "textDocument/hover";
+
+    struct HoverClientCapabilities
+    {
+        // /**
+        //  * Whether hover supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * Client supports the follow content formats if the content
+        //  * property refers to a `literal of type MarkupContent`.
+        //  * The order describes the preferred format of the client.
+        //  */
+        // contentFormat?: MarkupKind[];
+    };
+
+    struct HoverOptions
+    {
+    };
+
+    struct HoverParams
+    {
+    };
+
+    // /**
+    //  * The result of a hover request.
+    //  */
+    struct Hover
+    {
+        // /**
+        //  * The hover's content
+        //  */
+        // contents: MarkedString | MarkedString[] | MarkupContent;
+
+        // /**
+        //  * An optional range is a range inside a text document
+        //  * that is used to visualize a hover, e.g. by changing the background color.
+        //  */
+        // range?: Range;
+        Range range;
+    };
 
 #pragma endregion
 
@@ -213,17 +329,17 @@ namespace glsld::lsp
         //  * `textDocument/documentSymbol` request.
         //  */
         // symbolKind?: {
-        // 	/**
-        // 	 * The symbol kind values the client supports. When this
-        // 	 * property exists the client also guarantees that it will
-        // 	 * handle values outside its set gracefully and falls back
-        // 	 * to a default value when unknown.
-        // 	 *
-        // 	 * If this property is not present the client only supports
-        // 	 * the symbol kinds from `File` to `Array` as defined in
-        // 	 * the initial version of the protocol.
-        // 	 */
-        // 	valueSet?: SymbolKind[];
+        // /**
+        //  * The symbol kind values the client supports. When this
+        //  * property exists the client also guarantees that it will
+        //  * handle values outside its set gracefully and falls back
+        //  * to a default value when unknown.
+        //  *
+        //  * If this property is not present the client only supports
+        //  * the symbol kinds from `File` to `Array` as defined in
+        //  * the initial version of the protocol.
+        //  */
+        // valueSet?: SymbolKind[];
         // };
 
         // /**
@@ -239,10 +355,10 @@ namespace glsld::lsp
         //  * @since 3.16.0
         //  */
         // tagSupport?: {
-        // 	/**
-        // 	 * The tags supported by the client.
-        // 	 */
-        // 	valueSet: SymbolTag[];
+        //     /**
+        //      * The tags supported by the client.
+        //      */
+        //     valueSet: SymbolTag[];
         // };
 
         // /**
@@ -262,7 +378,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DocumentSymbolParams& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, DocumentSymbolParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -400,7 +516,7 @@ namespace glsld::lsp
         //  */
         // children?: DocumentSymbol[];
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const DocumentSymbol& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const DocumentSymbol& value) -> bool
     {
         if (!mapper.Map("name", value.name)) {
             return false;
@@ -417,11 +533,96 @@ namespace glsld::lsp
         return true;
     }
 
+#pragma endregion
+
 #pragma region Semantic Tokens
 
     //
     // Semantic Tokens
     //
+
+    inline constexpr const char* LSPMethod_SemanticTokensFull      = "textDocument/semanticTokens/full";
+    inline constexpr const char* LSPMethod_SemanticTokensFullDelta = "textDocument/semanticTokens/full/delta";
+
+    enum class SemanticTokenTypes
+    {
+        // namespace = 'namespace',
+        // /**
+        //  * Represents a generic type. Acts as a fallback for types which
+        //  * can't be mapped to a specific type like class or enum.
+        //  */
+        // type = 'type',
+        // class = 'class',
+        // enum = 'enum',
+        // interface = 'interface',
+        // struct = 'struct',
+        // typeParameter = 'typeParameter',
+        // parameter = 'parameter',
+        // variable = 'variable',
+        // property = 'property',
+        // enumMember = 'enumMember',
+        // event = 'event',
+        // function = 'function',
+        // method = 'method',
+        // macro = 'macro',
+        // keyword = 'keyword',
+        // modifier = 'modifier',
+        // comment = 'comment',
+        // string = 'string',
+        // number = 'number',
+        // regexp = 'regexp',
+        // operator = 'operator'
+        // /**
+        //  * @since 3.17.0
+        //  */
+        // decorator = 'decorator'
+
+        // The following are predefined values
+        Namespace,
+        Type,
+        Class,
+        Enum,
+        Interface,
+        Struct,
+        TypeParameter,
+        Variable,
+        Property,
+        EnumMember,
+        Event,
+        Function,
+        Method,
+        Macro,
+        Keyword,
+        Modifier,
+        Comment,
+        String,
+        Number,
+        Regexp,
+        Operator,
+        Decorator,
+
+        //
+    };
+
+    enum class SemanticTokenModifiers
+    {
+        // declaration = 'declaration',
+        // definition = 'definition',
+        // readonly = 'readonly',
+        // static = 'static',
+        // deprecated = 'deprecated',
+        // abstract = 'abstract',
+        // async = 'async',
+        // modification = 'modification',
+        // documentation = 'documentation',
+        // defaultLibrary = 'defaultLibrary'
+    };
+
+    enum class TokenFormat
+    {
+        // export const Relative: 'relative' = 'relative';
+        Relative,
+    };
 
     struct SemanticTokenClientsCapabilities
     {
@@ -472,27 +673,27 @@ namespace glsld::lsp
         // /**
         //  * The token types that the client supports.
         //  */
-        // 	tokenTypes: string[];
+        // tokenTypes: string[];
 
         // /**
         //  * The token modifiers that the client supports.
         //  */
-        // 	tokenModifiers: string[];
+        // tokenModifiers: string[];
 
         // /**
         //  * The formats the clients supports.
         //  */
-        // 	formats: TokenFormat[];
+        // formats: TokenFormat[];
 
         // /**
         //  * Whether the client supports tokens that can overlap each other.
         //  */
-        // 	overlappingTokenSupport?: boolean;
+        // overlappingTokenSupport?: boolean;
 
         // /**
         //  * Whether the client supports tokens that can span multiple lines.
         //  */
-        // 	multilineTokenSupport?: boolean;
+        // multilineTokenSupport?: boolean;
 
         // /**
         //  * Whether the client allows the server to actively cancel a
@@ -502,7 +703,7 @@ namespace glsld::lsp
         //  *
         //  * @since 3.17.0
         //  */
-        // 	serverCancelSupport?: boolean;
+        // serverCancelSupport?: boolean;
 
         // /**
         //  * Whether the client uses semantic tokens to augment existing
@@ -516,9 +717,9 @@ namespace glsld::lsp
         //  *
         //  * @since 3.17.0
         //  */
-        // 	augmentsSyntaxTokens?: boolean;
+        // augmentsSyntaxTokens?: boolean;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, SemanticTokenClientsCapabilities& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, SemanticTokenClientsCapabilities& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("requests");
@@ -537,39 +738,6 @@ namespace glsld::lsp
         return true;
     }
 
-    enum class SemanticTokenTypes
-    {
-        // The following are predefined values
-        Namespace,
-        Type,
-        Class,
-        Enum,
-        Interface,
-        Struct,
-        TypeParameter,
-        Variable,
-        Property,
-        EnumMember,
-        Event,
-        Function,
-        Method,
-        Macro,
-        Keyword,
-        Modifier,
-        Comment,
-        String,
-        Number,
-        Regexp,
-        Operator,
-        Decorator,
-
-        //
-    };
-
-    enum class SemanticTokenModifiers
-    {
-    };
-
     struct SemanticTokensLegend
     {
         // /**
@@ -584,6 +752,17 @@ namespace glsld::lsp
         // tokenModifiers: string[];
         std::vector<std::string> tokenModifiers;
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokensLegend& value) -> bool
+    {
+        if (!mapper.Map("tokenTypes", value.tokenTypes)) {
+            return false;
+        }
+        if (!mapper.Map("tokenModifiers", value.tokenModifiers)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct SemanticTokenOptions /*: WorkDoneProgressOptions*/
     {
@@ -612,6 +791,23 @@ namespace glsld::lsp
         // delta?: boolean;
         bool delta;
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokenOptions& value) -> bool
+    {
+        if (!mapper.Map("legend", value.legend)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+        if (!mapper.Map("full", value.full)) {
+            return false;
+        }
+        if (!mapper.Map("delta", value.delta)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct SemanticTokensParam /*: WorkDoneProgressParams,PartialResultParams*/
     {
@@ -621,6 +817,14 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
+    inline auto MapJson(JsonToObjectMapper& mapper, SemanticTokensParam& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct SemanticTokens
     {
@@ -639,6 +843,17 @@ namespace glsld::lsp
         // data: uinteger[];
         std::vector<uint32_t> data;
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokens& value) -> bool
+    {
+        if (!mapper.Map("resultId", value.resultId)) {
+            return false;
+        }
+        if (!mapper.Map("data", value.data)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct SemanticTokensEdit
     {
@@ -661,7 +876,7 @@ namespace glsld::lsp
         std::vector<uint32_t> data;
     };
 
-    struct SemanticTokenDelta
+    struct SemanticTokensDelta
     {
         // readonly resultId?: string;
         std::string resultId;
@@ -672,6 +887,735 @@ namespace glsld::lsp
         //  */
         // edits: SemanticTokensEdit[];
         std::vector<SemanticTokensEdit> edits;
+    };
+
+#pragma endregion
+
+#pragma region Completion
+
+    //
+    // Completion
+    //
+
+    inline constexpr const char* LSPMethod_Completion = "textDocument/completion";
+
+    struct CompletionClientCapabilities
+    {
+        // /**
+        //  * Whether completion supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * The client supports the following `CompletionItem` specific
+        //  * capabilities.
+        //  */
+        // completionItem?: { ... }
+        struct
+        {
+            // /**
+            //  * Client supports snippets as insert text.
+            //  *
+            //  * A snippet can define tab stops and placeholders with `$1`, `$2`
+            //  * and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+            //  * the end of the snippet. Placeholders with equal identifiers are
+            //  * linked, that is typing in one will update others too.
+            //  */
+            // snippetSupport?: boolean;
+            bool snippetSupport;
+
+            // /**
+            //  * Client supports commit characters on a completion item.
+            //  */
+            // commitCharactersSupport?: boolean;
+            bool commitCharactersSupport;
+
+            // /**
+            //  * Client supports the follow content formats for the documentation
+            //  * property. The order describes the preferred format of the client.
+            //  */
+            // documentationFormat?: MarkupKind[];
+
+            // /**
+            //  * Client supports the deprecated property on a completion item.
+            //  */
+            // deprecatedSupport?: boolean;
+            bool deprecatedSupport;
+
+            // /**
+            //  * Client supports the preselect property on a completion item.
+            //  */
+            // preselectSupport?: boolean;
+            bool preselectSupport;
+
+            // /**
+            //  * Client supports the tag property on a completion item. Clients
+            //  * supporting tags have to handle unknown tags gracefully. Clients
+            //  * especially need to preserve unknown tags when sending a completion
+            //  * item back to the server in a resolve call.
+            //  *
+            //  * @since 3.15.0
+            //  */
+            // tagSupport?: {
+            // /**
+            //  * The tags supported by the client.
+            //  */
+            // valueSet: CompletionItemTag[];
+
+            // /**
+            //  * Client supports insert replace edit to control different behavior if
+            //  * a completion item is inserted in the text or should replace text.
+            //  *
+            //  * @since 3.16.0
+            //  */
+            // insertReplaceSupport?: boolean;
+            bool insertReplaceSupport;
+
+            // /**
+            //  * Indicates which properties a client can resolve lazily on a
+            //  * completion item. Before version 3.16.0 only the predefined properties
+            //  * `documentation` and `detail` could be resolved lazily.
+            //  *
+            //  * @since 3.16.0
+            //  */
+            // resolveSupport?: {
+            //     /**
+            //      * The properties that a client can resolve lazily.
+            //      */
+            //     properties: string[];
+            // };
+
+            // /**
+            //  * The client supports the `insertTextMode` property on
+            //  * a completion item to override the whitespace handling mode
+            //  * as defined by the client (see `insertTextMode`).
+            //  *
+            //  * @since 3.16.0
+            //  */
+            // insertTextModeSupport?: {
+            //     valueSet: InsertTextMode[];
+            // };
+
+            // /**
+            //  * The client has support for completion item label
+            //  * details (see also `CompletionItemLabelDetails`).
+            //  *
+            //  * @since 3.17.0
+            //  */
+            // labelDetailsSupport?: boolean;
+        } completionItem;
+
+        // completionItemKind?: {
+        //     /**
+        //      * The completion item kind values the client supports. When this
+        //      * property exists the client also guarantees that it will
+        //      * handle values outside its set gracefully and falls back
+        //      * to a default value when unknown.
+        //      *
+        //      * If this property is not present the client only supports
+        //      * the completion items kinds from `Text` to `Reference` as defined in
+        //      * the initial version of the protocol.
+        //      */
+        //     valueSet?: CompletionItemKind[];
+        // };
+
+        // /**
+        //  * The client supports to send additional context information for a
+        //  * `textDocument/completion` request.
+        //  */
+        // contextSupport?: boolean;
+
+        // /**
+        //  * The client's default when the completion item doesn't provide a
+        //  * `insertTextMode` property.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // insertTextMode?: InsertTextMode;
+
+        // /**
+        //  * The client supports the following `CompletionList` specific
+        //  * capabilities.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // completionList?: {
+        //     /**
+        //      * The client supports the following itemDefaults on
+        //      * a completion list.
+        //      *
+        //      * The value lists the supported property names of the
+        //      * `CompletionList.itemDefaults` object. If omitted
+        //      * no properties are supported.
+        //      *
+        //      * @since 3.17.0
+        //      */
+        //     itemDefaults?: string[];
+        // }
+    };
+
+    struct CompletionOptions
+    {
+        // /**
+        //  * The additional characters, beyond the defaults provided by the client (typically
+        //  * [a-zA-Z]), that should automatically trigger a completion request. For example
+        //  * `.` in JavaScript represents the beginning of an object property or method and is
+        //  * thus a good candidate for triggering a completion request.
+        //  *
+        //  * Most tools trigger a completion request automatically without explicitly
+        //  * requesting it using a keyboard shortcut (e.g. Ctrl+Space). Typically they
+        //  * do so when the user starts to type an identifier. For example if the user
+        //  * types `c` in a JavaScript file code complete will automatically pop up
+        //  * present `console` besides others as a completion item. Characters that
+        //  * make up identifiers don't need to be listed here.
+        //  */
+        // triggerCharacters?: string[];
+        std::vector<std::string> triggerCharacters;
+
+        // /**
+        //  * The list of all possible characters that commit a completion. This field
+        //  * can be used if clients don't support individual commit characters per
+        //  * completion item. See client capability
+        //  * `completion.completionItem.commitCharactersSupport`.
+        //  *
+        //  * If a server provides both `allCommitCharacters` and commit characters on
+        //  * an individual completion item the ones on the completion item win.
+        //  *
+        //  * @since 3.2.0
+        //  */
+        // allCommitCharacters?: string[];
+        std::vector<std::string> allCommitCharacters;
+
+        // /**
+        //  * The server provides support to resolve additional
+        //  * information for a completion item.
+        //  */
+        // resolveProvider?: boolean;
+        bool resolveProvider;
+
+        // /**
+        //  * The server supports the following `CompletionItem` specific
+        //  * capabilities.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // completionItem?: {
+        //     /**
+        //      * The server has support for completion item label
+        //      * details (see also `CompletionItemLabelDetails`) when receiving
+        //      * a completion item in a resolve call.
+        //      *
+        //      * @since 3.17.0
+        //      */
+        //     labelDetailsSupport?: boolean;
+        // }
+    };
+
+    // /**
+    //  * How a completion was triggered
+    //  */
+    enum class CompletionTriggerKind
+    {
+        // /**
+        //  * Completion was triggered by typing an identifier (24x7 code
+        //  * complete), manual invocation (e.g Ctrl+Space) or via API.
+        //  */
+        // export const Invoked: 1 = 1;
+        Invoked = 1,
+
+        // /**
+        //  * Completion was triggered by a trigger character specified by
+        //  * the `triggerCharacters` properties of the
+        //  * `CompletionRegistrationOptions`.
+        //  */
+        // export const TriggerCharacter: 2 = 2;
+        TriggerCharacter = 2,
+
+        // /**
+        //  * Completion was re-triggered as the current completion list is incomplete.
+        //  */
+        // export const TriggerForIncompleteCompletions: 3 = 3;
+        TriggerForIncompleteCompletions = 3,
+    };
+
+    // /**
+    //  * Contains additional information about the context in which a completion
+    //  * request is triggered.
+    //  */
+    struct CompletionContext
+    {
+        // /**
+        //  * How the completion was triggered.
+        //  */
+        // triggerKind: CompletionTriggerKind;
+        CompletionTriggerKind triggerKind;
+
+        // /**
+        //  * The trigger character (a single character) that has trigger code
+        //  * complete. Is undefined if
+        //  * `triggerKind !== CompletionTriggerKind.TriggerCharacter`
+        //  */
+        // triggerCharacter?: string;
+        std::optional<std::string> triggerCharacter;
+    };
+
+    struct CompletionParams
+    {
+        // /**
+        //  * The completion context. This is only available if the client specifies
+        //  * to send this using the client capability
+        //  * `completion.contextSupport === true`
+        //  */
+        // context?: CompletionContext;
+        std::optional<CompletionContext> context;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, CompletionParams& value) -> bool
+    {
+        GLSLD_NO_IMPL();
+    }
+
+    // /**
+    //  * Defines whether the insert text in a completion item should be interpreted as
+    //  * plain text or a snippet.
+    //  */
+    enum class InsertTextFormat
+    {
+        // /**
+        //  * The primary text to be inserted is treated as a plain string.
+        //  */
+        // export const PlainText = 1;
+        PlainText = 1,
+
+        // /**
+        //  * The primary text to be inserted is treated as a snippet.
+        //  *
+        //  * A snippet can define tab stops and placeholders with `$1`, `$2`
+        //  * and `${3:foo}`. `$0` defines the final tab stop, it defaults to
+        //  * the end of the snippet. Placeholders with equal identifiers are linked,
+        //  * that is typing in one will update others too.
+        //  */
+        // export const Snippet = 2;
+        Snippet = 2,
+    };
+
+    // /**
+    //  * Completion item tags are extra annotations that tweak the rendering of a
+    //  * completion item.
+    //  *
+    //  * @since 3.15.0
+    //  */
+    enum class CompletionItemTag
+    {
+        // /**
+        //  * Render a completion as obsolete, usually using a strike-out.
+        //  */
+        // export const Deprecated = 1;
+        Deprecated = 1,
+    };
+
+    // /**
+    //  * A special text edit to provide an insert and a replace operation.
+    //  *
+    //  * @since 3.16.0
+    //  */
+    struct InsertReplaceEdit
+    {
+        // /**
+        //  * The string to be inserted.
+        //  */
+        // newText: string;
+        std::string newText;
+
+        // /**
+        //  * The range if the insert is requested
+        //  */
+        // insert: Range;
+        Range insert;
+
+        // /**
+        //  * The range if the replace is requested.
+        //  */
+        // replace: Range;
+        Range replace;
+    };
+
+    // /**
+    //  * How whitespace and indentation is handled during completion
+    //  * item insertion.
+    //  *
+    //  * @since 3.16.0
+    //  */
+    enum class InsertTextMode
+    {
+        // /**
+        //  * The insertion or replace strings is taken as it is. If the
+        //  * value is multi line the lines below the cursor will be
+        //  * inserted using the indentation defined in the string value.
+        //  * The client will not apply any kind of adjustments to the
+        //  * string.
+        //  */
+        // export const asIs: 1 = 1;
+        AsIs = 1,
+
+        // /**
+        //  * The editor adjusts leading whitespace of new lines so that
+        //  * they match the indentation up to the cursor of the line for
+        //  * which the item is accepted.
+        //  *
+        //  * Consider a line like this: <2tabs><cursor><3tabs>foo. Accepting a
+        //  * multi line completion item is indented using 2 tabs and all
+        //  * following lines inserted will be indented using 2 tabs as well.
+        //  */
+        // export const adjustIndentation: 2 = 2;
+        AdjustIndentation = 2,
+    };
+
+    // /**
+    //  * Additional details for a completion item label.
+    //  *
+    //  * @since 3.17.0
+    //  */
+    struct CompletionItemLabelDetails
+    {
+        // /**
+        //  * An optional string which is rendered less prominently directly after
+        //  * {@link CompletionItem.label label}, without any spacing. Should be
+        //  * used for function signatures or type annotations.
+        //  */
+        // detail?: string;
+        std::string detail;
+
+        // /**
+        //  * An optional string which is rendered less prominently after
+        //  * {@link CompletionItemLabelDetails.detail}. Should be used for fully qualified
+        //  * names or file path.
+        //  */
+        // description?: string;
+        std::string description;
+    };
+
+    // /**
+    //  * The kind of a completion entry.
+    //  */
+    enum class CompletionItemKind
+    {
+        // export const Text = 1;
+        Text = 1,
+        // export const Method = 2;
+        Method = 2,
+        // export const Function = 3;
+        Function = 3,
+        // export const Constructor = 4;
+        Constructor = 4,
+        // export const Field = 5;
+        Field = 5,
+        // export const Variable = 6;
+        Variable = 6,
+        // export const Class = 7;
+        Class = 7,
+        // export const Interface = 8;
+        Interface = 8,
+        // export const Module = 9;
+        Module = 9,
+        // export const Property = 10;
+        Property = 10,
+        // export const Unit = 11;
+        Unit = 11,
+        // export const Value = 12;
+        Value = 12,
+        // export const Enum = 13;
+        Enum = 13,
+        // export const Keyword = 14;
+        Keyword = 14,
+        // export const Snippet = 15;
+        Snippet = 15,
+        // export const Color = 16;
+        Color = 16,
+        // export const File = 17;
+        File = 17,
+        // export const Reference = 18;
+        Reference = 18,
+        // export const Folder = 19;
+        Folder = 19,
+        // export const EnumMember = 20;
+        EnumMember = 20,
+        // export const Constant = 21;
+        Constant = 21,
+        // export const Struct = 22;
+        Struct = 22,
+        // export const Event = 23;
+        Event = 23,
+        // export const Operator = 24;
+        Operator = 24,
+        // export const TypeParameter = 25;
+        TypeParameter = 25,
+    };
+
+    struct CompletionItem
+    {
+        // /**
+        //  * The label of this completion item.
+        //  *
+        //  * The label property is also by default the text that
+        //  * is inserted when selecting this completion.
+        //  *
+        //  * If label details are provided the label itself should
+        //  * be an unqualified name of the completion item.
+        //  */
+        // label: string;
+        std::string label;
+
+        // /**
+        //  * Additional details for the label
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // labelDetails?: CompletionItemLabelDetails;
+        CompletionItemLabelDetails labelDetails;
+
+        // /**
+        //  * The kind of this completion item. Based of the kind
+        //  * an icon is chosen by the editor. The standardized set
+        //  * of available values is defined in `CompletionItemKind`.
+        //  */
+        // kind?: CompletionItemKind;
+        CompletionItemKind kind;
+
+        // /**
+        //  * Tags for this completion item.
+        //  *
+        //  * @since 3.15.0
+        //  */
+        // tags?: CompletionItemTag[];
+        std::vector<CompletionItemTag> tags;
+
+        // /**
+        //  * A human-readable string with additional information
+        //  * about this item, like type or symbol information.
+        //  */
+        // detail?: string;
+        std::string detail;
+
+        // /**
+        //  * A human-readable string that represents a doc-comment.
+        //  */
+        // documentation?: string | MarkupContent;
+        std::string documentation;
+
+        // /**
+        //  * Indicates if this item is deprecated.
+        //  *
+        //  * @deprecated Use `tags` instead if supported.
+        //  */
+        // deprecated?: boolean;
+
+        // /**
+        //  * Select this item when showing.
+        //  *
+        //  * *Note* that only one completion item can be selected and that the
+        //  * tool / client decides which item that is. The rule is that the *first*
+        //  * item of those that match best is selected.
+        //  */
+        // preselect?: boolean;
+
+        // /**
+        //  * A string that should be used when comparing this item
+        //  * with other items. When `falsy` the label is used
+        //  * as the sort text for this item.
+        //  */
+        // sortText?: string;
+
+        // /**
+        //  * A string that should be used when filtering a set of
+        //  * completion items. When `falsy` the label is used as the
+        //  * filter text for this item.
+        //  */
+        // filterText?: string;
+
+        // /**
+        //  * A string that should be inserted into a document when selecting
+        //  * this completion. When `falsy` the label is used as the insert text
+        //  * for this item.
+        //  *
+        //  * The `insertText` is subject to interpretation by the client side.
+        //  * Some tools might not take the string literally. For example
+        //  * VS Code when code complete is requested in this example
+        //  * `con<cursor position>` and a completion item with an `insertText` of
+        //  * `console` is provided it will only insert `sole`. Therefore it is
+        //  * recommended to use `textEdit` instead since it avoids additional client
+        //  * side interpretation.
+        //  */
+        // insertText?: string;
+
+        // /**
+        //  * The format of the insert text. The format applies to both the
+        //  * `insertText` property and the `newText` property of a provided
+        //  * `textEdit`. If omitted defaults to `InsertTextFormat.PlainText`.
+        //  *
+        //  * Please note that the insertTextFormat doesn't apply to
+        //  * `additionalTextEdits`.
+        //  */
+        // insertTextFormat?: InsertTextFormat;
+
+        // /**
+        //  * How whitespace and indentation is handled during completion
+        //  * item insertion. If not provided the client's default value depends on
+        //  * the `textDocument.completion.insertTextMode` client capability.
+        //  *
+        //  * @since 3.16.0
+        //  * @since 3.17.0 - support for `textDocument.completion.insertTextMode`
+        //  */
+        // insertTextMode?: InsertTextMode;
+
+        // /**
+        //  * An edit which is applied to a document when selecting this completion.
+        //  * When an edit is provided the value of `insertText` is ignored.
+        //  *
+        //  * *Note:* The range of the edit must be a single line range and it must
+        //  * contain the position at which completion has been requested.
+        //  *
+        //  * Most editors support two different operations when accepting a completion
+        //  * item. One is to insert a completion text and the other is to replace an
+        //  * existing text with a completion text. Since this can usually not be
+        //  * predetermined by a server it can report both ranges. Clients need to
+        //  * signal support for `InsertReplaceEdit`s via the
+        //  * `textDocument.completion.completionItem.insertReplaceSupport` client
+        //  * capability property.
+        //  *
+        //  * *Note 1:* The text edit's range as well as both ranges from an insert
+        //  * replace edit must be a [single line] and they must contain the position
+        //  * at which completion has been requested.
+        //  * *Note 2:* If an `InsertReplaceEdit` is returned the edit's insert range
+        //  * must be a prefix of the edit's replace range, that means it must be
+        //  * contained and starting at the same position.
+        //  *
+        //  * @since 3.16.0 additional type `InsertReplaceEdit`
+        //  */
+        // textEdit?: TextEdit | InsertReplaceEdit;
+
+        // /**
+        //  * The edit text used if the completion item is part of a CompletionList and
+        //  * CompletionList defines an item default for the text edit range.
+        //  *
+        //  * Clients will only honor this property if they opt into completion list
+        //  * item defaults using the capability `completionList.itemDefaults`.
+        //  *
+        //  * If not provided and a list's default range is provided the label
+        //  * property is used as a text.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // textEditText?: string;
+
+        // /**
+        //  * An optional array of additional text edits that are applied when
+        //  * selecting this completion. Edits must not overlap (including the same
+        //  * insert position) with the main edit nor with themselves.
+        //  *
+        //  * Additional text edits should be used to change text unrelated to the
+        //  * current cursor position (for example adding an import statement at the
+        //  * top of the file if the completion item will insert an unqualified type).
+        //  */
+        // additionalTextEdits?: TextEdit[];
+
+        // /**
+        //  * An optional set of characters that when pressed while this completion is
+        //  * active will accept it first and then type that character. *Note* that all
+        //  * commit characters should have `length=1` and that superfluous characters
+        //  * will be ignored.
+        //  */
+        // commitCharacters?: string[];
+
+        // /**
+        //  * An optional command that is executed *after* inserting this completion.
+        //  * *Note* that additional modifications to the current document should be
+        //  * described with the additionalTextEdits-property.
+        //  */
+        // command?: Command;
+
+        // /**
+        //  * A data entry field that is preserved on a completion item between
+        //  * a completion and a completion resolve request.
+        //  */
+        // data?: LSPAny;
+    };
+
+    // /**
+    //  * Represents a collection of [completion items](#CompletionItem) to be
+    //  * presented in the editor.
+    //  */
+    struct CompletionList
+    {
+        // /**
+        //  * This list is not complete. Further typing should result in recomputing
+        //  * this list.
+        //  *
+        //  * Recomputed lists have all their items replaced (not appended) in the
+        //  * incomplete completion sessions.
+        //  */
+        // isIncomplete: boolean;
+        bool isIncomplete;
+
+        // /**
+        //  * In many cases the items of an actual completion result share the same
+        //  * value for properties like `commitCharacters` or the range of a text
+        //  * edit. A completion list can therefore define item defaults which will
+        //  * be used if a completion item itself doesn't specify the value.
+        //  *
+        //  * If a completion list specifies a default value and a completion item
+        //  * also specifies a corresponding value the one from the item is used.
+        //  *
+        //  * Servers are only allowed to return default values if the client
+        //  * signals support for this via the `completionList.itemDefaults`
+        //  * capability.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // itemDefaults?: {
+        // /**
+        //  * A default commit character set.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // commitCharacters?: string[];
+
+        // /**
+        //  * A default edit range
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // editRange?: Range | {
+        //     insert: Range;
+        //     replace: Range;
+        // };
+
+        // /**
+        //  * A default insert text format
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // insertTextFormat?: InsertTextFormat;
+
+        // /**
+        //  * A default insert text mode
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // insertTextMode?: InsertTextMode;
+
+        // /**
+        //  * A default data value.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // data?: LSPAny;
+        // }
+
+        // /**
+        //  * The completion items.
+        //  */
+        // items: CompletionItem[];
+        std::vector<CompletionItem> items;
     };
 
 #pragma endregion
@@ -728,7 +1672,7 @@ namespace glsld::lsp
         // change?: TextDocumentSyncKind;
         TextDocumentSyncKind change;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const TextDocumentSyncOptions& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const TextDocumentSyncOptions& value) -> bool
     {
         if (!mapper.Map("openClose", value.openClose)) {
             return false;
@@ -778,7 +1722,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentItem;
         TextDocumentItem textDocument;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DidOpenTextDocumentParams& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, DidOpenTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -824,7 +1768,7 @@ namespace glsld::lsp
         // text: string;
         std::string text;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
     {
         if (!mapper.Map("text", value.text)) {
             return false;
@@ -867,7 +1811,7 @@ namespace glsld::lsp
         // contentChanges: TextDocumentContentChangeEvent[];
         std::vector<TextDocumentContentChangeEvent> contentChanges;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DidChangeTextDocumentParams& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, DidChangeTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -896,7 +1840,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, DidCloseTextDocumentParams& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, DidCloseTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -920,7 +1864,7 @@ namespace glsld::lsp
 
         std::optional<SemanticTokenClientsCapabilities> semanticTokens;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, TextDocumentClientCapabilities& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentClientCapabilities& value) -> bool
     {
         if (!mapper.Map("semanticTokens", value.semanticTokens)) {
             return false;
@@ -941,7 +1885,7 @@ namespace glsld::lsp
         // semanticTokens?: SemanticTokensClientCapabilities;
         std::optional<TextDocumentClientCapabilities> textDocument;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, ClientCapabilities& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, ClientCapabilities& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -975,13 +1919,17 @@ namespace glsld::lsp
         //  */
         // semanticTokensProvider?: SemanticTokensOptions
         //     | SemanticTokensRegistrationOptions;
+        SemanticTokenOptions semanticTokensProvider;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const ServerCapabilities& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
         if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
             return false;
         }
         if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {
+            return false;
+        }
+        if (!mapper.Map("semanticTokensProvider", value.semanticTokensProvider)) {
             return false;
         }
 
@@ -1080,7 +2028,7 @@ namespace glsld::lsp
         //  */
         // workspaceFolders?: WorkspaceFolder[] | null;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, InitializeParams& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, InitializeParams& value) -> bool
     {
         if (!mapper.Map("processId", value.processId)) {
             return false;
@@ -1124,7 +2072,7 @@ namespace glsld::lsp
             std::string version;
         } serverInfo;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const InitializedResult& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const InitializedResult& value) -> bool
     {
         if (!mapper.Map("capabilities", value.capabilities)) {
             return false;
@@ -1155,7 +2103,7 @@ namespace glsld::lsp
         // retry: boolean;
         bool retry;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, const InitializeError& value) -> bool
+    inline auto MapJson(JsonFromObjectMapper& mapper, const InitializeError& value) -> bool
     {
         if (!mapper.Map("retry", value.retry)) {
             return false;

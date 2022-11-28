@@ -26,52 +26,52 @@ namespace glsld
     {
     public:
         RawSourceView(std::string_view source_text)
-            : line_(0), column_(0), cursor_(source_text.data()), begin_(source_text.data()),
-              end_(source_text.data() + source_text.size())
+            : line(0), column(0), cursor(source_text.data()), begin(source_text.data()),
+              end(source_text.data() + source_text.size())
         {
         }
 
         auto Eof() -> bool
         {
-            return cursor_ == end_;
+            return cursor == end;
         }
 
         auto GetLineNum() -> int
         {
-            return line_;
+            return line;
         }
 
         auto GetColumnNum() -> int
         {
-            return column_;
+            return column;
         }
 
         auto HeadCursor() -> const char*
         {
-            return begin_;
+            return begin;
         }
 
         auto LastCursor() -> const char*
         {
-            GLSLD_ASSERT(cursor_ != begin_);
-            return cursor_ - 1;
+            GLSLD_ASSERT(cursor != begin);
+            return cursor - 1;
         }
 
         auto CurrentCursor() -> const char*
         {
-            return cursor_;
+            return cursor;
         }
 
         auto Peek() -> char
         {
             GLSLD_ASSERT(!Eof());
-            return *cursor_;
+            return *cursor;
         }
 
         auto Peek(int lookahead) -> char
         {
-            if (end_ - cursor_ > lookahead) {
-                return cursor_[lookahead];
+            if (end - cursor > lookahead) {
+                return cursor[lookahead];
             }
 
             return '\0';
@@ -81,25 +81,25 @@ namespace glsld
         {
             GLSLD_ASSERT(!Eof());
 
-            char ch = *cursor_;
+            char ch = *cursor;
             if (ch == '\n') {
-                line_ += 1;
-                column_ = 0;
+                line += 1;
+                column = 0;
             }
             else {
-                column_ += 1;
+                column += 1;
             }
 
-            ++cursor_;
+            ++cursor;
             return ch;
         }
 
     private:
-        int line_;
-        int column_;
-        const char* cursor_;
-        const char* begin_;
-        const char* end_;
+        int line;
+        int column;
+        const char* cursor;
+        const char* begin;
+        const char* end;
     };
 
     // FIXME: tokenizer may issue error?
@@ -110,52 +110,14 @@ namespace glsld
         {
         }
 
-        // TODO: return comment as token?
-        auto SkipCommentAndWhitespace() -> void
-        {
-            bool consumedAny = true;
-            while (!sourceView.Eof() && consumedAny) {
-                consumedAny = false;
-
-                while (!sourceView.Eof() && IsWhitespace(sourceView.Peek())) {
-                    consumedAny = true;
-                    sourceView.Consume();
-                }
-
-                if (sourceView.Eof()) {
-                    break;
-                }
-                if (sourceView.Peek() == '/' && sourceView.Peek(1) == '/') {
-                    while (!sourceView.Eof() && sourceView.Peek() != '\n') {
-                        consumedAny = true;
-                        sourceView.Consume();
-                    }
-                }
-
-                if (sourceView.Eof()) {
-                    break;
-                }
-                if (sourceView.Peek() == '/' && sourceView.Peek(1) == '*') {
-                    while (!sourceView.Eof() && (sourceView.Peek() != '*' && sourceView.Peek(1) != '/')) {
-                        consumedAny = true;
-                        sourceView.Consume();
-                    }
-                    if (!sourceView.Eof()) {
-                        consumedAny = true;
-                        sourceView.Consume();
-                    }
-                    if (!sourceView.Eof()) {
-                        consumedAny = true;
-                        sourceView.Consume();
-                    }
-                }
-            }
-        }
-
         auto NextToken(std::string& buf) -> TokenInfo
         {
-            SkipCommentAndWhitespace();
+            // skip whitespace
+            while (!sourceView.Eof() && IsWhitespace(sourceView.Peek())) {
+                sourceView.Consume();
+            }
 
+            // tokenize
             TokenInfo result;
             result.rawOffset   = sourceView.CurrentCursor() - sourceView.HeadCursor();
             result.lineBegin   = sourceView.GetLineNum();
@@ -184,8 +146,15 @@ namespace glsld
                 // number literal
                 klass = ParseNumberLiteral(firstChar);
             }
+            else if (firstChar == '/' && sourceView.Peek(0) == '/') {
+                // line comment
+                klass = ParseLineComment();
+            }
+            else if (firstChar == '/' && sourceView.Peek(0) == '*') {
+                klass = ParseBlockComment();
+            }
             else {
-                // punctuation or comment
+                // punctuation
                 klass = ParsePunctuation(firstChar);
             }
 
@@ -201,6 +170,37 @@ namespace glsld
         }
 
     private:
+        auto ParseLineComment() -> TokenKlass
+        {
+            sourceView.Consume();
+            sourceView.Consume();
+
+            while (!sourceView.Eof() && sourceView.Peek() != '\n') {
+                sourceView.Consume();
+            }
+
+            return TokenKlass::Comment;
+        }
+
+        auto ParseBlockComment() -> TokenKlass
+        {
+            sourceView.Consume();
+            sourceView.Consume();
+
+            while (!sourceView.Eof() && (sourceView.Peek() != '*' && sourceView.Peek(1) != '/')) {
+                sourceView.Consume();
+            }
+
+            if (!sourceView.Eof()) {
+                sourceView.Consume();
+                sourceView.Consume();
+                return TokenKlass::Comment;
+            }
+            else {
+                return TokenKlass::Error;
+            }
+        }
+
         auto ParseIdentifier(char firstChar) -> TokenKlass
         {
             std::string s{firstChar};
@@ -263,11 +263,13 @@ namespace glsld
                 result = it->second;
             }
 
-            s.push_back(sourceView.Peek());
-            if (auto it = punctLookup.find(s); it != punctLookup.end()) {
-                // test two-char puncts
-                sourceView.Consume();
-                result = it->second;
+            if (!sourceView.Eof()) {
+                s.push_back(sourceView.Peek());
+                if (auto it = punctLookup.find(s); it != punctLookup.end()) {
+                    // test two-char puncts
+                    sourceView.Consume();
+                    result = it->second;
+                }
             }
 
             return result;

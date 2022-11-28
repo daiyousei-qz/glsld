@@ -8,8 +8,8 @@ namespace glsld::lsp
     template <typename T>
     struct JsonSerializer;
 
-    class JsonFromObjectMapper;
     class JsonToObjectMapper;
+    class JsonFromObjectMapper;
 
     enum class JsonMappingMode
     {
@@ -23,7 +23,7 @@ namespace glsld::lsp
     template <>
     struct JsonMappingTrait<JsonMappingMode::FromJson>
     {
-        using MapperType = JsonFromObjectMapper;
+        using MapperType = JsonToObjectMapper;
 
         template <typename T>
         using ReferenceType = T&;
@@ -31,7 +31,7 @@ namespace glsld::lsp
     template <>
     struct JsonMappingTrait<JsonMappingMode::ToJson>
     {
-        using MapperType = JsonToObjectMapper;
+        using MapperType = JsonFromObjectMapper;
 
         template <typename T>
         using ReferenceType = const T&;
@@ -235,16 +235,16 @@ namespace glsld::lsp
         Mapper* mapper = nullptr;
     };
 
-    class JsonFromObjectMapper
+    class JsonToObjectMapper
     {
     public:
-        JsonFromObjectMapper(const JsonObject& root) : root(&root), traversalStack({&root})
+        JsonToObjectMapper(const JsonObject& root) : root(&root), traversalStack({&root})
         {
         }
 
-        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonFromObjectMapper>
+        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonToObjectMapper>
         {
-            return JsonObjectMapperScope<JsonFromObjectMapper>{this, key};
+            return JsonObjectMapperScope<JsonToObjectMapper>{this, key};
         }
         auto EnterObject(const char* key) -> void
         {
@@ -310,17 +310,17 @@ namespace glsld::lsp
         std::vector<const JsonObject*> traversalStack;
     };
 
-    class JsonToObjectMapper
+    class JsonFromObjectMapper
     {
     public:
-        JsonToObjectMapper()
+        JsonFromObjectMapper()
         {
             traversalStack.push_back(&root);
         }
 
-        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonToObjectMapper>
+        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonFromObjectMapper>
         {
-            return JsonObjectMapperScope<JsonToObjectMapper>{this, key};
+            return JsonObjectMapperScope<JsonFromObjectMapper>{this, key};
         }
         auto EnterObject(const char* key) -> void
         {
@@ -364,14 +364,14 @@ namespace glsld::lsp
         template <typename T>
         auto ObjectFromJson(const JsonObject& j, T& value) -> bool
         {
-            JsonFromObjectMapper mapper{j};
+            JsonToObjectMapper mapper{j};
             MapJson(mapper, value);
             return true;
         }
         template <typename T>
         auto ObjectToJson(const T& value) -> JsonObject
         {
-            JsonToObjectMapper mapper;
+            JsonFromObjectMapper mapper;
             MapJson(mapper, value);
             return mapper.ExportJson();
         }

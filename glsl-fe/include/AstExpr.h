@@ -115,9 +115,7 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
-            if (accessChain) {
-                Traverse(*accessChain);
-            }
+            visitor.Traverse(accessChain);
         }
 
     private:
@@ -145,6 +143,7 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
+            visitor.Traverse(operand);
         }
 
     private:
@@ -222,11 +221,14 @@ namespace glsld
         {
         }
 
+        auto GetInvocationType() -> InvocationType
+        {
+            return type;
+        }
         auto GetInvokedExpr() -> AstExpr*
         {
             return invokedExpr;
         }
-
         auto GetArguments() -> std::span<AstExpr* const>
         {
             return args;

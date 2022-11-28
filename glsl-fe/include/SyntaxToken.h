@@ -9,6 +9,7 @@ namespace glsld
     {
         Error,
         Eof,
+        Comment,
         IntegerConstant,
         FloatConstant,
         Identifier,
@@ -54,6 +55,20 @@ namespace glsld
         }
 
 #undef STRINGIZE
+    }
+
+    inline auto IsKeywordToken(TokenKlass klass) -> bool
+    {
+        switch (klass) {
+#define DECL_KEYWORD(KEYWORD)                                                                                          \
+    case TokenKlass::K_##KEYWORD:                                                                                      \
+        return true;
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+
+        default:
+            return false;
+        }
     }
 
     class LexString

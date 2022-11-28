@@ -19,25 +19,9 @@ namespace glsld
     public:
         auto Run() -> void
         {
-            using namespace std::literals;
-
             Initialize();
-            // std::this_thread::sleep_for(10s);
-
-            // std::jthread thd{[](LanguageServer* server) {
-            //                      while (true) {
-            //                          std::this_thread::sleep_for(5s);
-            //                          lsp::ShowMessageParams params{
-            //                              .type    = lsp::MessageType::Info,
-            //                              .message = "hello lsp!",
-            //                          };
-            //                          server->language->ShowMessage(params);
-            //                      }
-            //                  },
-            //                  this};
 
             while (true) {
-                std::this_thread::sleep_for(100ms);
                 transport->PullMessage();
             }
         }
@@ -111,6 +95,8 @@ namespace glsld
         {
             AddRequestHandler(lsp::LSPMethod_Initialize, &LanguageService::Initialize);
             AddRequestHandler(lsp::LSPMethod_DocumentSymbol, &LanguageService::DocumentSymbol);
+            AddRequestHandler(lsp::LSPMethod_SemanticTokensFull, &LanguageService::SemanticTokensFull);
+            AddRequestHandler(lsp::LSPMethod_Completion, &LanguageService::Completion);
 
             AddNotificationHandler(lsp::LSPMethod_DidOpenTextDocument, &LanguageService::DidOpenTextDocument);
             AddNotificationHandler(lsp::LSPMethod_DidChangeTextDocument, &LanguageService::DidChangeTextDocument);

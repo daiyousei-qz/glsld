@@ -2,6 +2,7 @@
 #include "SyntaxToken.h"
 #include "Tokenizer.h"
 
+#include <span>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -17,6 +18,11 @@ namespace glsld
         LexContext(std::string sourceText) : sourceText(std::move(sourceText))
         {
             Initialize();
+        }
+
+        auto GetAllToken() const -> std::span<const SyntaxToken>
+        {
+            return tokens;
         }
 
         auto GetToken(size_t tokIndex) const -> SyntaxToken
@@ -100,16 +106,30 @@ namespace glsld
                     tokText = LexString{atomTable.insert(buffer).first->c_str()};
                 }
 
-                tokens.push_back(SyntaxToken{
-                    .klass = tokInfo.klass,
-                    .text  = tokText,
-                    .range =
-                        {
-                            .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
-                            .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
-                                                      tokInfo.columnEnd),
-                        },
-                });
+                if (tokInfo.klass != TokenKlass::Comment) {
+                    tokens.push_back(SyntaxToken{
+                        .klass = tokInfo.klass,
+                        .text  = tokText,
+                        .range =
+                            {
+                                .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
+                                .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
+                                                          tokInfo.columnEnd),
+                            },
+                    });
+                }
+                else {
+                    // commentTokens.push_back(SyntaxToken{
+                    //     .klass = tokInfo.klass,
+                    //     .text  = tokText,
+                    //     .range =
+                    //         {
+                    //             .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
+                    //             .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
+                    //                                       tokInfo.columnEnd),
+                    //         },
+                    // });
+                }
 
                 if (tokInfo.klass == glsld::TokenKlass::Eof) {
                     break;
@@ -123,6 +143,7 @@ namespace glsld
         std::unordered_set<std::string> atomTable;
 
         std::vector<SyntaxToken> tokens;
+        std::vector<SyntaxToken> commentTokens;
         std::vector<SyntaxLocationInfo> locationInfo;
     };
 } // namespace glsld

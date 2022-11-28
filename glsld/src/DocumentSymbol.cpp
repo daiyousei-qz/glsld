@@ -23,41 +23,28 @@ namespace glsld
             };
 
             if (auto funcDecl = decl->As<AstFunctionDecl>()) {
-                result.push_back(lsp::DocumentSymbol{
-                    .name           = funcDecl->GetName().text.Str(),
-                    .kind           = lsp::SymbolKind::Function,
-                    .range          = testRange,
-                    .selectionRange = testRange,
-                });
-            }
-            else if (auto varDecl = decl->As<AstVariableDecl>()) {
-                for (const auto& declarator : varDecl->GetDeclarators()) {
+                if (funcDecl->GetName().klass == TokenKlass::Identifier) {
                     result.push_back(lsp::DocumentSymbol{
-                        .name           = declarator.declTok.text.Str(),
-                        .kind           = lsp::SymbolKind::Variable,
+                        .name           = funcDecl->GetName().text.Str(),
+                        .kind           = lsp::SymbolKind::Function,
                         .range          = testRange,
                         .selectionRange = testRange,
                     });
                 }
             }
+            else if (auto varDecl = decl->As<AstVariableDecl>()) {
+                for (const auto& declarator : varDecl->GetDeclarators()) {
+                    if (declarator.declTok.klass == TokenKlass::Identifier) {
+                        result.push_back(lsp::DocumentSymbol{
+                            .name           = declarator.declTok.text.Str(),
+                            .kind           = lsp::SymbolKind::Variable,
+                            .range          = testRange,
+                            .selectionRange = testRange,
+                        });
+                    }
+                }
+            }
         }
-
-        // for (auto var : compiler.GetAstContext()->GetVarSymbols()) {
-        //     result.push_back(lsp::DocumentSymbol{
-        //         .name           = var,
-        //         .kind           = lsp::SymbolKind::Variable,
-        //         .range          = testRange,
-        //         .selectionRange = testRange,
-        //     });
-        // }
-        // for (auto f : compiler.GetAstContext()->GetFuncSymbols()) {
-        //     result.push_back(lsp::DocumentSymbol{
-        //         .name           = f,
-        //         .kind           = lsp::SymbolKind::Function,
-        //         .range          = testRange,
-        //         .selectionRange = testRange,
-        //     });
-        // }
 
         return result;
     }

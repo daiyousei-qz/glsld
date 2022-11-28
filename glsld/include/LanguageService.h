@@ -6,7 +6,10 @@
 namespace glsld
 {
     auto ComputeDocumentSymbol(GlsldCompiler& compiler) -> std::vector<lsp::DocumentSymbol>;
-    auto ComputeSemanticTokens() -> lsp::SemanticTokens;
+
+    auto GetTokenLegend() -> lsp::SemanticTokensLegend;
+    auto ComputeSemanticTokens(GlsldCompiler& compiler) -> lsp::SemanticTokens;
+    auto ComputeSemanticTokensDelta(GlsldCompiler& compiler) -> lsp::SemanticTokensDelta;
 
     // this class manages online source codes
     class SourceManager
@@ -31,6 +34,13 @@ namespace glsld
                                 .change    = lsp::TextDocumentSyncKind::Full,
                             },
                         .documentSymbolProvider = true,
+                        .semanticTokensProvider =
+                            {
+                                .legend = GetTokenLegend(),
+                                .range  = false,
+                                .full   = true,
+                                .delta  = false,
+                            },
                     },
                 .serverInfo =
                     {
@@ -69,7 +79,16 @@ namespace glsld
             server->HandleServerResponse(requestId, result, false);
         }
 
-        auto SemanticTokensFull(lsp::SemanticTokensParam params) -> void
+        auto SemanticTokensFull(int requestId, lsp::SemanticTokensParam params) -> void
+        {
+            GlsldCompiler compiler;
+            compiler.Compile(sourceMap[params.textDocument.uri]);
+
+            lsp::SemanticTokens result = ComputeSemanticTokens(compiler);
+            server->HandleServerResponse(requestId, result, false);
+        }
+
+        auto Completion(int requestId, lsp::CompletionParams params) -> void
         {
         }
 

@@ -3,8 +3,8 @@
 
 namespace glsld
 {
-    // this is bridge between services and the language server
-    // and it translate data between raw data and json
+    // This is bridge between services and the language server
+    // and it translate data between native data structure and json.
     class LanguageServerCallback
     {
     public:

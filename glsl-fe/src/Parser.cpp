@@ -721,7 +721,7 @@ namespace glsld
 
         // FIXME: implement this
         bool parsedPostfix = true;
-        while (!result.Success() && parsedPostfix) {
+        while (result.Success() && parsedPostfix) {
             parsedPostfix = false;
             switch (PeekToken().klass) {
             case TokenKlass::LParen:
@@ -897,14 +897,15 @@ namespace glsld
             children.push_back(ParseStmtNoRecovery().Get());
         }
 
-        if (Eof()) {
+        bool unexpectedEof = Eof();
+        if (unexpectedEof) {
             ReportError("unexpected EOF");
         }
         else {
             ConsumeTokenAssert(TokenKlass::RBrace);
         }
 
-        return {!Eof(), CreateAstNode<AstCompoundStmt>(beginTokIndex, std::move(children))};
+        return {!unexpectedEof, CreateAstNode<AstCompoundStmt>(beginTokIndex, std::move(children))};
     }
 
     auto Parser::ParseSelectionStmt() -> ParseResult<AstStmt*>
@@ -1041,6 +1042,7 @@ namespace glsld
             }
             [[fallthrough]];
         default:
+            // FIXME: `vec3(0);` is being treated as function declaration but it's a constructor call expr
             return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclNoRecovery().Get());
         }
     }

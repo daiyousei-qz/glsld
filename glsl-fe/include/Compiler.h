@@ -4,6 +4,7 @@
 #include "LexContext.h"
 #include "AstContext.h"
 #include "Parser.h"
+#include "AstPrinter.h"
 
 #include <memory>
 #include <string>
@@ -32,6 +33,8 @@ namespace glsld
             Parser parser{lexContext.get(), astContext.get(), diagContext.get()};
             parser.DoParseTranslationUnit();
             compiled = true;
+
+            AstPrinter{}.TraverseAst(*astContext);
         }
 
         auto GetDiagnosticContext() -> const DiagnosticContext&
