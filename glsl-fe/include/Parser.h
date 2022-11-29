@@ -5,6 +5,7 @@
 #include "Tokenizer.h"
 #include "Typing.h"
 #include "ParserTrace.h"
+#include "AstVisitor.h"
 
 #include <memory>
 #include <optional>
@@ -13,61 +14,18 @@
 
 namespace glsld
 {
-    template <typename T>
-    class ParseResult
-    {
-    public:
-        ParseResult(T result) : result(std::move(result)), success(true)
-        {
-        }
-        ParseResult(bool success, T result) : result(std::move(result)), success(success)
-        {
-        }
-
-        auto Success() -> bool
-        {
-            return success;
-        }
-
-        auto Get() -> const T&
-        {
-            return result;
-        }
-
-        auto Move() -> T&&
-        {
-            return std::move(result);
-        }
-
-        operator bool()
-        {
-            return success;
-        }
-
-    private:
-        T result;
-
-        // true if parser accept the input
-        // false otherwise, meaning parser is in recovery mode
-        // NOTE even if the parser is in recovery, it would still provide a best-effort result.
-        bool success;
-    };
-
-    template <typename T>
-    using ParseSuccuss = ParseResult<T>;
-
     class Parser
     {
     public:
         Parser(LexContext* lexCtx, AstContext* astCtx, DiagnosticContext* diagCtx)
-            : lexer(lexCtx), astCtx(astCtx), diagCtx(diagCtx)
+            : lexContext(lexCtx), astContext(astCtx), diagContext(diagCtx)
         {
             RestoreTokenIndex(0);
         }
 
         auto Eof() -> bool
         {
-            return PeekToken().klass == TokenKlass::Eof;
+            return TryTestToken(TokenKlass::Eof);
         }
 
         auto DoParseTranslationUnit() -> void
@@ -75,13 +33,7 @@ namespace glsld
             TRACE_PARSER();
 
             while (!Eof()) {
-                auto declResult = ParseDeclaration();
-                if (!declResult.Success()) {
-                    RecoverFromBadDecl();
-                }
-
-                astCtx->AddGlobalDecl(declResult.Get());
-                // FIXME: register decl
+                astContext->AddGlobalDecl(ParseDeclAndTryRecover());
             }
         }
 
@@ -98,6 +50,48 @@ namespace glsld
             if (!TryConsumeToken(TokenKlass::Semicolon)) {
                 ReportError("expecting ';'");
                 // However, we don't do error recovery as if the ';' is inferred by the parser.
+            }
+        }
+
+        // PARSE: ')'
+        //
+        // RECOVERY: ^'EOF' or '}' or ';'
+        auto ParseClosingParen() -> void
+        {
+            if (TryConsumeToken(TokenKlass::RParen)) {
+                if (InRecoveryMode()) {
+                    ExitRecoveryMode();
+                }
+            }
+            else {
+                ReportError("expect ')'");
+
+                RecoverFromError(RecoveryMode::Paren);
+                if (!TryConsumeToken(TokenKlass::RParen)) {
+                    // we cannot find the closing ')' to continue parsing
+                    EnterRecoveryMode();
+                }
+            }
+        }
+
+        // PARSE: ']'
+        //
+        // RECOVERY: ^'EOF' or '}' or ';'
+        auto ParseClosingBracket() -> void
+        {
+            if (TryConsumeToken(TokenKlass::RBracket)) {
+                if (InRecoveryMode()) {
+                    ExitRecoveryMode();
+                }
+            }
+            else {
+                ReportError("expect ']'");
+
+                RecoverFromError(RecoveryMode::Bracket);
+                if (!TryConsumeToken(TokenKlass::RBracket)) {
+                    // we cannot find the closing ')' to continue parsing
+                    EnterRecoveryMode();
+                }
             }
         }
 
@@ -149,7 +143,7 @@ namespace glsld
         // ACCEPT: '{' ??? '}'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseStructBody() -> ParseResult<std::vector<AstStructMemberDecl*>>;
+        auto ParseStructBody() -> std::vector<AstStructMemberDecl*>;
 
         // EXPECT: K_struct
         //
@@ -157,14 +151,14 @@ namespace glsld
         //      - struct_definition := 'struct' ['ID'] struct_body
         //
         // RECOVERY:
-        auto ParseStructDefinition() -> ParseResult<AstStructDecl*>;
+        auto ParseStructDefinition() -> AstStructDecl*;
 
         // EXPECT: '['
         // PARSE: array_spec
         //      - array_spec := ('[' [expr] ']')...
         //
-        // RECOVERY: ^'EOF' or ^';'
-        auto ParseArraySpec() -> ParseResult<AstArraySpec*>;
+        // RECOVERY: ^'EOF' or ^'}' or ^';'
+        auto ParseArraySpec() -> AstArraySpec*;
 
         // PARSE: type_spec
         //      - type_spec := struct_definition
@@ -172,11 +166,11 @@ namespace glsld
         //      - type_spec := 'K_???'
         //
         // RECOVERY:
-        auto ParseType(AstTypeQualifierSeq* quals) -> ParseResult<AstQualType*>;
+        auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // PARSE: qualified_type_spec
         //        qualified_type_spec := [qual_seq] type_spec
-        auto ParseQualType() -> ParseResult<AstQualType*>;
+        auto ParseQualType() -> AstQualType*;
 
 #pragma endregion
 
@@ -213,9 +207,12 @@ namespace glsld
         // - function
         //   - type-qual? type-spec id(...);
         //   - type-qual? type-spec id(...) { ... }
-        auto ParseDeclaration() -> ParseResult<AstDecl*>;
+        auto ParseDeclaration() -> AstDecl*;
 
-        auto ParseDeclNoRecovery() -> ParseSuccuss<AstDecl*>;
+        // PARSE: decl
+        //
+        // RECOVERY: ^'EOF'
+        auto ParseDeclAndTryRecover() -> AstDecl*;
 
         // EXPECT: 'ID'
         // PARSE: declarator_list
@@ -224,7 +221,7 @@ namespace glsld
         //      - initializer := ?
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseVariableDeclarators() -> ParseResult<std::vector<VariableDeclarator>>;
+        auto ParseVariableDeclarators() -> std::vector<VariableDeclarator>;
 
         // EXPECT: '('
         //
@@ -236,7 +233,7 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';'
         // WHAT'S AN ERROR SECTION?
-        auto ParseFunctionParamList() -> ParseResult<std::vector<AstParamDecl*>>;
+        auto ParseFunctionParamList() -> std::vector<AstParamDecl*>;
 
         // EXPECT: 'ID' or '('
         //
@@ -245,7 +242,7 @@ namespace glsld
         //      - func_decl := 'ID' func_param_list compound_stmt
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseFunctionDecl(size_t beginTokIndex, AstQualType* returnType) -> ParseResult<AstDecl*>;
+        auto ParseFunctionDecl(size_t beginTokIndex, AstQualType* returnType) -> AstDecl*;
 
         // EXPECT: ';' or 'ID'
         //
@@ -254,18 +251,18 @@ namespace glsld
         //      - type_or_variable_decl := declarator [',' declarator]... ';'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> ParseResult<AstDecl*>;
+        auto ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*;
 
         // EXPECT: 'ID' or '{'
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> ParseResult<AstDecl*>;
+        auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
         // EXPECT: 'K_precision'
         // PARSE: precision_decl
         //      - precision_decl := ???
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParsePrecisionDecl() -> ParseResult<AstDecl*>;
+        auto ParsePrecisionDecl() -> AstDecl*;
 
 #pragma endregion
 
@@ -279,14 +276,14 @@ namespace glsld
         //        expr := assignment_expr [',' assignment_expr]
         //
         // RECOVERY: ^';' or ^'}' or ^'EOF'
-        auto ParseExpr() -> ParseResult<AstExpr*>;
+        auto ParseExpr() -> AstExpr*;
 
         // PARSE: assignment_expr
         //      - assignment_expr := unary_expr '?=' assignment_expr
         //      - assignment_expr := binary_or_conditional_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseAssignmentExpr() -> ParseResult<AstExpr*>;
+        auto ParseAssignmentExpr() -> AstExpr*;
 
         // PARSE: binary_or_conditional_expr
         //      - binary_or_conditional_expr := binary_expr
@@ -295,8 +292,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         //
         // `firstTerm` is the first terminal in the condition
-        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, ParseResult<AstExpr*> firstTerm)
-            -> ParseResult<AstExpr*>;
+        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
         // PARSE: binary_expr
         //      - binary_expr := unary_expr
@@ -305,14 +301,13 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         //
         // `firstTerm` for this is a unary expression, which might already be parsed
-        auto ParseBinaryExpr(size_t beginTokIndex, ParseResult<AstExpr*> firstTerm, int minPrecedence)
-            -> ParseResult<AstExpr*>;
+        auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
 
         // PARSE: unary_expr
         //        unary_expr := ['unary_op']... postfix_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseUnaryExpr() -> ParseResult<AstExpr*>;
+        auto ParseUnaryExpr() -> AstExpr*;
 
         // PARSE: postfix_expr
         //      - postfix_expr := primary_expr
@@ -325,7 +320,7 @@ namespace glsld
         //      - function_identifier := type_spec
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParsePostfixExpr() -> ParseResult<AstExpr*>;
+        auto ParsePostfixExpr() -> AstExpr*;
 
         // PARSE: primary_expr
         //      - primary_expr := 'ID'
@@ -333,7 +328,7 @@ namespace glsld
         //      - primary_expr := paren_wrapped_expr
         //
         // ACCEPT: null
-        auto ParsePrimaryExpr() -> ParseResult<AstExpr*>;
+        auto ParsePrimaryExpr() -> AstExpr*;
 
         // EXPECT: '('
         //
@@ -343,26 +338,26 @@ namespace glsld
         // ACCEPT: '('  ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseParenWrappedExpr() -> ParseResult<AstExpr*>;
+        auto ParseParenWrappedExpr() -> AstExpr*;
 
-        auto ParseConstructorCall() -> ParseResult<AstExpr*>
-        {
-            TRACE_PARSER();
+        // auto ParseConstructorCall() -> AstExpr*
+        // {
+        //     TRACE_PARSER();
 
-            auto beginTokIndex = GetTokenIndex();
+        //     auto beginTokIndex = GetTokenIndex();
 
-            // Parse type
-            auto typeResult = ParseType(nullptr);
-            if (!typeResult.Success() || !TryTestToken(TokenKlass::LParen)) {
-                return {false, CreateErrorExpr()};
-            }
-            auto ctorExpr = CreateAstNode<AstConstructorExpr>(beginTokIndex, typeResult.Get());
+        //     // Parse type
+        //     auto typeResult = ParseType(nullptr);
+        //     if (InRecoveryMode() || !TryTestToken(TokenKlass::LParen)) {
+        //         return CreateErrorExpr();
+        //     }
+        //     auto ctorExpr = CreateAstNode<AstConstructorExpr>(beginTokIndex, typeResult);
 
-            // Parse argument list
-            auto argListResult = ParseFunctionArgumentList();
-            return {argListResult.Success(), CreateAstNode<AstInvokeExpr>(beginTokIndex, InvocationType::FunctionCall,
-                                                                          ctorExpr, argListResult.Move())};
-        }
+        //     // Parse argument list
+        //     auto argListResult = ParseFunctionArgumentList();
+        //     return CreateAstNode<AstInvokeExpr>(beginTokIndex, InvocationType::FunctionCall, ctorExpr,
+        //     argListResult);
+        // }
 
         // EXPECT: '('
         //
@@ -374,7 +369,7 @@ namespace glsld
         // ACCEPT: '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseFunctionArgumentList() -> ParseResult<std::vector<AstExpr*>>
+        auto ParseFunctionArgumentList() -> std::vector<AstExpr*>
         {
             TRACE_PARSER();
             ConsumeTokenAssert(TokenKlass::LParen);
@@ -392,29 +387,18 @@ namespace glsld
             std::vector<AstExpr*> result;
             while (!Eof()) {
                 auto arg = ParseAssignmentExpr();
-                if (arg.Success()) {
-                    result.push_back(arg.Move());
-                }
-                else {
+                if (InRecoveryMode()) {
                     break;
                 }
 
+                result.push_back(arg);
                 if (!TryConsumeToken(TokenKlass::Comma)) {
                     break;
                 }
             }
 
-            // consume ")"
-            // FIXME: handle closed paren in unified way?
-            bool closed = TryConsumeToken(TokenKlass::RParen);
-            if (!closed) {
-                ReportError("expect ')'");
-
-                RecoverFromError(RecoveryMode::Paren);
-                closed = TryConsumeToken(TokenKlass::RParen);
-            }
-
-            return {closed, std::move(result)};
+            ParseClosingParen();
+            return std::move(result);
         }
 
         // EXPECT: '['
@@ -443,9 +427,14 @@ namespace glsld
         //      - stmt := jump_stmt
         //      - stmt := decl_stmt
         //      - stmt := expr_stmt
-        auto ParseStmt() -> ParseResult<AstStmt*>;
+        //
+        // RECOVERY:
+        auto ParseStmt() -> AstStmt*;
 
-        auto ParseStmtNoRecovery() -> ParseSuccuss<AstStmt*>;
+        // PARSE: stmt
+        //
+        // RECOVERY: ^'EOF'
+        auto ParseStmtAndTryRecover() -> AstStmt*;
 
         // EXPECT: '{'
         //
@@ -455,7 +444,7 @@ namespace glsld
         // ACCEPT: '{' ??? '}'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseCompoundStmt() -> ParseResult<AstStmt*>;
+        auto ParseCompoundStmt() -> AstStmt*;
 
         // EXPECT: 'K_if'
         //
@@ -465,7 +454,7 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         // FIXME: check with if-else nesting
-        auto ParseSelectionStmt() -> ParseResult<AstStmt*>;
+        auto ParseSelectionStmt() -> AstStmt*;
 
         // EXPECT: 'K_for'
         //
@@ -475,7 +464,7 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         // FIXME: only simple stmt is allowed in for loop predicate?
-        auto ParseForStmt() -> ParseResult<AstStmt*>;
+        auto ParseForStmt() -> AstStmt*;
 
         // EXPECT: 'K_while'
         //
@@ -483,7 +472,7 @@ namespace glsld
         //      - while_stmt := 'K_while' paren_wrapped_expr stmt
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseWhileStmt() -> ParseResult<AstStmt*>;
+        auto ParseWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_switch'
         //
@@ -492,7 +481,7 @@ namespace glsld
         //      - switch_body := '{' ??? '}'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseSwitchStmt() -> ParseResult<AstStmt*>;
+        auto ParseSwitchStmt() -> AstStmt*;
 
         // EXPECT: 'K_break' or 'K_continue' or 'K_discard' or 'K_return'
         //
@@ -503,13 +492,13 @@ namespace glsld
         //      - jump_stmt := 'K_return' [expr] [';']
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseJumpStmt() -> ParseResult<AstStmt*>;
+        auto ParseJumpStmt() -> AstStmt*;
 
         // PARSE: expr_stmt
         //      - expr_stmt := expr [';']
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseExprStmt() -> ParseResult<AstStmt*>;
+        auto ParseExprStmt() -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt
@@ -517,7 +506,7 @@ namespace glsld
         //
         // RECOVERY: ???
         // FIXME: what's in recovery mode?
-        auto ParseDeclOrExprStmt() -> ParseResult<AstStmt*>;
+        auto ParseDeclOrExprStmt() -> AstStmt*;
 
 #pragma endregion
 
@@ -640,21 +629,25 @@ namespace glsld
             }
         }
 
-        // FIXME: this is identical to decl recovery
-        // Starting at an arbitrary location, consumes tokens until it might be a valid location to parse the next
-        // declaration or statement.
-        auto RecoverFromBadStmt() -> void
+        auto InParsingMode() -> bool
         {
-            RecoverFromError(RecoveryMode::Semi);
-            TryConsumeToken(TokenKlass::Semicolon);
+            return state == ParsingState::Parsing;
         }
 
-        // Starting at an arbitrary location, consumes tokens until it might be a valid location to parse the next
-        // declaration or statement.
-        auto RecoverFromBadDecl() -> void
+        auto InRecoveryMode() -> bool
         {
-            RecoverFromError(RecoveryMode::Semi);
-            TryConsumeToken(TokenKlass::Semicolon);
+            return state == ParsingState::Recovery;
+        }
+
+        auto EnterRecoveryMode() -> void
+        {
+            state = ParsingState::Recovery;
+        }
+
+        auto ExitRecoveryMode() -> void
+        {
+            GLSLD_ASSERT(state == ParsingState::Recovery);
+            state = ParsingState::Parsing;
         }
 
         auto TryTestToken(TokenKlass klass, int lookahead = 0) -> bool
@@ -690,7 +683,9 @@ namespace glsld
 
         auto ReportError(size_t tokIndex, std::string message) -> void
         {
-            diagCtx->ReportError(lexer->GetSyntaxRange(tokIndex), std::move(message));
+            auto synRange = lexContext->GetSyntaxRange(tokIndex);
+            auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
+            diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
         }
         auto ReportError(std::string message) -> void
         {
@@ -704,7 +699,7 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) -> SyntaxToken
         {
-            return lexer->GetToken(currentTokIndex + lookahead);
+            return lexContext->GetToken(currentTokIndex + lookahead);
         }
 
         auto GetTokenIndex() -> size_t
@@ -716,7 +711,7 @@ namespace glsld
         auto RestoreTokenIndex(size_t index) -> void
         {
             currentTokIndex = index;
-            currentTok      = lexer->GetToken(currentTokIndex);
+            currentTok      = lexContext->GetToken(currentTokIndex);
         }
 
         auto ConsumeToken() -> void
@@ -790,30 +785,41 @@ namespace glsld
             requires std::is_base_of_v<AstNodeBase, T>
         auto CreateRangedAstNode(size_t beginTokIndex, size_t endTokIndex, Args&&... args) -> T*
         {
-            return astCtx->CreateAstNode<T>(lexer->GetSyntaxRange(beginTokIndex, endTokIndex),
-                                            std::forward<Args>(args)...);
+            return astContext->CreateAstNode<T>(lexContext->GetSyntaxRange(beginTokIndex, endTokIndex),
+                                                std::forward<Args>(args)...);
         }
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<AstNodeBase, T>
         auto CreateAstNode(size_t beginTokIndex, Args&&... args) -> T*
         {
-            return astCtx->CreateAstNode<T>(lexer->GetSyntaxRange(beginTokIndex, GetTokenIndex()),
-                                            std::forward<Args>(args)...);
+            return astContext->CreateAstNode<T>(lexContext->GetSyntaxRange(beginTokIndex, GetTokenIndex()),
+                                                std::forward<Args>(args)...);
         }
 
     private:
+        enum class ParsingState
+        {
+            // Parser is parsing
+            Parsing,
+
+            // Parser just recovered from an error and need restart parsing at some point
+            Recovery,
+        };
+
+        ParsingState state = ParsingState::Parsing;
+
         size_t parenDepth      = 0;
         size_t bracketDepth    = 0;
         size_t braceDepth      = 0;
         size_t scopeBraceDepth = 0;
 
-        LexContext* lexer      = nullptr;
+        LexContext* lexContext = nullptr;
         size_t currentTokIndex = 0;
         SyntaxToken currentTok = {};
 
-        AstContext* astCtx;
-        DiagnosticContext* diagCtx;
+        AstContext* astContext;
+        DiagnosticContext* diagContext;
     };
 
 } // namespace glsld

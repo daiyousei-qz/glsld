@@ -8,7 +8,7 @@
 int main()
 {
     using namespace std::literals;
-    std::this_thread::sleep_for(10s);
+    // std::this_thread::sleep_for(10s);
     glsld::LanguageServer{}.Run();
 
     return 0;

@@ -4,7 +4,7 @@
 
 namespace glsld
 {
-#define GLSLD_DEBUG_PARSER 1
+// #define GLSLD_DEBUG_PARSER 1
 #if defined(GLSLD_DEBUG_PARSER)
 
     inline auto TraceTokenConsumed(const SyntaxToken& tok) -> void

@@ -97,6 +97,7 @@ namespace glsld
             AddRequestHandler(lsp::LSPMethod_DocumentSymbol, &LanguageService::DocumentSymbol);
             AddRequestHandler(lsp::LSPMethod_SemanticTokensFull, &LanguageService::SemanticTokensFull);
             AddRequestHandler(lsp::LSPMethod_Completion, &LanguageService::Completion);
+            AddRequestHandler(lsp::LSPMethod_Hover, &LanguageService::Hover);
 
             AddNotificationHandler(lsp::LSPMethod_DidOpenTextDocument, &LanguageService::DidOpenTextDocument);
             AddNotificationHandler(lsp::LSPMethod_DidChangeTextDocument, &LanguageService::DidChangeTextDocument);

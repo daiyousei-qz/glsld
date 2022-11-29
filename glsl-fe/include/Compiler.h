@@ -5,6 +5,7 @@
 #include "AstContext.h"
 #include "Parser.h"
 #include "AstPrinter.h"
+#include "TypeChecker.h"
 
 #include <memory>
 #include <string>
@@ -34,6 +35,7 @@ namespace glsld
             parser.DoParseTranslationUnit();
             compiled = true;
 
+            TypeChecker{}.TraverseAst(*astContext);
             AstPrinter{}.TraverseAst(*astContext);
         }
 

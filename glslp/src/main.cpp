@@ -59,31 +59,6 @@ cl::Opt<std::string> intputFile(cl::Positional, cl::Desc("input file"), cl::Valu
 //     }
 // )";
 
-class MyAstVisitor : public glsld::AstVisitor<MyAstVisitor>
-{
-public:
-    auto VisitAstNodeBase(glsld::AstNodeBase& node) -> void
-    {
-        PrintIdent();
-        depth += 1;
-        fmt::print("{}\n", glsld::AstNodeTagToString(node.GetTag()));
-    }
-    auto ExitAstNodeBase(glsld::AstNodeBase& node) -> void
-    {
-        depth -= 1;
-    }
-
-private:
-    auto PrintIdent() -> void
-    {
-        for (int i = 0; i < depth; ++i) {
-            fmt::print("  ");
-        }
-    }
-
-    int depth = 0;
-};
-
 auto ReadFile(const std::string& fileName) -> std::optional<std::string>
 {
     std::ifstream file(fileName, std::ios::in);
@@ -108,7 +83,6 @@ auto DoMain() -> void
 
     glsld::GlsldCompiler compiler;
     compiler.Compile(*inputData);
-    MyAstVisitor{}.TraverseAst(compiler.GetAstContext());
     fmt::print("succussfully parsed input file\n");
 }
 

@@ -86,7 +86,11 @@ namespace glsld
 
         auto Str() const -> std::string
         {
-            return ptr;
+            return ptr ? ptr : "";
+        }
+        auto StrView() const -> std::string_view
+        {
+            return ptr ? ptr : "";
         }
 
         operator const char*()
@@ -124,7 +128,7 @@ namespace glsld
         SyntaxLocation()
         {
         }
-        SyntaxLocation(int index) : index(index)
+        explicit SyntaxLocation(int index) : index(index)
         {
         }
 
@@ -139,8 +143,8 @@ namespace glsld
 
     struct SyntaxRange
     {
-        SyntaxLocation begin = -1;
-        SyntaxLocation end   = -1;
+        SyntaxLocation begin;
+        SyntaxLocation end;
     };
 
     struct SyntaxToken

@@ -181,6 +181,9 @@ DECL_KEYWORD(true)
 DECL_KEYWORD(false)
 
 // TODO: vulkan-only
+DECL_KEYWORD(sampler)
+DECL_KEYWORD(samplerShadow)
+
 DECL_KEYWORD( texture1D)
 DECL_KEYWORD( texture1DArray)
 DECL_KEYWORD(itexture1D)

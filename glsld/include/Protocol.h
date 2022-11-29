@@ -111,6 +111,17 @@ namespace glsld::lsp
 
         return true;
     }
+    inline auto MapJson(JsonToObjectMapper& mapper, Position& value) -> bool
+    {
+        if (!mapper.Map("line", value.line)) {
+            return false;
+        }
+        if (!mapper.Map("character", value.character)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct Range
     {
@@ -137,6 +148,32 @@ namespace glsld::lsp
 
         return true;
     }
+    inline auto MapToJson(JsonToObjectMapper& mapper, Range& value) -> bool
+    {
+        if (!mapper.Map("start", value.start)) {
+            return false;
+        }
+        if (!mapper.Map("end", value.end)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct TextDocumentPositionParams
+    {
+        // /**
+        //  * The text document.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+
+        // /**
+        //  * The position inside the text document.
+        //  */
+        // position: Position;
+        Position position;
+    };
 
     // FIXME: should we use enum?
     // /**
@@ -287,7 +324,19 @@ namespace glsld::lsp
 
     struct HoverParams
     {
+        TextDocumentPositionParams baseParams;
     };
+    inline auto MapJson(JsonToObjectMapper& mapper, HoverParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+
+        return true;
+    }
 
     // /**
     //  * The result of a hover request.
@@ -298,6 +347,7 @@ namespace glsld::lsp
         //  * The hover's content
         //  */
         // contents: MarkedString | MarkedString[] | MarkupContent;
+        std::string contents;
 
         // /**
         //  * An optional range is a range inside a text document
@@ -306,6 +356,17 @@ namespace glsld::lsp
         // range?: Range;
         Range range;
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const Hover& value) -> bool
+    {
+        if (!mapper.Map("contents", value.contents)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+
+        return true;
+    }
 
 #pragma endregion
 
@@ -1896,7 +1957,6 @@ namespace glsld::lsp
 
     struct ServerCapabilities
     {
-
         // /**
         //  * Defines how text documents are synced. Is either a detailed structure
         //  * defining each notification or for backwards compatibility the
@@ -1905,6 +1965,12 @@ namespace glsld::lsp
         //  */
         // textDocumentSync?: TextDocumentSyncOptions | TextDocumentSyncKind;
         TextDocumentSyncOptions textDocumentSync;
+
+        // /**
+        //  * The server provides hover support.
+        //  */
+        // hoverProvider ?: boolean | HoverOptions;
+        bool hoverProvider;
 
         // /**
         //  * The server provides document symbol support.
@@ -1924,6 +1990,9 @@ namespace glsld::lsp
     inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
         if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
+            return false;
+        }
+        if (!mapper.Map("hoverProvider", value.hoverProvider)) {
             return false;
         }
         if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {

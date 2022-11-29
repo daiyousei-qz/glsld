@@ -11,6 +11,8 @@ namespace glsld
     auto ComputeSemanticTokens(GlsldCompiler& compiler) -> lsp::SemanticTokens;
     auto ComputeSemanticTokensDelta(GlsldCompiler& compiler) -> lsp::SemanticTokensDelta;
 
+    auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
+
     // this class manages online source codes
     class SourceManager
     {
@@ -33,6 +35,7 @@ namespace glsld
                                 .openClose = true,
                                 .change    = lsp::TextDocumentSyncKind::Full,
                             },
+                        .hoverProvider          = true,
                         .documentSymbolProvider = true,
                         .semanticTokensProvider =
                             {
@@ -90,6 +93,15 @@ namespace glsld
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
         {
+        }
+
+        auto Hover(int requestId, lsp::HoverParams params) -> void
+        {
+            GlsldCompiler compiler;
+            compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
+
+            std::optional<lsp::Hover> result = ComputeHover(compiler, params.baseParams.position);
+            server->HandleServerResponse(requestId, result, false);
         }
 
 #pragma endregion

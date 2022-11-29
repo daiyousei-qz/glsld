@@ -54,6 +54,15 @@ namespace glsld
         {
         }
 
+        auto GetDeclToken() -> const std::optional<SyntaxToken>&
+        {
+            return declTok;
+        }
+        auto GetMembers() -> std::span<AstStructMemberDecl* const>
+        {
+            return members;
+        }
+
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {

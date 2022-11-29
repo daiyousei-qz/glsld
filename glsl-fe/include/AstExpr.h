@@ -36,11 +36,20 @@ namespace glsld
     class AstExpr : public AstNodeBase
     {
     public:
+        auto GetDeducedType() -> const TypeDesc*
+        {
+            return deducedType;
+        }
+        auto SetDeducedType(const TypeDesc* deducedType) -> void
+        {
+            this->deducedType = deducedType;
+        }
+
     private:
-        // Ast
+        // AstExpr payloads
         //
 
-        TypeDesc* deducedType = nullptr;
+        const TypeDesc* deducedType = nullptr;
     };
 
     class AstErrorExpr final : public AstExpr
@@ -61,8 +70,13 @@ namespace glsld
     class AstConstantExpr final : public AstExpr
     {
     public:
-        AstConstantExpr(LexString value) : value(value)
+        AstConstantExpr(SyntaxToken tok) : tok(tok)
         {
+        }
+
+        auto GetToken() -> const SyntaxToken&
+        {
+            return tok;
         }
 
         template <typename Visitor>
@@ -71,27 +85,28 @@ namespace glsld
         }
 
     private:
-        // The actual memory is hosted in the LexContext
-        LexString value;
+        // FIXME: we don't need SyntaxToken::range here
+        SyntaxToken tok;
     };
-    class AstConstructorExpr final : public AstExpr
-    {
-    public:
-        // FIXME: use correct expr op
-        AstConstructorExpr(AstQualType* type) : type(type)
-        {
-            GLSLD_ASSERT(type != nullptr);
-        }
+    // class AstConstructorExpr final : public AstExpr
+    // {
+    // public:
+    //     // FIXME: use correct expr op
+    //     AstConstructorExpr(AstQualType* type) : type(type)
+    //     {
+    //         GLSLD_ASSERT(type != nullptr);
+    //     }
 
-        template <typename Visitor>
-        auto Traverse(Visitor& visitor) -> void
-        {
-            visitor.Traverse(*type);
-        }
+    //     template <typename Visitor>
+    //     auto Traverse(Visitor& visitor) -> void
+    //     {
+    //         visitor.Traverse(*type);
+    //     }
 
-    private:
-        AstQualType* type;
-    };
+    // private:
+    //     AstQualType* type;
+    // };
+
     class AstNameAccessExpr final : public AstExpr
     {
     public:
@@ -120,6 +135,8 @@ namespace glsld
 
     private:
         AstExpr* accessChain;
+
+        // NOTE this could be keyword, such as constructor
         SyntaxToken accessName;
     };
 
@@ -134,7 +151,6 @@ namespace glsld
         {
             return op;
         }
-
         auto GetOperandExpr() -> AstExpr*
         {
             return operand;
@@ -157,6 +173,10 @@ namespace glsld
         {
         }
 
+        auto GetOperator() -> BinaryOp
+        {
+            return op;
+        }
         auto GetLeftOperandExpr() -> AstExpr*
         {
             return lhs;

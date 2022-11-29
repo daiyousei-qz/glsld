@@ -109,6 +109,11 @@ namespace glsld
             return tag;
         }
 
+        // Number of tokens that this Ast node covers
+        auto GetNumToken() -> int
+        {
+            return range.end.GetIndex() - range.begin.GetIndex();
+        }
         auto GetRange() -> SyntaxRange
         {
             return range;

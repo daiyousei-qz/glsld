@@ -146,11 +146,17 @@ namespace glsld
                 // number literal
                 klass = ParseNumberLiteral(firstChar);
             }
+            else if (firstChar == '#') {
+                // FIXME: we treat PP as comment for now
+                // preprocessor
+                klass = ParsePPComment();
+            }
             else if (firstChar == '/' && sourceView.Peek(0) == '/') {
                 // line comment
                 klass = ParseLineComment();
             }
             else if (firstChar == '/' && sourceView.Peek(0) == '*') {
+                // block comment
                 klass = ParseBlockComment();
             }
             else {
@@ -170,6 +176,17 @@ namespace glsld
         }
 
     private:
+        auto ParsePPComment() -> TokenKlass
+        {
+            sourceView.Consume();
+
+            while (!sourceView.Eof() && sourceView.Peek() != '\n') {
+                sourceView.Consume();
+            }
+
+            return TokenKlass::Comment;
+        }
+
         auto ParseLineComment() -> TokenKlass
         {
             sourceView.Consume();
