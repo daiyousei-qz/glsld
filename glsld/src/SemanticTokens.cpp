@@ -114,6 +114,22 @@ namespace glsld
             {
             }
 
+            auto VisitAstStructDecl(AstStructDecl& decl)
+            {
+                if (decl.GetDeclToken() && decl.GetDeclToken()->klass != TokenKlass::Error) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken()->range,
+                                                                  SemanticTokenType::Type,
+                                                                  SemanticTokenModifier::Declaration));
+                }
+            }
+            auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl)
+            {
+                if (decl.GetDeclToken().klass != TokenKlass::Error) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken().range,
+                                                                  SemanticTokenType::Type,
+                                                                  SemanticTokenModifier::Declaration));
+                }
+            }
             auto VisitAstFunctionDecl(AstFunctionDecl& decl)
             {
                 if (decl.GetName().klass == TokenKlass::Identifier) {
@@ -122,16 +138,14 @@ namespace glsld
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
-
             auto VisitAstParamDecl(AstParamDecl& decl)
             {
-                if (decl.GetName().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetName().range,
+                if (decl.GetDeclTok().klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTok().range,
                                                                   SemanticTokenType::Parameter,
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
-
             auto VisitAstVariableDecl(AstVariableDecl& decl)
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
@@ -143,23 +157,25 @@ namespace glsld
                 }
             }
 
-            auto VisitAstInvokeExpr(AstInvokeExpr& expr)
-            {
-                if (expr.GetInvocationType() == InvocationType::FunctionCall) {
-                    if (auto funcId = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                        if (funcId->GetAccessName().klass == TokenKlass::Identifier) {
-                            tokenBuffer.push_back(CreateSemanticTokenInfo(
-                                compiler.GetLexContext(), funcId->GetAccessName().range, SemanticTokenType::Function));
-                        }
-                    }
-                }
-            }
-
             auto VisitAstNameAccessExpr(AstNameAccessExpr& expr)
             {
-                if (expr.GetAccessName().klass == TokenKlass::Identifier) {
+                switch (expr.GetAccessType()) {
+                case NameAccessType::Function:
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), expr.GetAccessName().range,
-                                                                  SemanticTokenType::Variable));
+                                                                  SemanticTokenType::Function));
+                    break;
+                case NameAccessType::Constructor:
+                    // FIXME: handle correctly
+                    break;
+                case NameAccessType::Variable:
+                case NameAccessType::Unknown:
+                    if (expr.GetAccessName().klass == TokenKlass::Identifier) {
+                        tokenBuffer.push_back(CreateSemanticTokenInfo(
+                            compiler.GetLexContext(), expr.GetAccessName().range, SemanticTokenType::Variable));
+                    }
+                    break;
+                default:
+                    GLSLD_UNREACHABLE();
                 }
             }
         };

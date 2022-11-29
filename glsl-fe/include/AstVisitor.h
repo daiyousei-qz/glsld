@@ -13,9 +13,9 @@ namespace glsld
         Leave,
     };
 
-    // Enter
-    // Visit
-    // Exit
+    // Enter: Decision
+    // Visit: Pre-order
+    // Exit: Post-order
     template <typename Derived>
     class AstVisitor
     {
@@ -43,7 +43,7 @@ namespace glsld
             }
         }
 
-    public:
+    private:
         auto TraverseInternal(AstNodeBase& astNode) -> void
         {
             GLSLD_ASSERT(astNode.GetTag() != AstNodeTag::Invalid);
@@ -56,8 +56,8 @@ namespace glsld
 #define DECL_AST_TYPE(TYPE)                                                                                            \
     case AstNodeTag::TYPE:                                                                                             \
     {                                                                                                                  \
-        auto dispatchedNode = static_cast<TYPE&>(astNode);                                                             \
-        auto visitPolicy    = AstVisitPolicy::Traverse;                                                                \
+        auto& dispatchedNode = static_cast<TYPE&>(astNode);                                                            \
+        auto visitPolicy     = AstVisitPolicy::Traverse;                                                               \
         /* Enter */                                                                                                    \
         if constexpr (requires { visitor.Enter##TYPE(dispatchedNode); }) {                                             \
             visitPolicy = visitor.Enter##TYPE(dispatchedNode);                                                         \

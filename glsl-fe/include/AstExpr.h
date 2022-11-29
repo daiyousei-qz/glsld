@@ -1,7 +1,6 @@
 #pragma once
 #include "Common.h"
 #include "AstBase.h"
-#include "Typing.h"
 #include "Semantic.h"
 
 #include <array>
@@ -12,47 +11,11 @@
 
 namespace glsld
 {
-    //
-    enum class ExprOp
+    class MSVC_EMPTY_BASES AstExpr : public AstNodeBase, public AstPayload<AstExpr>
     {
-#define DECL_EXPROP(OPNAME, ...) OPNAME,
-#include "GlslExprOp.inc"
-#undef DECL_EXPROP
     };
 
-    inline constexpr auto ExprOpToString(ExprOp op) noexcept -> std::string_view
-    {
-        switch (op) {
-#define DECL_EXPROP(OPNAME, ...)                                                                                       \
-    case ExprOp::OPNAME:                                                                                               \
-        return #OPNAME;
-#include "GlslExprOp.inc"
-#undef DECL_EXPROP
-        default:
-            GLSLD_UNREACHABLE();
-        }
-    }
-
-    class AstExpr : public AstNodeBase
-    {
-    public:
-        auto GetDeducedType() -> const TypeDesc*
-        {
-            return deducedType;
-        }
-        auto SetDeducedType(const TypeDesc* deducedType) -> void
-        {
-            this->deducedType = deducedType;
-        }
-
-    private:
-        // AstExpr payloads
-        //
-
-        const TypeDesc* deducedType = nullptr;
-    };
-
-    class AstErrorExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstErrorExpr final : public AstExpr, public AstPayload<AstErrorExpr>
     {
     public:
         AstErrorExpr()
@@ -67,7 +30,7 @@ namespace glsld
     private:
     };
 
-    class AstConstantExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstConstantExpr final : public AstExpr, public AstPayload<AstConstantExpr>
     {
     public:
         AstConstantExpr(SyntaxToken tok) : tok(tok)
@@ -88,26 +51,8 @@ namespace glsld
         // FIXME: we don't need SyntaxToken::range here
         SyntaxToken tok;
     };
-    // class AstConstructorExpr final : public AstExpr
-    // {
-    // public:
-    //     // FIXME: use correct expr op
-    //     AstConstructorExpr(AstQualType* type) : type(type)
-    //     {
-    //         GLSLD_ASSERT(type != nullptr);
-    //     }
 
-    //     template <typename Visitor>
-    //     auto Traverse(Visitor& visitor) -> void
-    //     {
-    //         visitor.Traverse(*type);
-    //     }
-
-    // private:
-    //     AstQualType* type;
-    // };
-
-    class AstNameAccessExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstNameAccessExpr final : public AstExpr, public AstPayload<AstNameAccessExpr>
     {
     public:
         AstNameAccessExpr(AstExpr* accessChain, SyntaxToken accessName)
@@ -140,7 +85,7 @@ namespace glsld
         SyntaxToken accessName;
     };
 
-    class AstUnaryExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstUnaryExpr final : public AstExpr, public AstPayload<AstUnaryExpr>
     {
     public:
         AstUnaryExpr(UnaryOp op, AstExpr* operand) : op(op), operand(operand)
@@ -166,7 +111,7 @@ namespace glsld
         UnaryOp op;
         AstExpr* operand;
     };
-    class AstBinaryExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstBinaryExpr final : public AstExpr, public AstPayload<AstBinaryExpr>
     {
     public:
         AstBinaryExpr(BinaryOp op, AstExpr* lhs, AstExpr* rhs) : op(op), lhs(lhs), rhs(rhs)
@@ -198,7 +143,7 @@ namespace glsld
         AstExpr* lhs;
         AstExpr* rhs;
     };
-    class AstSelectExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstSelectExpr final : public AstExpr, public AstPayload<AstSelectExpr>
     {
     public:
         AstSelectExpr(AstExpr* predicate, AstExpr* ifBranch, AstExpr* elseBranch)
@@ -233,7 +178,7 @@ namespace glsld
         AstExpr* elseBranch;
     };
 
-    class AstInvokeExpr final : public AstExpr
+    class MSVC_EMPTY_BASES AstInvokeExpr final : public AstExpr, public AstPayload<AstInvokeExpr>
     {
     public:
         AstInvokeExpr(InvocationType type, AstExpr* invokedExpr, std::vector<AstExpr*> args)

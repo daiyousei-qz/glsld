@@ -148,12 +148,43 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapToJson(JsonToObjectMapper& mapper, Range& value) -> bool
+    inline auto MapJson(JsonToObjectMapper& mapper, Range& value) -> bool
     {
         if (!mapper.Map("start", value.start)) {
             return false;
         }
         if (!mapper.Map("end", value.end)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct Location
+    {
+        // uri: DocumentUri;
+        DocumentUri uri;
+
+        // range: Range;
+        Range range;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const Location& value) -> bool
+    {
+        if (!mapper.Map("uri", value.uri)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+
+        return true;
+    }
+    inline auto MapJson(JsonToObjectMapper& mapper, Location& value) -> bool
+    {
+        if (!mapper.Map("uri", value.uri)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
             return false;
         }
 
@@ -287,6 +318,88 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("message", value.message)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
+#pragma region Go to Declaration
+
+    //
+    // Go to Declaration
+    //
+
+    inline constexpr const char* LSPMethod_Declaration = "textDocument/declaration";
+
+    struct DeclarationClientCapabilities
+    {
+        // /**
+        //  * Whether declaration supports dynamic registration. If this is set to
+        //  * `true` the client supports the new `DeclarationRegistrationOptions`
+        //  * return value for the corresponding server capability as well.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * The client supports additional metadata in the form of declaration links.
+        //  */
+        // linkSupport?: boolean;
+    };
+
+    struct DeclarationParams
+    {
+        TextDocumentPositionParams baseParams;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, DeclarationParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
+#pragma region Go to Definition
+
+    //
+    // Go to Definition
+    //
+
+    inline constexpr const char* LSPMethod_Definition = "textDocument/definition";
+
+    struct DefinitionClientCapabilities
+    {
+        // /**
+        //  * Whether definition supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * The client supports additional metadata in the form of definition links.
+        //  *
+        //  * @since 3.14.0
+        //  */
+        // linkSupport?: boolean;
+    };
+
+    struct DefinitionParams
+    {
+        TextDocumentPositionParams baseParams;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, DefinitionParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
             return false;
         }
 
@@ -1973,6 +2086,21 @@ namespace glsld::lsp
         bool hoverProvider;
 
         // /**
+        //  * The server provides go to declaration support.
+        //  *
+        //  * @since 3.14.0
+        //  */
+        // declarationProvider?: boolean | DeclarationOptions
+        //     | DeclarationRegistrationOptions;
+        bool declarationProvider;
+
+        // /**
+        //  * The server provides goto definition support.
+        //  */
+        // definitionProvider?: boolean | DefinitionOptions;
+        bool definitionProvider;
+
+        // /**
         //  * The server provides document symbol support.
         //  */
         // documentSymbolProvider ?: boolean | DocumentSymbolOptions;
@@ -1993,6 +2121,12 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("hoverProvider", value.hoverProvider)) {
+            return false;
+        }
+        if (!mapper.Map("declarationProvider", value.declarationProvider)) {
+            return false;
+        }
+        if (!mapper.Map("definitionProvider", value.definitionProvider)) {
             return false;
         }
         if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {

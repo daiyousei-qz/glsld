@@ -1,11 +1,19 @@
 #pragma once
 #include "SyntaxToken.h"
+#include "Semantic.h"
 
 #include <vector>
+#include <fmt/format.h>
 
 namespace glsld
 {
-    class AstExpr;
+#if defined(_MSC_VER)
+#define MSVC_EMPTY_BASES __declspec(empty_bases)
+#else
+#define MSVC_EMPTY_BASES
+#endif
+
+    class TypeDesc;
 
     namespace detail
     {
@@ -100,9 +108,18 @@ namespace glsld
     class AstNodeBase
     {
     public:
+        AstNodeBase() = default;
+
+        // FIXME: disable copying...
+        // AstNodeBase(const AstNodeBase&)                    = delete;
+        // auto operator=(const AstNodeBase&) -> AstNodeBase& = delete;
+
+#if defined(GLSLD_DEBUG)
+        // We don't need virtual dtor because we dispatch Ast type manually, but this is helpful for debugging
         virtual ~AstNodeBase()
         {
         }
+#endif
 
         auto GetTag() -> AstNodeTag
         {
@@ -118,6 +135,8 @@ namespace glsld
         {
             return range;
         }
+
+        auto Dump() -> void;
 
         template <typename AstType>
         inline auto Is() -> bool
@@ -149,5 +168,55 @@ namespace glsld
 
         AstNodeTag tag    = AstNodeTag::Invalid;
         SyntaxRange range = {};
+    };
+
+    template <typename AstType>
+    class AstPayload
+    {
+    public:
+    };
+
+    template <>
+    class AstPayload<AstExpr>
+    {
+    public:
+        auto GetDeducedType() -> const TypeDesc*
+        {
+            return deducedType;
+        }
+        auto SetDeducedType(const TypeDesc* deducedType) -> void
+        {
+            this->deducedType = deducedType;
+        }
+
+    private:
+        const TypeDesc* deducedType = nullptr;
+    };
+
+    template <>
+    class AstPayload<AstNameAccessExpr>
+    {
+    public:
+        auto GetAccessType() -> NameAccessType
+        {
+            return accessType;
+        }
+        auto SetAccessType(NameAccessType accessType) -> void
+        {
+            this->accessType = accessType;
+        }
+
+        auto GetAccessedDecl() -> AstDecl*
+        {
+            return decl;
+        }
+        auto SetAccessedDecl(AstDecl* decl) -> void
+        {
+            this->decl = decl;
+        }
+
+    private:
+        NameAccessType accessType = NameAccessType::Unknown;
+        AstDecl* decl             = nullptr;
     };
 } // namespace glsld

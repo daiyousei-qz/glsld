@@ -9,7 +9,10 @@
 
 ### Phase 2
 - File synchronization (edit)
-- Completion Proposals (all identifier)
+- Implement qualifiers
+- Share compiled result
+- Go to Declaration
+- Go to Definition
 
 
 ### Should have LSP Feature

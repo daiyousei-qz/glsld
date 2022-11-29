@@ -13,7 +13,7 @@ namespace glsld
         {
             PrintIdent();
             depth += 1;
-            Print("{} ", AstNodeTagToString(node.GetTag()));
+            Print("{}@{} ", AstNodeTagToString(node.GetTag()), static_cast<void*>(&node));
             return AstVisitPolicy::Traverse;
         }
         auto ExitAstNodeBase(AstNodeBase& node) -> void
@@ -72,18 +72,27 @@ namespace glsld
         auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
             if (expr.GetAccessName().klass != TokenKlass::Error) {
-                Print("[Name={};]\n", expr.GetAccessName().text.Get());
+                Print("[Name={};] ", expr.GetAccessName().text.Get());
             }
             else {
-                Print("[Name=<Error>;]\n");
+                Print("[Name=<Error>;]");
             }
+
+            Print("[AccessType={}; AccessedDecl={};] ", NameAccessTypeToString(expr.GetAccessType()),
+                  static_cast<const void*>(expr.GetAccessedDecl()));
+            Print("\n");
+        }
+
+        auto Export() -> std::string
+        {
+            return std::move(buffer);
         }
 
     private:
         template <typename... Args>
         auto Print(fmt::format_string<Args...> fmt, Args&&... args) -> void
         {
-            fmt::print(stderr, fmt, std::forward<Args>(args)...);
+            fmt::format_to(std::back_inserter(buffer), fmt, std::forward<Args>(args)...);
         }
 
         auto PrintIdent() -> void
@@ -93,6 +102,7 @@ namespace glsld
             }
         }
 
+        std::string buffer;
         int depth = 0;
     };
 } // namespace glsld

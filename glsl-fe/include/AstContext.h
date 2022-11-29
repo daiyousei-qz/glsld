@@ -13,10 +13,10 @@ namespace glsld
         auto AddGlobalDecl(AstDecl* decl) -> void
         {
             globalDecls.push_back(decl);
-            if (auto p = dynamic_cast<AstFunctionDecl*>(decl)) {
+            if (auto p = decl->As<AstFunctionDecl>()) {
                 functionDecls.push_back(p);
             }
-            if (auto p = dynamic_cast<AstVariableDecl*>(decl)) {
+            if (auto p = decl->As<AstVariableDecl>()) {
                 variableDecls.push_back(p);
             }
         }

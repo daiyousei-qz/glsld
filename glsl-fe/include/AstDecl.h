@@ -4,14 +4,17 @@
 #include "AstExpr.h"
 #include "AstStmt.h"
 
+#include <optional>
+
 namespace glsld
 {
-    class AstDecl : public AstNodeBase
+    class MSVC_EMPTY_BASES AstDecl : public AstNodeBase, public AstPayload<AstDecl>
     {
     };
 
-    struct AstEmptyDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstEmptyDecl : public AstDecl, public AstPayload<AstEmptyDecl>
     {
+    public:
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
@@ -30,7 +33,7 @@ namespace glsld
         AstExpr* init;
     };
 
-    struct AstStructMemberDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstStructMemberDecl : public AstDecl, public AstPayload<AstStructMemberDecl>
     {
     public:
         template <typename Visitor>
@@ -46,7 +49,7 @@ namespace glsld
         VariableDeclarator declarator;
     };
 
-    class AstStructDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstStructDecl : public AstDecl, public AstPayload<AstStructDecl>
     {
     public:
         AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstStructMemberDecl*> members)
@@ -77,7 +80,7 @@ namespace glsld
     };
 
     // declares variables
-    class AstVariableDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstVariableDecl : public AstDecl, public AstPayload<AstVariableDecl>
     {
     public:
         AstVariableDecl(AstQualType* type) : type(type)
@@ -113,14 +116,18 @@ namespace glsld
     };
 
     // declares a parameter
-    class AstParamDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstParamDecl : public AstDecl, public AstPayload<AstParamDecl>
     {
     public:
         AstParamDecl(AstQualType* type, SyntaxToken declTok) : type(type), declTok(declTok)
         {
         }
 
-        auto GetName() -> const SyntaxToken&
+        auto GetType() -> AstQualType*
+        {
+            return type;
+        }
+        auto GetDeclTok() -> const SyntaxToken&
         {
             return declTok;
         }
@@ -137,7 +144,7 @@ namespace glsld
     };
 
     // declares a function
-    class AstFunctionDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstFunctionDecl : public AstDecl, public AstPayload<AstFunctionDecl>
     {
     public:
         AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params)
@@ -189,7 +196,7 @@ namespace glsld
         AstStmt* body;
     };
 
-    class AstInterfaceBlockDecl : public AstDecl
+    class MSVC_EMPTY_BASES AstInterfaceBlockDecl : public AstDecl, public AstPayload<AstInterfaceBlockDecl>
     {
     public:
         AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members)
@@ -200,6 +207,19 @@ namespace glsld
                               VariableDeclarator declarator)
             : declTok(declTok), members(std::move(members)), declarator(declarator)
         {
+        }
+
+        auto GetDeclToken() -> const SyntaxToken&
+        {
+            return declTok;
+        }
+        auto GetMembers() -> std::span<AstStructMemberDecl* const>
+        {
+            return members;
+        }
+        auto GetDeclarator() -> const std::optional<VariableDeclarator>&
+        {
+            return declarator;
         }
 
         template <typename Visitor>

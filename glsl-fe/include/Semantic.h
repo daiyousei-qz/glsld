@@ -179,4 +179,27 @@ namespace glsld
         Uniform,
         Buffer,
     };
+
+    enum class NameAccessType
+    {
+        Unknown,
+        Variable,
+        Function,
+        Constructor,
+    };
+    inline auto NameAccessTypeToString(NameAccessType type) -> std::string_view
+    {
+        switch (type) {
+        case NameAccessType::Unknown:
+            return "Unknown";
+        case NameAccessType::Variable:
+            return "Variable";
+        case NameAccessType::Function:
+            return "Function";
+        case NameAccessType::Constructor:
+            return "Constructor";
+        default:
+            GLSLD_UNREACHABLE();
+        }
+    }
 } // namespace glsld

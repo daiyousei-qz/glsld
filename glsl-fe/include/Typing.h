@@ -1,10 +1,14 @@
 #pragma once
+#include "AstDecl.h"
 #include "SyntaxToken.h"
 #include <optional>
 #include <variant>
+#include <vector>
 
 namespace glsld
 {
+    class TypeDesc;
+
 #define DECL_BUILTIN_TYPE(TYPE, ...) Ty_##TYPE,
 
     enum class BuiltinType
@@ -27,11 +31,12 @@ namespace glsld
         }
     }
 
-    // bottom type
+    // Bottom type
     struct ErrorTypeDesc
     {
     };
 
+    // Void type
     struct VoidTypeDesc
     {
     };
@@ -67,13 +72,20 @@ namespace glsld
     };
     struct StructTypeDesc
     {
+        AstStructDecl* decl;
+        std::vector<TypeDesc*> members;
+    };
+    struct FunctionTypeDesc
+    {
+        TypeDesc* ret;
+        std::vector<TypeDesc*> params;
     };
 
     class TypeDesc
     {
     public:
         using DescPayloadType = std::variant<ErrorTypeDesc, VoidTypeDesc, ScalarTypeDesc, VectorTypeDesc,
-                                             MatrixTypeDesc, SamplerTypeDesc, StructTypeDesc>;
+                                             MatrixTypeDesc, SamplerTypeDesc, StructTypeDesc, FunctionTypeDesc>;
 
         TypeDesc(DescPayloadType payload) : descPayload(payload)
         {
@@ -85,7 +97,7 @@ namespace glsld
         }
         auto IsBuiltin() const -> bool
         {
-            return !IsError() && !IsStruct();
+            return !IsError() && !IsStruct() && !IsFunction();
         }
         auto IsVoid() const -> bool
         {
@@ -110,6 +122,10 @@ namespace glsld
         auto IsStruct() const -> bool
         {
             return std::holds_alternative<StructTypeDesc>(descPayload);
+        }
+        auto IsFunction() const -> bool
+        {
+            return std::holds_alternative<FunctionTypeDesc>(descPayload);
         }
 
         auto GetScalarDesc() -> const ScalarTypeDesc*;

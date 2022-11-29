@@ -3,9 +3,37 @@
 namespace glsld
 {
 #pragma region Parsing QualType
-    auto Parser::ParseLayoutQualifier() -> void
+    auto Parser::ParseLayoutQualifier() -> AstLayoutQualifier*
     {
         TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_layout));
+
+        auto beginTokIndex = GetTokenIndex();
+        ConsumeToken();
+
+        std::vector<LayoutItem> result;
+        if (!TryConsumeToken(TokenKlass::LParen)) {
+            return CreateAstNode<AstLayoutQualifier>(beginTokIndex, result);
+        }
+
+        while (!Eof()) {
+            auto idToken = ParseDeclId();
+
+            AstExpr* value = nullptr;
+            if (TryConsumeToken(TokenKlass::Assign)) {
+                value = ParseExpr();
+            }
+
+            if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Comma)) {
+                break;
+            }
+
+            result.push_back(LayoutItem{idToken, value});
+        }
+
+        ParseClosingParen();
+        return CreateAstNode<AstLayoutQualifier>(beginTokIndex, std::move(result));
     }
 
     auto Parser::ParseTypeQualifiers() -> AstTypeQualifierSeq*

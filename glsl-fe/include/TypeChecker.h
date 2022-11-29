@@ -1,6 +1,9 @@
 #pragma once
 #include "AstVisitor.h"
 #include "SymbolTable.h"
+#include "Typing.h"
+
+#include <optional>
 
 namespace glsld
 {
@@ -43,7 +46,7 @@ namespace glsld
         }
         auto VisitAstParamDecl(AstParamDecl& decl) -> void
         {
-            TryAddSymbol(decl.GetName().text, decl);
+            TryAddSymbol(decl.GetDeclTok().text, decl);
         }
         auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
         {
@@ -90,17 +93,55 @@ namespace glsld
 
         auto ExitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
+            if (expr.GetAccessType() == NameAccessType::Unknown) {
+                expr.SetAccessType(NameAccessType::Variable);
+            }
+
             if (expr.GetAccessChain()) {
                 // Accessing a member name
             }
             else {
                 // Accessing a non-member name
+                auto accessName = expr.GetAccessName().text.StrView();
+                auto symbol     = symbolTable.FindSymbol(std::string{accessName});
+                if (symbol) {
+                    switch (expr.GetAccessType()) {
+                    case NameAccessType::Constructor:
+                        if (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>()) {
+                            expr.SetAccessedDecl(symbol);
+                        }
+                    case NameAccessType::Function:
+                        if (symbol->Is<AstFunctionDecl>()) {
+                            expr.SetAccessedDecl(symbol);
+                        }
+                    case NameAccessType::Variable:
+                    case NameAccessType::Unknown:
+                        if (symbol->Is<AstVariableDecl>() || symbol->Is<AstParamDecl>()) {
+                            expr.SetAccessedDecl(symbol);
+                        }
+                    }
+                }
+            }
+        }
+
+        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        {
+            if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+                if (func->GetAccessName().klass != TokenKlass::Identifier) {
+                    // This is a constructor
+                    func->SetAccessType(NameAccessType::Constructor);
+                    return;
+                }
+                else {
+                    func->SetAccessType(NameAccessType::Function);
+                }
             }
         }
 
         auto ExitAstInvokeExpr(AstInvokeExpr& expr) -> void
         {
             // FIXME: handle function call
+            // FIXME: handle things like `S[2](...)`
             if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
                 if (func->GetAccessName().klass != TokenKlass::Identifier) {
                     // This is a constructor

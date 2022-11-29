@@ -7,11 +7,11 @@
 
 namespace glsld
 {
-    class AstStmt : public AstNodeBase
+    class MSVC_EMPTY_BASES AstStmt : public AstNodeBase, public AstPayload<AstStmt>
     {
     };
 
-    class AstErrorStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstErrorStmt final : public AstStmt, public AstPayload<AstErrorStmt>
     {
     public:
         template <typename Visitor>
@@ -20,7 +20,7 @@ namespace glsld
         }
     };
 
-    class AstCompoundStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstCompoundStmt final : public AstStmt, public AstPayload<AstCompoundStmt>
     {
     public:
         AstCompoundStmt(std::vector<AstStmt*> children) : children(std::move(children))
@@ -38,7 +38,7 @@ namespace glsld
     private:
         std::vector<AstStmt*> children;
     };
-    class AstExprStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstExprStmt final : public AstStmt, public AstPayload<AstExprStmt>
     {
     public:
         AstExprStmt(AstExpr* expr) : expr(expr)
@@ -55,7 +55,7 @@ namespace glsld
         AstExpr* expr;
     };
 
-    class AstDeclStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstDeclStmt final : public AstStmt, public AstPayload<AstDeclStmt>
     {
     public:
         AstDeclStmt(AstDecl* decl) : decl(decl)
@@ -71,7 +71,7 @@ namespace glsld
     private:
         AstDecl* decl;
     };
-    class AstForStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstForStmt final : public AstStmt, public AstPayload<AstForStmt>
     {
     public:
         AstForStmt(AstStmt* initClause, AstStmt* testClause, AstStmt* proceedClause, AstStmt* loopBody)
@@ -111,7 +111,7 @@ namespace glsld
         AstStmt* proceedClause;
         AstStmt* loopBody;
     };
-    class AstWhileStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstWhileStmt final : public AstStmt, public AstPayload<AstWhileStmt>
     {
     public:
         AstWhileStmt(AstExpr* predicate, AstStmt* loopBody) : predicate(predicate), loopBody(loopBody)
@@ -138,7 +138,7 @@ namespace glsld
         AstExpr* predicate;
         AstStmt* loopBody;
     };
-    class AstIfStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstIfStmt final : public AstStmt, public AstPayload<AstIfStmt>
     {
     public:
         AstIfStmt(AstExpr* predicate, AstStmt* ifBranch) : predicate(predicate), ifBranch(ifBranch), elseBranch(nullptr)
@@ -177,7 +177,7 @@ namespace glsld
         AstStmt* ifBranch;
         AstStmt* elseBranch;
     };
-    class AstLabeledStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstLabeledStmt final : public AstStmt, public AstPayload<AstLabeledStmt>
     {
     public:
         // FIXME: give correct ExprOp
@@ -202,7 +202,7 @@ namespace glsld
         // FIXME: case label/default label
         AstStmt* innerStmt;
     };
-    class AstSwitchStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstSwitchStmt final : public AstStmt, public AstPayload<AstSwitchStmt>
     {
     public:
         AstSwitchStmt(std::vector<AstStmt*> children) : children(children)
@@ -235,7 +235,7 @@ namespace glsld
     private:
         JumpType type;
     };
-    class AstReturnStmt final : public AstStmt
+    class MSVC_EMPTY_BASES AstReturnStmt final : public AstStmt, public AstPayload<AstReturnStmt>
     {
     public:
         AstReturnStmt() : returnValue(nullptr)

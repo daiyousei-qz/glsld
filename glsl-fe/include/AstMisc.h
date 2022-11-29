@@ -1,10 +1,11 @@
 #pragma once
 #include "AstBase.h"
+#include <span>
 
 namespace glsld
 {
     // array sizes
-    class AstArraySpec : public AstNodeBase
+    class MSVC_EMPTY_BASES AstArraySpec : public AstNodeBase, public AstPayload<AstArraySpec>
     {
     public:
         AstArraySpec()
@@ -12,6 +13,11 @@ namespace glsld
         }
         AstArraySpec(std::vector<AstExpr*> sizes) : sizes(std::move(sizes))
         {
+        }
+
+        auto GetSizeList() -> std::span<AstExpr* const>
+        {
+            return sizes;
         }
 
         template <typename Visitor>
@@ -23,15 +29,33 @@ namespace glsld
         std::vector<AstExpr*> sizes;
     };
 
-    class AstLayoutQualifier : public AstNodeBase
+    struct LayoutItem
+    {
+        SyntaxToken idToken;
+        AstExpr* value;
+    };
+
+    class MSVC_EMPTY_BASES AstLayoutQualifier : public AstNodeBase, public AstPayload<AstLayoutQualifier>
     {
     public:
+        AstLayoutQualifier(std::vector<LayoutItem> items) : items(items)
+        {
+        }
+
+        auto GetLayoutItems() -> std::span<const LayoutItem>
+        {
+            return items;
+        }
+
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
+
+    private:
+        std::vector<LayoutItem> items;
     };
-    class AstTypeQualifierSeq : public AstNodeBase
+    class MSVC_EMPTY_BASES AstTypeQualifierSeq : public AstNodeBase, public AstPayload<AstTypeQualifierSeq>
     {
     public:
         auto CanDeclInterfaceBlock() -> bool
@@ -199,7 +223,7 @@ namespace glsld
         bool qPatch : 1    = false;
     };
 
-    class AstQualType : public AstNodeBase
+    class MSVC_EMPTY_BASES AstQualType : public AstNodeBase, public AstPayload<AstQualType>
     {
     public:
         AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName) : qualifiers(qualifiers), typeName(typeName)
@@ -210,10 +234,30 @@ namespace glsld
         {
         }
 
+        auto GetQualifiers() -> AstTypeQualifierSeq*
+        {
+            return qualifiers;
+        }
+        auto GetArraySpec() -> AstArraySpec*
+        {
+            return arraySpec;
+        }
+        auto GetTypeNameTok() -> SyntaxToken
+        {
+            return typeName;
+        }
+        auto GetStructDecl() -> AstStructDecl*
+        {
+            return structDecl;
+        }
+
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             // FIXME: how to traverse expressions in the layout qualifier?
+            visitor.Traverse(qualifiers);
+            visitor.Traverse(arraySpec);
+            visitor.Traverse(structDecl);
         }
 
     private:

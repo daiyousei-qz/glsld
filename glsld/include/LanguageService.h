@@ -36,6 +36,8 @@ namespace glsld
                                 .change    = lsp::TextDocumentSyncKind::Full,
                             },
                         .hoverProvider          = true,
+                        .declarationProvider    = true,
+                        .definitionProvider     = true,
                         .documentSymbolProvider = true,
                         .semanticTokensProvider =
                             {
@@ -103,6 +105,27 @@ namespace glsld
             std::optional<lsp::Hover> result = ComputeHover(compiler, params.baseParams.position);
             server->HandleServerResponse(requestId, result, false);
         }
+
+        auto Declaration(int requestId, lsp::DeclarationParams params) -> void
+        {
+            // GlsldCompiler compiler;
+            // compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
+
+            std::vector<lsp::Location> result;
+            server->HandleServerResponse(requestId, result, false);
+        }
+
+        auto Definition(int requestId, lsp::DefinitionParams params) -> void
+        {
+            // GlsldCompiler compiler;
+            // compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
+
+            std::vector<lsp::Location> result;
+            server->HandleServerResponse(requestId, result, false);
+        }
+
+        // auto InlayHint(int requestId, lsp::InlayHintParams params) -> void {
+        // }
 
 #pragma endregion
 

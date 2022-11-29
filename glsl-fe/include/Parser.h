@@ -23,11 +23,6 @@ namespace glsld
             RestoreTokenIndex(0);
         }
 
-        auto Eof() -> bool
-        {
-            return TryTestToken(TokenKlass::Eof);
-        }
-
         auto DoParseTranslationUnit() -> void
         {
             TRACE_PARSER();
@@ -126,7 +121,7 @@ namespace glsld
         // ACCEPT: 'K_layout' '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseLayoutQualifier() -> void;
+        auto ParseLayoutQualifier() -> AstLayoutQualifier*;
 
         // Try to parse a sequence of qualifiers
         // PARSE: qual_seq
@@ -375,13 +370,13 @@ namespace glsld
             ConsumeTokenAssert(TokenKlass::LParen);
 
             if (TryConsumeToken(TokenKlass::RParen)) {
-                return {{}};
+                return {};
             }
 
             if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
                 ConsumeToken();
                 ConsumeToken();
-                return {{}};
+                return {};
             }
 
             std::vector<AstExpr*> result;
@@ -398,7 +393,7 @@ namespace glsld
             }
 
             ParseClosingParen();
-            return std::move(result);
+            return result;
         }
 
         // EXPECT: '['
@@ -629,6 +624,11 @@ namespace glsld
             }
         }
 
+        auto Eof() -> bool
+        {
+            return TryTestToken(TokenKlass::Eof);
+        }
+
         auto InParsingMode() -> bool
         {
             return state == ParsingState::Parsing;
@@ -679,17 +679,6 @@ namespace glsld
             else {
                 return false;
             }
-        }
-
-        auto ReportError(size_t tokIndex, std::string message) -> void
-        {
-            auto synRange = lexContext->GetSyntaxRange(tokIndex);
-            auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
-            diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
-        }
-        auto ReportError(std::string message) -> void
-        {
-            ReportError(GetTokenIndex(), std::move(message));
         }
 
         auto PeekToken() -> const SyntaxToken&
@@ -795,6 +784,17 @@ namespace glsld
         {
             return astContext->CreateAstNode<T>(lexContext->GetSyntaxRange(beginTokIndex, GetTokenIndex()),
                                                 std::forward<Args>(args)...);
+        }
+
+        auto ReportError(size_t tokIndex, std::string message) -> void
+        {
+            auto synRange = lexContext->GetSyntaxRange(tokIndex);
+            auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
+            diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
+        }
+        auto ReportError(std::string message) -> void
+        {
+            ReportError(GetTokenIndex(), std::move(message));
         }
 
     private:

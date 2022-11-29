@@ -1,6 +1,8 @@
 #pragma once
 #include <cassert>
 
+#define GLSLD_DEBUG 1
+
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 
 #define GLSLD_UNREACHABLE() std::abort()
