@@ -138,7 +138,7 @@ namespace glsld
 
         ConsumeTokenAssert(TokenKlass::LBrace);
 
-        if (TryTestToken(TokenKlass::RBrace)) {
+        if (TryConsumeToken(TokenKlass::RBrace)) {
             // empty struct body
             return {};
         }
@@ -342,7 +342,7 @@ namespace glsld
                 // unknown decl
                 ReportError("unknown decl");
                 EnterRecoveryMode();
-                return CreateAstNode<AstEmptyDecl>(beginTokIndex);
+                return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
             }
         }
     }

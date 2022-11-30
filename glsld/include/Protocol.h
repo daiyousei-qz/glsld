@@ -1917,12 +1917,17 @@ namespace glsld::lsp
         return true;
     }
 
+    // Although the LSP defines TextDocumentContentChangeEvent as a union type, we use an optional flag on
+    // TextDocumentContentChangeEvent::range to denote the difference. That is,
+    // - Partial change if range has value
+    // - Whole document change if range doesn't have value
     struct TextDocumentContentChangeEvent
     {
         // /**
         //  * The range of the document that changed.
         //  */
         // range: Range;
+        std::optional<Range> range;
 
         // /**
         //  * The optional length of the range that got replaced.
@@ -1944,6 +1949,9 @@ namespace glsld::lsp
     };
     inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
     {
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
         if (!mapper.Map("text", value.text)) {
             return false;
         }
@@ -2113,7 +2121,7 @@ namespace glsld::lsp
         //  */
         // semanticTokensProvider?: SemanticTokensOptions
         //     | SemanticTokensRegistrationOptions;
-        SemanticTokenOptions semanticTokensProvider;
+        std::optional<SemanticTokenOptions> semanticTokensProvider;
     };
     inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {

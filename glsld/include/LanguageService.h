@@ -2,6 +2,7 @@
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 #include "Compiler.h"
+#include "TextEdit.h"
 
 namespace glsld
 {
@@ -13,9 +14,81 @@ namespace glsld
 
     auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
 
-    // this class manages online source codes
-    class SourceManager
+    class IntellisenseProvider
     {
+    public:
+        IntellisenseProvider(int version, std::string sourceString) : version(version), sourceString(sourceString)
+        {
+        }
+
+        auto Setup()
+        {
+            compiler.Compile(std::move(sourceString));
+
+            std::unique_lock<std::mutex> lock{mu};
+            available = true;
+            cv.notify_all();
+        }
+
+        auto Wait() -> bool
+        {
+            using namespace std::literals;
+            std::unique_lock<std::mutex> lock{mu};
+            if (available || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
+                return available;
+            }
+
+            return false;
+        }
+
+        auto GetCompiler() -> GlsldCompiler&
+        {
+            return compiler;
+        }
+
+    private:
+        int version;
+        std::string sourceString;
+        GlsldCompiler compiler;
+
+        std::atomic<bool> available = false;
+        std::mutex mu;
+        std::condition_variable cv;
+    };
+
+    class TextReader
+    {
+    public:
+        auto Apply(const lsp::TextDocumentContentChangeEvent& changeEvent)
+        {
+            int line          = 0;
+            int charcter      = 0;
+            auto changedRange = changeEvent.range;
+            for (char ch : input) {
+                // if ((line == changedRange->start.line && charcter >= changedRange->start.character) ||
+                //     (line > changedRange->start.line && line < changedRange->start.line) ||
+                //     (line == changedRange->end.line && charcter < changedRange->end.character)) {
+                //     continue;
+                // }
+                if (line >= changedRange->start.line && charcter >= changedRange->start.character) {
+                    if (line >= changedRange->end.line && charcter >= changedRange->end.character) {
+                        break;
+                    }
+                    continue;
+                }
+
+                if (ch == '\n') {
+                    line += 1;
+                    charcter = 0;
+                }
+                else {
+                    charcter += 1;
+                }
+            }
+        }
+
+        std::string input;
+        std::string output;
     };
 
     class LanguageService
@@ -40,12 +113,17 @@ namespace glsld
                         .definitionProvider     = true,
                         .documentSymbolProvider = true,
                         .semanticTokensProvider =
-                            {
+                            lsp::SemanticTokenOptions{
                                 .legend = GetTokenLegend(),
                                 .range  = false,
                                 .full   = true,
                                 .delta  = false,
                             },
+                        // .hoverProvider          = false,
+                        // .declarationProvider    = false,
+                        // .definitionProvider     = false,
+                        // .documentSymbolProvider = false,
+                        // .semanticTokensProvider = std::nullopt,
                     },
                 .serverInfo =
                     {
@@ -60,15 +138,20 @@ namespace glsld
 
         auto DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
         {
-            sourceMap[params.textDocument.uri] = params.textDocument.text;
+            auto provider = (providerLookup[params.textDocument.uri] = std::make_shared<IntellisenseProvider>(
+                                 params.textDocument.version, std::move(params.textDocument.text)));
+
+            ScheduleTask([provider = std::move(provider)]() { provider->Setup(); });
         }
         auto DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
         {
-            sourceMap[params.textDocument.uri] = params.contentChanges[0].text;
+            auto provider = (providerLookup[params.textDocument.uri] = std::make_shared<IntellisenseProvider>(
+                                 params.textDocument.version, std::move(params.contentChanges[0].text)));
+            ScheduleTask([provider = std::move(provider)]() { provider->Setup(); });
         }
         auto DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
         {
-            sourceMap.erase(params.textDocument.uri);
+            providerLookup.erase(params.textDocument.uri);
         }
 
 #pragma endregion
@@ -77,20 +160,28 @@ namespace glsld
 
         auto DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
         {
-            GlsldCompiler compiler;
-            compiler.Compile(sourceMap[params.textDocument.uri]);
-
-            std::vector<lsp::DocumentSymbol> result = ComputeDocumentSymbol(compiler);
-            server->HandleServerResponse(requestId, result, false);
+            auto provider = providerLookup[params.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, provider = std::move(provider)] {
+                    if (provider->Wait()) {
+                        auto result = ComputeDocumentSymbol(provider->GetCompiler());
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
         }
 
         auto SemanticTokensFull(int requestId, lsp::SemanticTokensParam params) -> void
         {
-            GlsldCompiler compiler;
-            compiler.Compile(sourceMap[params.textDocument.uri]);
-
-            lsp::SemanticTokens result = ComputeSemanticTokens(compiler);
-            server->HandleServerResponse(requestId, result, false);
+            auto provider = providerLookup[params.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, provider = std::move(provider)] {
+                    if (provider->Wait()) {
+                        lsp::SemanticTokens result = ComputeSemanticTokens(provider->GetCompiler());
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
         }
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
@@ -99,27 +190,25 @@ namespace glsld
 
         auto Hover(int requestId, lsp::HoverParams params) -> void
         {
-            GlsldCompiler compiler;
-            compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
-
-            std::optional<lsp::Hover> result = ComputeHover(compiler, params.baseParams.position);
-            server->HandleServerResponse(requestId, result, false);
+            auto provider = providerLookup[params.baseParams.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, position = params.baseParams.position, provider = std::move(provider)] {
+                    if (provider->Wait()) {
+                        std::optional<lsp::Hover> result = ComputeHover(provider->GetCompiler(), position);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
         }
 
         auto Declaration(int requestId, lsp::DeclarationParams params) -> void
         {
-            // GlsldCompiler compiler;
-            // compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
-
             std::vector<lsp::Location> result;
             server->HandleServerResponse(requestId, result, false);
         }
 
         auto Definition(int requestId, lsp::DefinitionParams params) -> void
         {
-            // GlsldCompiler compiler;
-            // compiler.Compile(sourceMap[params.baseParams.textDocument.uri]);
-
             std::vector<lsp::Location> result;
             server->HandleServerResponse(requestId, result, false);
         }
@@ -139,8 +228,15 @@ namespace glsld
 #pragma endregion
 
     private:
-        // uri -> source
-        std::map<std::string, std::string> sourceMap;
+        template <typename F, typename... Args>
+        auto ScheduleTask(F&& f, Args&&... args) -> void
+        {
+            std::thread thd{std::forward<F>(f), std::forward<Args>(args)...};
+            thd.detach();
+        }
+
+        // uri -> provider
+        std::map<std::string, std::shared_ptr<IntellisenseProvider>> providerLookup;
 
         LanguageServerCallback* server;
     };
