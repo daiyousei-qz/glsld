@@ -181,15 +181,11 @@ namespace glsld
     class MSVC_EMPTY_BASES AstInvokeExpr final : public AstExpr, public AstPayload<AstInvokeExpr>
     {
     public:
-        AstInvokeExpr(InvocationType type, AstExpr* invokedExpr, std::vector<AstExpr*> args)
-            : type(type), invokedExpr(invokedExpr), args(std::move(args))
+        AstInvokeExpr(AstExpr* invokedExpr, std::vector<AstExpr*> args)
+            : invokedExpr(invokedExpr), args(std::move(args))
         {
         }
 
-        auto GetInvocationType() -> InvocationType
-        {
-            return type;
-        }
         auto GetInvokedExpr() -> AstExpr*
         {
             return invokedExpr;
@@ -209,8 +205,36 @@ namespace glsld
         }
 
     private:
-        InvocationType type;
         AstExpr* invokedExpr;
         std::vector<AstExpr*> args;
+    };
+
+    class MSVC_EMPTY_BASES AstIndexAccessExpr final : public AstExpr, public AstPayload<AstIndexAccessExpr>
+    {
+    public:
+        AstIndexAccessExpr(AstExpr* invokedExpr, AstArraySpec* arraySpec)
+            : invokedExpr(invokedExpr), arraySpec(arraySpec)
+        {
+        }
+
+        auto GetInvokedExpr() -> AstExpr*
+        {
+            return invokedExpr;
+        }
+        auto GetArraySpec() -> AstArraySpec*
+        {
+            return arraySpec;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*invokedExpr);
+            visitor.Traverse(*arraySpec);
+        }
+
+    private:
+        AstExpr* invokedExpr;
+        AstArraySpec* arraySpec;
     };
 } // namespace glsld

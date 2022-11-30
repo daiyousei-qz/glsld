@@ -35,8 +35,10 @@ namespace glsld
             parser.DoParseTranslationUnit();
             compiled = true;
 
-            TypeChecker{}.TraverseAst(*astContext);
-            AstPrinter{}.TraverseAst(*astContext);
+            TypeChecker{}.TypeCheck(*astContext);
+            AstPrinter printer;
+            printer.TraverseAst(*astContext);
+            fmt::print(stderr, "{}", printer.Export());
         }
 
         auto GetDiagnosticContext() -> const DiagnosticContext&

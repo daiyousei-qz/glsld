@@ -14,6 +14,7 @@
 
 namespace glsld
 {
+    // FIXME: update RECOVERY info
     class Parser
     {
     public:
@@ -248,7 +249,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*;
 
-        // EXPECT: 'ID' or '{'
+        // EXPECT: 'ID' '{' or '{'
         // RECOVERY: ^'EOF' or ^';'
         auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
@@ -272,6 +273,14 @@ namespace glsld
         //
         // RECOVERY: ^';' or ^'}' or ^'EOF'
         auto ParseExpr() -> AstExpr*;
+
+        // EXPECT: '{'
+        //
+        // PARSE: '{' ... '}'
+        auto ParseInitializerExpr() -> AstExpr*
+        {
+            GLSLD_NO_IMPL();
+        }
 
         // PARSE: assignment_expr
         //      - assignment_expr := unary_expr '?=' assignment_expr
@@ -461,6 +470,14 @@ namespace glsld
         // FIXME: only simple stmt is allowed in for loop predicate?
         auto ParseForStmt() -> AstStmt*;
 
+        // EXPECT: 'K_do'
+        //
+        // PARSE: dowhile_stmt
+        //      - dowhile_stmt := 'K_do' stmt 'K_while' paren_wrapped_expr ';'
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseDoWhileStmt() -> AstStmt*;
+
         // EXPECT: 'K_while'
         //
         // PARSE: while_stmt
@@ -468,6 +485,9 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseWhileStmt() -> AstStmt*;
+
+        // EXPECT: 'K_case' or 'K_default'
+        auto ParseLabelStmt() -> AstStmt*;
 
         // EXPECT: 'K_switch'
         //

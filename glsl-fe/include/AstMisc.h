@@ -55,7 +55,8 @@ namespace glsld
     private:
         std::vector<LayoutItem> items;
     };
-    class MSVC_EMPTY_BASES AstTypeQualifierSeq : public AstNodeBase, public AstPayload<AstTypeQualifierSeq>
+
+    class QualifierGroup
     {
     public:
         auto CanDeclInterfaceBlock() -> bool
@@ -196,17 +197,13 @@ namespace glsld
             return qPatch;
         };
 
-        template <typename Visitor>
-        auto Traverse(Visitor& visitor) -> void
-        {
-        }
-
-    protected:
+    private:
+        // Precision Qualifier
         bool qHighp : 1   = false;
         bool qMediump : 1 = false;
         bool qLowp : 1    = false;
 
-        // Storage qualifiers
+        // Storage/Parameter qualifiers
         bool qConst : 1     = false;
         bool qIn : 1        = false;
         bool qOut : 1       = false;
@@ -221,16 +218,53 @@ namespace glsld
         bool qCentroid : 1 = false;
         bool qSample : 1   = false;
         bool qPatch : 1    = false;
+
+        // Interpolation qualifiers
+        bool qSmooth : 1        = false;
+        bool qFlat : 1          = false;
+        bool qNoperspective : 1 = false;
+
+        // Variance qualifier
+        bool qInvariant : 1 = false;
+
+        // Precise qualifier
+        bool qPrecise : 1 = false;
+
+        // Memory qualifiers
+        bool qCoherent : 1  = false;
+        bool qVolatile : 1  = false;
+        bool qRestrict : 1  = false;
+        bool qReadonly : 1  = false;
+        bool qWriteonly : 1 = false;
+    };
+
+    class MSVC_EMPTY_BASES AstTypeQualifierSeq : public AstNodeBase, public AstPayload<AstTypeQualifierSeq>
+    {
+    public:
+        AstTypeQualifierSeq(QualifierGroup quals, std::vector<AstLayoutQualifier*> layoutQuals)
+            : quals(quals), layoutQuals(layoutQuals)
+        {
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+        }
+
+    private:
+        QualifierGroup quals;
+        std::vector<AstLayoutQualifier*> layoutQuals;
     };
 
     class MSVC_EMPTY_BASES AstQualType : public AstNodeBase, public AstPayload<AstQualType>
     {
     public:
-        AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName) : qualifiers(qualifiers), typeName(typeName)
+        AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName, AstArraySpec* arraySpec)
+            : qualifiers(qualifiers), typeName(typeName), arraySpec(arraySpec)
         {
         }
-        AstQualType(AstTypeQualifierSeq* qualifiers, AstStructDecl* structDecl)
-            : qualifiers(qualifiers), structDecl(structDecl)
+        AstQualType(AstTypeQualifierSeq* qualifiers, AstStructDecl* structDecl, AstArraySpec* arraySpec)
+            : qualifiers(qualifiers), structDecl(structDecl), arraySpec(arraySpec)
         {
         }
 

@@ -13,7 +13,7 @@ namespace glsld
         {
             PrintIdent();
             depth += 1;
-            Print("{}@{} ", AstNodeTagToString(node.GetTag()), static_cast<void*>(&node));
+            Print("{}@{} ", AstNodeTagToString(node.GetTag()), static_cast<const void*>(&node));
             return AstVisitPolicy::Traverse;
         }
         auto ExitAstNodeBase(AstNodeBase& node) -> void
@@ -51,22 +51,30 @@ namespace glsld
 
         auto VisitAstConstantExpr(AstConstantExpr& expr)
         {
-            Print("[Value={};]\n", expr.GetToken().text.Get());
+            Print("[Value={};]", expr.GetToken().text.Get());
+            PrintAstExprPayload(expr);
+            Print("\n");
         }
 
         auto VisitAstUnaryExpr(AstUnaryExpr& expr)
         {
-            Print("[Op={};]\n", UnaryOpToString(expr.GetOperator()));
+            Print("[Op={};]", UnaryOpToString(expr.GetOperator()));
+            PrintAstExprPayload(expr);
+            Print("\n");
         }
 
         auto VisitAstBinaryExpr(AstBinaryExpr& expr)
         {
-            Print("[Op={};]\n", BinaryOpToString(expr.GetOperator()));
+            Print("[Op={};]", BinaryOpToString(expr.GetOperator()));
+            PrintAstExprPayload(expr);
+            Print("\n");
         }
 
         auto VisitAstInvokeExpr(AstInvokeExpr& expr)
         {
-            Print("[Type={};]\n", InvocationTypeToString(expr.GetInvocationType()));
+            Print("[]");
+            PrintAstExprPayload(expr);
+            Print("\n");
         }
 
         auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
@@ -80,6 +88,7 @@ namespace glsld
 
             Print("[AccessType={}; AccessedDecl={};] ", NameAccessTypeToString(expr.GetAccessType()),
                   static_cast<const void*>(expr.GetAccessedDecl()));
+            PrintAstExprPayload(expr);
             Print("\n");
         }
 
@@ -89,6 +98,12 @@ namespace glsld
         }
 
     private:
+        auto PrintAstExprPayload(AstExpr& expr) -> void
+        {
+            Print("[DeducedType={}; ContextualType={};] ", static_cast<const void*>(expr.GetDeducedType()),
+                  static_cast<const void*>(expr.GetContextualType()));
+        }
+
         template <typename... Args>
         auto Print(fmt::format_string<Args...> fmt, Args&&... args) -> void
         {

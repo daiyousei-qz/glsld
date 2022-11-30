@@ -249,7 +249,14 @@ namespace glsld
         }
         auto ParseNumberLiteral(char firstChar) -> TokenKlass
         {
-            while (true) {
+            GLSLD_ASSERT(IsDigit(firstChar));
+            if (sourceView.Eof()) {
+                return TokenKlass::IntegerConstant;
+            }
+
+            // FIXME: handle 0x prefix
+            bool seeDecimalPoint = false;
+            while (!sourceView.Eof()) {
                 if (sourceView.Eof()) {
                     break;
                 }
@@ -258,12 +265,37 @@ namespace glsld
                 if (IsDigit(ch)) {
                     sourceView.Consume();
                 }
+                else if (!seeDecimalPoint && ch == '.') {
+                    seeDecimalPoint = true;
+                    sourceView.Consume();
+                }
                 else {
                     break;
                 }
             }
 
-            return TokenKlass::IntegerConstant;
+            // Parse suffix
+            if (seeDecimalPoint) {
+                if (!sourceView.Eof()) {
+                    if (sourceView.Peek() == 'f' || sourceView.Peek() == 'F') {
+                        sourceView.Consume();
+                    }
+                }
+            }
+            else {
+                if (!sourceView.Eof()) {
+                    if (sourceView.Peek() == 'u' || sourceView.Peek() == 'U') {
+                        sourceView.Consume();
+                    }
+                }
+            }
+
+            if (seeDecimalPoint) {
+                return TokenKlass::FloatConstant;
+            }
+            else {
+                return TokenKlass::IntegerConstant;
+            }
         }
         auto ParsePunctuation(char firstChar) -> TokenKlass
         {

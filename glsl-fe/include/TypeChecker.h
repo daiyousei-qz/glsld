@@ -7,72 +7,95 @@
 
 namespace glsld
 {
-    // FIXME: avoid doing another traversal. We could do this during parsing
-    class TypeChecker : public AstVisitor<TypeChecker>
+    class TypeChecker
     {
     public:
-        auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
+        auto TypeCheck(AstContext& ast)
         {
-            if (currentFunc) {
-                // nested function isn't allowed
-                return AstVisitPolicy::Leave;
-            }
-
-            return AstVisitPolicy::Traverse;
+            TypeCheckVisitor{*this}.TraverseAst(ast);
         }
 
-        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+    private:
+        //
+        // Global Decl
+        //
+
+        auto InFunctionScope() -> bool
         {
-            if (decl.GetName().klass != TokenKlass::Error) {
-                currentFunc = decl.GetName().text.Str();
-                symbolTable.AddSymbol(*currentFunc, &decl);
-            }
-            else {
-                currentFunc = "";
-            }
-            symbolTable.PushScope();
-        }
-        auto ExitAstFunctionDecl(AstFunctionDecl& decl) -> void
-        {
-            currentFunc = std::nullopt;
-            symbolTable.PopScope();
+            return currentFunction != nullptr;
         }
 
-        auto VisitAstStructDecl(AstStructDecl& decl) -> void
+        auto DeclareStructType(AstStructDecl& decl) -> void
         {
             if (decl.GetDeclToken()) {
                 TryAddSymbol(decl.GetDeclToken()->text, decl);
             }
         }
-        auto VisitAstParamDecl(AstParamDecl& decl) -> void
-        {
-            TryAddSymbol(decl.GetDeclTok().text, decl);
-        }
-        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
+        auto DeclareVariable(AstVariableDecl& decl) -> void
         {
             for (const auto& declarator : decl.GetDeclarators()) {
                 TryAddSymbol(declarator.declTok.text, decl);
             }
         }
-
-        auto VisitAstCompoundStmt(AstCompoundStmt& stmt) -> void
+        auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
         {
-            // ignore the outermost compound stmt because we share scope with the function decl
-            if (compoundStmtDepth > 0) {
-                symbolTable.PushScope();
-            }
-            compoundStmtDepth += 1;
-        }
-        auto ExitAstCompoundStmt(AstCompoundStmt& stmt) -> void
-        {
-            // ignore the outermost compound stmt because we share scope with the function decl
-            compoundStmtDepth -= 1;
-            if (compoundStmtDepth > 0) {
-                symbolTable.PopScope();
-            }
         }
 
-        auto ExitAstConstantExpr(AstConstantExpr& expr) -> void
+        auto EnterFunctionScope(AstFunctionDecl& decl) -> void
+        {
+            GLSLD_ASSERT(!InFunctionScope());
+            currentFunction = &decl;
+            symbolTable.PushScope();
+
+            if (decl.GetName().klass != TokenKlass::Error) {
+                auto funcName = decl.GetName().text.StrView();
+                if (!funcName.empty()) {
+                    symbolTable.AddSymbol(std::string{funcName}, &decl);
+                }
+            }
+        }
+        auto ExitFunctionScope() -> void
+        {
+            currentFunction = nullptr;
+            symbolTable.PopScope();
+        }
+
+        auto EnterBlockScope() -> void
+        {
+            GLSLD_ASSERT(InFunctionScope());
+            symbolTable.PushScope();
+        }
+        auto ExitBlockScope() -> void
+        {
+            GLSLD_ASSERT(InFunctionScope());
+            symbolTable.PopScope();
+        }
+
+        //
+        // Expr
+        //
+        // PreprocessXXXExpr: action before children are type checked
+        // CheckXXXExpr: action after children are type checked
+
+        auto PreprocessInvokeExpr(AstInvokeExpr& expr) -> void
+        {
+            // FIXME: handle construct like `float[4](...)`
+            if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+                if (func->GetAccessName().klass != TokenKlass::Identifier) {
+                    // This is a constructor
+                    func->SetAccessType(NameAccessType::Constructor);
+                }
+                else {
+                    func->SetAccessType(NameAccessType::Function);
+                }
+            }
+        }
+
+        auto CheckErrorExpr(AstErrorExpr& expr) -> void
+        {
+            expr.SetDeducedType(GetErrorTypeDesc());
+        }
+        auto CheckConstantExpr(AstConstantExpr& expr) -> void
         {
             // FIXME: handle literals with typing suffix
             switch (expr.GetToken().klass) {
@@ -90,9 +113,10 @@ namespace glsld
                 GLSLD_UNREACHABLE();
             }
         }
-
-        auto ExitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
+        auto CheckNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
+            expr.SetDeducedType(GetErrorTypeDesc());
+
             if (expr.GetAccessType() == NameAccessType::Unknown) {
                 expr.SetAccessType(NameAccessType::Variable);
             }
@@ -123,22 +147,23 @@ namespace glsld
                 }
             }
         }
-
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
         {
-            if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                if (func->GetAccessName().klass != TokenKlass::Identifier) {
-                    // This is a constructor
-                    func->SetAccessType(NameAccessType::Constructor);
-                    return;
-                }
-                else {
-                    func->SetAccessType(NameAccessType::Function);
-                }
-            }
+            expr.SetDeducedType(GetErrorTypeDesc());
         }
-
-        auto ExitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        auto CheckUnaryExpr(AstUnaryExpr& expr) -> void
+        {
+            expr.SetDeducedType(GetErrorTypeDesc());
+        }
+        auto CheckBinaryExpr(AstBinaryExpr& expr) -> void
+        {
+            expr.SetDeducedType(GetErrorTypeDesc());
+        }
+        auto CheckSelectExpr(AstSelectExpr& expr) -> void
+        {
+            expr.SetDeducedType(GetErrorTypeDesc());
+        }
+        auto CheckInvokeExpr(AstInvokeExpr& expr) -> void
         {
             // FIXME: handle function call
             // FIXME: handle things like `S[2](...)`
@@ -155,12 +180,125 @@ namespace glsld
             expr.SetDeducedType(GetErrorTypeDesc());
         }
 
-        auto ExitAstExpr(AstExpr& expr) -> void
+        //
+        // Type Eval
+        //
+        auto HasConversion(const TypeDesc* from, const TypeDesc* to) -> bool
         {
-            expr.SetDeducedType(GetErrorTypeDesc());
+            GLSLD_NO_IMPL();
+        }
+
+        auto EvalUnary(UnaryOp op, const TypeDesc* oparand) -> const TypeDesc*
+        {
+            GLSLD_NO_IMPL();
+        }
+
+        auto EvalBinary(BinaryOp op, const TypeDesc* lhs, const TypeDesc* rhs) -> const TypeDesc*
+        {
+            GLSLD_NO_IMPL();
         }
 
     private:
+        // FIXME: avoid doing another traversal. We could do this during parsing
+        class TypeCheckVisitor : public AstVisitor<TypeCheckVisitor>
+        {
+        public:
+            TypeCheckVisitor(TypeChecker& typeChecker) : typeChecker(typeChecker)
+            {
+            }
+
+            auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
+            {
+                if (typeChecker.InFunctionScope()) {
+                    // nested function isn't allowed
+                    return AstVisitPolicy::Leave;
+                }
+
+                return AstVisitPolicy::Traverse;
+            }
+
+            auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+            {
+                typeChecker.EnterFunctionScope(decl);
+            }
+            auto ExitAstFunctionDecl(AstFunctionDecl& decl) -> void
+            {
+                typeChecker.ExitFunctionScope();
+            }
+
+            auto ExitAstStructDecl(AstStructDecl& decl) -> void
+            {
+                typeChecker.DeclareStructType(decl);
+            }
+            auto ExitAstVariableDecl(AstVariableDecl& decl) -> void
+            {
+                typeChecker.DeclareVariable(decl);
+            }
+            auto ExitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+            {
+                typeChecker.DeclareInterfaceBlock(decl);
+            }
+
+            auto VisitAstCompoundStmt(AstCompoundStmt& stmt) -> void
+            {
+                // ignore the outermost compound stmt because we share scope with the function decl
+                if (compoundStmtDepth > 0) {
+                    typeChecker.EnterBlockScope();
+                }
+                compoundStmtDepth += 1;
+            }
+            auto ExitAstCompoundStmt(AstCompoundStmt& stmt) -> void
+            {
+                // ignore the outermost compound stmt because we share scope with the function decl
+                compoundStmtDepth -= 1;
+                if (compoundStmtDepth > 0) {
+                    typeChecker.ExitBlockScope();
+                }
+            }
+
+            auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+            {
+                typeChecker.PreprocessInvokeExpr(expr);
+            }
+
+            auto ExitAstExpr(AstExpr& expr) -> void
+            {
+                switch (expr.GetTag()) {
+                case AstNodeTag::AstErrorExpr:
+                    typeChecker.CheckErrorExpr(*expr.As<AstErrorExpr>());
+                    break;
+                case AstNodeTag::AstConstantExpr:
+                    typeChecker.CheckConstantExpr(*expr.As<AstConstantExpr>());
+                    break;
+                case AstNodeTag::AstNameAccessExpr:
+                    typeChecker.CheckNameAccessExpr(*expr.As<AstNameAccessExpr>());
+                    break;
+                case AstNodeTag::AstUnaryExpr:
+                    typeChecker.CheckUnaryExpr(*expr.As<AstUnaryExpr>());
+                    break;
+                case AstNodeTag::AstBinaryExpr:
+                    typeChecker.CheckBinaryExpr(*expr.As<AstBinaryExpr>());
+                    break;
+                case AstNodeTag::AstSelectExpr:
+                    typeChecker.CheckSelectExpr(*expr.As<AstSelectExpr>());
+                    break;
+                case AstNodeTag::AstInvokeExpr:
+                    typeChecker.CheckInvokeExpr(*expr.As<AstInvokeExpr>());
+                    break;
+                case AstNodeTag::AstIndexAccessExpr:
+                    typeChecker.CheckIndexAccessExpr(*expr.As<AstIndexAccessExpr>());
+                    break;
+                default:
+                    GLSLD_UNREACHABLE();
+                }
+            }
+
+        private:
+            TypeChecker& typeChecker;
+
+            int compoundStmtDepth = 0;
+        };
+
         auto TryAddSymbol(LexString name, AstDecl& decl) -> void
         {
             auto s = name.StrView();
@@ -169,9 +307,7 @@ namespace glsld
             }
         }
 
-        int compoundStmtDepth = 0;
+        AstFunctionDecl* currentFunction = nullptr;
         SymbolTable symbolTable;
-
-        std::optional<std::string> currentFunc;
     };
 } // namespace glsld

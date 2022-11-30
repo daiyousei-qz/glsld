@@ -36,17 +36,36 @@ namespace glsld
     class MSVC_EMPTY_BASES AstStructMemberDecl : public AstDecl, public AstPayload<AstStructMemberDecl>
     {
     public:
+        AstStructMemberDecl(AstQualType* type) : type(type)
+        {
+            // Yes, a variable decl could declare no variable
+        }
+        AstStructMemberDecl(AstQualType* type, std::vector<VariableDeclarator> decls) : type(type), decls(decls)
+        {
+        }
+
+        auto GetType() -> AstQualType*
+        {
+            return type;
+        }
+        auto GetDeclarators() -> std::span<VariableDeclarator>
+        {
+            return decls;
+        }
+
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
-            visitor.Traverse(declarator.arraySize);
-            visitor.Traverse(declarator.init);
+            for (const auto& declarator : decls) {
+                visitor.Traverse(declarator.arraySize);
+                visitor.Traverse(declarator.init);
+            }
         }
 
     private:
         AstQualType* type;
-        VariableDeclarator declarator;
+        std::vector<VariableDeclarator> decls;
     };
 
     class MSVC_EMPTY_BASES AstStructDecl : public AstDecl, public AstPayload<AstStructDecl>

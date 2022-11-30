@@ -111,6 +111,33 @@ namespace glsld
         AstStmt* proceedClause;
         AstStmt* loopBody;
     };
+    class MSVC_EMPTY_BASES AstDoWhileStmt final : public AstStmt, public AstPayload<AstDoWhileStmt>
+    {
+    public:
+        AstDoWhileStmt(AstExpr* predicate, AstStmt* loopBody) : predicate(predicate), loopBody(loopBody)
+        {
+        }
+
+        auto GetPredicateExpr() -> AstExpr*
+        {
+            return predicate;
+        }
+        auto GetLoopBody() -> AstStmt*
+        {
+            return loopBody;
+        }
+
+        template <typename Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(*predicate);
+            visitor.Traverse(*loopBody);
+        }
+
+    private:
+        AstExpr* predicate;
+        AstStmt* loopBody;
+    };
     class MSVC_EMPTY_BASES AstWhileStmt final : public AstStmt, public AstPayload<AstWhileStmt>
     {
     public:
@@ -177,48 +204,45 @@ namespace glsld
         AstStmt* ifBranch;
         AstStmt* elseBranch;
     };
-    class MSVC_EMPTY_BASES AstLabeledStmt final : public AstStmt, public AstPayload<AstLabeledStmt>
+    class MSVC_EMPTY_BASES AstLabelStmt final : public AstStmt, public AstPayload<AstLabelStmt>
     {
     public:
-        // FIXME: give correct ExprOp
-        AstLabeledStmt(AstStmt* innerStmt) : innerStmt(innerStmt)
+        AstLabelStmt(AstExpr* caseExpr) : caseExpr(caseExpr)
         {
         }
 
-        auto GetInnerStmt() -> AstStmt*
+        auto GetCaseExpr() -> AstExpr*
         {
-            return innerStmt;
+            return caseExpr;
         }
 
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
-            if (innerStmt) {
-                visitor.Traverse(*innerStmt);
-            }
+            visitor.Traverse(caseExpr);
         }
 
     private:
         // FIXME: case label/default label
-        AstStmt* innerStmt;
+        AstExpr* caseExpr;
     };
     class MSVC_EMPTY_BASES AstSwitchStmt final : public AstStmt, public AstPayload<AstSwitchStmt>
     {
     public:
-        AstSwitchStmt(std::vector<AstStmt*> children) : children(children)
+        AstSwitchStmt(AstExpr* expr, AstStmt* child) : expr(expr), child(child)
         {
         }
 
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
-            for (auto stmt : children) {
-                visitor.Traverse(*stmt);
-            }
+            visitor.Traverse(*expr);
+            visitor.Traverse(*child);
         }
 
     private:
-        std::vector<AstStmt*> children;
+        AstExpr* expr;
+        AstStmt* child;
     };
     class AstJumpStmt final : public AstStmt
     {
@@ -254,7 +278,7 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
-            visitor.Traverse(*returnValue);
+            visitor.Traverse(returnValue);
         }
 
     private:

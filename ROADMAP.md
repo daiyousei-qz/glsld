@@ -33,3 +33,12 @@
 - Rename
 - Find References
 - Publish Diagnostics
+
+# Known issues
+- `int[] foo213234();` FIXED
+- `switch` FIXED
+- `GLSLANG 100scope.vert` FIXED
+- error in constructor/declarator
+- `!u;` FIXED
+- `GLSLANG 310.tesc` FIXED
+- `5u, 1.f`

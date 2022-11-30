@@ -155,23 +155,6 @@ namespace glsld
         Discard,
     };
 
-    enum class InvocationType
-    {
-        FunctionCall,
-        Indexing,
-    };
-    inline auto InvocationTypeToString(InvocationType type) -> std::string_view
-    {
-        switch (type) {
-        case InvocationType::FunctionCall:
-            return "FunctionCall";
-        case InvocationType::Indexing:
-            return "Indexing";
-        default:
-            GLSLD_UNREACHABLE();
-        }
-    }
-
     enum class InterfaceBlockType
     {
         In,

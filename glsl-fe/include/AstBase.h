@@ -75,10 +75,14 @@ namespace glsld
     {
         // FIXME: static_assert(false);
 
+        // If AstType is a type for a leaf node
         static constexpr bool isLeafNode = false;
-        static constexpr AstNodeTag tag  = AstNodeTag::Invalid;
-        static constexpr int tagBegin    = 0;
-        static constexpr int tagEnd      = 0;
+        // The tag for the AstType if it's a leaf node, otherwise it's Invalid
+        static constexpr AstNodeTag tag = AstNodeTag::Invalid;
+
+        // any valid tag in range (tagBegin, tagEnd) is or derives AstType
+        static constexpr int tagBegin = 0;
+        static constexpr int tagEnd   = 0;
     };
 
 #define DECL_AST_BEGIN_BASE(TYPE)
@@ -88,7 +92,7 @@ namespace glsld
     {                                                                                                                  \
         static constexpr bool isLeafNode = false;                                                                      \
         static constexpr AstNodeTag tag  = AstNodeTag::Invalid;                                                        \
-        static constexpr int tagBegin    = detail::AstTagBeginBase_##TYPE + 1;                                         \
+        static constexpr int tagBegin    = detail::AstTagBeginBase_##TYPE;                                             \
         static constexpr int tagEnd      = detail::AstTagEndBase_##TYPE;                                               \
     };
 #define DECL_AST_TYPE(TYPE)                                                                                            \
@@ -97,7 +101,7 @@ namespace glsld
     {                                                                                                                  \
         static constexpr bool isLeafNode = true;                                                                       \
         static constexpr AstNodeTag tag  = AstNodeTag::TYPE;                                                           \
-        static constexpr int tagBegin    = static_cast<int>(AstNodeTag::TYPE);                                         \
+        static constexpr int tagBegin    = static_cast<int>(AstNodeTag::TYPE) - 1;                                     \
         static constexpr int tagEnd      = static_cast<int>(AstNodeTag::TYPE) + 1;                                     \
     };
 #include "GlslAst.inc"
@@ -110,9 +114,8 @@ namespace glsld
     public:
         AstNodeBase() = default;
 
-        // FIXME: disable copying...
-        // AstNodeBase(const AstNodeBase&)                    = delete;
-        // auto operator=(const AstNodeBase&) -> AstNodeBase& = delete;
+        AstNodeBase(const AstNodeBase&)                    = delete;
+        auto operator=(const AstNodeBase&) -> AstNodeBase& = delete;
 
 #if defined(GLSLD_DEBUG)
         // We don't need virtual dtor because we dispatch Ast type manually, but this is helpful for debugging
@@ -146,7 +149,7 @@ namespace glsld
             }
             else {
                 int tagValue = static_cast<int>(GetTag());
-                return tagValue >= AstNodeTrait<AstType>::tagBegin && tagValue < AstNodeTrait<AstType>::tagEnd;
+                return tagValue > AstNodeTrait<AstType>::tagBegin && tagValue < AstNodeTrait<AstType>::tagEnd;
             }
         }
 
@@ -177,6 +180,14 @@ namespace glsld
     };
 
     template <>
+    class AstPayload<AstQualType>
+    {
+    public:
+    private:
+        AstDecl* decl = nullptr;
+    };
+
+    template <>
     class AstPayload<AstExpr>
     {
     public:
@@ -189,8 +200,21 @@ namespace glsld
             this->deducedType = deducedType;
         }
 
+        auto GetContextualType() -> const TypeDesc*
+        {
+            return contextualType;
+        }
+        auto SetContextualType(const TypeDesc* contextualType) -> void
+        {
+            this->contextualType = contextualType;
+        }
+
     private:
+        // Type of the evaluated expression
         const TypeDesc* deducedType = nullptr;
+
+        // Type of the context where the expression is used
+        const TypeDesc* contextualType = nullptr;
     };
 
     template <>

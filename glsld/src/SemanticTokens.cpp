@@ -114,7 +114,25 @@ namespace glsld
             {
             }
 
-            auto VisitAstStructDecl(AstStructDecl& decl)
+            auto VisitAstQualType(AstQualType& type) -> void
+            {
+                if (type.GetTypeNameTok().klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), type.GetTypeNameTok().range,
+                                                                  SemanticTokenType::Type));
+                }
+            }
+
+            auto VisitAstStructMemberDecl(AstStructMemberDecl& decl) -> void
+            {
+                for (const auto& declarator : decl.GetDeclarators()) {
+                    if (declarator.declTok.klass == TokenKlass::Identifier) {
+                        tokenBuffer.push_back(
+                            CreateSemanticTokenInfo(compiler.GetLexContext(), declarator.declTok.range,
+                                                    SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
+                    }
+                }
+            }
+            auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken() && decl.GetDeclToken()->klass != TokenKlass::Error) {
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken()->range,
@@ -122,15 +140,23 @@ namespace glsld
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
-            auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl)
+            auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
-                if (decl.GetDeclToken().klass != TokenKlass::Error) {
+                // Interface block name
+                if (decl.GetDeclToken().klass == TokenKlass::Identifier) {
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken().range,
                                                                   SemanticTokenType::Type,
                                                                   SemanticTokenModifier::Declaration));
                 }
+
+                // Interface block decl
+                if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(
+                        CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclarator()->declTok.range,
+                                                SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
+                }
             }
-            auto VisitAstFunctionDecl(AstFunctionDecl& decl)
+            auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
                 if (decl.GetName().klass == TokenKlass::Identifier) {
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetName().range,
@@ -138,7 +164,7 @@ namespace glsld
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
-            auto VisitAstParamDecl(AstParamDecl& decl)
+            auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclTok().klass == TokenKlass::Identifier) {
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTok().range,
@@ -146,7 +172,7 @@ namespace glsld
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
-            auto VisitAstVariableDecl(AstVariableDecl& decl)
+            auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.klass == TokenKlass::Identifier) {
@@ -157,7 +183,7 @@ namespace glsld
                 }
             }
 
-            auto VisitAstNameAccessExpr(AstNameAccessExpr& expr)
+            auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
             {
                 switch (expr.GetAccessType()) {
                 case NameAccessType::Function:

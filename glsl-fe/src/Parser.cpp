@@ -22,7 +22,7 @@ namespace glsld
 
             AstExpr* value = nullptr;
             if (TryConsumeToken(TokenKlass::Assign)) {
-                value = ParseExpr();
+                value = ParseAssignmentExpr();
             }
 
             if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Comma)) {
@@ -41,24 +41,27 @@ namespace glsld
         TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
-        AstTypeQualifierSeq result;
+        QualifierGroup qualifiers;
+        std::vector<AstLayoutQualifier*> layoutQuals;
 
         bool inQualSeq = true;
-        while (inQualSeq) {
+        while (InParsingMode() && inQualSeq) {
             // FIXME: implement correctly
             switch (PeekToken().klass) {
                 // precision qualifier
             case TokenKlass::K_highp:
-                result.SetHighp();
+                qualifiers.SetHighp();
                 break;
             case TokenKlass::K_mediump:
-                result.SetMediump();
+                qualifiers.SetMediump();
                 break;
             case TokenKlass::K_lowp:
-                result.SetLowp();
+                qualifiers.SetLowp();
                 break;
                 // invariance qual?
+            case TokenKlass::K_invariant:
                 // precise qual?
+            case TokenKlass::K_precise:
                 // memory qualifier
             case TokenKlass::K_coherent:
             case TokenKlass::K_volatile:
@@ -66,46 +69,48 @@ namespace glsld
             case TokenKlass::K_readonly:
             case TokenKlass::K_writeonly:
                 break;
-                // layout qual
-            case TokenKlass::K_layout:
-                break;
                 // storage qual (also, parameter qual)
             case TokenKlass::K_const:
-                result.SetConst();
+                qualifiers.SetConst();
                 break;
             case TokenKlass::K_in:
-                result.SetIn();
+                qualifiers.SetIn();
                 break;
             case TokenKlass::K_out:
-                result.SetOut();
+                qualifiers.SetOut();
                 break;
             case TokenKlass::K_inout:
-                result.SetInout();
+                qualifiers.SetInout();
                 break;
             case TokenKlass::K_attribute:
-                result.SetAttribute();
+                qualifiers.SetAttribute();
                 break;
             case TokenKlass::K_uniform:
-                result.SetUniform();
+                qualifiers.SetUniform();
                 break;
             case TokenKlass::K_varying:
-                result.SetVarying();
+                qualifiers.SetVarying();
                 break;
             case TokenKlass::K_buffer:
-                result.SetBuffer();
+                qualifiers.SetBuffer();
                 break;
             case TokenKlass::K_shared:
-                result.SetShared();
+                qualifiers.SetShared();
                 break;
                 // auxiliary storage qual
             case TokenKlass::K_centroid:
-                result.SetCentroid();
+                qualifiers.SetCentroid();
                 break;
             case TokenKlass::K_sample:
-                result.SetSample();
+                qualifiers.SetSample();
                 break;
             case TokenKlass::K_patch:
-                result.SetPatch();
+                qualifiers.SetPatch();
+                break;
+                // Interpolation qual
+            case TokenKlass::K_smooth:
+            case TokenKlass::K_flat:
+            case TokenKlass::K_noperspective:
                 break;
             default:
                 inQualSeq = false;
@@ -115,10 +120,16 @@ namespace glsld
             if (inQualSeq) {
                 ConsumeToken();
             }
+
+            // Handle layout qualifier
+            if (TryTestToken(TokenKlass::K_layout)) {
+                layoutQuals.push_back(ParseLayoutQualifier());
+                inQualSeq = true;
+            }
         }
 
         // TODO: return nullptr if not set
-        return CreateAstNode<AstTypeQualifierSeq>(beginTokIndex, result);
+        return CreateAstNode<AstTypeQualifierSeq>(beginTokIndex, qualifiers, std::move(layoutQuals));
     }
 
     auto Parser::ParseStructBody() -> std::vector<AstStructMemberDecl*>
@@ -134,21 +145,43 @@ namespace glsld
 
         std::vector<AstStructMemberDecl*> result;
         while (!Eof()) {
-            auto typeResult  = ParseQualType();
-            auto declarators = ParseVariableDeclarators();
+            // Parse empty decl
+            // FIXME: report error?
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                continue;
+            }
 
-            if (!TryTestToken(TokenKlass::Semicolon, TokenKlass::RBrace)) {
-                // FIXME: error recovery
+            auto beginTokIndex = GetTokenIndex();
+            auto typeResult    = ParseQualType();
+            auto declarators   = ParseVariableDeclarators();
+
+            if (!InRecoveryMode()) {
+                result.push_back(CreateAstNode<AstStructMemberDecl>(beginTokIndex, typeResult, std::move(declarators)));
+                ParsePermissiveSemicolon();
             }
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                ConsumeToken();
+            else {
+                // Try to resume if we see a ';'
+                if (TryConsumeToken(TokenKlass::Semicolon)) {
+                    ExitRecoveryMode();
+                }
+                else {
+                    break;
+                }
             }
+
             if (TryTestToken(TokenKlass::RBrace)) {
-                // FIXME: error recovery
-                ConsumeToken();
                 break;
             }
         }
+
+        if (!TryConsumeToken(TokenKlass::RBrace)) {
+            GLSLD_ASSERT(InRecoveryMode());
+            RecoverFromError(RecoveryMode::Brace);
+            if (TryConsumeToken(TokenKlass::RBrace)) {
+                ExitRecoveryMode();
+            }
+        }
+
         return result;
     }
 
@@ -212,19 +245,26 @@ namespace glsld
         // FIXME: shouldn't this be the beginning of qualifiers?
         auto beginTokIndex = GetTokenIndex();
 
-        // FIXME: parse array spec
         if (TryTestToken(TokenKlass::K_struct)) {
             auto structDefinitionResult = ParseStructDefinition();
-            return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinitionResult);
+            AstArraySpec* arraySpec     = nullptr;
+            if (TryTestToken(TokenKlass::LBracket)) {
+                arraySpec = ParseArraySpec();
+            }
+            return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinitionResult, arraySpec);
         }
-
-        if (TryTestToken(TokenKlass::Identifier) || GetBuiltinType(PeekToken()).has_value()) {
+        else if (TryTestToken(TokenKlass::Identifier) || GetBuiltinType(PeekToken()).has_value()) {
             auto tok = PeekToken();
             ConsumeToken();
-            return CreateAstNode<AstQualType>(beginTokIndex, quals, tok);
+            AstArraySpec* arraySpec = nullptr;
+            if (TryTestToken(TokenKlass::LBracket)) {
+                arraySpec = ParseArraySpec();
+            }
+            return CreateAstNode<AstQualType>(beginTokIndex, quals, tok, arraySpec);
         }
 
-        // TODO: handle error
+        // FIXME: how to handle error
+        EnterRecoveryMode();
         return nullptr;
     }
 
@@ -449,8 +489,10 @@ namespace glsld
     {
         TRACE_PARSER();
 
+        GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier, TokenKlass::LBrace));
         auto declTok = ParseDeclId();
 
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
         auto blockBody = ParseStructBody();
         if (InRecoveryMode() || TryConsumeToken(TokenKlass::Semicolon)) {
             return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody);
@@ -593,12 +635,6 @@ namespace glsld
             lhsResult = CreateAstNode<AstBinaryExpr>(beginTokIndex, BinaryOp::Comma, lhsResult, rhsResult);
         }
 
-        // NOTE an expression parser could consume zero token and return an error expr.
-        // If so, we explicit put the parser into recovery mode.
-        if (GetTokenIndex() == beginTokIndex) {
-            EnterRecoveryMode();
-        }
-
         return lhsResult;
     }
 
@@ -609,16 +645,26 @@ namespace glsld
         auto beginTokIndex = GetTokenIndex();
         auto lhsResult     = ParseUnaryExpr();
 
-        auto opDesc = GetAssignmentOpDesc(PeekToken().klass);
+        AstExpr* result = nullptr;
+        auto opDesc     = GetAssignmentOpDesc(PeekToken().klass);
         if (opDesc) {
             ConsumeToken();
             GLSLD_ASSERT(InParsingMode());
             auto rhsResult = ParseAssignmentExpr();
-            return CreateAstNode<AstBinaryExpr>(beginTokIndex, *opDesc, lhsResult, rhsResult);
+
+            result = CreateAstNode<AstBinaryExpr>(beginTokIndex, *opDesc, lhsResult, rhsResult);
         }
         else {
-            return ParseBinaryOrConditionalExpr(beginTokIndex, lhsResult);
+            result = ParseBinaryOrConditionalExpr(beginTokIndex, lhsResult);
         }
+
+        // NOTE an expression parser could consume zero token and return an error expr.
+        // If so, we explicit put the parser into recovery mode.
+        if (GetTokenIndex() == beginTokIndex) {
+            EnterRecoveryMode();
+        }
+
+        return result;
     }
 
     auto Parser::ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*
@@ -736,8 +782,7 @@ namespace glsld
                 // function call
                 // FIXME: constructor call is "type_spec '(' ??? ')'"
                 auto args = ParseFunctionArgumentList();
-                result =
-                    CreateAstNode<AstInvokeExpr>(beginTokIndex, InvocationType::FunctionCall, result, std::move(args));
+                result    = CreateAstNode<AstInvokeExpr>(beginTokIndex, result, std::move(args));
                 break;
             }
             case TokenKlass::LBracket:
@@ -745,11 +790,8 @@ namespace glsld
                 // indexing access
                 // FIXME: impl this
                 EnterRecoveryMode();
-                // auto args = ParseArraySpec();
-                // result    = ParseResult<AstExpr*>(
-                //     args.Success(),
-                //     CreateAstNode<AstInvokeExpr>(beginTokIndex, InvocationType::Indexing, result.Move(),
-                //     args.Move()));
+                auto arraySpec = ParseArraySpec();
+                result         = CreateAstNode<AstIndexAccessExpr>(beginTokIndex, result, std::move(arraySpec));
                 break;
             }
             case TokenKlass::Dot:
@@ -845,6 +887,9 @@ namespace glsld
         case TokenKlass::K_if:
             // selection stmt
             return ParseSelectionStmt();
+        case TokenKlass::K_do:
+            // iteration stmt (do-while)
+            return ParseDoWhileStmt();
         case TokenKlass::K_while:
             // iteration stmt (while)
             return ParseWhileStmt();
@@ -862,8 +907,8 @@ namespace glsld
             return ParseJumpStmt();
         case TokenKlass::K_case:
         case TokenKlass::K_default:
-            // labeled stmt
-            GLSLD_NO_IMPL();
+            // label stmt
+            return ParseLabelStmt();
         default:
             // expression/declaration stmt
             return ParseDeclOrExprStmt();
@@ -976,30 +1021,109 @@ namespace glsld
         return CreateAstNode<AstForStmt>(beginTokIndex, initClause, proceedClause, proceedClause, loopBody);
     }
 
+    auto Parser::ParseDoWhileStmt() -> AstStmt*
+    {
+        TRACE_PARSER();
+
+        auto beginTokIndex = GetTokenIndex();
+
+        // Parse 'K_do'
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_do));
+        ConsumeToken();
+
+        // Parse loop body
+        auto loopBodyStmt = ParseStmt();
+
+        // Parse 'K_while'
+        if (!TryConsumeToken(TokenKlass::K_while)) {
+            EnterRecoveryMode();
+            return CreateAstNode<AstDoWhileStmt>(beginTokIndex, CreateErrorExpr(), loopBodyStmt);
+        }
+
+        // Parse loop predicate
+        AstExpr* precidateExpr = nullptr;
+        if (TryTestToken(TokenKlass::LParen)) {
+            precidateExpr = ParseParenWrappedExpr();
+        }
+        else {
+            EnterRecoveryMode();
+            precidateExpr = CreateErrorExpr();
+        }
+
+        // Parse ';'
+        if (InParsingMode()) {
+            ParsePermissiveSemicolon();
+        }
+
+        return CreateAstNode<AstDoWhileStmt>(beginTokIndex, precidateExpr, loopBodyStmt);
+    }
+
     auto Parser::ParseWhileStmt() -> AstStmt*
     {
         TRACE_PARSER(TokenKlass::K_while);
 
         auto beginTokIndex = GetTokenIndex();
 
-        // parse 'K_while'
-        ConsumeTokenAssert(TokenKlass::K_while);
+        // Parse 'K_while'
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_while));
+        ConsumeToken();
 
-        // parse predicate condition
-        auto predicateExpr = ParseParenWrappedExpr();
+        // Parse loop predicate
+        AstExpr* predicateExpr = nullptr;
+        if (TryTestToken(TokenKlass::LParen)) {
+            predicateExpr = ParseParenWrappedExpr();
+        }
+        else {
+            EnterRecoveryMode();
+            predicateExpr = CreateErrorExpr();
+        }
+
         if (InRecoveryMode()) {
             return CreateAstNode<AstWhileStmt>(beginTokIndex, predicateExpr, CreateErrorStmt());
         }
 
-        // parse loop body
+        // Parse loop body
         auto bodyStmt = ParseStmt();
         return CreateAstNode<AstWhileStmt>(beginTokIndex, predicateExpr, bodyStmt);
+    }
+
+    auto Parser::ParseLabelStmt() -> AstStmt*
+    {
+        TRACE_PARSER();
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_case, TokenKlass::K_default));
+
+        auto beginTokIndex = GetTokenIndex();
+        AstExpr* caseExpr  = nullptr;
+        if (TryConsumeToken(TokenKlass::K_case)) {
+            caseExpr = ParseAssignmentExpr();
+        }
+        else {
+            GLSLD_ASSERT(TryTestToken(TokenKlass::K_default));
+            ConsumeToken();
+        }
+
+        if (TryConsumeToken(TokenKlass::Colon)) {
+            if (InRecoveryMode()) {
+                ExitRecoveryMode();
+            }
+        }
+        else {
+            ReportError("expecting ':'");
+        }
+        return CreateAstNode<AstLabelStmt>(beginTokIndex, caseExpr);
     }
 
     auto Parser::ParseSwitchStmt() -> AstStmt*
     {
         TRACE_PARSER(TokenKlass::K_switch);
-        GLSLD_NO_IMPL();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_switch));
+        auto beginTokIndex = GetTokenIndex();
+        ConsumeToken();
+
+        auto switchedExpr = ParseParenWrappedExpr();
+        auto switchBody   = ParseCompoundStmt();
+        return CreateAstNode<AstSwitchStmt>(beginTokIndex, switchedExpr, switchBody);
     }
 
     auto Parser::ParseJumpStmt() -> AstStmt*
@@ -1060,11 +1184,19 @@ namespace glsld
 
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
+            // Primary expr
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
         case TokenKlass::K_true:
         case TokenKlass::K_false:
         case TokenKlass::LParen:
+            // Unary expr
+        case TokenKlass::Plus:
+        case TokenKlass::Dash:
+        case TokenKlass::Bang:
+        case TokenKlass::Tilde:
+        case TokenKlass::Increment:
+        case TokenKlass::Decrement:
             return ParseExprStmt();
         case TokenKlass::Identifier:
             if (!TryTestToken(TokenKlass::Identifier, 1)) {

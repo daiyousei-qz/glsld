@@ -9,6 +9,9 @@ DECL_KEYWORD(shared)
 DECL_KEYWORD(attribute)
 DECL_KEYWORD(varying)
 
+DECL_KEYWORD(invariant)
+DECL_KEYWORD(precise)
+
 DECL_KEYWORD(coherent)
 DECL_KEYWORD(volatile)
 DECL_KEYWORD(restrict)
