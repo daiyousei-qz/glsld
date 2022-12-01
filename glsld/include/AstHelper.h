@@ -6,6 +6,12 @@
 
 namespace glsld
 {
+    // template <typename T>
+    // struct DeclTokenCallback2
+    // {
+    //     virtual auto ProcessToken(std::string_view id, TextRange range, AstDecl& decl) const -> std::optional<T> = 0;
+    // };
+
     template <typename T>
     struct DeclTokenCallback
     {

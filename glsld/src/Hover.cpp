@@ -235,7 +235,7 @@ namespace glsld
             }
         };
 
-        return ProcessDeclToken<lsp::Hover>(compiler, TextPosition::FromLspPosition(position), HoverProcessor{});
+        return ProcessDeclToken(compiler, TextPosition::FromLspPosition(position), HoverProcessor{});
     }
 
 } // namespace glsld

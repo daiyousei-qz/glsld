@@ -204,7 +204,7 @@ namespace glsld
             sourceView.Consume();
             sourceView.Consume();
 
-            while (!sourceView.Eof() && (sourceView.Peek() != '*' && sourceView.Peek(1) != '/')) {
+            while (!sourceView.Eof() && (sourceView.Peek() != '*' || sourceView.Peek(1) != '/')) {
                 sourceView.Consume();
             }
 
