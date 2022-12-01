@@ -36,9 +36,12 @@ namespace glsld
             compiled = true;
 
             TypeChecker{}.TypeCheck(*astContext);
+
+#if defined(GLSLD_DEBUG)
             AstPrinter printer;
             printer.TraverseAst(*astContext);
             fmt::print(stderr, "{}", printer.Export());
+#endif
         }
 
         auto GetDiagnosticContext() -> const DiagnosticContext&
