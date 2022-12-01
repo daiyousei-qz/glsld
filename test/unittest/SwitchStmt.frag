@@ -12,9 +12,11 @@ void foo(int x) {
             break;
     }
 
-    switch( {
+    switch() {
+        case:
         case
-        case
-        default
+        case:
+        default:
+            break
     }
 }

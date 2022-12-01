@@ -12,10 +12,25 @@ namespace glsld
     public:
         auto TypeCheck(AstContext& ast)
         {
+            astContext = &ast;
             TypeCheckVisitor{*this}.TraverseAst(ast);
+            astContext = nullptr;
         }
 
     private:
+        // Type
+
+        auto ResolveType(AstQualType& type) -> void
+        {
+            // FIXME: set correct type
+            if (auto builtinType = GetBuiltinType(type.GetTypeNameTok())) {
+                type.SetTypeDesc(GetBuiltinTypeDesc(*builtinType));
+            }
+            else {
+                type.SetTypeDesc(GetErrorTypeDesc());
+            }
+        }
+
         //
         // Global Decl
         //
@@ -30,32 +45,43 @@ namespace glsld
             if (decl.GetDeclToken()) {
                 TryAddSymbol(decl.GetDeclToken()->text, decl);
             }
+            decl.SetTypeDesc(astContext->CreateStructType(&decl));
         }
         auto DeclareVariable(AstVariableDecl& decl) -> void
         {
+            auto type = decl.GetType()->GetTypeDesc();
             for (const auto& declarator : decl.GetDeclarators()) {
                 TryAddSymbol(declarator.declTok.text, decl);
             }
         }
         auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
         {
+            if (!decl.GetDeclarator()) {
+                // For unnamed interface block, names of internal members should be added to the current scope
+            }
+            decl.SetTypeDesc(astContext->CreateStructType(&decl));
+        }
+        auto DeclareParameter(AstParamDecl& decl) -> void
+        {
+            TryAddSymbol(decl.GetDeclTok().text, decl);
         }
 
+        // NOTE this is before children nodes are visited
         auto EnterFunctionScope(AstFunctionDecl& decl) -> void
         {
             GLSLD_ASSERT(!InFunctionScope());
-            currentFunction = &decl;
-            symbolTable.PushScope();
 
+            currentFunction = &decl;
             if (decl.GetName().klass != TokenKlass::Error) {
-                auto funcName = decl.GetName().text.StrView();
-                if (!funcName.empty()) {
-                    symbolTable.AddSymbol(std::string{funcName}, &decl);
-                }
+                symbolTable.AddFunction(decl);
             }
+
+            symbolTable.PushScope();
         }
-        auto ExitFunctionScope() -> void
+        auto ExitFunctionScope(AstFunctionDecl& decl) -> void
         {
+            GLSLD_ASSERT(InFunctionScope());
+
             currentFunction = nullptr;
             symbolTable.PopScope();
         }
@@ -126,25 +152,15 @@ namespace glsld
             }
             else {
                 // Accessing a non-member name
-                auto accessName = expr.GetAccessName().text.StrView();
-                auto symbol     = symbolTable.FindSymbol(std::string{accessName});
-                if (symbol) {
-                    switch (expr.GetAccessType()) {
-                    case NameAccessType::Constructor:
-                        if (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>()) {
-                            expr.SetAccessedDecl(symbol);
-                        }
-                    case NameAccessType::Function:
-                        if (symbol->Is<AstFunctionDecl>()) {
-                            expr.SetAccessedDecl(symbol);
-                        }
-                    case NameAccessType::Variable:
-                    case NameAccessType::Unknown:
-                        if (symbol->Is<AstVariableDecl>() || symbol->Is<AstParamDecl>()) {
-                            expr.SetAccessedDecl(symbol);
-                        }
+                if (expr.GetAccessType() == NameAccessType::Variable) {
+                    auto accessName = expr.GetAccessName().text.Str();
+                    auto symbol     = symbolTable.FindSymbol(accessName);
+                    if (symbol && (symbol->Is<AstVariableDecl>() || symbol->Is<AstParamDecl>())) {
+                        expr.SetAccessedDecl(symbol);
                     }
                 }
+
+                // NOTE we resolve function call in CheckInvokeExpr
             }
         }
         auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
@@ -167,10 +183,46 @@ namespace glsld
         {
             // FIXME: handle function call
             // FIXME: handle things like `S[2](...)`
-            if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                if (func->GetAccessName().klass != TokenKlass::Identifier) {
+            if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+
+                // resolve first
+                auto accessName = invokedExpr->GetAccessName().text.Str();
+                std::vector<const TypeDesc*> argTypes;
+                for (auto argExpr : expr.GetArguments()) {
+                    argTypes.push_back(argExpr->GetDeducedType());
+                }
+
+                switch (invokedExpr->GetAccessType()) {
+                case NameAccessType::Constructor:
+                {
+                    if (auto builtinType = GetBuiltinType(invokedExpr->GetAccessName())) {
+                        // Builtin types
+                    }
+                    else {
+                        // User-defined types
+                        auto symbol = symbolTable.FindSymbol(accessName);
+                        if (symbol && (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>())) {
+                            invokedExpr->SetAccessedDecl(symbol);
+                        }
+                    }
+
+                    break;
+                }
+                case NameAccessType::Function:
+                {
+                    auto funcSymbol = symbolTable.FindFunction(accessName, argTypes);
+                    if (funcSymbol) {
+                        invokedExpr->SetAccessedDecl(funcSymbol);
+                    }
+                    break;
+                }
+                default:
+                    GLSLD_UNREACHABLE();
+                }
+
+                if (invokedExpr->GetAccessName().klass != TokenKlass::Identifier) {
                     // This is a constructor
-                    auto builtinType = GetBuiltinType(func->GetAccessName());
+                    auto builtinType = GetBuiltinType(invokedExpr->GetAccessName());
                     GLSLD_ASSERT(builtinType.has_value());
                     expr.SetDeducedType(GetBuiltinTypeDesc(*builtinType));
                     return;
@@ -207,6 +259,11 @@ namespace glsld
             {
             }
 
+            auto ExitAstQualType(AstQualType& type) -> void
+            {
+                typeChecker.ResolveType(type);
+            }
+
             auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
             {
                 if (typeChecker.InFunctionScope()) {
@@ -223,7 +280,7 @@ namespace glsld
             }
             auto ExitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
-                typeChecker.ExitFunctionScope();
+                typeChecker.ExitFunctionScope(decl);
             }
 
             auto ExitAstStructDecl(AstStructDecl& decl) -> void
@@ -237,6 +294,10 @@ namespace glsld
             auto ExitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 typeChecker.DeclareInterfaceBlock(decl);
+            }
+            auto ExitAstParamDecl(AstParamDecl& decl) -> void
+            {
+                typeChecker.DeclareParameter(decl);
             }
 
             auto VisitAstCompoundStmt(AstCompoundStmt& stmt) -> void
@@ -308,6 +369,7 @@ namespace glsld
         }
 
         AstFunctionDecl* currentFunction = nullptr;
+        AstContext* astContext           = nullptr;
         SymbolTable symbolTable;
     };
 } // namespace glsld

@@ -27,7 +27,36 @@ namespace glsld
             levels.pop_back();
         }
 
-        auto AddSymbol(std::string name, AstDecl* decl)
+        auto AddFunction(AstFunctionDecl& decl) -> void
+        {
+            GLSLD_ASSERT(levels.size() == 1);
+            // deduplicate?
+            auto name = decl.GetName().text.Str();
+            if (!name.empty()) {
+                funcDeclLookup.insert({decl.GetName().text.Str(), &decl});
+            }
+        }
+
+        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) -> AstFunctionDecl*
+        {
+            // FIXME: impl correct resolution
+            auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
+            for (auto it = itBegin; it != itEnd; ++it) {
+                auto funcDecl = it->second;
+                std::vector<const TypeDesc*> paramTypes;
+                for (auto paramDecl : funcDecl->GetParams()) {
+                    paramTypes.push_back(paramDecl->GetType()->GetTypeDesc());
+                }
+
+                if (paramTypes == argTypes) {
+                    return it->second;
+                }
+            }
+
+            return nullptr;
+        }
+
+        auto AddSymbol(std::string name, AstDecl* decl) -> void
         {
             GLSLD_ASSERT(!levels.empty());
             levels.back().declLookup[name] = decl;
@@ -51,6 +80,7 @@ namespace glsld
             std::unordered_map<std::string, AstDecl*> declLookup;
         };
 
+        std::unordered_multimap<std::string, AstFunctionDecl*> funcDeclLookup;
         std::vector<SymbolTableLevel> levels;
     };
 } // namespace glsld

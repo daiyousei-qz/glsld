@@ -1,5 +1,7 @@
 #pragma once
+#include "Common.h"
 #include "Ast.h"
+#include "Typing.h"
 #include <type_traits>
 
 namespace glsld
@@ -12,20 +14,9 @@ namespace glsld
 
         ~AstContext()
         {
+
             for (auto node : nodes) {
-                switch (node->GetTag()) {
-#define DECL_AST_BEGIN_BASE(TYPE)
-#define DECL_AST_TYPE(TYPE)                                                                                            \
-    case AstNodeTag::TYPE:                                                                                             \
-        delete static_cast<TYPE*>(node);
-#define DECL_AST_END_BASE(TYPE)
-#include "GlslAst.inc"
-#undef DECL_AST_BEGIN_BASE
-#undef DECL_AST_TYPE
-#undef DECL_AST_END_BASE
-                default:
-                    GLSLD_UNREACHABLE();
-                }
+                node->DispatchInvoke([](auto& dispatchedNode) { delete &dispatchedNode; });
             }
         }
 
@@ -48,6 +39,23 @@ namespace glsld
             result->Initialize(AstNodeTrait<T>::tag, range);
             return result;
         }
+
+        auto CreateStructType(AstStructDecl* decl) -> const TypeDesc*
+        {
+            return GetErrorTypeDesc();
+        }
+
+        auto CreateStructType(AstInterfaceBlockDecl* decl) -> const TypeDesc*
+        {
+            return GetErrorTypeDesc();
+        }
+
+        auto GetFunctionType(ArrayView<const TypeDesc*> params) -> const TypeDesc*
+        {
+            return GetErrorTypeDesc();
+        }
+
+        // std::unordered_map<std::vector<const TypeDesc*>, const TypeDesc*>
 
         std::vector<AstDecl*> globalDecls;
         std::vector<AstVariableDecl*> variableDecls;

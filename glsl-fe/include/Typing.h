@@ -84,10 +84,11 @@ namespace glsld
     class TypeDesc
     {
     public:
+        // Do we need function type?
         using DescPayloadType = std::variant<ErrorTypeDesc, VoidTypeDesc, ScalarTypeDesc, VectorTypeDesc,
-                                             MatrixTypeDesc, SamplerTypeDesc, StructTypeDesc, FunctionTypeDesc>;
+                                             MatrixTypeDesc, SamplerTypeDesc, StructTypeDesc>;
 
-        TypeDesc(DescPayloadType payload) : descPayload(payload)
+        TypeDesc(std::string name, DescPayloadType payload) : name(std::move(name)), descPayload(payload)
         {
         }
 
@@ -97,7 +98,7 @@ namespace glsld
         }
         auto IsBuiltin() const -> bool
         {
-            return !IsError() && !IsStruct() && !IsFunction();
+            return !IsError() && !IsStruct();
         }
         auto IsVoid() const -> bool
         {
@@ -123,20 +124,28 @@ namespace glsld
         {
             return std::holds_alternative<StructTypeDesc>(descPayload);
         }
-        auto IsFunction() const -> bool
+        // auto IsFunction() const -> bool
+        // {
+        //     return std::holds_alternative<FunctionTypeDesc>(descPayload);
+        // }
+
+        auto GetDebugName() const -> std::string_view
         {
-            return std::holds_alternative<FunctionTypeDesc>(descPayload);
+            return name;
         }
 
         auto GetScalarDesc() -> const ScalarTypeDesc*;
 
     private:
+        // FIXME: is this for debug only?
+        std::string name;
+
         DescPayloadType descPayload;
     };
 
     inline auto GetErrorTypeDesc() -> const TypeDesc*
     {
-        static TypeDesc typeDesc{ErrorTypeDesc{}};
+        static TypeDesc typeDesc{"<error>", ErrorTypeDesc{}};
         return &typeDesc;
     }
     inline auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*
@@ -146,7 +155,7 @@ namespace glsld
 #define DECL_BUILTIN_TYPE(TYPE, DESC_PAYLOAD_TYPE, ...)                                                                \
     case BuiltinType::Ty_##TYPE:                                                                                       \
     {                                                                                                                  \
-        static TypeDesc typeDesc{DESC_PAYLOAD_TYPE{}};                                                                 \
+        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{}};                                                          \
         return &typeDesc;                                                                                              \
     }
 #include "GlslType.inc"

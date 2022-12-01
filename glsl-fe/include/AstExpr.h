@@ -190,7 +190,7 @@ namespace glsld
         {
             return invokedExpr;
         }
-        auto GetArguments() -> std::span<AstExpr* const>
+        auto GetArguments() -> ArrayView<AstExpr*>
         {
             return args;
         }

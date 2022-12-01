@@ -16,13 +16,19 @@ namespace glsld
             Print("{}@{} ", AstNodeTagToString(node.GetTag()), static_cast<const void*>(&node));
             return AstVisitPolicy::Traverse;
         }
+        auto VisitAstNodeBase(AstNodeBase& node) -> void
+        {
+            Print("\n");
+        }
+
         auto ExitAstNodeBase(AstNodeBase& node) -> void
         {
             depth -= 1;
         }
 
-        auto VisitAstNodeBase(AstNodeBase& node) -> void
+        auto VisitAstQualType(AstQualType& type) -> void
         {
+            Print("[TypeDesc={};]", GetDebugName(type.GetTypeDesc()));
             Print("\n");
         }
 
@@ -98,10 +104,20 @@ namespace glsld
         }
 
     private:
+        auto GetDebugName(const TypeDesc* typeDesc) -> std::string
+        {
+            if (typeDesc && !typeDesc->GetDebugName().empty()) {
+                return std::string{typeDesc->GetDebugName()};
+            }
+            else {
+                return fmt::format("{}", static_cast<const void*>(typeDesc));
+            }
+        }
+
         auto PrintAstExprPayload(AstExpr& expr) -> void
         {
-            Print("[DeducedType={}; ContextualType={};] ", static_cast<const void*>(expr.GetDeducedType()),
-                  static_cast<const void*>(expr.GetContextualType()));
+            Print("[DeducedType={}; ContextualType={};] ", GetDebugName(expr.GetDeducedType()),
+                  GetDebugName(expr.GetContextualType()));
         }
 
         template <typename... Args>

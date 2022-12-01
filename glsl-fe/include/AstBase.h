@@ -1,5 +1,6 @@
 #pragma once
 #include "SyntaxToken.h"
+#include "AstPayload.h"
 #include "Semantic.h"
 
 #include <vector>
@@ -159,6 +160,12 @@ namespace glsld
             return Is<AstType>() ? static_cast<AstType*>(this) : nullptr;
         }
 
+        // Invoke expression `f(*this, args...)` where `this` is dispatched into the real type.
+        //
+        // This is defined at Ast.h because of definition issue
+        template <typename F, typename... Args>
+        inline auto DispatchInvoke(F&& f, Args&&... args);
+
     private:
         friend class AstContext;
 
@@ -171,76 +178,5 @@ namespace glsld
 
         AstNodeTag tag    = AstNodeTag::Invalid;
         SyntaxRange range = {};
-    };
-
-    template <typename AstType>
-    class AstPayload
-    {
-    public:
-    };
-
-    template <>
-    class AstPayload<AstQualType>
-    {
-    public:
-    private:
-        AstDecl* decl = nullptr;
-    };
-
-    template <>
-    class AstPayload<AstExpr>
-    {
-    public:
-        auto GetDeducedType() -> const TypeDesc*
-        {
-            return deducedType;
-        }
-        auto SetDeducedType(const TypeDesc* deducedType) -> void
-        {
-            this->deducedType = deducedType;
-        }
-
-        auto GetContextualType() -> const TypeDesc*
-        {
-            return contextualType;
-        }
-        auto SetContextualType(const TypeDesc* contextualType) -> void
-        {
-            this->contextualType = contextualType;
-        }
-
-    private:
-        // Type of the evaluated expression
-        const TypeDesc* deducedType = nullptr;
-
-        // Type of the context where the expression is used
-        const TypeDesc* contextualType = nullptr;
-    };
-
-    template <>
-    class AstPayload<AstNameAccessExpr>
-    {
-    public:
-        auto GetAccessType() -> NameAccessType
-        {
-            return accessType;
-        }
-        auto SetAccessType(NameAccessType accessType) -> void
-        {
-            this->accessType = accessType;
-        }
-
-        auto GetAccessedDecl() -> AstDecl*
-        {
-            return decl;
-        }
-        auto SetAccessedDecl(AstDecl* decl) -> void
-        {
-            this->decl = decl;
-        }
-
-    private:
-        NameAccessType accessType = NameAccessType::Unknown;
-        AstDecl* decl             = nullptr;
     };
 } // namespace glsld
