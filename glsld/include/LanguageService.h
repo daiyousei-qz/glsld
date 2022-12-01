@@ -4,6 +4,9 @@
 #include "Compiler.h"
 #include "SourceText.h"
 
+#include <mutex>
+#include <condition_variable>
+
 namespace glsld
 {
     auto ComputeDocumentSymbol(GlsldCompiler& compiler) -> std::vector<lsp::DocumentSymbol>;

@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.18)
 project(glsld CXX)
 
-add_compile_options(/std:c++20)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if(MSVC)
+    add_compile_options(/std:c++20)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+else()
+    add_compile_options(-std=c++20)
+endif()
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)

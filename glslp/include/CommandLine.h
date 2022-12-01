@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <optional>
 #include <span>
+#include <algorithm>
 
 #include <fmt/format.h>
 
