@@ -8,9 +8,16 @@ namespace glsld
 {
     enum class AstVisitPolicy
     {
+        // Visit the node and traverse its children
         Traverse,
+
+        // Visit the node, but not traverse its children
         Visit,
+
+        // Leave the node without visit and traversal
         Leave,
+
+        // Halt,
     };
 
     // Enter: Decision

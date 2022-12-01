@@ -74,8 +74,8 @@ namespace glsld
     class MSVC_EMPTY_BASES AstForStmt final : public AstStmt, public AstPayload<AstForStmt>
     {
     public:
-        AstForStmt(AstStmt* initClause, AstStmt* testClause, AstStmt* proceedClause, AstStmt* loopBody)
-            : initClause(initClause), testClause(testClause), proceedClause(proceedClause), loopBody(loopBody)
+        AstForStmt(AstStmt* initClause, AstExpr* condExpr, AstExpr* iterationExpr, AstStmt* loopBody)
+            : initClause(initClause), condExpr(condExpr), iterationExpr(iterationExpr), loopBody(loopBody)
         {
         }
 
@@ -83,13 +83,13 @@ namespace glsld
         {
             return initClause;
         }
-        auto GetTestClause() -> AstStmt*
+        auto GetConditionExpr() -> AstExpr*
         {
-            return testClause;
+            return condExpr;
         }
-        auto GetProceedClause() -> AstStmt*
+        auto GetIterationExpr() -> AstExpr*
         {
-            return proceedClause;
+            return iterationExpr;
         }
         auto GetLoopBody() -> AstStmt*
         {
@@ -100,15 +100,15 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*initClause);
-            visitor.Traverse(*testClause);
-            visitor.Traverse(*proceedClause);
+            visitor.Traverse(condExpr);
+            visitor.Traverse(iterationExpr);
             visitor.Traverse(*loopBody);
         }
 
     private:
         AstStmt* initClause;
-        AstStmt* testClause;
-        AstStmt* proceedClause;
+        AstExpr* condExpr;
+        AstExpr* iterationExpr;
         AstStmt* loopBody;
     };
     class MSVC_EMPTY_BASES AstDoWhileStmt final : public AstStmt, public AstPayload<AstDoWhileStmt>

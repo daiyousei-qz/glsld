@@ -35,17 +35,21 @@ namespace glsld
 
 #pragma region Parsing Misc
 
-        // Consume a ';' if available, otherwise issue an error and return
-        // This is used to semi-infer a required ';'
+        // In parsing mode, consume a ';' if available. Otherwise we issue an error and return, whici is used to
+        // infer a required ';'.
+        //
+        // In recovery mode, we do nothing and leave the ';' for recovery.
         //
         // PARSE: ';'
         //
         // ACCEPT: null
         auto ParsePermissiveSemicolon() -> void
         {
-            if (!TryConsumeToken(TokenKlass::Semicolon)) {
-                ReportError("expecting ';'");
-                // However, we don't do error recovery as if the ';' is inferred by the parser.
+            if (InParsingMode()) {
+                if (!TryConsumeToken(TokenKlass::Semicolon)) {
+                    ReportError("expecting ';'");
+                    // However, we don't do error recovery as if the ';' is inferred by the parser.
+                }
             }
         }
 
@@ -91,7 +95,7 @@ namespace glsld
             }
         }
 
-        // Parse an identifier token as a symbol name if available, otherwise returns an error token
+        // Try to parse an identifier token as a symbol name if available, otherwise returns an error token
         //
         // PARSE: 'ID'
         //
@@ -105,7 +109,27 @@ namespace glsld
             }
             else {
                 // FIXME: which token should we return? RECOVERY?
+                ReportError("Expect identifier");
                 return SyntaxToken{};
+            }
+        }
+
+        // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter revery mode and return error
+        // expr.
+        //
+        // PARSE: paren_wrapped_expr
+        //
+        // ACCEPT: null
+        //
+        // RECOVERY: ?
+        auto ParseParenWrappedExprOrError() -> AstExpr*
+        {
+            if (TryTestToken(TokenKlass::LParen)) {
+                return ParseParenWrappedExpr();
+            }
+            else {
+                EnterRecoveryMode();
+                return CreateErrorExpr();
             }
         }
 
@@ -264,24 +288,37 @@ namespace glsld
 
 #pragma region Parsing Expr
 
-        // Entry function to parse any expression AST.
-        // This function always return a valid AstExpr*. In presence of a parsing error, an AstErrorExpr* will be used
-        // to replace the expression failed to be constructed.
-        // TODO: is associativity in grammar correct?
-        // PARSE: expr
-        //        expr := assignment_expr [',' assignment_expr]
+        // Parse an expression. If no token is consumed, enter recovery mode to advance parsing.
         //
-        // RECOVERY: ^';' or ^'}' or ^'EOF'
+        // PARSE: expr
+        //
+        // RECOVERY: ?
         auto ParseExpr() -> AstExpr*;
 
+        // Parse an expression without comma operator. If no token is consumed, enter recovery mode to advance parsing.
+        //
+        // PARSE: assignment_expr
+        //
+        // RECOVERY: ?
+        auto ParseExprNoComma() -> AstExpr*;
+
+        // Parse an initializer list.
+        //
         // EXPECT: '{'
         //
         // PARSE: '{' ... '}'
-        auto ParseInitializerExpr() -> AstExpr*
-        {
-            GLSLD_NO_IMPL();
-        }
+        auto ParseInitializerExpr() -> AstExpr*;
 
+        // Parse a comma expression.
+        //
+        // PARSE: expr
+        //        expr := assignment_expr [',' assignment_expr]...
+        //
+        // RECOVERY: ^';' or ^'}' or ^'EOF'
+        auto ParseCommaExpr() -> AstExpr*;
+
+        // Parse a top-level expreesion without comma operator.
+        //
         // PARSE: assignment_expr
         //      - assignment_expr := unary_expr '?=' assignment_expr
         //      - assignment_expr := binary_or_conditional_expr
@@ -307,12 +344,16 @@ namespace glsld
         // `firstTerm` for this is a unary expression, which might already be parsed
         auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
 
+        // Parse an unary expression.
+        //
         // PARSE: unary_expr
         //        unary_expr := ['unary_op']... postfix_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseUnaryExpr() -> AstExpr*;
 
+        // Parse an postfix expression.
+        //
         // PARSE: postfix_expr
         //      - postfix_expr := primary_expr
         //      - postfix_expr := postfix_expr 'incdec'
@@ -326,43 +367,32 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePostfixExpr() -> AstExpr*;
 
+        // Parse an primary expression.
+        //
         // PARSE: primary_expr
         //      - primary_expr := 'ID'
         //      - primary_expr := 'constant'
         //      - primary_expr := paren_wrapped_expr
         //
         // ACCEPT: null
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePrimaryExpr() -> AstExpr*;
 
+        // Parse an expression wrapped in parenthesis.
+        //
         // EXPECT: '('
         //
         // PARSE: paren_wrapped_expr
         //      - paren_wrapped_expr := '(' expr ')'
         //
-        // ACCEPT: '('  ??? ')'
+        // ACCEPT: '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseParenWrappedExpr() -> AstExpr*;
 
-        // auto ParseConstructorCall() -> AstExpr*
-        // {
-        //     TRACE_PARSER();
-
-        //     auto beginTokIndex = GetTokenIndex();
-
-        //     // Parse type
-        //     auto typeResult = ParseType(nullptr);
-        //     if (InRecoveryMode() || !TryTestToken(TokenKlass::LParen)) {
-        //         return CreateErrorExpr();
-        //     }
-        //     auto ctorExpr = CreateAstNode<AstConstructorExpr>(beginTokIndex, typeResult);
-
-        //     // Parse argument list
-        //     auto argListResult = ParseFunctionArgumentList();
-        //     return CreateAstNode<AstInvokeExpr>(beginTokIndex, InvocationType::FunctionCall, ctorExpr,
-        //     argListResult);
-        // }
-
+        // Parse a function argument list.
+        //
         // EXPECT: '('
         //
         // PARSE: func_arg_list
@@ -405,19 +435,6 @@ namespace glsld
             return result;
         }
 
-        // EXPECT: '['
-        //
-        // PARSE: index_list
-        //      - index_list := '[' expr ']'
-        //
-        // ACCEPT: '[' ??? ']'
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseIndexingAccess() -> void
-        {
-            TRACE_PARSER();
-        }
-
 #pragma endregion
 
 #pragma region Parsing Stmt
@@ -426,13 +443,14 @@ namespace glsld
         //      - stmt := compound_stmt
         //      - stmt := selection_stmt
         //      - stmt := for_stmt
+        //      - stmt := dowhile_stmt
         //      - stmt := while_stmt
         //      - stmt := switch_stmt
         //      - stmt := jump_stmt
-        //      - stmt := decl_stmt
         //      - stmt := expr_stmt
+        //      - stmt := declaration
         //
-        // RECOVERY:
+        // RECOVERY: ?
         auto ParseStmt() -> AstStmt*;
 
         // PARSE: stmt
@@ -447,7 +465,7 @@ namespace glsld
         //
         // ACCEPT: '{' ??? '}'
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ^'EOF'
         auto ParseCompoundStmt() -> AstStmt*;
 
         // EXPECT: 'K_if'
@@ -475,7 +493,7 @@ namespace glsld
         // PARSE: dowhile_stmt
         //      - dowhile_stmt := 'K_do' stmt 'K_while' paren_wrapped_expr ';'
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ?
         auto ParseDoWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_while'
@@ -483,10 +501,16 @@ namespace glsld
         // PARSE: while_stmt
         //      - while_stmt := 'K_while' paren_wrapped_expr stmt
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ?
         auto ParseWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_case' or 'K_default'
+        //
+        // PARSE: label_stmt
+        //      - label_stmt := 'K_case' expr [':']
+        //      - label_stmt := 'K_default' [':']
+        //
+        // RECOVERY: ?
         auto ParseLabelStmt() -> AstStmt*;
 
         // EXPECT: 'K_switch'
@@ -495,7 +519,7 @@ namespace glsld
         //      - switch_stmt := 'K_switch' paren_wrapped_expr switch_body
         //      - switch_body := '{' ??? '}'
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ?
         auto ParseSwitchStmt() -> AstStmt*;
 
         // EXPECT: 'K_break' or 'K_continue' or 'K_discard' or 'K_return'
@@ -506,20 +530,20 @@ namespace glsld
         //      - jump_stmt := 'K_discard' [';']
         //      - jump_stmt := 'K_return' [expr] [';']
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ?
         auto ParseJumpStmt() -> AstStmt*;
 
         // PARSE: expr_stmt
         //      - expr_stmt := expr [';']
         //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // RECOVERY: ?
         auto ParseExprStmt() -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt
         //      - decl_or_expr_stmt := declaration
         //
-        // RECOVERY: ???
+        // RECOVERY: ?
         // FIXME: what's in recovery mode?
         auto ParseDeclOrExprStmt() -> AstStmt*;
 

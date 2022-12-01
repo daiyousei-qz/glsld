@@ -7,6 +7,8 @@
 - Semantic Tokens (keyword/function name)
 - Hover
 
+DONE!
+
 ### Phase 2
 - File synchronization (edit)
 - Implement qualifiers
@@ -38,7 +40,9 @@
 - `int[] foo213234();` FIXED
 - `switch` FIXED
 - `GLSLANG 100scope.vert` FIXED
-- error in constructor/declarator
+- error in constructor/declarator FIXED
 - `!u;` FIXED
 - `GLSLANG 310.tesc` FIXED
-- `5u, 1.f`
+- `5u, 1.f` FIXED
+- `const cag a0[3] = cag[3](cag(3, 2.0, true), cag(1, 5.0, true), cag(1, 9.0, false));` FIXED
+- `void main() { switch(foo) {} }` FIXED

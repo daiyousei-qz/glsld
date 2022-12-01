@@ -10,55 +10,6 @@
 
 cl::Opt<std::string> intputFile(cl::Positional, cl::Desc("input file"), cl::ValueDesc("input file"));
 
-// const char* kTestShader = R"(
-// in float x;
-// in float y;
-// out float test;
-
-// void main() {
-//     float tmp = 0;
-//     if (x > 0) {
-//         tmp += x;
-//     }
-//     if (y < 0) {
-//         tmp += z;
-//     }
-
-//     test = tmp;
-// }
-// )";
-// const char* kTestShader = R"(
-// {
-//     if (x & (1 << 2)) {
-//         tmp = x;
-//     }
-//     else if (y < 0) {
-//         tmp = z;
-//     }
-
-//     test = tmp;
-// }
-// )";
-// const char* testShader = R"(
-//     in float x, y;
-//     out float z;
-
-//     float foo(const float x, const float y) {
-//         return x + y
-//     }
-//     void main(int x)
-//     {
-//         if (x & (1 << 2) xxx) {
-//             tmp = x;
-//         }
-//         else if (y < 0) {
-//             tmp = z;
-//         }
-
-//         test = tmp;
-//     }
-// )";
-
 auto ReadFile(const std::string& fileName) -> std::optional<std::string>
 {
     std::ifstream file(fileName, std::ios::in);
@@ -81,6 +32,18 @@ auto DoMain() -> void
         fmt::print("failed to read file\n");
     }
 
+    // std::filesystem::directory_entry dir{"e:/Project/glslang/Test2"};
+    // for (const auto& entry : std::filesystem::directory_iterator{dir}) {
+    //     if (entry.is_regular_file()) {
+    //         fmt::print("[] Compiling {}\n", entry.path().string());
+
+    //         glsld::GlsldCompiler compiler;
+    //         auto inputData = ReadFile(entry.path().string());
+    //         compiler.Compile(*inputData);
+    //         fmt::print("succussfully parsed input file\n\n");
+    //     }
+    // }
+
     glsld::GlsldCompiler compiler;
     compiler.Compile(*inputData);
     fmt::print("succussfully parsed input file\n");
@@ -101,7 +64,7 @@ auto main(int argc, char* argv[]) -> int
     //     auto x     = ToString(edit2);
     //     fmt::print("{}", x);
 
-    // cl::ParseArguments(argc, argv);
-    // DoMain();
+    cl::ParseArguments(argc, argv);
+    DoMain();
     return 0;
 }

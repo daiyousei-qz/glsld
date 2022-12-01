@@ -321,6 +321,15 @@ namespace glsld
                 }
             }
 
+            if (!sourceView.Eof()) {
+                s.push_back(sourceView.Peek());
+                if (auto it = punctLookup.find(s); it != punctLookup.end()) {
+                    // test three-char puncts
+                    sourceView.Consume();
+                    result = it->second;
+                }
+            }
+
             return result;
         }
 

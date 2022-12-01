@@ -1,7 +1,7 @@
 #pragma once
 #include <cassert>
 
-#define GLSLD_DEBUG 1
+// #define GLSLD_DEBUG 1
 #define GLSLD_DEBUG_PARSER 1
 
 #define GLSLD_ASSERT(EXPR) assert(EXPR)

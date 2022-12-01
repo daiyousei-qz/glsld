@@ -15,9 +15,10 @@ namespace glsld
     class LexContext
     {
     public:
-        LexContext(std::string sourceText) : sourceText(std::move(sourceText))
+        // FIXME: remove tokenizer out
+        LexContext(std::string_view sourceString)
         {
-            Initialize();
+            Initialize(sourceString);
         }
 
         auto GetAllToken() const -> std::span<const SyntaxToken>
@@ -79,7 +80,7 @@ namespace glsld
             }
         }
 
-        auto Initialize() -> void
+        auto Initialize(std::string_view sourceString) -> void
         {
             auto RegisterLocation = [this](int offset, int line, int column) -> SyntaxLocation {
                 locationInfo.push_back(SyntaxLocationInfo{
@@ -92,7 +93,7 @@ namespace glsld
                 return SyntaxLocation{static_cast<int>(locationInfo.size() - 1)};
             };
 
-            glsld::Tokenizer tokenizer{sourceText};
+            glsld::Tokenizer tokenizer{sourceString};
             std::string buffer;
             while (true) {
                 buffer.clear();
@@ -136,8 +137,6 @@ namespace glsld
                 }
             }
         }
-
-        std::string sourceText;
 
         // FIXME: optimize memory layout
         std::unordered_set<std::string> atomTable;

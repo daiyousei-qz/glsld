@@ -23,12 +23,12 @@ namespace glsld
         {
         }
 
-        auto Compile(std::string sourceText) -> void
+        auto Compile(std::string_view sourceString) -> void
         {
             GLSLD_ASSERT(!compiled);
 
             diagContext = std::make_unique<DiagnosticContext>();
-            lexContext  = std::make_unique<LexContext>(std::move(sourceText));
+            lexContext  = std::make_unique<LexContext>(sourceString);
             astContext  = std::make_unique<AstContext>();
 
             Parser parser{lexContext.get(), astContext.get(), diagContext.get()};

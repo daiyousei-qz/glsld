@@ -1,8 +1,65 @@
 #include "LanguageService.h"
-#include "AstVisitor.h"
+#include "AstHelper.h"
+#include "Markdown.h"
+#include "SourceText.h"
 
 namespace glsld
 {
+    enum class HoverType
+    {
+        Variable,
+        MemberVariable,
+        Parameter,
+        Function,
+        Type,
+    };
+
+    struct HoverContent
+    {
+        HoverType type;
+        std::string name;
+        std::string code;
+        bool unknown = false;
+    };
+
+    static auto ComputeHoverText(const HoverContent& hover) -> std::string
+    {
+        MarkdownBuilder builder;
+        builder.Append("### ");
+        if (hover.unknown) {
+            builder.Append("Unknown ");
+        }
+        switch (hover.type) {
+        case HoverType::Variable:
+            builder.Append("Variable");
+            break;
+        case HoverType::MemberVariable:
+            builder.Append("Member Variable");
+            break;
+        case HoverType::Parameter:
+            builder.Append("Parameter");
+            break;
+        case HoverType::Function:
+            builder.Append("Function");
+            break;
+        case HoverType::Type:
+            builder.Append("Type");
+            break;
+        default:
+            GLSLD_UNREACHABLE();
+        }
+        builder.Append(fmt::format(" `{}`", hover.name));
+
+        if (!hover.code.empty()) {
+            builder.AppendRuler();
+            builder.Append("```glsl\n");
+            builder.Append(hover.code);
+            builder.Append("\n```");
+        }
+
+        return builder.Export();
+    }
+
     static auto ReconstructSourceText(const SyntaxToken& tok) -> std::string_view
     {
         if (tok.klass != TokenKlass::Error) {
@@ -47,24 +104,61 @@ namespace glsld
         return result;
     }
 
-    static auto GetHoverContent(AstDecl& decl, std::string_view hoverId) -> std::optional<std::string>
+    static auto CreateUnknownHoverContent(HoverType type, std::string_view name)
     {
+        return HoverContent{
+            .type    = type,
+            .name    = std::string{name},
+            .code    = "",
+            .unknown = true,
+        };
+    }
+
+    static auto GetHoverContent(AstDecl& decl, std::string_view hoverId) -> std::optional<HoverContent>
+    {
+        HoverContent hover;
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
-            return fmt::format("Function: `{} {}{}`", ReconstructSourceText(funcDecl->GetReturnType()), hoverId,
-                               ReconstructSourceText(funcDecl->GetParams()));
+            return HoverContent{
+                .type = HoverType::Function,
+                .name = std::string{hoverId},
+                .code = fmt::format("{} {}{}", ReconstructSourceText(funcDecl->GetReturnType()), hoverId,
+                                    ReconstructSourceText(funcDecl->GetParams())),
+            };
         }
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
-            return fmt::format("Param: `{} {}`", ReconstructSourceText(paramDecl->GetType()), hoverId);
+            return HoverContent{
+                .type = HoverType::Parameter,
+                .name = std::string{hoverId},
+                .code = fmt::format("{} {}", ReconstructSourceText(paramDecl->GetType()), hoverId),
+            };
         }
         else if (auto varDecl = decl.As<AstVariableDecl>()) {
             // FIXME: array spec
-            return fmt::format("Variable: `{} {}`", ReconstructSourceText(varDecl->GetType()), hoverId);
+            return HoverContent{
+                .type = HoverType::Variable,
+                .name = std::string{hoverId},
+                .code = fmt::format("{} {}", ReconstructSourceText(varDecl->GetType()), hoverId),
+            };
+        }
+        else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
+            return HoverContent{
+                .type = HoverType::MemberVariable,
+                .name = std::string{hoverId},
+                .code = fmt::format("{} {}", ReconstructSourceText(memberDecl->GetType()), hoverId),
+            };
+        }
+        else if (auto structDecl = decl.As<AstStructDecl>()) {
+            return HoverContent{
+                .type = HoverType::Type,
+                .name = std::string{hoverId},
+                .code = fmt::format("struct  {}", hoverId),
+            };
         }
 
         return std::nullopt;
     }
 
-    static auto GetHoverContent(AstNameAccessExpr& expr) -> std::optional<std::string>
+    static auto GetHoverContent(AstNameAccessExpr& expr) -> std::optional<HoverContent>
     {
         if (expr.GetAccessName().klass != TokenKlass::Identifier) {
             return std::nullopt;
@@ -81,112 +175,67 @@ namespace glsld
 
         switch (expr.GetAccessType()) {
         case NameAccessType::Function:
-            return fmt::format("Unknown function `{}`", accessName);
+            return CreateUnknownHoverContent(HoverType::Function, accessName);
         case NameAccessType::Constructor:
-            return fmt::format("Unknown type `{}`", accessName);
+            return CreateUnknownHoverContent(HoverType::Type, accessName);
         case NameAccessType::Variable:
-            return fmt::format("Unknown variable `{}`", accessName);
+            return CreateUnknownHoverContent(HoverType::Variable, accessName);
         case NameAccessType::Unknown:
             return std::nullopt;
         default:
             GLSLD_UNREACHABLE();
         }
+        return std::nullopt;
     }
-
-    class HoverVisitor : public AstVisitor<HoverVisitor>
-    {
-    public:
-        HoverVisitor(GlsldCompiler& compiler, lsp::Position position)
-            : compiler(compiler), line(position.line), column(position.character)
-        {
-        }
-
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
-        {
-            // we already find the hover
-            if (hover) {
-                return AstVisitPolicy::Leave;
-            }
-
-            const auto& lexContext = compiler.GetLexContext();
-
-            auto locBegin = lexContext.LookupSyntaxLocation(node.GetRange().begin);
-            auto locEnd   = lexContext.LookupSyntaxLocation(node.GetRange().end);
-            if (locBegin.line <= line && locEnd.line >= line) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-
-        // auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
-        // {
-        //     const auto& lexContext = compiler.GetLexContext();
-
-        //     auto locBegin = lexContext.LookupSyntaxLocation(decl.GetName().range.begin);
-        //     auto locEnd   = lexContext.LookupSyntaxLocation(decl.GetName().range.end);
-        //     if (locBegin.line != line || locEnd.line != line) {
-        //         return;
-        //     }
-        //     if (locBegin.column <= column && locEnd.column >= column) {
-        //         GLSLD_ASSERT(!hover.has_value());
-        //         auto hoverContent = GetHoverContent(decl, decl.GetName().text.StrView());
-        //         if (hoverContent) {
-        //             hover = lsp::Hover{.contents = *hoverContent,
-        //                                .range    = lsp::Range{
-        //                                       .start = {.line      = static_cast<uint32_t>(locBegin.line),
-        //                                                 .character = static_cast<uint32_t>(locBegin.column)},
-        //                                       .end   = {.line      = static_cast<uint32_t>(locEnd.line),
-        //                                                 .character = static_cast<uint32_t>(locEnd.column)},
-        //                                }};
-        //         }
-        //     }
-        // }
-
-        auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
-        {
-            const auto& lexContext = compiler.GetLexContext();
-
-            auto locBegin = lexContext.LookupSyntaxLocation(expr.GetAccessName().range.begin);
-            auto locEnd   = lexContext.LookupSyntaxLocation(expr.GetAccessName().range.end);
-            if (locBegin.line != line || locEnd.line != line) {
-                return;
-            }
-            if (locBegin.column <= column && locEnd.column >= column) {
-                GLSLD_ASSERT(!hover.has_value());
-                auto hoverContent = GetHoverContent(expr);
-                if (hoverContent) {
-                    hover = lsp::Hover{.contents = *hoverContent,
-                                       .range    = lsp::Range{
-                                              .start = {.line      = static_cast<uint32_t>(locBegin.line),
-                                                        .character = static_cast<uint32_t>(locBegin.column)},
-                                              .end   = {.line      = static_cast<uint32_t>(locEnd.line),
-                                                        .character = static_cast<uint32_t>(locEnd.column)},
-                                       }};
-                }
-            }
-        }
-
-        auto GetHover() -> std::optional<lsp::Hover>&
-        {
-            return hover;
-        }
-
-    private:
-        std::optional<lsp::Hover> hover;
-
-        GlsldCompiler& compiler;
-        int line;
-        int column;
-    }; // namespace glsld
 
     auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>
     {
-        HoverVisitor visitor{compiler, position};
-        visitor.TraverseAst(compiler.GetAstContext());
+        struct HoverProcessor : public DeclTokenCallback<lsp::Hover>
+        {
+            auto ProcessToken(SyntaxToken token, TextRange range, AstDecl& decl) const
+                -> std::optional<lsp::Hover> override
+            {
+                auto hoverContent = GetHoverContent(decl, token.text.StrView());
+                if (hoverContent) {
+                    return lsp::Hover{
+                        .contents = ComputeHoverText(*hoverContent),
+                        .range    = TextRange::ToLspRange(range),
+                    };
+                }
 
-        return std::move(visitor.GetHover());
+                return std::nullopt;
+            }
+            auto ProcessTokenWithoutDecl(SyntaxToken token, TextRange range, NameAccessType type) const
+                -> std::optional<lsp::Hover> override
+            {
+                if (type == NameAccessType::Unknown) {
+                    return std::nullopt;
+                }
+
+                auto hoverContent = CreateUnknownHoverContent(TranslateHoverType(type), token.text.StrView());
+                return lsp::Hover{
+                    .contents = ComputeHoverText(hoverContent),
+                    .range    = TextRange::ToLspRange(range),
+                };
+            }
+
+            auto TranslateHoverType(NameAccessType type) const -> HoverType
+            {
+                switch (type) {
+                case NameAccessType::Unknown:
+                case NameAccessType::Variable:
+                    return HoverType::Variable;
+                case NameAccessType::Constructor:
+                    return HoverType::Type;
+                case NameAccessType::Function:
+                    return HoverType::Function;
+                default:
+                    GLSLD_UNREACHABLE();
+                }
+            }
+        };
+
+        return ProcessDeclToken<lsp::Hover>(compiler, TextPosition::FromLspPosition(position), HoverProcessor{});
     }
 
 } // namespace glsld
