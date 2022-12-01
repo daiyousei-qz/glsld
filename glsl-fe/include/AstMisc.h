@@ -23,6 +23,9 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
+            for (auto expr : sizes) {
+                visitor.Traverse(expr);
+            }
         }
 
     private:
