@@ -189,7 +189,7 @@ namespace glsld
 
         auto ParseLineComment() -> TokenKlass
         {
-            sourceView.Consume();
+            // Parse second '/'
             sourceView.Consume();
 
             while (!sourceView.Eof() && sourceView.Peek() != '\n') {
@@ -201,10 +201,13 @@ namespace glsld
 
         auto ParseBlockComment() -> TokenKlass
         {
-            sourceView.Consume();
+            // Parse '*'
             sourceView.Consume();
 
-            while (!sourceView.Eof() && (sourceView.Peek() != '*' || sourceView.Peek(1) != '/')) {
+            while (!sourceView.Eof()) {
+                if (sourceView.Peek(0) == '*' && sourceView.Peek(1) == '/') {
+                    break;
+                }
                 sourceView.Consume();
             }
 
