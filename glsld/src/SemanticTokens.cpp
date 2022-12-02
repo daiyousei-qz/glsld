@@ -166,8 +166,8 @@ namespace glsld
             }
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclTok().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTok().range,
+                if (decl.GetDeclTok() && decl.GetDeclTok()->klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTok()->range,
                                                                   SemanticTokenType::Parameter,
                                                                   SemanticTokenModifier::Declaration));
                 }

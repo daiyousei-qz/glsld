@@ -1065,6 +1065,187 @@ namespace glsld::lsp
 
 #pragma endregion
 
+#pragma region Inlay Hint
+
+    //
+    // Inlay Hint
+    //
+
+    inline constexpr const char* LSPMethod_InlayHint = "textDocument/inlayHint";
+
+    // /**
+    //  * Inlay hint client capabilities.
+    //  *
+    //  * @since 3.17.0
+    //  */
+    struct InlayHintClientCapabilities
+    {
+
+        // /**
+        //  * Whether inlay hints support dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * Indicates which properties a client can resolve lazily on a inlay
+        //  * hint.
+        //  */
+        // resolveSupport ?: { }
+
+        // /**
+        //  * The properties that a client can resolve lazily.
+        //  */
+        // properties: string[];
+    };
+
+    // /**
+    //  * Inlay hint options used during static registration.
+    //  *
+    //  * @since 3.17.0
+    //  */
+    struct InlayHintOptions
+    {
+        // /**
+        //  * The server provides support to resolve additional
+        //  * information for an inlay hint item.
+        //  */
+        // resolveProvider?: boolean;
+        bool resolveProvider;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const InlayHintOptions& value) -> bool
+    {
+        if (!mapper.Map("resolveProvider", value.resolveProvider)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * A parameter literal used in inlay hint requests.
+    //  *
+    //  * @since 3.17.0
+    //  */
+    struct InlayHintParams
+    {
+        // /**
+        //  * The text document.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+
+        // /**
+        //  * The visible document range for which inlay hints should be computed.
+        //  */
+        // range: Range;
+        Range range;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, InlayHintParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * Inlay hint information.
+    //  *
+    //  * @since 3.17.0
+    //  */
+    struct InlayHint
+    {
+        // /**
+        //  * The position of this hint.
+        //  */
+        // position: Position;
+        Position position;
+
+        // /**
+        //  * The label of this hint. A human readable string or an array of
+        //  * InlayHintLabelPart label parts.
+        //  *
+        //  * *Note* that neither the string nor the label part can be empty.
+        //  */
+        // label: string | InlayHintLabelPart[];
+        std::string label;
+
+        // /**
+        //  * The kind of this hint. Can be omitted in which case the client
+        //  * should fall back to a reasonable default.
+        //  */
+        // kind?: InlayHintKind;
+
+        // /**
+        //  * Optional text edits that are performed when accepting this inlay hint.
+        //  *
+        //  * *Note* that edits are expected to change the document so that the inlay
+        //  * hint (or its nearest variant) is now part of the document and the inlay
+        //  * hint itself is now obsolete.
+        //  *
+        //  * Depending on the client capability `inlayHint.resolveSupport` clients
+        //  * might resolve this property late using the resolve request.
+        //  */
+        // textEdits?: TextEdit[];
+
+        // /**
+        //  * The tooltip text when you hover over this item.
+        //  *
+        //  * Depending on the client capability `inlayHint.resolveSupport` clients
+        //  * might resolve this property late using the resolve request.
+        //  */
+        // tooltip?: string | MarkupContent;
+
+        // /**
+        //  * Render padding before the hint.
+        //  *
+        //  * Note: Padding should use the editor's background color, not the
+        //  * background color of the hint itself. That means padding can be used
+        //  * to visually align/separate an inlay hint.
+        //  */
+        // paddingLeft?: boolean;
+        bool paddingLeft;
+
+        // /**
+        //  * Render padding after the hint.
+        //  *
+        //  * Note: Padding should use the editor's background color, not the
+        //  * background color of the hint itself. That means padding can be used
+        //  * to visually align/separate an inlay hint.
+        //  */
+        // paddingRight?: boolean;
+        bool paddingRight;
+
+        // /**
+        //  * A data entry field that is preserved on a inlay hint between
+        //  * a `textDocument/inlayHint` and a `inlayHint/resolve` request.
+        //  */
+        // data?: LSPAny;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const InlayHint& value) -> bool
+    {
+        if (!mapper.Map("position", value.position)) {
+            return false;
+        }
+        if (!mapper.Map("label", value.label)) {
+            return false;
+        }
+        if (!mapper.Map("paddingLeft", value.paddingLeft)) {
+            return false;
+        }
+        if (!mapper.Map("paddingRight", value.paddingRight)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
 #pragma region Completion
 
     //
@@ -2122,6 +2303,15 @@ namespace glsld::lsp
         // semanticTokensProvider?: SemanticTokensOptions
         //     | SemanticTokensRegistrationOptions;
         std::optional<SemanticTokenOptions> semanticTokensProvider;
+
+        // /**
+        //  * The server provides inlay hints.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // inlayHintProvider?: boolean | InlayHintOptions
+        // 	    | InlayHintRegistrationOptions;
+        std::optional<InlayHintOptions> inlayHintProvider;
     };
     inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
@@ -2141,6 +2331,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("semanticTokensProvider", value.semanticTokensProvider)) {
+            return false;
+        }
+        if (!mapper.Map("inlayHintProvider", value.inlayHintProvider)) {
             return false;
         }
 

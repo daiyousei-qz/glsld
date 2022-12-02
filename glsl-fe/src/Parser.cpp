@@ -422,9 +422,13 @@ namespace glsld
                 break;
             }
 
-            auto id = ParseDeclId();
-            if (id.klass == TokenKlass::Error) {
-                break;
+            std::optional<SyntaxToken> id;
+            if (TryTestToken(TokenKlass::Identifier)) {
+                id = ParseDeclId();
+            }
+            else if (TryTestToken(TokenKlass::Comma, 1)) {
+                // FIXME: do we want to do such recovery here?
+                ConsumeToken();
             }
 
             result.push_back(CreateAstNode<AstParamDecl>(beginTokIndex, type, id));

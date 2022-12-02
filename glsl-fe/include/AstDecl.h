@@ -138,7 +138,7 @@ namespace glsld
     class MSVC_EMPTY_BASES AstParamDecl : public AstDecl, public AstPayload<AstParamDecl>
     {
     public:
-        AstParamDecl(AstQualType* type, SyntaxToken declTok) : type(type), declTok(declTok)
+        AstParamDecl(AstQualType* type, std::optional<SyntaxToken> declTok) : type(type), declTok(declTok)
         {
         }
 
@@ -146,7 +146,7 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclTok() -> const SyntaxToken&
+        auto GetDeclTok() -> const std::optional<SyntaxToken>&
         {
             return declTok;
         }
@@ -159,7 +159,7 @@ namespace glsld
 
     private:
         AstQualType* type;
-        SyntaxToken declTok;
+        std::optional<SyntaxToken> declTok;
     };
 
     // declares a function

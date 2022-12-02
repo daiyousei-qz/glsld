@@ -63,7 +63,9 @@ namespace glsld
         }
         auto DeclareParameter(AstParamDecl& decl) -> void
         {
-            TryAddSymbol(decl.GetDeclTok().text, decl);
+            if (decl.GetDeclTok()) {
+                TryAddSymbol(decl.GetDeclTok()->text, decl);
+            }
         }
 
         // NOTE this is before children nodes are visited
@@ -155,8 +157,17 @@ namespace glsld
                 if (expr.GetAccessType() == NameAccessType::Variable) {
                     auto accessName = expr.GetAccessName().text.Str();
                     auto symbol     = symbolTable.FindSymbol(accessName);
-                    if (symbol && (symbol->Is<AstVariableDecl>() || symbol->Is<AstParamDecl>())) {
-                        expr.SetAccessedDecl(symbol);
+                    if (symbol) {
+                        if (auto varDecl = symbol->As<AstVariableDecl>()) {
+                            expr.SetAccessedDecl(symbol);
+                            // FIXME: handle array type
+                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                        }
+                        else if (auto paramDecl = symbol->As<AstParamDecl>()) {
+                            expr.SetAccessedDecl(symbol);
+                            // FIXME: handle array type
+                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                        }
                     }
                 }
 
@@ -181,6 +192,8 @@ namespace glsld
         }
         auto CheckInvokeExpr(AstInvokeExpr& expr) -> void
         {
+            expr.SetDeducedType(GetErrorTypeDesc());
+
             // FIXME: handle function call
             // FIXME: handle things like `S[2](...)`
             if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
@@ -213,6 +226,7 @@ namespace glsld
                     auto funcSymbol = symbolTable.FindFunction(accessName, argTypes);
                     if (funcSymbol) {
                         invokedExpr->SetAccessedDecl(funcSymbol);
+                        invokedExpr->SetDeducedType(funcSymbol->GetReturnType()->GetTypeDesc());
                     }
                     break;
                 }
@@ -228,8 +242,6 @@ namespace glsld
                     return;
                 }
             }
-
-            expr.SetDeducedType(GetErrorTypeDesc());
         }
 
         //

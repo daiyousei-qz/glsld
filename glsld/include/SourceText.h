@@ -35,6 +35,18 @@ namespace glsld
         TextPosition start;
         TextPosition end;
 
+        auto ContainPosition(TextPosition position) -> bool
+        {
+            if (position.line < start.line || (position.line == start.line && position.character < start.character)) {
+                return false;
+            }
+            if (position.line > end.line || (position.line == end.line && position.character >= end.character)) {
+                return false;
+            }
+
+            return true;
+        }
+
         static auto FromLspRange(lsp::Range range) -> TextRange
         {
             return TextRange{

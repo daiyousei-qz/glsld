@@ -101,15 +101,17 @@ namespace glsld
 
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                auto locBegin = lexContext.LookupSyntaxLocation(decl.GetDeclTok().range.begin);
-                auto locEnd   = lexContext.LookupSyntaxLocation(decl.GetDeclTok().range.end);
-                if (locBegin.line != position.line || locEnd.line != position.line) {
-                    return;
-                }
-                if (locBegin.column <= position.character && locEnd.column >= position.character) {
-                    GLSLD_ASSERT(!finished);
-                    finished = true;
-                    result   = callback.ProcessToken(decl.GetDeclTok(), GetTextRange(locBegin, locEnd), decl);
+                if (decl.GetDeclTok()) {
+                    auto locBegin = lexContext.LookupSyntaxLocation(decl.GetDeclTok()->range.begin);
+                    auto locEnd   = lexContext.LookupSyntaxLocation(decl.GetDeclTok()->range.end);
+                    if (locBegin.line != position.line || locEnd.line != position.line) {
+                        return;
+                    }
+                    if (locBegin.column <= position.character && locEnd.column >= position.character) {
+                        GLSLD_ASSERT(!finished);
+                        finished = true;
+                        result   = callback.ProcessToken(*decl.GetDeclTok(), GetTextRange(locBegin, locEnd), decl);
+                    }
                 }
             }
 

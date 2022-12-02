@@ -92,8 +92,10 @@ namespace glsld
         result += "(";
         for (auto param : params) {
             result += ReconstructSourceText(param->GetType());
-            result += " ";
-            result += ReconstructSourceText(param->GetDeclTok());
+            if (param->GetDeclTok()) {
+                result += " ";
+                result += ReconstructSourceText(*param->GetDeclTok());
+            }
             result += ",";
         }
         if (result.ends_with(',')) {

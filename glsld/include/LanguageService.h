@@ -21,6 +21,8 @@ namespace glsld
     auto ComputeDeclaration(GlsldCompiler& compiler, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>;
 
+    auto ComputeInlayHint(GlsldCompiler& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>;
+
     class IntellisenseProvider
     {
     public:
@@ -97,6 +99,10 @@ namespace glsld
                                 .range  = false,
                                 .full   = true,
                                 .delta  = false,
+                            },
+                        .inlayHintProvider =
+                            lsp::InlayHintOptions{
+                                .resolveProvider = false,
                             },
                     },
                 .serverInfo =
@@ -203,8 +209,18 @@ namespace glsld
             }
         }
 
-        // auto InlayHint(int requestId, lsp::InlayHintParams params) -> void {
-        // }
+        auto InlayHint(int requestId, lsp::InlayHintParams params) -> void
+        {
+            auto provider = providerLookup[params.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
+                    if (provider->WaitAvailable()) {
+                        std::vector<lsp::InlayHint> result = ComputeInlayHint(provider->GetCompiler(), params.range);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
+        }
 
 #pragma endregion
 
