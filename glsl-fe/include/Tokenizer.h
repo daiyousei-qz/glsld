@@ -138,7 +138,7 @@ namespace glsld
                 // eof
                 klass = TokenKlass::Eof;
             }
-            else if (IsAlpha(firstChar)) {
+            else if (IsAlpha(firstChar) || firstChar == '_') {
                 // keyword or identifier
                 klass = ParseIdentifier(firstChar);
             }

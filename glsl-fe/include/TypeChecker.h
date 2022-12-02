@@ -166,7 +166,7 @@ namespace glsld
                         else if (auto paramDecl = symbol->As<AstParamDecl>()) {
                             expr.SetAccessedDecl(symbol);
                             // FIXME: handle array type
-                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                            expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
                         }
                     }
                 }
@@ -225,8 +225,9 @@ namespace glsld
                 {
                     auto funcSymbol = symbolTable.FindFunction(accessName, argTypes);
                     if (funcSymbol) {
+                        // FIXME: invoked expr should have deduced type of function?
                         invokedExpr->SetAccessedDecl(funcSymbol);
-                        invokedExpr->SetDeducedType(funcSymbol->GetReturnType()->GetTypeDesc());
+                        expr.SetDeducedType(funcSymbol->GetReturnType()->GetTypeDesc());
                     }
                     break;
                 }

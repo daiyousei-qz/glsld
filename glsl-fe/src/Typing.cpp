@@ -189,32 +189,52 @@ namespace glsld
         return IsIntegralConversion(from, to) || IsFPConversion(from, to) || IsFPIntegralConversion(from, to);
     }
 
+    // FIXME: This is the explicit arithmetic type extension logic
+    //        maybe we should follow the core glsl.
     constexpr auto HasBetterConversionAux(const ScalarTypeDesc& from, const ScalarTypeDesc& lhsTo,
                                           const ScalarTypeDesc& rhsTo) -> bool
     {
         // 1. Exact match
-        if (from.type == rhsTo.type) {
-            return from.type != lhsTo.type;
-        }
         if (from.type == lhsTo.type) {
+            return from.type != rhsTo.type;
+        }
+        if (from.type == rhsTo.type) {
             return false;
         }
 
         // 2. Promotion
         auto isPromotionLhs = IsScalarPromotion(from.type, lhsTo.type);
         auto isPromotionRhs = IsScalarPromotion(from.type, rhsTo.type);
-        if (isPromotionRhs) {
-            return !isPromotionLhs;
-        }
         if (isPromotionLhs) {
+            return !isPromotionRhs;
+        }
+        if (isPromotionRhs) {
             return false;
         }
 
-        // 3. Conversion
-        auto isConversionLhs = IsScalarConversion(from.type, lhsTo.type);
-        auto isConversionRhs = IsScalarConversion(from.type, rhsTo.type);
+        // 3. Conversion (no FP-Integral)
+        auto isConversionLhs = IsIntegralConversion(from.type, lhsTo.type) || IsFPConversion(from.type, lhsTo.type);
+        auto isConversionRhs = IsIntegralConversion(from.type, rhsTo.type) || IsFPConversion(from.type, rhsTo.type);
 
-        return isConversionLhs && !isConversionRhs;
+        if (isConversionLhs) {
+            return !isConversionRhs;
+        }
+        if (isConversionRhs) {
+            return false;
+        }
+
+        // 4. FP-Integral
+        auto isFPIntegralConversionLhs = IsFPIntegralConversion(from.type, lhsTo.type);
+        auto isFPIntegralConversionRhs = IsFPIntegralConversion(from.type, lhsTo.type);
+
+        if (isFPIntegralConversionLhs && isFPIntegralConversionRhs) {
+            // float is better
+            return lhsTo.type == ScalarType::Float && rhsTo.type != ScalarType::Float;
+        }
+
+        // FIXME: optimize the logic
+        GLSLD_ASSERT(false && "We expect both are at least convertible");
+        return false;
     }
 
     auto TypeDesc::IsConvertibleTo(const TypeDesc* to) const -> bool

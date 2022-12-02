@@ -69,6 +69,20 @@ namespace glsld
                 }
             }
 
+            // auto VisitAstQualType(AstQualType& type) -> void
+            // {
+            //     auto locBegin = lexContext.LookupSyntaxLocation(type.GetTypeNameTok().range.begin);
+            //     auto locEnd   = lexContext.LookupSyntaxLocation(type.GetTypeNameTok().range.end);
+            //     if (locBegin.line != position.line || locEnd.line != position.line) {
+            //         return;
+            //     }
+            //     if (locBegin.column <= position.character && locEnd.column >= position.character) {
+            //         GLSLD_ASSERT(!finished);
+            //         finished = true;
+            //         result   = callback.ProcessToken(type.GetTypeNameTok(), GetTextRange(locBegin, locEnd), ???);
+            //     }
+            // }
+
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken()) {

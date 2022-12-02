@@ -78,18 +78,18 @@ namespace glsld
             }
 
             // Second pass: select the best match with partial order
-            std::vector<FunctionRegistry> currentBest;
-            std::vector<FunctionRegistry> nextBest;
+            std::vector<FunctionRegistry> currentBestList;
+            std::vector<FunctionRegistry> nextBestList;
             for (auto candidate : candidateList) {
                 auto pickedCandidate = false;
-                for (auto best : currentBest) {
+                for (auto currentBest : currentBestList) {
                     int numCandidateBetter = 0;
                     int numCurrentBetter   = 0;
                     for (size_t i = 0; i < argTypes.size(); ++i) {
-                        if (argTypes[i]->HasBetterConversion(candidate.paramTypes[i], best.paramTypes[i])) {
+                        if (argTypes[i]->HasBetterConversion(candidate.paramTypes[i], currentBest.paramTypes[i])) {
                             numCandidateBetter += 1;
                         }
-                        if (argTypes[i]->HasBetterConversion(best.paramTypes[i], candidate.paramTypes[i])) {
+                        if (argTypes[i]->HasBetterConversion(currentBest.paramTypes[i], candidate.paramTypes[i])) {
                             numCurrentBetter += 1;
                         }
                     }
@@ -98,28 +98,28 @@ namespace glsld
                         // Candidate is better, but we still have to deduplicate
                         if (!pickedCandidate) {
                             pickedCandidate = true;
-                            nextBest.push_back(candidate);
+                            nextBestList.push_back(candidate);
                         }
                     }
                     if (numCurrentBetter > 0 && numCandidateBetter == 0) {
                         // Current is better
-                        nextBest.push_back(candidate);
+                        nextBestList.push_back(currentBest);
                     }
                 }
 
-                if (nextBest.empty()) {
+                if (nextBestList.empty()) {
                     // No better could be determined
-                    std::ranges::copy(currentBest, std::back_inserter(nextBest));
-                    nextBest.push_back(candidate);
+                    std::ranges::copy(currentBestList, std::back_inserter(nextBestList));
+                    nextBestList.push_back(candidate);
                 }
 
                 // swap buffer
-                std::swap(currentBest, nextBest);
-                nextBest.clear();
+                std::swap(currentBestList, nextBestList);
+                nextBestList.clear();
             }
 
-            if (currentBest.size() == 1) {
-                return currentBest[0].decl;
+            if (currentBestList.size() == 1) {
+                return currentBestList[0].decl;
             }
             else {
                 return nullptr;
