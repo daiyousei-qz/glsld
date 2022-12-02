@@ -72,10 +72,6 @@ namespace glsld
             GLSLD_ASSERT(!InFunctionScope());
 
             currentFunction = &decl;
-            if (decl.GetName().klass != TokenKlass::Error) {
-                symbolTable.AddFunction(decl);
-            }
-
             symbolTable.PushScope();
         }
         auto ExitFunctionScope(AstFunctionDecl& decl) -> void
@@ -84,6 +80,10 @@ namespace glsld
 
             currentFunction = nullptr;
             symbolTable.PopScope();
+
+            if (decl.GetName().klass != TokenKlass::Error) {
+                symbolTable.AddFunction(decl);
+            }
         }
 
         auto EnterBlockScope() -> void

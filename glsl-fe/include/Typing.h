@@ -9,14 +9,31 @@ namespace glsld
 {
     class TypeDesc;
 
-#define DECL_BUILTIN_TYPE(TYPE, ...) Ty_##TYPE,
+    enum class ScalarType
+    {
+        // Base language
+        Bool,
+        Int,
+        Uint,
+        Float,
+        Double,
+
+        // Extension
+        Int8,
+        Int16,
+        Int64,
+        Uint8,
+        Uint16,
+        Uint64,
+        Float16,
+    };
 
     enum class BuiltinType
     {
+#define DECL_BUILTIN_TYPE(TYPE, ...) Ty_##TYPE,
 #include "GlslType.inc"
-    };
-
 #undef DECL_BUILTIN_TYPE
+    };
 
     inline auto GetBuiltinType(const SyntaxToken& tok) -> std::optional<BuiltinType>
     {
@@ -43,7 +60,7 @@ namespace glsld
 
     struct ScalarTypeDesc
     {
-        int size;
+        ScalarType type;
     };
     struct VectorTypeDesc
     {
@@ -70,6 +87,11 @@ namespace glsld
     {
         SamplingDim dim;
     };
+
+    struct ArrayTypeDesc
+    {
+        TypeDesc* elementType;
+    };
     struct StructTypeDesc
     {
         AstStructDecl* decl;
@@ -88,7 +110,7 @@ namespace glsld
         using DescPayloadType = std::variant<ErrorTypeDesc, VoidTypeDesc, ScalarTypeDesc, VectorTypeDesc,
                                              MatrixTypeDesc, SamplerTypeDesc, StructTypeDesc>;
 
-        TypeDesc(std::string name, DescPayloadType payload) : name(std::move(name)), descPayload(payload)
+        TypeDesc(std::string name, DescPayloadType payload) : debugName(std::move(name)), descPayload(payload)
         {
         }
 
@@ -131,14 +153,21 @@ namespace glsld
 
         auto GetDebugName() const -> std::string_view
         {
-            return name;
+            return debugName;
         }
 
-        auto GetScalarDesc() -> const ScalarTypeDesc*;
+        auto GetScalarDesc() const -> const ScalarTypeDesc*
+        {
+            return std::get_if<ScalarTypeDesc>(&descPayload);
+        }
+
+        auto IsConvertibleTo(const TypeDesc* to) const -> bool;
+
+        auto HasBetterConversion(const TypeDesc* lhsTo, const TypeDesc* rhsTo) const -> bool;
 
     private:
         // FIXME: is this for debug only?
-        std::string name;
+        std::string debugName;
 
         DescPayloadType descPayload;
     };
@@ -155,7 +184,7 @@ namespace glsld
 #define DECL_BUILTIN_TYPE(TYPE, DESC_PAYLOAD_TYPE, ...)                                                                \
     case BuiltinType::Ty_##TYPE:                                                                                       \
     {                                                                                                                  \
-        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{}};                                                          \
+        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                               \
         return &typeDesc;                                                                                              \
     }
 #include "GlslType.inc"
@@ -164,5 +193,4 @@ namespace glsld
             GLSLD_UNREACHABLE();
         }
     }
-
 } // namespace glsld

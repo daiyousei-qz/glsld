@@ -146,6 +146,10 @@ namespace glsld
                 // number literal
                 klass = ParseNumberLiteral(firstChar);
             }
+            else if (firstChar == '.' && IsDigit(sourceView.Peek(0))) {
+                // number literal
+                klass = ParseNumberLiteral(firstChar);
+            }
             else if (firstChar == '#') {
                 // FIXME: we treat PP as comment for now
                 // preprocessor
@@ -252,7 +256,7 @@ namespace glsld
         }
         auto ParseNumberLiteral(char firstChar) -> TokenKlass
         {
-            GLSLD_ASSERT(IsDigit(firstChar));
+            GLSLD_ASSERT(IsDigit(firstChar) || firstChar == '.');
             if (sourceView.Eof()) {
                 return TokenKlass::IntegerConstant;
             }

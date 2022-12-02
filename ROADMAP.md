@@ -49,8 +49,9 @@ DONE!
 - `5u, 1.f` FIXED
 - `const cag a0[3] = cag[3](cag(3, 2.0, true), cag(1, 5.0, true), cag(1, 9.0, false));` FIXED
 - `void main() { switch(foo) {} }` FIXED
-- `vec3 ta = vec3(0, -.5, -time-.5);`
-- `add *= exp(-t*t*.1 -id.x*id.x*.001);`
-- `for(i=1.5; i>0.; i-=.01){}`
+- `vec3 ta = vec3(0, -.5, -time-.5);` FIXED
+- `add *= exp(-t*t*.1 -id.x*id.x*.001);` FIXED
+- `for(i=1.5; i>0.; i-=.01){}` FIXED
 - `const float EPSILON	= 1e-3;`
-- `Hover parameter`
+- `Hover parameter` FIXED
+- `line break '\'`

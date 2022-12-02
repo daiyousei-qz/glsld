@@ -17,7 +17,9 @@ namespace glsld
 
     auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
 
-    auto ComputeDeclaration(GlsldCompiler& compiler, lsp::Position position) -> std::vector<lsp::Location>;
+    // we assume single source file for now
+    auto ComputeDeclaration(GlsldCompiler& compiler, const lsp::DocumentUri& uri, lsp::Position position)
+        -> std::vector<lsp::Location>;
 
     class IntellisenseProvider
     {
@@ -177,9 +179,10 @@ namespace glsld
         {
             auto provider = providerLookup[params.baseParams.textDocument.uri];
             if (provider != nullptr) {
-                ScheduleTask([this, requestId, position = params.baseParams.position, provider = std::move(provider)] {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result = ComputeDeclaration(provider->GetCompiler(), position);
+                        std::vector<lsp::Location> result = ComputeDeclaration(
+                            provider->GetCompiler(), params.baseParams.textDocument.uri, params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -190,9 +193,10 @@ namespace glsld
         {
             auto provider = providerLookup[params.baseParams.textDocument.uri];
             if (provider != nullptr) {
-                ScheduleTask([this, requestId, position = params.baseParams.position, provider = std::move(provider)] {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result = ComputeDeclaration(provider->GetCompiler(), position);
+                        std::vector<lsp::Location> result = ComputeDeclaration(
+                            provider->GetCompiler(), params.baseParams.textDocument.uri, params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });

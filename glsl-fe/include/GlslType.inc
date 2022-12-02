@@ -3,11 +3,11 @@
 DECL_BUILTIN_TYPE(void, VoidTypeDesc)
 
 // Scalar
-DECL_BUILTIN_TYPE(bool,   ScalarTypeDesc)
-DECL_BUILTIN_TYPE(int,    ScalarTypeDesc)
-DECL_BUILTIN_TYPE(uint,   ScalarTypeDesc)
-DECL_BUILTIN_TYPE(float,  ScalarTypeDesc)
-DECL_BUILTIN_TYPE(double, ScalarTypeDesc)
+DECL_BUILTIN_TYPE(bool,   ScalarTypeDesc, ScalarType::Bool)
+DECL_BUILTIN_TYPE(int,    ScalarTypeDesc, ScalarType::Int)
+DECL_BUILTIN_TYPE(uint,   ScalarTypeDesc, ScalarType::Uint)
+DECL_BUILTIN_TYPE(float,  ScalarTypeDesc, ScalarType::Float)
+DECL_BUILTIN_TYPE(double, ScalarTypeDesc, ScalarType::Double)
 
 DECL_BUILTIN_TYPE(atomic_uint, ScalarTypeDesc)
 
