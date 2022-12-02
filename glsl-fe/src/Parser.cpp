@@ -1088,7 +1088,7 @@ namespace glsld
 
         // Parse loop body
         auto loopBody = ParseStmt();
-        return CreateAstNode<AstForStmt>(beginTokIndex, initClause, iterationExpr, iterationExpr, loopBody);
+        return CreateAstNode<AstForStmt>(beginTokIndex, initClause, condExpr, iterationExpr, loopBody);
     }
 
     auto Parser::ParseDoWhileStmt() -> AstStmt*
