@@ -319,7 +319,7 @@ namespace glsld::lsp
             traversalStack.push_back(&root);
         }
 
-        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonFromObjectMapper>
+        [[nodiscard]] auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonFromObjectMapper>
         {
             return JsonObjectMapperScope<JsonFromObjectMapper>{this, key};
         }

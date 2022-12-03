@@ -2243,6 +2243,7 @@ namespace glsld::lsp
         //  * in the UI but can be omitted.
         //  */
         // documentation?: string | MarkupContent;
+        std::string documentation;
 
         // /**
         //  * The parameters of this signature.
@@ -2262,6 +2263,22 @@ namespace glsld::lsp
     {
         if (!mapper.Map("label", value.label)) {
             return false;
+        }
+
+        {
+            // FIXME: implement MarkupContent properly
+            // if (!mapper.Map("documentation", value.documentation)) {
+            //     return false;
+            // }
+
+            auto scopeGuard  = mapper.EnterObjectScoped("documentation");
+            std::string kind = "markdown";
+            if (!mapper.Map("kind", kind)) {
+                return false;
+            }
+            if (!mapper.Map("value", value.documentation)) {
+                return false;
+            }
         }
 
         return true;

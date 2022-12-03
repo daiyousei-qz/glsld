@@ -54,7 +54,7 @@ namespace glsld
         if (expr) {
             auto funcExpr = expr->GetInvokedExpr()->As<AstNameAccessExpr>();
             if (funcExpr && funcExpr->GetAccessType() == NameAccessType::Function) {
-                auto funcName = funcExpr->GetAccessName().text.Str();
+                auto funcName = funcExpr->GetAccessName().text.StrView();
 
                 std::vector<lsp::SignatureInformation> result;
 
@@ -63,8 +63,9 @@ namespace glsld
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         result.push_back(lsp::SignatureInformation{
-                            .label =
-                                fmt::format("```glsl\n{} {}{}```", ReconstructSourceText(funcDecl->GetReturnType()),
+                            .label = std::string{funcName},
+                            .documentation =
+                                fmt::format("```glsl\n{} {}{}\n```", ReconstructSourceText(funcDecl->GetReturnType()),
                                             funcName, ReconstructSourceText(funcDecl->GetParams())),
                         });
                     }

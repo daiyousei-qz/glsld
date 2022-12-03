@@ -103,7 +103,7 @@ void tf(float p)
 	uint u;
 	int i;
 	float f;
-	sin()
+	sin())
 	itf(i, i, i);
 	itf(i, u, i);
 }
