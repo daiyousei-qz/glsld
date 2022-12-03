@@ -15,6 +15,8 @@ namespace glsld
     auto ComputeSemanticTokens(CompiledModule& compiler) -> lsp::SemanticTokens;
     auto ComputeSemanticTokensDelta(CompiledModule& compiler) -> lsp::SemanticTokensDelta;
 
+    auto ComputeCompletion(CompiledModule& compiler, lsp::Position position) -> std::vector<lsp::CompletionItem>;
+
     auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
 
     // we assume single source file for now
@@ -83,6 +85,8 @@ namespace glsld
 
         auto Initialize(int requestId, lsp::InitializeParams params) -> void
         {
+            auto triggerCharacters = std::vector<std::string>{"."};
+
             auto result = lsp::InitializedResult{
                 .capabilities =
                     {
@@ -90,6 +94,13 @@ namespace glsld
                             {
                                 .openClose = true,
                                 .change    = lsp::TextDocumentSyncKind::Full,
+                            },
+                        .completionProvider =
+                            lsp::CompletionOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters   = std::move(triggerCharacters),
+                                .allCommitCharacters = {},
+                                .resolveProvider     = false,
                             },
                         .hoverProvider          = true,
                         .declarationProvider    = true,
@@ -168,15 +179,26 @@ namespace glsld
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
         {
+            auto provider = providerLookup[params.baseParams.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
+                    if (provider->WaitAvailable()) {
+                        std::vector<lsp::CompletionItem> result =
+                            ComputeCompletion(provider->GetCompiler(), params.baseParams.position);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
         }
 
         auto Hover(int requestId, lsp::HoverParams params) -> void
         {
             auto provider = providerLookup[params.baseParams.textDocument.uri];
             if (provider != nullptr) {
-                ScheduleTask([this, requestId, position = params.baseParams.position, provider = std::move(provider)] {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::optional<lsp::Hover> result = ComputeHover(provider->GetCompiler(), position);
+                        std::optional<lsp::Hover> result =
+                            ComputeHover(provider->GetCompiler(), params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });

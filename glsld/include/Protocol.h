@@ -1465,6 +1465,20 @@ namespace glsld::lsp
         //     labelDetailsSupport?: boolean;
         // }
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const CompletionOptions& value) -> bool
+    {
+        if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
+            return false;
+        }
+        if (!mapper.Map("allCommitCharacters", value.allCommitCharacters)) {
+            return false;
+        }
+        if (!mapper.Map("resolveProvider", value.resolveProvider)) {
+            return false;
+        }
+
+        return true;
+    }
 
     // /**
     //  * How a completion was triggered
@@ -1513,20 +1527,46 @@ namespace glsld::lsp
         // triggerCharacter?: string;
         std::optional<std::string> triggerCharacter;
     };
+    inline auto MapJson(JsonToObjectMapper& mapper, CompletionContext& value) -> bool
+    {
+        // FIXME: fix object map
+        uint32_t tmpTriggerKind;
+        if (!mapper.Map("triggerKind", tmpTriggerKind)) {
+            value.triggerKind = static_cast<CompletionTriggerKind>(tmpTriggerKind);
+            return false;
+        }
+        if (!mapper.Map("triggerCharacter", value.triggerCharacter)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct CompletionParams
     {
-        // /**
+        TextDocumentPositionParams baseParams;
+
         //  * The completion context. This is only available if the client specifies
+        // /**
         //  * to send this using the client capability
         //  * `completion.contextSupport === true`
         //  */
         // context?: CompletionContext;
-        std::optional<CompletionContext> context;
+        // std::optional<CompletionContext> context;
     };
     inline auto MapJson(JsonToObjectMapper& mapper, CompletionParams& value) -> bool
     {
-        GLSLD_NO_IMPL();
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+        // if (!mapper.Map("context", value.context)) {
+        //     return false;
+        // }
+
+        return true;
     }
 
     // /**
@@ -1726,7 +1766,6 @@ namespace glsld::lsp
         //  * @since 3.17.0
         //  */
         // labelDetails?: CompletionItemLabelDetails;
-        CompletionItemLabelDetails labelDetails;
 
         // /**
         //  * The kind of this completion item. Based of the kind
@@ -1742,20 +1781,17 @@ namespace glsld::lsp
         //  * @since 3.15.0
         //  */
         // tags?: CompletionItemTag[];
-        std::vector<CompletionItemTag> tags;
 
         // /**
         //  * A human-readable string with additional information
         //  * about this item, like type or symbol information.
         //  */
         // detail?: string;
-        std::string detail;
 
         // /**
         //  * A human-readable string that represents a doc-comment.
         //  */
         // documentation?: string | MarkupContent;
-        std::string documentation;
 
         // /**
         //  * Indicates if this item is deprecated.
@@ -1894,6 +1930,17 @@ namespace glsld::lsp
         //  */
         // data?: LSPAny;
     };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const CompletionItem& value) -> bool
+    {
+        if (!mapper.Map("label", value.label)) {
+            return false;
+        }
+        if (!mapper.Map("kind", static_cast<int32_t>(value.kind))) {
+            return false;
+        }
+
+        return true;
+    }
 
     // /**
     //  * Represents a collection of [completion items](#CompletionItem) to be
@@ -2269,6 +2316,12 @@ namespace glsld::lsp
         TextDocumentSyncOptions textDocumentSync;
 
         // /**
+        //  * The server provides completion support.
+        //  */
+        // completionProvider?: CompletionOptions;
+        std::optional<CompletionOptions> completionProvider;
+
+        // /**
         //  * The server provides hover support.
         //  */
         // hoverProvider ?: boolean | HoverOptions;
@@ -2316,6 +2369,9 @@ namespace glsld::lsp
     inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
         if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
+            return false;
+        }
+        if (!mapper.Map("completionProvider", value.completionProvider)) {
             return false;
         }
         if (!mapper.Map("hoverProvider", value.hoverProvider)) {

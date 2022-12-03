@@ -92,11 +92,9 @@ namespace glsld
             // TODO: optimize this
             std::string header = fmt::format("Content-Length: {}\n\n", payload.size());
 
-            std::cout << header << payload;
-            std::cout.flush();
-            // fwrite(header.data(), sizeof(char), header.size(), outFile);
-            // fwrite(payload.data(), sizeof(char), payload.size(), outFile);
-            // fflush(outFile);
+            fwrite(header.data(), sizeof(char), header.size(), outFile);
+            fwrite(payload.data(), sizeof(char), payload.size(), outFile);
+            fflush(outFile);
         }
 
     private:

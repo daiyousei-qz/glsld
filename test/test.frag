@@ -97,7 +97,7 @@ void itf(int, double, int);
 
 void foo(float x);
 
-void tf()
+void tf(float p)
 {
     double d;
 	uint u;

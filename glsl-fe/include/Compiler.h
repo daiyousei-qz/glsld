@@ -58,6 +58,11 @@ namespace glsld
     public:
         using CompiledModuleImpl::CompiledModuleImpl;
 
+        auto GetDependentModule() -> const CompiledExternalModule*
+        {
+            return dependentModule.get();
+        }
+
     private:
         friend class GlslCompiler;
         friend class CompiledExternalModule;
