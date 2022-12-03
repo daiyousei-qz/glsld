@@ -64,6 +64,16 @@ namespace glsld
         {
             if (!decl.GetDeclarator()) {
                 // For unnamed interface block, names of internal members should be added to the current scope
+                for (auto memberDecl : decl.GetMembers()) {
+                    for (const auto& declarator : memberDecl->GetDeclarators()) {
+                        if (declarator.declTok.klass == TokenKlass::Identifier) {
+                            TryAddSymbol(declarator.declTok.text, *memberDecl);
+                        }
+                    }
+                }
+            }
+            else {
+                // Otherwise, add the decl token for the interface block
             }
             decl.SetTypeDesc(astContext->CreateStructType(&decl));
         }

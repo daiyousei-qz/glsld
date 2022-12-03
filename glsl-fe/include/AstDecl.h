@@ -48,7 +48,7 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclarators() -> std::span<VariableDeclarator>
+        auto GetDeclarators() -> ArrayView<VariableDeclarator>
         {
             return decls;
         }
@@ -80,7 +80,7 @@ namespace glsld
         {
             return declTok;
         }
-        auto GetMembers() -> std::span<AstStructMemberDecl* const>
+        auto GetMembers() -> ArrayView<AstStructMemberDecl* const>
         {
             return members;
         }
@@ -114,7 +114,7 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclarators() -> std::span<VariableDeclarator>
+        auto GetDeclarators() -> ArrayView<VariableDeclarator>
         {
             return decls;
         }
@@ -181,7 +181,7 @@ namespace glsld
             return returnType;
         }
 
-        auto GetParams() -> std::span<AstParamDecl*>
+        auto GetParams() -> ArrayView<AstParamDecl*>
         {
             return params;
         }
@@ -232,7 +232,7 @@ namespace glsld
         {
             return declTok;
         }
-        auto GetMembers() -> std::span<AstStructMemberDecl* const>
+        auto GetMembers() -> ArrayView<AstStructMemberDecl* const>
         {
             return members;
         }

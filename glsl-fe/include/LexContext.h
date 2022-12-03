@@ -21,7 +21,7 @@ namespace glsld
             Initialize(sourceString);
         }
 
-        auto GetAllToken() const -> std::span<const SyntaxToken>
+        auto GetAllToken() const -> ArrayView<SyntaxToken>
         {
             return tokens;
         }

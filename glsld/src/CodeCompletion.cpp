@@ -95,15 +95,32 @@ namespace glsld
     auto GetDefaultLibraryCompletionList() -> std::vector<lsp::CompletionItem>
     {
         static const auto cachedCompletionItems = []() {
+            std::vector<lsp::CompletionItem> result;
+
+            // Builtins
             auto defaultLibraryModule = GetDefaultLibraryModule();
             CompletionVisitor visitor{defaultLibraryModule->GetLexContext(), TextPosition{}, true};
             visitor.TraverseAst(defaultLibraryModule->GetAstContext());
-            return visitor.Export();
+            result = visitor.Export();
+
+            // FIXME: export from compiler instead of include this header
+            // Keywords
+#define DECL_KEYWORD(KEYWORD)                                                                                          \
+    result.push_back(lsp::CompletionItem{                                                                              \
+        .label = #KEYWORD,                                                                                             \
+        .kind  = lsp::CompletionItemKind::Keyword,                                                                     \
+    });
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+
+            return result;
         }();
 
         return cachedCompletionItems;
     }
 
+    // FIXME: not populate keyword while typing a decl
+    // FIXME: not populate functions while typing a dot
     auto ComputeCompletion(CompiledModule& compiler, lsp::Position position) -> std::vector<lsp::CompletionItem>
     {
         auto result = GetDefaultLibraryCompletionList();

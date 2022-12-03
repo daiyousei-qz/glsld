@@ -378,7 +378,7 @@ namespace glsld
 
         return result;
     }
-    inline auto ReconstructSourceText(std::span<AstParamDecl* const> params) -> std::string
+    inline auto ReconstructSourceText(ArrayView<AstParamDecl*> params) -> std::string
     {
         std::string result;
         result += "(";

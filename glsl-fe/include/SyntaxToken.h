@@ -57,6 +57,28 @@ namespace glsld
 #undef STRINGIZE
     }
 
+    inline auto GetAllKeywords() -> ArrayView<std::string_view>
+    {
+        static constexpr std::string_view allKeywords[] = {
+#define DECL_KEYWORD(KEYWORD) #KEYWORD,
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+        };
+
+        return allKeywords;
+    }
+
+    inline auto GetAllPunctuations() -> ArrayView<std::string_view>
+    {
+        static constexpr std::string_view allPuncts[] = {
+#define DECL_PUNCT(PUNCT_NAME, PUNCT) #PUNCT,
+#include "GlslPunctuation.inc"
+#undef DECL_PUNCT
+        };
+
+        return allPuncts;
+    }
+
     inline auto IsKeywordToken(TokenKlass klass) -> bool
     {
         switch (klass) {

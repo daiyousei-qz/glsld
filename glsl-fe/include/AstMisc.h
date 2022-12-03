@@ -15,7 +15,7 @@ namespace glsld
         {
         }
 
-        auto GetSizeList() -> std::span<AstExpr* const>
+        auto GetSizeList() -> ArrayView<AstExpr*>
         {
             return sizes;
         }
@@ -45,7 +45,7 @@ namespace glsld
         {
         }
 
-        auto GetLayoutItems() -> std::span<const LayoutItem>
+        auto GetLayoutItems() -> ArrayView<LayoutItem>
         {
             return items;
         }
