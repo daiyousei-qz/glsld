@@ -1246,10 +1246,10 @@ namespace glsld::lsp
 
 #pragma endregion
 
-#pragma region Completion
+#pragma region Completion Proposal
 
     //
-    // Completion
+    // Completion Proposal
     //
 
     inline constexpr const char* LSPMethod_Completion = "textDocument/completion";
@@ -2022,11 +2022,320 @@ namespace glsld::lsp
 
 #pragma endregion
 
+#pragma region Signature Help
+
+    //
+    // Signature Help
+    //
+    inline constexpr const char* LSPMethod_SignatureHelp = "textDocument/signatureHelp";
+
+    struct SignatureHelpClientCapabilities
+    {
+        // /**
+        //  * Whether signature help supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+
+        // /**
+        //  * The client supports the following `SignatureInformation`
+        //  * specific properties.
+        //  */
+        // signatureInformation?: {
+        // 	/**
+        // 	 * Client supports the follow content formats for the documentation
+        // 	 * property. The order describes the preferred format of the client.
+        // 	 */
+        // 	documentationFormat?: MarkupKind[];
+
+        // 	/**
+        // 	 * Client capabilities specific to parameter information.
+        // 	 */
+        // 	parameterInformation?: {
+        // 		/**
+        // 		 * The client supports processing label offsets instead of a
+        // 		 * simple label string.
+        // 		 *
+        // 		 * @since 3.14.0
+        // 		 */
+        // 		labelOffsetSupport?: boolean;
+        // 	};
+
+        // /**
+        //  * The client supports the `activeParameter` property on
+        //  * `SignatureInformation` literal.
+        //  *
+        //  * @since 3.16.0
+        //  */
+        // 	activeParameterSupport?: boolean;
+        // };
+
+        // /**
+        //  * The client supports to send additional context information for a
+        //  * `textDocument/signatureHelp` request. A client that opts into
+        //  * contextSupport will also support the `retriggerCharacters` on
+        //  * `SignatureHelpOptions`.
+        //  *
+        //  * @since 3.15.0
+        //  */
+        // contextSupport?: boolean;
+    };
+
+    struct SignatureHelpOptions
+    {
+        // /**
+        //  * The characters that trigger signature help
+        //  * automatically.
+        //  */
+        // triggerCharacters?: string[];
+        std::vector<std::string> triggerCharacters;
+
+        // /**
+        //  * List of characters that re-trigger signature help.
+        //  *
+        //  * These trigger characters are only active when signature help is already
+        //  * showing. All trigger characters are also counted as re-trigger
+        //  * characters.
+        //  *
+        //  * @since 3.15.0
+        //  */
+        // retriggerCharacters?: string[];
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureHelpOptions& value) -> bool
+    {
+        if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    enum SignatureHelpTriggerKind
+    {
+        // /**
+        //  * Signature help was invoked manually by the user or by a command.
+        //  */
+        // export const Invoked: 1 = 1;
+        Invoke = 1,
+        // /**
+        //  * Signature help was triggered by a trigger character.
+        //  */
+        // export const TriggerCharacter: 2 = 2;
+        TriggerCharacter = 2,
+        // /**
+        //  * Signature help was triggered by the cursor moving or by the document
+        //  * content changing.
+        //  */
+        // export const ContentChange: 3 = 3;
+        ContentChange = 3,
+    };
+
+    // /**
+    //  * Additional information about the context in which a signature help request
+    //  * was triggered.
+    //  *
+    //  * @since 3.15.0
+    //  */
+    struct SignatureHelpContext
+    {
+        // /**
+        //  * Action that caused signature help to be triggered.
+        //  */
+        // triggerKind: SignatureHelpTriggerKind;
+
+        // /**
+        //  * Character that caused signature help to be triggered.
+        //  *
+        //  * This is undefined when triggerKind !==
+        //  * SignatureHelpTriggerKind.TriggerCharacter
+        //  */
+        // triggerCharacter?: string;
+
+        // /**
+        //  * `true` if signature help was already showing when it was triggered.
+        //  *
+        //  * Retriggers occur when the signature help is already active and can be
+        //  * caused by actions such as typing a trigger character, a cursor move, or
+        //  * document content changes.
+        //  */
+        // isRetrigger: boolean;
+
+        // /**
+        //  * The currently active `SignatureHelp`.
+        //  *
+        //  * The `activeSignatureHelp` has its `SignatureHelp.activeSignature` field
+        //  * updated based on the user navigating through available signatures.
+        //  */
+        // activeSignatureHelp?: SignatureHelp;
+    };
+
+    struct SignatureHelpParams
+    {
+        TextDocumentPositionParams baseParams;
+
+        // /**
+        //  * The signature help context. This is only available if the client
+        //  * specifies to send this using the client capability
+        //  * `textDocument.signatureHelp.contextSupport === true`
+        //  *
+        //  * @since 3.15.0
+        //  */
+        // context?: SignatureHelpContext;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, SignatureHelpParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * Represents a parameter of a callable-signature. A parameter can
+    //  * have a label and a doc-comment.
+    //  */
+    struct ParameterInformation
+    {
+        // /**
+        //  * The label of this parameter information.
+        //  *
+        //  * Either a string or an inclusive start and exclusive end offsets within
+        //  * its containing signature label. (see SignatureInformation.label). The
+        //  * offsets are based on a UTF-16 string representation as `Position` and
+        //  * `Range` does.
+        //  *
+        //  * *Note*: a label of type string should be a substring of its containing
+        //  * signature label. Its intended use case is to highlight the parameter
+        //  * label part in the `SignatureInformation.label`.
+        //  */
+        // label: string | [uinteger, uinteger];
+
+        // /**
+        //  * The human-readable doc-comment of this parameter. Will be shown
+        //  * in the UI but can be omitted.
+        //  */
+        // documentation?: string | MarkupContent;
+    };
+    // inline auto MapJson(JsonFromObjectMapper& mapper, const ParameterInformation& value) -> bool
+    // {
+    //     return true;
+    // }
+
+    // /**
+    //  * Represents the signature of something callable. A signature
+    //  * can have a label, like a function-name, a doc-comment, and
+    //  * a set of parameters.
+    //  */
+    struct SignatureInformation
+    {
+        // /**
+        //  * The label of this signature. Will be shown in
+        //  * the UI.
+        //  */
+        // label: string;
+        std::string label;
+
+        // /**
+        //  * The human-readable doc-comment of this signature. Will be shown
+        //  * in the UI but can be omitted.
+        //  */
+        // documentation?: string | MarkupContent;
+
+        // /**
+        //  * The parameters of this signature.
+        //  */
+        // parameters?: ParameterInformation[];
+
+        // /**
+        //  * The index of the active parameter.
+        //  *
+        //  * If provided, this is used in place of `SignatureHelp.activeParameter`.
+        //  *
+        //  * @since 3.16.0
+        //  */
+        // activeParameter?: uinteger;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureInformation& value) -> bool
+    {
+        if (!mapper.Map("label", value.label)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * Signature help represents the signature of something
+    //  * callable. There can be multiple signature but only one
+    //  * active and only one active parameter.
+    //  */
+    struct SignatureHelp
+    {
+        // /**
+        //  * One or more signatures. If no signatures are available the signature help
+        //  * request should return `null`.
+        //  */
+        // signatures: SignatureInformation[];
+        std::vector<SignatureInformation> signatures;
+
+        // /**
+        //  * The active signature. If omitted or the value lies outside the
+        //  * range of `signatures` the value defaults to zero or is ignore if
+        //  * the `SignatureHelp` as no signatures.
+        //  *
+        //  * Whenever possible implementors should make an active decision about
+        //  * the active signature and shouldn't rely on a default value.
+        //  *
+        //  * In future version of the protocol this property might become
+        //  * mandatory to better express this.
+        //  */
+        // activeSignature?: uinteger;
+
+        // /**
+        //  * The active parameter of the active signature. If omitted or the value
+        //  * lies outside the range of `signatures[activeSignature].parameters`
+        //  * defaults to 0 if the active signature has parameters. If
+        //  * the active signature has no parameters it is ignored.
+        //  * In future version of the protocol this property might become
+        //  * mandatory to better express the active parameter if the
+        //  * active signature does have any.
+        //  */
+        // activeParameter?: uinteger;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureHelp& value) -> bool
+    {
+        if (!mapper.Map("signatures", value.signatures)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
 #pragma region Text Document Synchronization
 
     //
     // Text Document Synchronization
     //
+
+    struct TextDocumentClientCapabilities
+    {
+        // Unsupported capabilities omitted
+
+        std::optional<SemanticTokenClientsCapabilities> semanticTokens;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentClientCapabilities& value) -> bool
+    {
+        if (!mapper.Map("semanticTokens", value.semanticTokens)) {
+            return false;
+        }
+
+        return true;
+    }
 
     // /**
     //  * Defines how the host (editor) should sync document changes to the language
@@ -2268,21 +2577,6 @@ namespace glsld::lsp
     // Capabilities
     //
 
-    struct TextDocumentClientCapabilities
-    {
-        // Unsupported capabilities omitted
-
-        std::optional<SemanticTokenClientsCapabilities> semanticTokens;
-    };
-    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentClientCapabilities& value) -> bool
-    {
-        if (!mapper.Map("semanticTokens", value.semanticTokens)) {
-            return false;
-        }
-
-        return true;
-    }
-
     struct ClientCapabilities
     {
         // Unsupported capabilities omitted
@@ -2326,6 +2620,12 @@ namespace glsld::lsp
         //  */
         // hoverProvider ?: boolean | HoverOptions;
         bool hoverProvider;
+
+        // /**
+        //  * The server provides signature help support.
+        //  */
+        // signatureHelpProvider?: SignatureHelpOptions;
+        std::optional<SignatureHelpOptions> signatureHelpProvider;
 
         // /**
         //  * The server provides go to declaration support.
@@ -2375,6 +2675,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("hoverProvider", value.hoverProvider)) {
+            return false;
+        }
+        if (!mapper.Map("signatureHelpProvider", value.signatureHelpProvider)) {
             return false;
         }
         if (!mapper.Map("declarationProvider", value.declarationProvider)) {

@@ -26,7 +26,7 @@
 // 	uint u;
 // 	int i;
 // 	float f;
-
+// 	foo() 
 // 	foo1(d, d);
 // 	foo1(d, d);
 // 	foo1(d, u);
@@ -92,8 +92,8 @@
 // 	ftd(u, f, f);
 // }
 
-void itf(int, float, int);
-void itf(int, double, int);
+// void itf(int, float, int);
+// void itf(int, double, int);
 
 void foo(float x);
 
@@ -103,7 +103,7 @@ void tf(float p)
 	uint u;
 	int i;
 	float f;
-	
+	sin()
 	itf(i, i, i);
 	itf(i, u, i);
 }

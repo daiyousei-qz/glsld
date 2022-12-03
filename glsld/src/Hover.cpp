@@ -60,52 +60,6 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto ReconstructSourceText(const SyntaxToken& tok) -> std::string_view
-    {
-        if (tok.klass != TokenKlass::Error) {
-            return tok.text.StrView();
-        }
-        else {
-            return "<error>";
-        }
-    }
-
-    static auto ReconstructSourceText(AstQualType* type) -> std::string
-    {
-        std::string result;
-        if (auto structDecl = type->GetStructDecl()) {
-            result += "struct ";
-            if (structDecl->GetDeclToken()) {
-                result += ReconstructSourceText(*structDecl->GetDeclToken());
-            }
-            result += " { ... }";
-        }
-        else {
-            result += ReconstructSourceText(type->GetTypeNameTok());
-        }
-
-        return result;
-    }
-    static auto ReconstructSourceText(std::span<AstParamDecl* const> params) -> std::string
-    {
-        std::string result;
-        result += "(";
-        for (auto param : params) {
-            result += ReconstructSourceText(param->GetType());
-            if (param->GetDeclTok()) {
-                result += " ";
-                result += ReconstructSourceText(*param->GetDeclTok());
-            }
-            result += ",";
-        }
-        if (result.ends_with(',')) {
-            result.pop_back();
-        }
-        result += ")";
-
-        return result;
-    }
-
     static auto CreateUnknownHoverContent(HoverType type, std::string_view name)
     {
         return HoverContent{

@@ -17,6 +17,8 @@ namespace glsld
 
     auto ComputeCompletion(CompiledModule& compiler, lsp::Position position) -> std::vector<lsp::CompletionItem>;
 
+    auto ComputeSignatureHelp(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::SignatureHelp>;
+
     auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
 
     // we assume single source file for now
@@ -85,7 +87,8 @@ namespace glsld
 
         auto Initialize(int requestId, lsp::InitializeParams params) -> void
         {
-            auto triggerCharacters = std::vector<std::string>{"."};
+            auto completionTriggerCharacters    = std::vector<std::string>{"."};
+            auto signatureHelpTriggerCharacters = std::vector<std::string>{"("};
 
             auto result = lsp::InitializedResult{
                 .capabilities =
@@ -98,11 +101,16 @@ namespace glsld
                         .completionProvider =
                             lsp::CompletionOptions{
                                 // FIXME: this is a MSVC ICE workaround
-                                .triggerCharacters   = std::move(triggerCharacters),
+                                .triggerCharacters   = std::move(completionTriggerCharacters),
                                 .allCommitCharacters = {},
                                 .resolveProvider     = false,
                             },
-                        .hoverProvider          = true,
+                        .hoverProvider = true,
+                        .signatureHelpProvider =
+                            lsp::SignatureHelpOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters = std::move(signatureHelpTriggerCharacters),
+                            },
                         .declarationProvider    = true,
                         .definitionProvider     = true,
                         .documentSymbolProvider = true,
@@ -185,6 +193,20 @@ namespace glsld
                     if (provider->WaitAvailable()) {
                         std::vector<lsp::CompletionItem> result =
                             ComputeCompletion(provider->GetCompiler(), params.baseParams.position);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
+        }
+
+        auto SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
+        {
+            auto provider = providerLookup[params.baseParams.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
+                    if (provider->WaitAvailable()) {
+                        std::optional<lsp::SignatureHelp> result =
+                            ComputeSignatureHelp(provider->GetCompiler(), params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });

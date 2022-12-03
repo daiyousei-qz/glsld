@@ -200,7 +200,7 @@ namespace glsld
             return qPatch;
         };
 
-    private:
+    public:
         // Precision Qualifier
         bool qHighp : 1   = false;
         bool qMediump : 1 = false;
@@ -247,6 +247,15 @@ namespace glsld
         AstTypeQualifierSeq(QualifierGroup quals, std::vector<AstLayoutQualifier*> layoutQuals)
             : quals(quals), layoutQuals(layoutQuals)
         {
+        }
+
+        auto GetQualfierGroup() const -> const QualifierGroup&
+        {
+            return quals;
+        }
+        auto GetLayoutQuals() const -> ArrayView<AstLayoutQualifier*>
+        {
+            return layoutQuals;
         }
 
         template <typename Visitor>

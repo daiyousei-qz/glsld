@@ -1,5 +1,11 @@
 #include "LanguageService.h"
 
+// FIXME: Currently, this is implemented as:
+//        - all library decl
+//        - all global decl
+//        - all local decl in the same function
+//        Perhaps need improvement or good enough?
+
 namespace glsld
 {
     class CompletionVisitor : public AstVisitor<CompletionVisitor>

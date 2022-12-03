@@ -1,6 +1,8 @@
 #pragma once
+#include "Ast.h"
 #include "Common.h"
 #include "Protocol.h"
+#include "SyntaxToken.h"
 #include <iterator>
 #include <span>
 #include <vector>
@@ -249,6 +251,149 @@ namespace glsld
                 charcter += 1;
             }
         }
+
+        return result;
+    }
+
+    // FIXME: where to put these functions?
+    inline auto ReconstructSourceText(const SyntaxToken& tok) -> std::string_view
+    {
+        if (tok.klass != TokenKlass::Error) {
+            return tok.text.StrView();
+        }
+        else {
+            return "<error>";
+        }
+    }
+
+    inline auto ReconstructSourceText(AstQualType* type) -> std::string
+    {
+        std::string result;
+
+        if (type->GetQualifiers()) {
+            auto quals = type->GetQualifiers()->GetQualfierGroup();
+            // Precision Qualifier
+            if (quals.GetHighp()) {
+                result += "highp ";
+            }
+            if (quals.GetMediump()) {
+                result += "mediump ";
+            }
+            if (quals.GetLowp()) {
+                result += "lowp ";
+            }
+
+            // Storage/Parameter qualifiers
+            if (quals.GetConst()) {
+                result += "const ";
+            }
+            if (quals.GetIn()) {
+                result += "in ";
+            }
+            if (quals.GetOut()) {
+                result += "out ";
+            }
+            if (quals.GetInout()) {
+                result += "inout ";
+            }
+            if (quals.GetAttribute()) {
+                result += "attribute ";
+            }
+            if (quals.GetUniform()) {
+                result += "uniform ";
+            }
+            if (quals.GetVarying()) {
+                result += "varying ";
+            }
+            if (quals.GetBuffer()) {
+                result += "buffer ";
+            }
+            if (quals.GetShared()) {
+                result += "shared ";
+            }
+
+            // Auxiliary storage qualifiers
+            if (quals.GetCentroid()) {
+                result += "centroid ";
+            }
+            if (quals.GetSample()) {
+                result += "sample ";
+            }
+            if (quals.GetPatch()) {
+                result += "patch ";
+            }
+
+            // Interpolation qualifiers
+            if (quals.qSmooth) {
+                result += "smooth ";
+            }
+            if (quals.qFlat) {
+                result += "flat ";
+            }
+            if (quals.qNoperspective) {
+                result += "noperspective ";
+            }
+
+            // Variance qualifier
+            if (quals.qInvariant) {
+                result += "invariant ";
+            }
+
+            // Precise qualifier
+            if (quals.qPrecise) {
+                result += "precise ";
+            }
+
+            // Memory qualifiers
+            if (quals.qCoherent) {
+                result += "coherent ";
+            }
+            if (quals.qCoherent) {
+                result += "coherent ";
+            }
+            if (quals.qVolatile) {
+                result += "volatile ";
+            }
+            if (quals.qRestrict) {
+                result += "restrict ";
+            }
+            if (quals.qReadonly) {
+                result += "readonly ";
+            }
+            if (quals.qWriteonly) {
+                result += "writeonly ";
+            }
+        }
+
+        if (auto structDecl = type->GetStructDecl()) {
+            result += "struct ";
+            if (structDecl->GetDeclToken()) {
+                result += ReconstructSourceText(*structDecl->GetDeclToken());
+            }
+            result += " { ... }";
+        }
+        else {
+            result += ReconstructSourceText(type->GetTypeNameTok());
+        }
+
+        return result;
+    }
+    inline auto ReconstructSourceText(std::span<AstParamDecl* const> params) -> std::string
+    {
+        std::string result;
+        result += "(";
+        for (auto param : params) {
+            result += ReconstructSourceText(param->GetType());
+            if (param->GetDeclTok()) {
+                result += " ";
+                result += ReconstructSourceText(*param->GetDeclTok());
+            }
+            result += ",";
+        }
+        if (result.ends_with(',')) {
+            result.pop_back();
+        }
+        result += ")";
 
         return result;
     }
