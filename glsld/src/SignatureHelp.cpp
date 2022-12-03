@@ -76,8 +76,10 @@ namespace glsld
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         result.push_back(lsp::SignatureInformation{
-                            .label = fmt::format("{} {}{}", ReconstructSourceText(funcDecl->GetReturnType()), funcName,
-                                                 ReconstructSourceText(funcDecl->GetParams())),
+                            .label = std::string{funcName},
+                            .documentation =
+                                fmt::format("```glsl\n{} {}{}\n```", ReconstructSourceText(funcDecl->GetReturnType()),
+                                            funcName, ReconstructSourceText(funcDecl->GetParams())),
                         });
                     }
                 }
