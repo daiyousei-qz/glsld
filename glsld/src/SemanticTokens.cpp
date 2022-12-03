@@ -78,7 +78,7 @@ namespace glsld
         };
     }
 
-    auto CollectLexSemanticTokens(GlsldCompiler& compiler, std::vector<SemanticTokenInfo>& tokenBuffer) -> void
+    auto CollectLexSemanticTokens(CompiledModule& compiler, std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         auto lexContext = compiler.GetLexContext();
         for (const auto& tok : lexContext.GetAllToken()) {
@@ -102,14 +102,14 @@ namespace glsld
         }
     }
 
-    auto CollectAstSemanticTokens(GlsldCompiler& compiler, std::vector<SemanticTokenInfo>& tokenBuffer) -> void
+    auto CollectAstSemanticTokens(CompiledModule& compiler, std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         struct AstSemanticTokenCollector : public AstVisitor<AstSemanticTokenCollector>
         {
-            GlsldCompiler& compiler;
+            CompiledModule& compiler;
             std::vector<SemanticTokenInfo>& tokenBuffer;
 
-            AstSemanticTokenCollector(GlsldCompiler& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
+            AstSemanticTokenCollector(CompiledModule& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
                 : compiler(compiler), tokenBuffer(tokenBuffer)
             {
             }
@@ -209,7 +209,7 @@ namespace glsld
         AstSemanticTokenCollector{compiler, tokenBuffer}.TraverseAst(compiler.GetAstContext());
     }
 
-    auto ComputeSemanticTokens(GlsldCompiler& compiler) -> lsp::SemanticTokens
+    auto ComputeSemanticTokens(CompiledModule& compiler) -> lsp::SemanticTokens
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
         CollectLexSemanticTokens(compiler, tokenBuffer);
@@ -248,7 +248,7 @@ namespace glsld
         return result;
     }
 
-    auto ComputeSemanticTokensDelta(GlsldCompiler& compiler) -> lsp::SemanticTokensDelta
+    auto ComputeSemanticTokensDelta(CompiledModule& compiler) -> lsp::SemanticTokensDelta
     {
         GLSLD_NO_IMPL();
     }

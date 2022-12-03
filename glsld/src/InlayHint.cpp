@@ -5,7 +5,7 @@ namespace glsld
     class InlayHintVisitor : public AstVisitor<InlayHintVisitor>
     {
     public:
-        InlayHintVisitor(GlsldCompiler& compiler, TextRange range) : compiler(compiler), range(range)
+        InlayHintVisitor(CompiledModule& compiler, TextRange range) : compiler(compiler), range(range)
         {
         }
 
@@ -63,11 +63,11 @@ namespace glsld
     private:
         std::vector<lsp::InlayHint> result;
 
-        GlsldCompiler& compiler;
+        CompiledModule& compiler;
         TextRange range;
     };
 
-    auto ComputeInlayHint(GlsldCompiler& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>
+    auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
         InlayHintVisitor visitor{compiler, TextRange::FromLspRange(range)};
         visitor.TraverseAst(compiler.GetAstContext());

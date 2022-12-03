@@ -11,14 +11,14 @@ namespace glsld
     public:
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            PrintIdent();
+            PrintIdent(true);
             depth += 1;
-            Print("{}@{} ", AstNodeTagToString(node.GetTag()), static_cast<const void*>(&node));
+            Print("@{}[{}]", AstNodeTagToString(node.GetTag()), static_cast<const void*>(&node));
             return AstVisitPolicy::Traverse;
         }
         auto VisitAstNodeBase(AstNodeBase& node) -> void
         {
-            Print("\n");
+            // Print("\n");
         }
 
         auto ExitAstNodeBase(AstNodeBase& node) -> void
@@ -28,22 +28,23 @@ namespace glsld
 
         auto VisitAstQualType(AstQualType& type) -> void
         {
-            Print("[TypeDesc={};]", GetDebugName(type.GetTypeDesc()));
-            Print("\n");
+            PrintIdent();
+            Print("TypeDesc={};", GetDebugName(type.GetTypeDesc()));
         }
 
         auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
         {
+            PrintIdent();
             if (decl.GetName().klass != TokenKlass::Error) {
-                Print("[Name={};]\n", decl.GetName().text.Get());
+                Print("Name={};", decl.GetName().text.Get());
             }
             else {
-                Print("[Name=<Error>;]\n");
+                Print("Name=<Error>;");
             }
         }
         auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
         {
-            Print("[");
+            PrintIdent();
             for (const auto& declarator : decl.GetDeclarators()) {
                 if (declarator.declTok.klass != TokenKlass::Error) {
                     Print("Name={};", declarator.declTok.text.Get());
@@ -52,50 +53,48 @@ namespace glsld
                     Print("Name=<Error>;");
                 }
             }
-            Print("]\n");
         }
 
         auto VisitAstConstantExpr(AstConstantExpr& expr)
         {
-            Print("[Value={};]", expr.GetToken().text.Get());
+            PrintIdent();
+            Print("Value={};", expr.GetToken().text.Get());
             PrintAstExprPayload(expr);
-            Print("\n");
         }
 
         auto VisitAstUnaryExpr(AstUnaryExpr& expr)
         {
-            Print("[Op={};]", UnaryOpToString(expr.GetOperator()));
+            PrintIdent();
+            Print("Op={};", UnaryOpToString(expr.GetOperator()));
             PrintAstExprPayload(expr);
-            Print("\n");
         }
 
         auto VisitAstBinaryExpr(AstBinaryExpr& expr)
         {
-            Print("[Op={};]", BinaryOpToString(expr.GetOperator()));
+            PrintIdent();
+            Print("Op={};", BinaryOpToString(expr.GetOperator()));
             PrintAstExprPayload(expr);
-            Print("\n");
         }
 
         auto VisitAstInvokeExpr(AstInvokeExpr& expr)
         {
-            Print("[]");
+            PrintIdent();
             PrintAstExprPayload(expr);
-            Print("\n");
         }
 
         auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
+            PrintIdent();
             if (expr.GetAccessName().klass != TokenKlass::Error) {
-                Print("[Name={};] ", expr.GetAccessName().text.Get());
+                Print("Name={}; ", expr.GetAccessName().text.Get());
             }
             else {
-                Print("[Name=<Error>;]");
+                Print("Name=<Error>;");
             }
 
-            Print("[AccessType={}; AccessedDecl={};] ", NameAccessTypeToString(expr.GetAccessType()),
+            Print("AccessType={}; AccessedDecl={}; ", NameAccessTypeToString(expr.GetAccessType()),
                   static_cast<const void*>(expr.GetAccessedDecl()));
             PrintAstExprPayload(expr);
-            Print("\n");
         }
 
         auto Export() -> std::string
@@ -116,7 +115,7 @@ namespace glsld
 
         auto PrintAstExprPayload(AstExpr& expr) -> void
         {
-            Print("[DeducedType={}; ContextualType={};] ", GetDebugName(expr.GetDeducedType()),
+            Print("DeducedType={}; ContextualType={}; ", GetDebugName(expr.GetDeducedType()),
                   GetDebugName(expr.GetContextualType()));
         }
 
@@ -126,10 +125,20 @@ namespace glsld
             fmt::format_to(std::back_inserter(buffer), fmt, std::forward<Args>(args)...);
         }
 
-        auto PrintIdent() -> void
+        auto PrintIdent(bool isNode = false) -> void
         {
+            if (!buffer.empty()) {
+                Print("\n");
+            }
+
             for (int i = 0; i < depth; ++i) {
-                Print("  ");
+
+                if (isNode && i + 1 == depth) {
+                    Print("'--");
+                }
+                else {
+                    Print("|  ");
+                }
             }
         }
 

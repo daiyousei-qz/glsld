@@ -37,15 +37,31 @@ auto DoMain() -> void
     //     if (entry.is_regular_file()) {
     //         fmt::print("[] Compiling {}\n", entry.path().string());
 
-    //         glsld::GlsldCompiler compiler;
+    //         glsld::CompiledModule compiler;
     //         auto inputData = ReadFile(entry.path().string());
     //         compiler.Compile(*inputData);
     //         fmt::print("succussfully parsed input file\n\n");
     //     }
     // }
 
-    glsld::GlsldCompiler compiler;
-    compiler.Compile(*inputData);
+    auto defaultLibrary = R"(
+// sin function
+float sin(float x);
+
+// sin function
+double sin(double x);
+
+// cos function
+float cos(float x);
+
+// cos function
+double cos(double x);
+    )";
+
+    auto compiler             = glsld::GlslCompiler{};
+    auto defaultLibraryResult = compiler.CompileExternalModule(defaultLibrary);
+    auto result               = compiler.CompileModule(*inputData, defaultLibraryResult);
+
     fmt::print("succussfully parsed input file\n");
 }
 

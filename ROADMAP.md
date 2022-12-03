@@ -55,3 +55,9 @@ DONE!
 - `const float EPSILON	= 1e-3;`
 - `Hover parameter` FIXED
 - `line break '\'`
+- `Hover on QualType`
+- `Go to definition should link to the decl token`
+- `Need a better tokenizer`
+- `Should support builtin function documentation`
+- `sin(1.)?`
+- `Test\310.inheritMemory.frag?`

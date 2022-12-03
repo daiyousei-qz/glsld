@@ -190,7 +190,7 @@ namespace glsld
         return std::nullopt;
     }
 
-    auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>
+    auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>
     {
         struct HoverProcessor : public DeclTokenCallback<lsp::Hover>
         {

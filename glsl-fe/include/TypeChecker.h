@@ -10,11 +10,17 @@ namespace glsld
     class TypeChecker
     {
     public:
-        auto TypeCheck(AstContext& ast)
+        auto TypeCheck(AstContext& ast, const SymbolTable* externalSymbolTable) -> SymbolTable
         {
-            astContext = &ast;
+            this->astContext          = &ast;
+            this->externalSymbolTable = externalSymbolTable;
             TypeCheckVisitor{*this}.TraverseAst(ast);
-            astContext = nullptr;
+
+            this->currentFunction     = nullptr;
+            this->externalSymbolTable = nullptr;
+            this->astContext          = nullptr;
+
+            return std::move(symbolTable);
         }
 
     private:
@@ -223,7 +229,7 @@ namespace glsld
                 }
                 case NameAccessType::Function:
                 {
-                    auto funcSymbol = symbolTable.FindFunction(accessName, argTypes);
+                    auto funcSymbol = FindFunction(accessName, argTypes);
                     if (funcSymbol) {
                         // FIXME: invoked expr should have deduced type of function?
                         invokedExpr->SetAccessedDecl(funcSymbol);
@@ -248,11 +254,6 @@ namespace glsld
         //
         // Type Eval
         //
-        auto HasConversion(const TypeDesc* from, const TypeDesc* to) -> bool
-        {
-            GLSLD_NO_IMPL();
-        }
-
         auto EvalUnary(UnaryOp op, const TypeDesc* oparand) -> const TypeDesc*
         {
             GLSLD_NO_IMPL();
@@ -373,6 +374,16 @@ namespace glsld
             int compoundStmtDepth = 0;
         };
 
+        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) -> AstFunctionDecl*
+        {
+            if (auto funcDecl = symbolTable.FindFunction(name, argTypes)) {
+                return funcDecl;
+            }
+            else {
+                return externalSymbolTable ? externalSymbolTable->FindFunction(name, argTypes) : nullptr;
+            }
+        }
+
         auto TryAddSymbol(LexString name, AstDecl& decl) -> void
         {
             auto s = name.StrView();
@@ -381,8 +392,10 @@ namespace glsld
             }
         }
 
+        AstContext* astContext                 = nullptr;
+        const SymbolTable* externalSymbolTable = nullptr;
+
         AstFunctionDecl* currentFunction = nullptr;
-        AstContext* astContext           = nullptr;
         SymbolTable symbolTable;
     };
 } // namespace glsld

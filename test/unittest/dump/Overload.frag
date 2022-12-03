@@ -9,14 +9,14 @@ void foo(float x, double y) {
 void main() {
     foo(float(1.0), 1.);
 }
-// struct S {
-//     float x;
-// };
+struct S {
+    float x;
+};
 
-// void main() {
-//     /* type name */ S /* variable name */ S;
-//     /* variable name */ S;
+void main() {
+    /* type name */ S /* variable name */ S;
+    /* variable name */ S;
 
-//     // constructor call
-//     S[2]();
-// }
+    // constructor call
+    S[2]();
+}

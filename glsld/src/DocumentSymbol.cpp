@@ -2,7 +2,7 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(GlsldCompiler& compiler) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(CompiledModule& compiler) -> std::vector<lsp::DocumentSymbol>
     {
         std::vector<lsp::DocumentSymbol> result;
 

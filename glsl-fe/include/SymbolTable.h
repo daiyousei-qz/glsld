@@ -44,7 +44,8 @@ namespace glsld
             }
         }
 
-        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) -> AstFunctionDecl*
+        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) const
+            -> AstFunctionDecl*
         {
             // FIXME: impl correct resolution
             auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
@@ -132,7 +133,7 @@ namespace glsld
             levels.back().declLookup[name] = decl;
         }
 
-        auto FindSymbol(const std::string& name) -> AstDecl*
+        auto FindSymbol(const std::string& name) const -> AstDecl*
         {
             GLSLD_ASSERT(!levels.empty());
             for (const auto& level : levels | std::views::reverse) {
@@ -158,5 +159,7 @@ namespace glsld
 
         std::unordered_multimap<std::string, FunctionRegistry> funcDeclLookup;
         std::vector<SymbolTableLevel> levels;
+
+        const SymbolTable* externalSymbolTable;
     };
 } // namespace glsld

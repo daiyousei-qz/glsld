@@ -3,7 +3,7 @@
 
 namespace glsld
 {
-    auto ComputeDeclaration(GlsldCompiler& compiler, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(CompiledModule& compiler, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
         struct DeclarationProcessor : public DeclTokenCallback<AstDecl*>
@@ -23,6 +23,16 @@ namespace glsld
         auto decl = ProcessDeclToken(compiler, TextPosition::FromLspPosition(position), DeclarationProcessor{});
         if (decl.has_value()) {
             auto srcRange = (*decl)->GetRange();
+            if (auto funcDecl = (*decl)->As<AstFunctionDecl>(); funcDecl) {
+                srcRange = funcDecl->GetName().range;
+            }
+            else if (auto paramDecl = (*decl)->As<AstParamDecl>(); paramDecl && paramDecl->GetDeclTok()) {
+                srcRange = paramDecl->GetDeclTok()->range;
+            }
+            // FIXME:
+            // else if (auto varDecl = (*decl)->As<AstVariableDecl>(); varDecl) {
+            // }
+
             auto locBegin = compiler.GetLexContext().LookupSyntaxLocation(srcRange.begin);
             auto locEnd   = compiler.GetLexContext().LookupSyntaxLocation(srcRange.end);
 

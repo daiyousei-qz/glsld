@@ -95,6 +95,8 @@
 void itf(int, float, int);
 void itf(int, double, int);
 
+void foo(float x);
+
 void tf()
 {
     double d;

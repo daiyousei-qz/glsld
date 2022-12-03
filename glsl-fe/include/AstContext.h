@@ -14,7 +14,6 @@ namespace glsld
 
         ~AstContext()
         {
-
             for (auto node : nodes) {
                 node->DispatchInvoke([](auto& dispatchedNode) { delete &dispatchedNode; });
             }

@@ -120,16 +120,16 @@ namespace glsld
                     });
                 }
                 else {
-                    // commentTokens.push_back(SyntaxToken{
-                    //     .klass = tokInfo.klass,
-                    //     .text  = tokText,
-                    //     .range =
-                    //         {
-                    //             .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
-                    //             .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
-                    //                                       tokInfo.columnEnd),
-                    //         },
-                    // });
+                    commentTokens.push_back(SyntaxToken{
+                        .klass = tokInfo.klass,
+                        .text  = tokText,
+                        .range =
+                            {
+                                .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
+                                .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
+                                                          tokInfo.columnEnd),
+                            },
+                    });
                 }
 
                 if (tokInfo.klass == glsld::TokenKlass::Eof) {

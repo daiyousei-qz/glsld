@@ -9,19 +9,21 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(GlsldCompiler& compiler) -> std::vector<lsp::DocumentSymbol>;
+    auto ComputeDocumentSymbol(CompiledModule& compiler) -> std::vector<lsp::DocumentSymbol>;
 
     auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(GlsldCompiler& compiler) -> lsp::SemanticTokens;
-    auto ComputeSemanticTokensDelta(GlsldCompiler& compiler) -> lsp::SemanticTokensDelta;
+    auto ComputeSemanticTokens(CompiledModule& compiler) -> lsp::SemanticTokens;
+    auto ComputeSemanticTokensDelta(CompiledModule& compiler) -> lsp::SemanticTokensDelta;
 
-    auto ComputeHover(GlsldCompiler& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
+    auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
 
     // we assume single source file for now
-    auto ComputeDeclaration(GlsldCompiler& compiler, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(CompiledModule& compiler, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>;
 
-    auto ComputeInlayHint(GlsldCompiler& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>;
+    auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>;
+
+    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledExternalModule>;
 
     class IntellisenseProvider
     {
@@ -33,7 +35,7 @@ namespace glsld
 
         auto Setup()
         {
-            compiler.Compile(sourceString);
+            compiler = GlslCompiler{}.CompileModule(sourceString, GetDefaultLibraryModule());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;
@@ -56,16 +58,16 @@ namespace glsld
             return sourceString;
         }
 
-        auto GetCompiler() -> GlsldCompiler&
+        auto GetCompiler() -> CompiledModule&
         {
             GLSLD_ASSERT(available);
-            return compiler;
+            return *compiler;
         }
 
     private:
         int version;
         std::string sourceString;
-        GlsldCompiler compiler;
+        std::shared_ptr<CompiledModule> compiler;
 
         std::atomic<bool> available = false;
         std::mutex mu;

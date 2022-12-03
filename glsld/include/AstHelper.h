@@ -22,13 +22,13 @@ namespace glsld
     };
 
     template <typename T>
-    static auto ProcessDeclToken(GlsldCompiler& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
+    static auto ProcessDeclToken(CompiledModule& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
         -> std::optional<T>
     {
         class DeclTokenVisitor : public AstVisitor<DeclTokenVisitor>
         {
         public:
-            DeclTokenVisitor(GlsldCompiler& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
+            DeclTokenVisitor(CompiledModule& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
                 : lexContext(compiler.GetLexContext()), astContext(compiler.GetAstContext()), position(position),
                   callback(callback)
             {
