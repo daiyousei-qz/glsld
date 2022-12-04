@@ -28,6 +28,11 @@ namespace glsld
             }
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         std::vector<AstExpr*> sizes;
     };
@@ -53,6 +58,12 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            // FIXME: add dump
+            return "";
         }
 
     private:
@@ -263,6 +274,12 @@ namespace glsld
         {
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            // TODO: add dump
+            return "";
+        }
+
     private:
         QualifierGroup quals;
         std::vector<AstLayoutQualifier*> layoutQuals;
@@ -304,6 +321,16 @@ namespace glsld
             visitor.Traverse(qualifiers);
             visitor.Traverse(arraySpec);
             visitor.Traverse(structDecl);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            if (!structDecl) {
+                return fmt::format("TypeName: {}", typeName.text.StrView());
+            }
+            else {
+                return "";
+            }
         }
 
     private:

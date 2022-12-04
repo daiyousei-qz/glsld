@@ -57,10 +57,10 @@ namespace glsld
 #undef STRINGIZE
     }
 
-    inline auto GetAllKeywords() -> ArrayView<std::string_view>
+    inline auto GetAllKeywords() -> ArrayView<std::pair<TokenKlass, std::string_view>>
     {
-        static constexpr std::string_view allKeywords[] = {
-#define DECL_KEYWORD(KEYWORD) #KEYWORD,
+        static constexpr std::pair<TokenKlass, std::string_view> allKeywords[] = {
+#define DECL_KEYWORD(KEYWORD) {TokenKlass::K_##KEYWORD, #KEYWORD},
 #include "GlslKeywords.inc"
 #undef DECL_KEYWORD
         };
@@ -68,10 +68,10 @@ namespace glsld
         return allKeywords;
     }
 
-    inline auto GetAllPunctuations() -> ArrayView<std::string_view>
+    inline auto GetAllPunctuations() -> ArrayView<std::pair<TokenKlass, std::string_view>>
     {
-        static constexpr std::string_view allPuncts[] = {
-#define DECL_PUNCT(PUNCT_NAME, PUNCT) #PUNCT,
+        static constexpr std::pair<TokenKlass, std::string_view> allPuncts[] = {
+#define DECL_PUNCT(PUNCT_NAME, PUNCT) {TokenKlass::PUNCT_NAME, PUNCT},
 #include "GlslPunctuation.inc"
 #undef DECL_PUNCT
         };

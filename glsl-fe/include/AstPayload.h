@@ -1,5 +1,6 @@
 #pragma once
 #include "Semantic.h"
+#include "Typing.h"
 
 namespace glsld
 {
@@ -18,6 +19,10 @@ namespace glsld
     class AstPayload
     {
     public:
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
     };
 
     template <>
@@ -31,6 +36,16 @@ namespace glsld
         auto SetTypeDesc(const TypeDesc* typeDesc) -> void
         {
             this->typeDesc = typeDesc;
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            if (typeDesc && !typeDesc->GetDebugName().empty()) {
+                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
+            }
+            else {
+                return fmt::format("{}", static_cast<const void*>(typeDesc));
+            }
         }
 
     private:
@@ -53,6 +68,16 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            if (typeDesc && !typeDesc->GetDebugName().empty()) {
+                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
+            }
+            else {
+                return fmt::format("{}", static_cast<const void*>(typeDesc));
+            }
+        }
+
     private:
         // Struct type that this decl introduces
         const TypeDesc* typeDesc = nullptr;
@@ -69,6 +94,16 @@ namespace glsld
         auto SetTypeDesc(const TypeDesc* typeDesc) -> void
         {
             this->typeDesc = typeDesc;
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            if (typeDesc && !typeDesc->GetDebugName().empty()) {
+                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
+            }
+            else {
+                return fmt::format("{}", static_cast<const void*>(typeDesc));
+            }
         }
 
     private:
@@ -96,6 +131,11 @@ namespace glsld
         auto SetContextualType(const TypeDesc* contextualType) -> void
         {
             this->contextualType = contextualType;
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("DeducedType=?; ContextualType=?");
         }
 
     private:
@@ -126,6 +166,12 @@ namespace glsld
         auto SetAccessedDecl(AstDecl* decl) -> void
         {
             this->decl = decl;
+        }
+
+        auto DumpPayloadData() const -> std::string
+        {
+            // return fmt::format("{} ;Name=?");
+            return "";
         }
 
     private:

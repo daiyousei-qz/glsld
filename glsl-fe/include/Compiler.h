@@ -4,8 +4,8 @@
 #include "LexContext.h"
 #include "AstContext.h"
 #include "Parser.h"
-#include "AstPrinter.h"
 #include "TypeChecker.h"
+#include "AstPrinter.h"
 
 #include <memory>
 #include <string>
@@ -120,6 +120,23 @@ namespace glsld
 
             return result;
         }
+    };
+
+    template <typename Derived>
+    class ModuleVisitor : protected AstVisitor<Derived>
+    {
+    public:
+        ModuleVisitor(CompiledModule& module) : module(&module)
+        {
+        }
+
+        auto Traverse() -> void
+        {
+            AstVisitor<Derived>::TraverseAst(module->GetAstContext());
+        }
+
+    private:
+        CompiledModule* module;
     };
 
 } // namespace glsld

@@ -20,6 +20,16 @@ target_include_directories(glsl-fe PUBLIC glsl-fe/include)
 
 target_link_libraries(glsl-fe PRIVATE fmt::fmt)
 
+# GLSLD Lexer Generator
+file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
+file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
+
+add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
+target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
+
+target_link_libraries(glsld-lexgen PRIVATE glsl-fe)
+target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
+
 # GLSLD
 file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)
 file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)

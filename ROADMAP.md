@@ -52,13 +52,15 @@ DONE!
 - `vec3 ta = vec3(0, -.5, -time-.5);` FIXED
 - `add *= exp(-t*t*.1 -id.x*id.x*.001);` FIXED
 - `for(i=1.5; i>0.; i-=.01){}` FIXED
-- `const float EPSILON	= 1e-3;`
+- `const float EPSILON	= 1e-3;` FIXED
 - `Hover parameter` FIXED
 - `line break '\'`
 - `Hover on QualType`
 - `Go to definition should link to the decl token`
 - `Need a better tokenizer`
 - `Should support builtin function documentation`
-- `sin(1.)?`
-- `Test\310.inheritMemory.frag?`
-- `Test\450.geom?`
+- `sin(1.)?` FIXED
+- `Test\310.inheritMemory.frag?` FIXED
+- `Test\450.geom?` FIXED
+- `Test2\glsl.autosampledtextures.frag`
+- `Test2\400.geom` Inlay hint disappear during scrolling

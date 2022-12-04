@@ -2,6 +2,8 @@
 #include <cassert>
 #include <span>
 
+#include <fmt/format.h>
+
 #define GLSLD_DEBUG 1
 #define GLSLD_DEBUG_PARSER 1
 

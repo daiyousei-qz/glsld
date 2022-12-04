@@ -168,6 +168,33 @@ LibraryFunctions = [
     "mat3 inverse(mat3 m)",
     "mat4 inverse(mat4 m)",
 
+    # Matrix Functions (double)
+    "dmat matrixCompMult(dmat x, dmat y)",
+    "dmat2 outerProduct(dvec2 c, dvec2 r)",
+    "dmat3 outerProduct(dvec3 c, dvec3 r)",
+    "dmat4 outerProduct(dvec4 c, dvec4 r)",
+    "dmat2x3 outerProduct(dvec3 c, dvec2 r)",
+    "dmat3x2 outerProduct(dvec2 c, dvec3 r)",
+    "dmat2x4 outerProduct(dvec4 c, dvec2 r)",
+    "dmat4x2 outerProduct(dvec2 c, dvec4 r)",
+    "dmat3x4 outerProduct(dvec4 c, dvec3 r)",
+    "dmat4x3 outerProduct(dvec3 c, dvec4 r)",
+    "dmat2 transpose(dmat2 m)",
+    "dmat3 transpose(dmat3 m)",
+    "dmat4 transpose(dmat4 m)",
+    "dmat2x3 transpose(dmat3x2 m)",
+    "dmat3x2 transpose(dmat2x3 m)",
+    "dmat2x4 transpose(dmat4x2 m)",
+    "dmat4x2 transpose(dmat2x4 m)",
+    "dmat3x4 transpose(dmat4x3 m)",
+    "dmat4x3 transpose(dmat3x4 m)",
+    "double determinant(dmat2 m)",
+    "double determinant(dmat3 m)",
+    "double determinant(dmat4 m)",
+    "dmat2 inverse(dmat2 m)",
+    "dmat3 inverse(dmat3 m)",
+    "dmat4 inverse(dmat4 m)",
+
     # Vector Relational Functions
     "bvec lessThan(vec x, vec y)",
     "bvec lessThan(ivec x, ivec y)",
@@ -557,7 +584,15 @@ TypeTemplate = {
     "bvec ": ["bvec2 ", "bvec3 ", "bvec4 "],
     "ivec ": ["ivec2 ", "ivec3 ", "ivec4 "],
     "uvec ": ["uvec2 ", "uvec3 ", "uvec4 "],
-    "vec ": ["vec2 ", "vec3 ", "vec4 "],
+    "vec ": ["vec2 ", "vec3 ", "vec4 ", "dvec2 ", "dvec3 ", "dvec4 "],
+    "mat ": ["mat2 ",   "mat3 ",   "mat4 ",
+             "mat2x2 ", "mat2x3 ", "mat2x4 ",
+             "mat3x2 ", "mat3x3 ", "mat3x4 ",
+             "mat4x2 ", "mat4x3 ", "mat4x4 "],
+    "dmat ": ["dmat2 ",   "dmat3 ",   "dmat4 ",
+              "dmat2x2 ", "dmat2x3 ", "dmat2x4 ",
+              "dmat3x2 ", "dmat3x3 ", "dmat3x4 ",
+              "dmat4x2 ", "dmat4x3 ", "dmat4x4 "],
 
     "IMAGE_PARAMS": [
         "gimage2D image, ivec2 P",
@@ -589,7 +624,7 @@ TypeTemplate = {
 }
 
 
-def Generate():
+def GenerateBuiltinFunction():
     for signature in LibraryFunctions:
         buffer = [signature]
         nextBuffer: list[str] = []
@@ -608,4 +643,182 @@ def Generate():
             print(f'"{sig};"')
 
 
-Generate()
+def GenerateBuiltinVariable():
+    vertexBuiltinVars = """
+in int gl_VertexID; // only present when not targeting Vulkan
+in int gl_InstanceID; // only present when not targeting Vulkan
+in int gl_VertexIndex; // only present when targeting Vulkan
+in int gl_InstanceIndex; // only present when targeting Vulkan
+in int gl_DrawID;
+in int gl_BaseVertex;
+in int gl_BaseInstance;
+out gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+};
+    """
+    tessControlBuiltinVars = """
+in gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+} gl_in[gl_MaxPatchVertices];
+in int gl_PatchVerticesIn;
+in int gl_PrimitiveID;
+in int gl_InvocationID;
+out gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+} gl_out[];
+patch out float gl_TessLevelOuter[4];
+patch out float gl_TessLevelInner[2];
+    """
+    tessEvaluationBuiltinVars = """
+in gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+} gl_in[gl_MaxPatchVertices];
+in int gl_PatchVerticesIn;
+in int gl_PrimitiveID;
+in vec3 gl_TessCoord;
+patch in float gl_TessLevelOuter[4];
+patch in float gl_TessLevelInner[2];
+out gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+};
+    """
+    geometryBuiltinVars = """
+in gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+} gl_in[];
+in int gl_PrimitiveIDIn;
+in int gl_InvocationID;
+out gl_PerVertex {
+  vec4 gl_Position;
+  float gl_PointSize;
+  float gl_ClipDistance[];
+  float gl_CullDistance[];
+};
+out int gl_PrimitiveID;
+out int gl_Layer;
+out int gl_ViewportIndex;
+    """
+    fragmentBuiltinVars = """
+in vec4 gl_FragCoord;
+in bool gl_FrontFacing;
+in float gl_ClipDistance[];
+in float gl_CullDistance[];
+in vec2 gl_PointCoord;
+in int gl_PrimitiveID;
+in int gl_SampleID;
+in vec2 gl_SamplePosition;
+in int gl_SampleMaskIn[];
+in int gl_Layer;
+in int gl_ViewportIndex;
+in bool gl_HelperInvocation;
+out float gl_FragDepth;
+out int gl_SampleMask[];
+    """
+    computeBuiltinVars = """
+// workgroup dimensions
+in uvec3 gl_NumWorkGroups;
+const uvec3 gl_WorkGroupSize;
+// workgroup and invocation IDs
+in uvec3 gl_WorkGroupID;
+in uvec3 gl_LocalInvocationID;
+// derived variables
+in uvec3 gl_GlobalInvocationID;
+in uint gl_LocalInvocationIndex;
+    """
+    # compatibility builtin passed
+    builtinConstant = """
+const int gl_MaxVertexAttribs = 16;
+const int gl_MaxVertexUniformVectors = 256;
+const int gl_MaxVertexUniformComponents = 1024;
+const int gl_MaxVertexOutputComponents = 64;
+const int gl_MaxVaryingComponents = 60;
+const int gl_MaxVaryingVectors = 15;
+const int gl_MaxVertexTextureImageUnits = 16;
+const int gl_MaxVertexImageUniforms = 0;
+const int gl_MaxVertexAtomicCounters = 0;
+const int gl_MaxVertexAtomicCounterBuffers = 0;
+const int gl_MaxTessPatchComponents = 120;
+const int gl_MaxPatchVertices = 32;
+const int gl_MaxTessGenLevel = 64;
+const int gl_MaxTessControlInputComponents = 128;
+const int gl_MaxTessControlOutputComponents = 128;
+const int gl_MaxTessControlTextureImageUnits = 16;
+const int gl_MaxTessControlUniformComponents = 1024;
+const int gl_MaxTessControlTotalOutputComponents = 4096;
+const int gl_MaxTessControlImageUniforms = 0;
+const int gl_MaxTessControlAtomicCounters = 0;
+const int gl_MaxTessControlAtomicCounterBuffers = 0;
+const int gl_MaxTessEvaluationInputComponents = 128;
+const int gl_MaxTessEvaluationOutputComponents = 128;
+const int gl_MaxTessEvaluationTextureImageUnits = 16;
+const int gl_MaxTessEvaluationUniformComponents = 1024;
+const int gl_MaxTessEvaluationImageUniforms = 0;
+const int gl_MaxTessEvaluationAtomicCounters = 0;
+const int gl_MaxTessEvaluationAtomicCounterBuffers = 0;
+const int gl_MaxGeometryInputComponents = 64;
+const int gl_MaxGeometryOutputComponents = 128;
+const int gl_MaxGeometryImageUniforms = 0;
+const int gl_MaxGeometryTextureImageUnits = 16;
+const int gl_MaxGeometryOutputVertices = 256;
+const int gl_MaxGeometryTotalOutputComponents = 1024;
+const int gl_MaxGeometryUniformComponents = 1024;
+const int gl_MaxGeometryVaryingComponents = 64; // deprecated
+const int gl_MaxGeometryAtomicCounters = 0;
+const int gl_MaxGeometryAtomicCounterBuffers = 0;
+const int gl_MaxFragmentImageUniforms = 8;
+const int gl_MaxFragmentInputComponents = 128;
+const int gl_MaxFragmentUniformVectors = 256;
+const int gl_MaxFragmentUniformComponents = 1024;
+const int gl_MaxFragmentAtomicCounters = 8;
+const int gl_MaxFragmentAtomicCounterBuffers = 1;
+const int gl_MaxDrawBuffers = 8;
+const int gl_MaxTextureImageUnits = 16;
+const int gl_MinProgramTexelOffset = -8;
+const int gl_MaxProgramTexelOffset = 7;
+const int gl_MaxImageUnits = 8;
+const int gl_MaxSamples = 4;
+const int gl_MaxImageSamples = 0;
+const int gl_MaxClipDistances = 8;
+const int gl_MaxCullDistances = 8;
+const int gl_MaxViewports = 16;
+const int gl_MaxComputeImageUniforms = 8;
+const ivec3 gl_MaxComputeWorkGroupCount = { 65535, 65535, 65535 };
+const ivec3 gl_MaxComputeWorkGroupSize = { 1024, 1024, 64 };
+const int gl_MaxComputeUniformComponents = 1024;
+const int gl_MaxComputeTextureImageUnits = 16;
+const int gl_MaxComputeAtomicCounters = 8;
+const int gl_MaxComputeAtomicCounterBuffers = 8;
+const int gl_MaxCombinedTextureImageUnits = 96;
+const int gl_MaxCombinedImageUniforms = 48;
+const int gl_MaxCombinedImageUnitsAndFragmentOutputs = 8; // deprecated
+const int gl_MaxCombinedShaderOutputResources = 16;
+const int gl_MaxCombinedAtomicCounters = 8;
+const int gl_MaxCombinedAtomicCounterBuffers = 1;
+const int gl_MaxCombinedClipAndCullDistances = 8;
+const int gl_MaxAtomicCounterBindings = 1;
+const int gl_MaxAtomicCounterBufferSize = 32;
+const int gl_MaxTransformFeedbackBuffers = 4;
+const int gl_MaxTransformFeedbackInterleavedComponents = 64;
+const highp int gl_MaxInputAttachments = 1; // only present when targeting Vulkan
+    """
+
+
+GenerateBuiltinFunction()

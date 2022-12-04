@@ -7,7 +7,10 @@
 #include <span>
 #include <string_view>
 #include <vector>
+#include <string>
 #include <iterator>
+
+#include <fmt/format.h>
 
 namespace glsld
 {
@@ -27,19 +30,24 @@ namespace glsld
         {
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
     };
 
     class MSVC_EMPTY_BASES AstConstantExpr final : public AstExpr, public AstPayload<AstConstantExpr>
     {
     public:
-        AstConstantExpr(SyntaxToken tok) : tok(tok)
+        AstConstantExpr(SyntaxToken tok) : valueToken(tok)
         {
         }
 
         auto GetToken() -> const SyntaxToken&
         {
-            return tok;
+            return valueToken;
         }
 
         template <typename Visitor>
@@ -47,9 +55,14 @@ namespace glsld
         {
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("Value: {}", valueToken.text.StrView());
+        }
+
     private:
         // FIXME: we don't need SyntaxToken::range here
-        SyntaxToken tok;
+        SyntaxToken valueToken;
     };
 
     class MSVC_EMPTY_BASES AstNameAccessExpr final : public AstExpr, public AstPayload<AstNameAccessExpr>
@@ -76,6 +89,11 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(accessChain);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("AccessName: {}", accessName.text.StrView());
         }
 
     private:
@@ -107,6 +125,11 @@ namespace glsld
             visitor.Traverse(operand);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("Op: {}", UnaryOpToString(op));
+        }
+
     private:
         UnaryOp op;
         AstExpr* operand;
@@ -136,6 +159,11 @@ namespace glsld
         {
             visitor.Traverse(*lhs);
             visitor.Traverse(*rhs);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("Op: {}", BinaryOpToString(op));
         }
 
     private:
@@ -172,6 +200,11 @@ namespace glsld
             visitor.Traverse(*elseBranch);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* predicate;
         AstExpr* ifBranch;
@@ -204,6 +237,11 @@ namespace glsld
             }
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* invokedExpr;
         std::vector<AstExpr*> args;
@@ -231,6 +269,11 @@ namespace glsld
         {
             visitor.Traverse(*invokedExpr);
             visitor.Traverse(*arraySpec);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
         }
 
     private:

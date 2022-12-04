@@ -18,6 +18,11 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
         }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
     };
 
     class MSVC_EMPTY_BASES AstCompoundStmt final : public AstStmt, public AstPayload<AstCompoundStmt>
@@ -33,6 +38,11 @@ namespace glsld
             for (auto stmt : children) {
                 visitor.Traverse(*stmt);
             }
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
         }
 
     private:
@@ -51,6 +61,11 @@ namespace glsld
             visitor.Traverse(*expr);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* expr;
     };
@@ -66,6 +81,11 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*decl);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
         }
 
     private:
@@ -105,6 +125,11 @@ namespace glsld
             visitor.Traverse(*loopBody);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstStmt* initClause;
         AstExpr* condExpr;
@@ -134,6 +159,11 @@ namespace glsld
             visitor.Traverse(*loopBody);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* predicate;
         AstStmt* loopBody;
@@ -159,6 +189,11 @@ namespace glsld
         {
             visitor.Traverse(*predicate);
             visitor.Traverse(*loopBody);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
         }
 
     private:
@@ -199,6 +234,11 @@ namespace glsld
             }
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* predicate;
         AstStmt* ifBranch;
@@ -222,6 +262,11 @@ namespace glsld
             visitor.Traverse(caseExpr);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         // FIXME: case label/default label
         AstExpr* caseExpr;
@@ -240,6 +285,11 @@ namespace glsld
             visitor.Traverse(*child);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
     private:
         AstExpr* expr;
         AstStmt* child;
@@ -254,6 +304,12 @@ namespace glsld
         template <typename Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            // FIXME: use different AST types
+            return "";
         }
 
     private:
@@ -279,6 +335,11 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(returnValue);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
         }
 
     private:

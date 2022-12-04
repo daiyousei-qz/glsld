@@ -18,7 +18,13 @@ namespace glsld
         }
         auto VisitAstNodeBase(AstNodeBase& node) -> void
         {
-            // Print("\n");
+            node.DispatchInvoke([this](auto& dispatchedNode) {
+                auto nodeDataDump = dispatchedNode.DumpNodeData();
+                if (!nodeDataDump.empty()) {
+                    PrintIdent();
+                    Print("{}", nodeDataDump);
+                }
+            });
         }
 
         auto ExitAstNodeBase(AstNodeBase& node) -> void
@@ -26,79 +32,80 @@ namespace glsld
             depth -= 1;
         }
 
-        auto VisitAstQualType(AstQualType& type) -> void
-        {
-            PrintIdent();
-            Print("TypeDesc={};", GetDebugName(type.GetTypeDesc()));
-        }
+        // auto VisitAstQualType(AstQualType& type) -> void
+        // {
+        //     PrintIdent();
+        //     Print("TypeDesc={};", GetDebugName(type.GetTypeDesc()));
+        // }
 
-        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
-        {
-            PrintIdent();
-            if (decl.GetName().klass != TokenKlass::Error) {
-                Print("Name={};", decl.GetName().text.Get());
-            }
-            else {
-                Print("Name=<Error>;");
-            }
-        }
-        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
-        {
-            PrintIdent();
-            for (const auto& declarator : decl.GetDeclarators()) {
-                if (declarator.declTok.klass != TokenKlass::Error) {
-                    Print("Name={};", declarator.declTok.text.Get());
-                }
-                else {
-                    Print("Name=<Error>;");
-                }
-            }
-        }
+        // auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        // {
+        //     PrintIdent();
+        //     if (decl.GetName().klass != TokenKlass::Error) {
+        //         Print("Name={};", decl.GetName().text.Get());
+        //     }
+        //     else {
+        //         Print("Name=<Error>;");
+        //     }
+        // }
+        // auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
+        // {
+        //     PrintIdent();
+        //     for (const auto& declarator : decl.GetDeclarators()) {
+        //         if (declarator.declTok.klass != TokenKlass::Error) {
+        //             Print("Name={};", declarator.declTok.text.Get());
+        //         }
+        //         else {
+        //             Print("Name=<Error>;");
+        //         }
+        //     }
+        // }
 
-        auto VisitAstConstantExpr(AstConstantExpr& expr)
-        {
-            PrintIdent();
-            Print("Value={};", expr.GetToken().text.Get());
-            PrintAstExprPayload(expr);
-        }
+        // auto VisitAstConstantExpr(AstConstantExpr& expr)
+        // {
+        //     PrintIdent();
+        //     Print("Value={};", expr.GetToken().text.Get());
+        //     PrintAstExprPayload(expr);
+        // }
 
-        auto VisitAstUnaryExpr(AstUnaryExpr& expr)
-        {
-            PrintIdent();
-            Print("Op={};", UnaryOpToString(expr.GetOperator()));
-            PrintAstExprPayload(expr);
-        }
+        // auto VisitAstUnaryExpr(AstUnaryExpr& expr)
+        // {
+        //     PrintIdent();
+        //     Print("Op={};", UnaryOpToString(expr.GetOperator()));
+        //     PrintAstExprPayload(expr);
+        // }
 
-        auto VisitAstBinaryExpr(AstBinaryExpr& expr)
-        {
-            PrintIdent();
-            Print("Op={};", BinaryOpToString(expr.GetOperator()));
-            PrintAstExprPayload(expr);
-        }
+        // auto VisitAstBinaryExpr(AstBinaryExpr& expr)
+        // {
+        //     PrintIdent();
+        //     Print("Op={};", BinaryOpToString(expr.GetOperator()));
+        //     PrintAstExprPayload(expr);
+        // }
 
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr)
-        {
-            PrintIdent();
-            PrintAstExprPayload(expr);
-        }
+        // auto VisitAstInvokeExpr(AstInvokeExpr& expr)
+        // {
+        //     PrintIdent();
+        //     PrintAstExprPayload(expr);
+        // }
 
-        auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
-        {
-            PrintIdent();
-            if (expr.GetAccessName().klass != TokenKlass::Error) {
-                Print("Name={}; ", expr.GetAccessName().text.Get());
-            }
-            else {
-                Print("Name=<Error>;");
-            }
+        // auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
+        // {
+        //     PrintIdent();
+        //     if (expr.GetAccessName().klass != TokenKlass::Error) {
+        //         Print("Name={}; ", expr.GetAccessName().text.Get());
+        //     }
+        //     else {
+        //         Print("Name=<Error>;");
+        //     }
 
-            Print("AccessType={}; AccessedDecl={}; ", NameAccessTypeToString(expr.GetAccessType()),
-                  static_cast<const void*>(expr.GetAccessedDecl()));
-            PrintAstExprPayload(expr);
-        }
+        //     Print("AccessType={}; AccessedDecl={}; ", NameAccessTypeToString(expr.GetAccessType()),
+        //           static_cast<const void*>(expr.GetAccessedDecl()));
+        //     PrintAstExprPayload(expr);
+        // }
 
         auto Export() -> std::string
         {
+            buffer.push_back('\n');
             return std::move(buffer);
         }
 

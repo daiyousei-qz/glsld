@@ -65,9 +65,13 @@ double cos(double x);
     fmt::print("succussfully parsed input file\n");
 }
 
+namespace glsld
+{
+    auto CreateLexingAutomata() -> void;
+}
+
 auto main(int argc, char* argv[]) -> int
 {
-
     //     auto testText =
     //         R"(
     // hello

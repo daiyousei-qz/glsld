@@ -19,6 +19,11 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
         }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
     };
 
     struct VariableDeclarator
@@ -63,6 +68,12 @@ namespace glsld
             }
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            // FIXME: declarator?
+            return "";
+        }
+
     private:
         AstQualType* type;
         std::vector<VariableDeclarator> decls;
@@ -90,6 +101,16 @@ namespace glsld
         {
             for (auto member : members) {
                 visitor.Traverse(member);
+            }
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            if (declTok && declTok->klass == TokenKlass::Identifier) {
+                return fmt::format("DeclId: {}", declTok->text.StrView());
+            }
+            else {
+                return "";
             }
         }
 
@@ -129,6 +150,12 @@ namespace glsld
             }
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            // FIXME: declarator?
+            return "";
+        }
+
     private:
         AstQualType* type;
         std::vector<VariableDeclarator> decls;
@@ -155,6 +182,16 @@ namespace glsld
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            if (declTok && declTok->klass == TokenKlass::Identifier) {
+                return fmt::format("DeclId: {}", declTok->text.StrView());
+            }
+            else {
+                return "";
+            }
         }
 
     private:
@@ -206,6 +243,11 @@ namespace glsld
             visitor.Traverse(body);
         }
 
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("DeclId: {}", declTok.text.StrView());
+        }
+
     private:
         AstQualType* returnType;
         SyntaxToken declTok;
@@ -251,6 +293,11 @@ namespace glsld
                 visitor.Traverse(declarator->arraySize);
                 visitor.Traverse(declarator->init);
             }
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("DeclId: {}", declTok.text.StrView());
         }
 
     private:

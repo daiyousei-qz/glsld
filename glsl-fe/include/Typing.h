@@ -1,5 +1,4 @@
 #pragma once
-#include "AstDecl.h"
 #include "SyntaxToken.h"
 #include <optional>
 #include <variant>
@@ -94,7 +93,7 @@ namespace glsld
     };
     struct StructTypeDesc
     {
-        AstStructDecl* decl;
+        // AstStructDecl* decl;
         std::vector<TypeDesc*> members;
     };
     struct FunctionTypeDesc

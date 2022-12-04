@@ -110,74 +110,7 @@ namespace glsld
         {
         }
 
-        auto NextToken(std::string& buf) -> TokenInfo
-        {
-            // skip whitespace
-            while (!sourceView.Eof() && IsWhitespace(sourceView.Peek())) {
-                sourceView.Consume();
-            }
-
-            // tokenize
-            TokenInfo result;
-            result.rawOffset   = sourceView.CurrentCursor() - sourceView.HeadCursor();
-            result.lineBegin   = sourceView.GetLineNum();
-            result.columnBegin = sourceView.GetColumnNum();
-
-            auto beginCursor = sourceView.CurrentCursor();
-            if (sourceView.Eof()) {
-                result.klass     = TokenKlass::Eof;
-                result.rawSize   = 0;
-                result.lineEnd   = result.lineBegin;
-                result.columnEnd = result.columnBegin;
-                return result;
-            }
-
-            char firstChar   = sourceView.Consume();
-            TokenKlass klass = TokenKlass::Error;
-            if (firstChar == '\0') {
-                // eof
-                klass = TokenKlass::Eof;
-            }
-            else if (IsAlpha(firstChar) || firstChar == '_') {
-                // keyword or identifier
-                klass = ParseIdentifier(firstChar);
-            }
-            else if (IsDigit(firstChar)) {
-                // number literal
-                klass = ParseNumberLiteral(firstChar);
-            }
-            else if (firstChar == '.' && IsDigit(sourceView.Peek(0))) {
-                // number literal
-                klass = ParseNumberLiteral(firstChar);
-            }
-            else if (firstChar == '#') {
-                // FIXME: we treat PP as comment for now
-                // preprocessor
-                klass = ParsePPComment();
-            }
-            else if (firstChar == '/' && sourceView.Peek(0) == '/') {
-                // line comment
-                klass = ParseLineComment();
-            }
-            else if (firstChar == '/' && sourceView.Peek(0) == '*') {
-                // block comment
-                klass = ParseBlockComment();
-            }
-            else {
-                // punctuation
-                klass = ParsePunctuation(firstChar);
-            }
-
-            auto endCursor = sourceView.CurrentCursor();
-            result.klass   = klass;
-            result.rawSize = endCursor - beginCursor;
-            // FIXME: this is actually one character ahead of the token
-            result.lineEnd   = sourceView.GetLineNum();
-            result.columnEnd = sourceView.GetColumnNum();
-
-            buf.append(beginCursor, endCursor);
-            return result;
-        }
+        auto NextToken(std::string& buf) -> TokenInfo;
 
     private:
         auto ParsePPComment() -> TokenKlass

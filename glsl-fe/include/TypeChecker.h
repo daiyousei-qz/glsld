@@ -148,11 +148,29 @@ namespace glsld
                 expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_bool));
                 break;
             case TokenKlass::IntegerConstant:
-                expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_int));
+            {
+                // FIXME: probably the following logic shouldn't be here
+                auto literalText = expr.GetToken().text.StrView();
+                if (literalText.ends_with("u") || literalText.ends_with("U")) {
+                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_uint));
+                }
+                else {
+                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_int));
+                }
                 break;
+            }
             case TokenKlass::FloatConstant:
-                expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_double));
+            {
+                // FIXME: probably the following logic shouldn't be here
+                auto literalText = expr.GetToken().text.StrView();
+                if (literalText.ends_with("lf") || literalText.ends_with("LF")) {
+                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_double));
+                }
+                else {
+                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_float));
+                }
                 break;
+            }
             default:
                 GLSLD_UNREACHABLE();
             }
