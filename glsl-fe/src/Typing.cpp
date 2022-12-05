@@ -288,4 +288,26 @@ namespace glsld
             }
         }
     }
+
+    auto GetErrorTypeDesc() -> const TypeDesc*
+    {
+        static TypeDesc typeDesc{"<error>", ErrorTypeDesc{}};
+        return &typeDesc;
+    }
+
+    auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*
+    {
+        switch (type) {
+#define DECL_BUILTIN_TYPE(TYPE, DESC_PAYLOAD_TYPE, ...)                                                                \
+    case BuiltinType::Ty_##TYPE:                                                                                       \
+    {                                                                                                                  \
+        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                               \
+        return &typeDesc;                                                                                              \
+    }
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
+        }
+
+        GLSLD_UNREACHABLE();
+    }
 } // namespace glsld

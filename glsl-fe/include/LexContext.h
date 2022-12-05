@@ -2,7 +2,6 @@
 #include "SyntaxToken.h"
 #include "Tokenizer.h"
 
-#include <span>
 #include <string>
 #include <vector>
 #include <unordered_set>

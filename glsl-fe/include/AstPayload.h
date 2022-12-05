@@ -19,7 +19,7 @@ namespace glsld
     class AstPayload
     {
     public:
-        auto DumpNodeData() const -> std::string
+        auto DumpPayloadData() const -> std::string
         {
             return "";
         }
@@ -38,7 +38,7 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
-        auto DumpNodeData() const -> std::string
+        auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
                 return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
@@ -68,7 +68,7 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
-        auto DumpNodeData() const -> std::string
+        auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
                 return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
@@ -96,7 +96,7 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
-        auto DumpNodeData() const -> std::string
+        auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
                 return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
@@ -133,7 +133,7 @@ namespace glsld
             this->contextualType = contextualType;
         }
 
-        auto DumpNodeData() const -> std::string
+        auto DumpPayloadData() const -> std::string
         {
             return fmt::format("DeducedType=?; ContextualType=?");
         }

@@ -103,15 +103,13 @@ namespace glsld
             visitor.TraverseAst(defaultLibraryModule->GetAstContext());
             result = visitor.Export();
 
-            // FIXME: export from compiler instead of include this header
             // Keywords
-#define DECL_KEYWORD(KEYWORD)                                                                                          \
-    result.push_back(lsp::CompletionItem{                                                                              \
-        .label = #KEYWORD,                                                                                             \
-        .kind  = lsp::CompletionItemKind::Keyword,                                                                     \
-    });
-#include "GlslKeywords.inc"
-#undef DECL_KEYWORD
+            for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
+                result.push_back(lsp::CompletionItem{
+                    .label = std::string{keywordText},
+                    .kind  = lsp::CompletionItemKind::Keyword,
+                });
+            }
 
             return result;
         }();

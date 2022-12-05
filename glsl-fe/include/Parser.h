@@ -35,6 +35,10 @@ namespace glsld
 
 #pragma region Parsing Misc
 
+        //
+        // These are not parsers, but boilerplate functions
+        //
+
         // In parsing mode, consume a ';' if available. Otherwise we issue an error and return, whici is used to
         // infer a required ';'.
         //
@@ -43,76 +47,24 @@ namespace glsld
         // PARSE: ';'
         //
         // ACCEPT: null
-        auto ParsePermissiveSemicolon() -> void
-        {
-            if (InParsingMode()) {
-                if (!TryConsumeToken(TokenKlass::Semicolon)) {
-                    ReportError("expecting ';'");
-                    // However, we don't do error recovery as if the ';' is inferred by the parser.
-                }
-            }
-        }
+        auto ParsePermissiveSemicolon() -> void;
 
         // PARSE: ')'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingParen() -> void
-        {
-            if (TryConsumeToken(TokenKlass::RParen)) {
-                if (InRecoveryMode()) {
-                    ExitRecoveryMode();
-                }
-            }
-            else {
-                ReportError("expect ')'");
-
-                RecoverFromError(RecoveryMode::Paren);
-                if (!TryConsumeToken(TokenKlass::RParen)) {
-                    // we cannot find the closing ')' to continue parsing
-                    EnterRecoveryMode();
-                }
-            }
-        }
+        auto ParseClosingParen() -> void;
 
         // PARSE: ']'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingBracket() -> void
-        {
-            if (TryConsumeToken(TokenKlass::RBracket)) {
-                if (InRecoveryMode()) {
-                    ExitRecoveryMode();
-                }
-            }
-            else {
-                ReportError("expect ']'");
-
-                RecoverFromError(RecoveryMode::Bracket);
-                if (!TryConsumeToken(TokenKlass::RBracket)) {
-                    // we cannot find the closing ')' to continue parsing
-                    EnterRecoveryMode();
-                }
-            }
-        }
+        auto ParseClosingBracket() -> void;
 
         // Try to parse an identifier token as a symbol name if available, otherwise returns an error token
         //
         // PARSE: 'ID'
         //
         // ACCEPT: null
-        auto ParseDeclId() -> SyntaxToken
-        {
-            if (PeekToken().klass == TokenKlass::Identifier) {
-                auto result = PeekToken();
-                ConsumeToken();
-                return result;
-            }
-            else {
-                // FIXME: which token should we return? RECOVERY?
-                ReportError("Expect identifier");
-                return SyntaxToken{};
-            }
-        }
+        auto ParseDeclId() -> SyntaxToken;
 
         // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter revery mode and return error
         // expr.
@@ -122,16 +74,7 @@ namespace glsld
         // ACCEPT: null
         //
         // RECOVERY: ?
-        auto ParseParenWrappedExprOrError() -> AstExpr*
-        {
-            if (TryTestToken(TokenKlass::LParen)) {
-                return ParseParenWrappedExpr();
-            }
-            else {
-                EnterRecoveryMode();
-                return CreateErrorExpr();
-            }
-        }
+        auto ParseParenWrappedExprOrError() -> AstExpr*;
 
 #pragma endregion
 

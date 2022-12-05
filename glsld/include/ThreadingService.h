@@ -1,9 +1,7 @@
 #pragma once
 
 #include "Common.h"
-#include <functional>
-#include <thread>
-#include <future>
+#include <BS_thread_pool.hpp>
 
 namespace glsld
 {
@@ -14,29 +12,17 @@ namespace glsld
         auto Initialize(size_t numWorker)
         {
             GLSLD_ASSERT(numWorker > 0 && numWorker <= 256);
-            for (size_t i = 0; i < numWorker; ++i) {
-                workers.emplace_back(&WorkerMain, this);
-            }
+            threadPool.reset(numWorker);
         }
 
         // FIXME: use a thread pool
         template <typename F, typename... Args>
         auto ScheduleTask(F&& f, Args&&... args) -> void
         {
-            std::thread thd{std::forward<F>(f), std::forward<Args>(args)...};
-            thd.detach();
+            threadPool.push_task(std::forward<F>(f), std::forward<Args>(args)...);
         }
 
     private:
-        auto TerminateWorkers()
-        {
-        }
-
-        static auto WorkerMain(ThreadingService* self) -> void
-        {
-        }
-
-        std::mutex mu;
-        std::vector<std::thread> workers;
+        BS::thread_pool threadPool;
     };
 } // namespace glsld

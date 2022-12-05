@@ -2,7 +2,6 @@
 #include "AstBase.h"
 #include "AstMisc.h"
 #include "Semantic.h"
-#include <span>
 #include <array>
 
 namespace glsld

@@ -94,7 +94,7 @@ namespace glsld
             return ch;
         }
 
-    private:
+    public:
         int line;
         int column;
         const char* cursor;

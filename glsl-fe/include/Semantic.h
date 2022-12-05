@@ -34,9 +34,9 @@ namespace glsld
             return "PostfixInc";
         case UnaryOp::PostfixDec:
             return "PostfixDec";
-        default:
-            GLSLD_UNREACHABLE();
         }
+
+        GLSLD_UNREACHABLE();
     }
 
     enum class BinaryOp
@@ -143,9 +143,9 @@ namespace glsld
             return "ShiftLeft";
         case BinaryOp::ShiftRight:
             return "ShiftRight";
-        default:
-            GLSLD_UNREACHABLE();
         }
+
+        GLSLD_UNREACHABLE();
     }
 
     enum class JumpType
@@ -181,8 +181,8 @@ namespace glsld
             return "Function";
         case NameAccessType::Constructor:
             return "Constructor";
-        default:
-            GLSLD_UNREACHABLE();
         }
+
+        GLSLD_UNREACHABLE();
     }
 } // namespace glsld

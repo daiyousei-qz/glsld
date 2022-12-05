@@ -10,6 +10,7 @@ endif()
 
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
 
 # GLSL FrontEnd
 file(GLOB_RECURSE GLSL_FRONTEND_HEADER_FILE glsl-fe/include/*.h)
@@ -41,6 +42,7 @@ target_link_libraries(glsld PRIVATE glsl-fe)
 
 target_link_libraries(glsld PRIVATE fmt::fmt)
 target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 
 # GLSL Processor
 file(GLOB_RECURSE GLSLP_HEADER_FILE glslp/include/*.h)

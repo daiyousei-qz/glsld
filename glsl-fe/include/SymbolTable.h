@@ -159,7 +159,5 @@ namespace glsld
 
         std::unordered_multimap<std::string, FunctionRegistry> funcDeclLookup;
         std::vector<SymbolTableLevel> levels;
-
-        const SymbolTable* externalSymbolTable;
     };
 } // namespace glsld

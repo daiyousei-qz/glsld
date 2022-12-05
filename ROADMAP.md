@@ -64,3 +64,5 @@ DONE!
 - `Test\450.geom?` FIXED
 - `Test2\glsl.autosampledtextures.frag`
 - `Test2\400.geom` Inlay hint disappear during scrolling
+- Random crash
+- Go to definition shouldn't work with default library function

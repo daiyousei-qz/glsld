@@ -171,25 +171,6 @@ namespace glsld
         DescPayloadType descPayload;
     };
 
-    inline auto GetErrorTypeDesc() -> const TypeDesc*
-    {
-        static TypeDesc typeDesc{"<error>", ErrorTypeDesc{}};
-        return &typeDesc;
-    }
-    inline auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*
-    {
-
-        switch (type) {
-#define DECL_BUILTIN_TYPE(TYPE, DESC_PAYLOAD_TYPE, ...)                                                                \
-    case BuiltinType::Ty_##TYPE:                                                                                       \
-    {                                                                                                                  \
-        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                               \
-        return &typeDesc;                                                                                              \
-    }
-#include "GlslType.inc"
-#undef DECL_BUILTIN_TYPE
-        default:
-            GLSLD_UNREACHABLE();
-        }
-    }
+    auto GetErrorTypeDesc() -> const TypeDesc*;
+    auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*;
 } // namespace glsld

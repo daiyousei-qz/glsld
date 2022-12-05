@@ -2,6 +2,82 @@
 
 namespace glsld
 {
+
+#pragma region Parsing Misc
+
+    auto Parser::ParsePermissiveSemicolon() -> void
+    {
+        if (InParsingMode()) {
+            if (!TryConsumeToken(TokenKlass::Semicolon)) {
+                ReportError("expecting ';'");
+                // However, we don't do error recovery as if the ';' is inferred by the parser.
+            }
+        }
+    }
+
+    auto Parser::ParseClosingParen() -> void
+    {
+        if (TryConsumeToken(TokenKlass::RParen)) {
+            if (InRecoveryMode()) {
+                ExitRecoveryMode();
+            }
+        }
+        else {
+            ReportError("expect ')'");
+
+            RecoverFromError(RecoveryMode::Paren);
+            if (!TryConsumeToken(TokenKlass::RParen)) {
+                // we cannot find the closing ')' to continue parsing
+                EnterRecoveryMode();
+            }
+        }
+    }
+
+    auto Parser::ParseClosingBracket() -> void
+    {
+        if (TryConsumeToken(TokenKlass::RBracket)) {
+            if (InRecoveryMode()) {
+                ExitRecoveryMode();
+            }
+        }
+        else {
+            ReportError("expect ']'");
+
+            RecoverFromError(RecoveryMode::Bracket);
+            if (!TryConsumeToken(TokenKlass::RBracket)) {
+                // we cannot find the closing ')' to continue parsing
+                EnterRecoveryMode();
+            }
+        }
+    }
+
+    auto Parser::ParseDeclId() -> SyntaxToken
+    {
+        if (PeekToken().klass == TokenKlass::Identifier) {
+            auto result = PeekToken();
+            ConsumeToken();
+            return result;
+        }
+        else {
+            // FIXME: which token should we return? RECOVERY?
+            ReportError("Expect identifier");
+            return SyntaxToken{};
+        }
+    }
+
+    auto Parser::ParseParenWrappedExprOrError() -> AstExpr*
+    {
+        if (TryTestToken(TokenKlass::LParen)) {
+            return ParseParenWrappedExpr();
+        }
+        else {
+            EnterRecoveryMode();
+            return CreateErrorExpr();
+        }
+    }
+
+#pragma endregion
+
 #pragma region Parsing QualType
     auto Parser::ParseLayoutQualifier() -> AstLayoutQualifier*
     {

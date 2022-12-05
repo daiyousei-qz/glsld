@@ -49,7 +49,7 @@ namespace glsld
             klass = ParseBlockComment();
         }
         else {
-            auto remainingSoureceView = std::string_view{sourceView.CurrentCursor(), sourceView.LastCursor()};
+            auto remainingSoureceView = std::string_view{sourceView.cursor, sourceView.end};
             auto tokenizeResult       = Tokenize(remainingSoureceView);
             if (tokenizeResult.numAcceptedChar != 0 && tokenizeResult.acceptedKlass != -1) {
                 klass = static_cast<TokenKlass>(tokenizeResult.acceptedKlass);

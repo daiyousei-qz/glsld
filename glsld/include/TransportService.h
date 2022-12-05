@@ -45,20 +45,20 @@ namespace glsld
                     return false;
                 }
 
-                std::string_view headerView = Trim(lineBuffer);
+                StringView headerView = StringView{lineBuffer}.Trim();
 
-                if (headerView.empty()) {
+                if (headerView.Empty()) {
                     break;
                 }
 
-                if (headerView.starts_with("Content-Length: ")) {
-                    headerView.remove_prefix(16);
+                if (headerView.StartWith("Content-Length: ")) {
+                    headerView = headerView.Drop(16);
 
                     // TODO: handle error
-                    std::from_chars(headerView.data(), headerView.data() + headerView.size(), payloadLength);
+                    std::from_chars(headerView.Data(), headerView.Data() + headerView.Size(), payloadLength);
                 }
-                else if (headerView.starts_with("Content-Type: ")) {
-                    headerView.remove_prefix(14);
+                else if (headerView.StartWith("Content-Type: ")) {
+                    // headerView.remove_prefix(14);
                     // do nothing...
                 }
 

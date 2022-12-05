@@ -4,7 +4,6 @@
 #include "Protocol.h"
 #include "SyntaxToken.h"
 #include <iterator>
-#include <span>
 #include <vector>
 #include <string_view>
 #include <optional>
