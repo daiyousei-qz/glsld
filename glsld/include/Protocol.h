@@ -160,6 +160,34 @@ namespace glsld::lsp
         return true;
     }
 
+    struct TextEdit
+    {
+        // /**
+        //  * The range of the text document to be manipulated. To insert
+        //  * text into a document create a range where start === end.
+        //  */
+        // range: Range;
+        Range range;
+
+        // /**
+        //  * The string to be inserted. For delete operations use an
+        //  * empty string.
+        //  */
+        // newText: string;
+        std::string newText;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const TextEdit& value) -> bool
+    {
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+        if (!mapper.Map("newText", value.newText)) {
+            return false;
+        }
+
+        return true;
+    }
+
     struct Location
     {
         // uri: DocumentUri;
@@ -2338,7 +2366,8 @@ namespace glsld::lsp
     //
     // Document Color
     //
-    inline constexpr const char* LSPMethod_DocumentColor = "textDocument/documentColor";
+    inline constexpr const char* LSPMethod_DocumentColor     = "textDocument/documentColor";
+    inline constexpr const char* LSPMethod_ColorPresentation = "textDocument/colorPresentation";
 
     struct DocumentColorClientCapabilities
     {
@@ -2436,6 +2465,78 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("color", value.color)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct ColorPresentationParams
+    {
+        // /**
+        //  * The text document.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+
+        // /**
+        //  * The color information to request presentations for.
+        //  */
+        // color: Color;
+        Color color;
+
+        // /**
+        //  * The range where the color would be inserted. Serves as a context.
+        //  */
+        // range: Range;
+        Range range;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, ColorPresentationParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("color", value.color)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct ColorPresentation
+    {
+        // /**
+        //  * The label of this color presentation. It will be shown on the color
+        //  * picker header. By default this is also the text that is inserted when
+        //  * selecting this color presentation.
+        //  */
+        // label: string;
+        std::string label;
+
+        // /**
+        //  * An [edit](#TextEdit) which is applied to a document when selecting
+        //  * this presentation for the color. When `falsy` the
+        //  * [label](#ColorPresentation.label) is used.
+        //  */
+        // textEdit?: TextEdit;
+        std::optional<TextEdit> textEdit;
+
+        // /**
+        //  * An optional array of additional [text edits](#TextEdit) that are applied
+        //  * when selecting this color presentation. Edits must not overlap with the
+        //  * main [edit](#ColorPresentation.textEdit) nor with themselves.
+        //  */
+        // additionalTextEdits?: TextEdit[];
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const ColorPresentation& value) -> bool
+    {
+        if (!mapper.Map("label", value.label)) {
+            return false;
+        }
+        if (!mapper.Map("textEdit", value.textEdit)) {
             return false;
         }
 
