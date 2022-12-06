@@ -38,12 +38,12 @@ namespace glsld
             sourceView.Consume();
             klass = ParsePPComment();
         }
-        else if (firstChar == '/' && sourceView.Peek(0) == '/') {
+        else if (firstChar == '/' && sourceView.Peek(1) == '/') {
             // line comment
             sourceView.Consume();
             klass = ParseLineComment();
         }
-        else if (firstChar == '/' && sourceView.Peek(0) == '*') {
+        else if (firstChar == '/' && sourceView.Peek(1) == '*') {
             // block comment
             sourceView.Consume();
             klass = ParseBlockComment();

@@ -44,23 +44,8 @@ auto DoMain() -> void
     //     }
     // }
 
-    auto defaultLibrary = R"(
-// sin function
-float sin(float x);
-
-// sin function
-double sin(double x);
-
-// cos function
-float cos(float x);
-
-// cos function
-double cos(double x);
-    )";
-
-    auto compiler             = glsld::GlslCompiler{};
-    auto defaultLibraryResult = compiler.CompileExternalModule(defaultLibrary);
-    auto result               = compiler.CompileModule(*inputData, defaultLibraryResult);
+    auto compiler = glsld::GlslCompiler{};
+    auto result   = compiler.CompileModule(*inputData);
 
     fmt::print("succussfully parsed input file\n");
 }
