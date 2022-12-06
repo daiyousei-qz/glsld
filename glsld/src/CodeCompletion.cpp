@@ -105,14 +105,6 @@ namespace glsld
                 });
             }
 
-            // Swizzle
-            for (int i = 0; i < 4; ++i) {
-                result.push_back(lsp::CompletionItem{
-                    .label = std::string{"xxxx"},
-                    .kind  = lsp::CompletionItemKind::Field,
-                });
-            }
-
             return result;
         }();
 
