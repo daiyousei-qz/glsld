@@ -167,7 +167,10 @@ namespace glsld
 
         // Testing
 
-        [[nodiscard]] constexpr auto Contains(StringView s) const noexcept -> bool;
+        [[nodiscard]] constexpr auto Contains(StringView s) const noexcept -> bool
+        {
+            return data.find(s.data) != std::string_view::npos;
+        }
 
         [[nodiscard]] constexpr auto StartWith(StringView s) const noexcept -> bool
         {

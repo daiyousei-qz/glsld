@@ -2333,6 +2333,117 @@ namespace glsld::lsp
 
 #pragma endregion
 
+#pragma region Document Color
+
+    //
+    // Document Color
+    //
+    inline constexpr const char* LSPMethod_DocumentColor = "textDocument/documentColor";
+
+    struct DocumentColorClientCapabilities
+    {
+        // /**
+        //  * Whether document color supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+    };
+
+    struct DocumentColorOptions
+    {
+    };
+
+    struct DocumentColorParams
+    {
+        // /**
+        //  * The text document.
+        //  */
+        // textDocument: TextDocumentIdentifier;
+        TextDocumentIdentifier textDocument;
+    };
+    inline auto MapJson(JsonToObjectMapper& mapper, DocumentColorParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // /**
+    //  * Represents a color in RGBA space.
+    //  */
+    struct Color
+    {
+        // /**
+        //  * The red component of this color in the range [0-1].
+        //  */
+        // readonly red: decimal;
+        double red;
+
+        // /**
+        //  * The green component of this color in the range [0-1].
+        //  */
+        // readonly green: decimal;
+        double green;
+
+        // /**
+        //  * The blue component of this color in the range [0-1].
+        //  */
+        // readonly blue: decimal;
+        double blue;
+
+        // /**
+        //  * The alpha component of this color in the range [0-1].
+        //  */
+        // readonly alpha: decimal;
+        double alpha;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const Color& value) -> bool
+    {
+        if (!mapper.Map("red", value.red)) {
+            return false;
+        }
+        if (!mapper.Map("green", value.green)) {
+            return false;
+        }
+        if (!mapper.Map("blue", value.blue)) {
+            return false;
+        }
+        if (!mapper.Map("alpha", value.alpha)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct ColorInformation
+    {
+        // /**
+        //  * The range in the document where this color appears.
+        //  */
+        // range: Range;
+        Range range;
+
+        // /**
+        //  * The actual color value for this color range.
+        //  */
+        // color: Color;
+        Color color;
+    };
+    inline auto MapJson(JsonFromObjectMapper& mapper, const ColorInformation& value) -> bool
+    {
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+        if (!mapper.Map("color", value.color)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
 #pragma region Text Document Synchronization
 
     //
@@ -2682,6 +2793,15 @@ namespace glsld::lsp
         // inlayHintProvider?: boolean | InlayHintOptions
         // 	    | InlayHintRegistrationOptions;
         std::optional<InlayHintOptions> inlayHintProvider;
+
+        // /**
+        //  * The server provides color provider support.
+        //  *
+        //  * @since 3.6.0
+        //  */
+        // colorProvider?: boolean | DocumentColorOptions
+        //     | DocumentColorRegistrationOptions;
+        bool colorProvider;
     };
     inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
     {
@@ -2710,6 +2830,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("inlayHintProvider", value.inlayHintProvider)) {
+            return false;
+        }
+        if (!mapper.Map("colorProvider", value.colorProvider)) {
             return false;
         }
 

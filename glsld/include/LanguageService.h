@@ -27,6 +27,8 @@ namespace glsld
 
     auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>;
 
+    auto ComputeDocumentColor(CompiledModule& compiler) -> std::vector<lsp::ColorInformation>;
+
     auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledExternalModule>;
 
     class IntellisenseProvider
@@ -125,6 +127,7 @@ namespace glsld
                             lsp::InlayHintOptions{
                                 .resolveProvider = false,
                             },
+                        .colorProvider = true,
                     },
                 .serverInfo =
                     {
@@ -262,6 +265,19 @@ namespace glsld
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
                         std::vector<lsp::InlayHint> result = ComputeInlayHint(provider->GetCompiler(), params.range);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
+        }
+
+        auto DocumentColor(int requestId, lsp::DocumentColorParams params) -> void
+        {
+            auto provider = providerLookup[params.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, provider = std::move(provider)] {
+                    if (provider->WaitAvailable()) {
+                        auto result = ComputeDocumentColor(provider->GetCompiler());
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
