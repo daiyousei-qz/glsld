@@ -219,6 +219,13 @@ namespace glsld
                         // FIXME: handle array type
                         expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
                     }
+                    else if (auto memberDecl = symbol->As<AstStructMemberDecl>()) {
+                        // Unnamed interface block member
+                        // FIXME: should we really use AstStructMemberDecl?
+                        expr.SetAccessedDecl(memberDecl);
+                        // FIXME: handle array type
+                        expr.SetDeducedType(memberDecl->GetType()->GetTypeDesc());
+                    }
                 }
                 else {
                     expr.SetDeducedType(GetErrorTypeDesc());
