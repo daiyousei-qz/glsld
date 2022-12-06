@@ -11,15 +11,8 @@ namespace glsld
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            const auto& lexContext = compiler.GetLexContext();
-            auto locBegin          = lexContext.LookupSyntaxLocation(node.GetRange().begin);
-            auto locEnd            = lexContext.LookupSyntaxLocation(node.GetRange().end);
-
-            auto nodeRange = TextRange{
-                {locBegin.line, locBegin.column},
-                {locEnd.line, locEnd.column},
-            };
-            if (range.ContainPosition(nodeRange.start) || range.ContainPosition(nodeRange.end)) {
+            auto nodeRange = compiler.GetLexContext().LookupTextRange(node.GetRange());
+            if (range.Contains(nodeRange.start) || range.Contains(nodeRange.end)) {
                 return AstVisitPolicy::Traverse;
             }
 
@@ -40,11 +33,11 @@ namespace glsld
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
 
-                        auto locBegin = lexContext.LookupSyntaxLocation(argExpr->GetRange().begin);
-                        auto hintText = paramDecl->GetDeclTok().value_or(SyntaxToken{}).text.StrView();
+                        auto locBegin = lexContext.LookupFirstTextPosition(argExpr->GetRange());
+                        auto hintText = paramDecl->GetDeclToken().value_or(SyntaxToken{}).text.StrView();
                         if (!hintText.empty()) {
                             result.push_back(lsp::InlayHint{
-                                .position     = TextPosition::ToLspPosition({locBegin.line, locBegin.column}),
+                                .position     = ToLspPosition({locBegin.line, locBegin.character}),
                                 .label        = fmt::format("{}:", hintText),
                                 .paddingLeft  = false,
                                 .paddingRight = true,
@@ -69,7 +62,7 @@ namespace glsld
 
     auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
-        InlayHintVisitor visitor{compiler, TextRange::FromLspRange(range)};
+        InlayHintVisitor visitor{compiler, FromLspRange(range)};
         visitor.TraverseAst(compiler.GetAstContext());
         return visitor.Export();
     }

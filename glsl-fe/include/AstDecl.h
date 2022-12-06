@@ -87,7 +87,7 @@ namespace glsld
         {
         }
 
-        auto GetDeclToken() -> const std::optional<SyntaxToken>&
+        auto GetDeclTokenen() -> const std::optional<SyntaxToken>&
         {
             return declTok;
         }
@@ -106,7 +106,7 @@ namespace glsld
 
         auto DumpNodeData() const -> std::string
         {
-            if (declTok && declTok->klass == TokenKlass::Identifier) {
+            if (declTok && declTok->IsIdentifier()) {
                 return fmt::format("DeclId: {}", declTok->text.StrView());
             }
             else {
@@ -173,7 +173,7 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclTok() -> const std::optional<SyntaxToken>&
+        auto GetDeclToken() -> const std::optional<SyntaxToken>&
         {
             return declTok;
         }
@@ -186,7 +186,7 @@ namespace glsld
 
         auto DumpNodeData() const -> std::string
         {
-            if (declTok && declTok->klass == TokenKlass::Identifier) {
+            if (declTok && declTok->IsIdentifier()) {
                 return fmt::format("DeclId: {}", declTok->text.StrView());
             }
             else {
@@ -270,7 +270,7 @@ namespace glsld
         {
         }
 
-        auto GetDeclToken() -> const SyntaxToken&
+        auto GetDeclTokenen() -> const SyntaxToken&
         {
             return declTok;
         }

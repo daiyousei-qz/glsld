@@ -55,33 +55,32 @@ namespace glsld
     struct SemanticTokenInfo
     {
         int line;
-        int column;
+        int character;
         int length;
         SemanticTokenType type;
         SemanticTokenModifier modifier;
     };
 
-    auto CreateSemanticTokenInfo(const LexContext& lexContext, const SyntaxRange& range, SemanticTokenType type,
+    auto CreateSemanticTokenInfo(const LexContext& lexContext, SyntaxToken token, SemanticTokenType type,
                                  SemanticTokenModifier modifier = SemanticTokenModifier::None) -> SemanticTokenInfo
     {
-        auto tokBeginLoc = lexContext.LookupSyntaxLocation(range.begin);
-        auto tokEndLoc   = lexContext.LookupSyntaxLocation(range.end);
-        GLSLD_ASSERT(tokBeginLoc.file == tokEndLoc.file);
-        GLSLD_ASSERT(tokBeginLoc.line == tokEndLoc.line);
-
+        // FIXME: how to handle multi-line token
+        //            a\
+        //            b
+        auto tokRange = lexContext.LookupTextRange(token);
         return SemanticTokenInfo{
-            .line     = tokBeginLoc.line,
-            .column   = tokBeginLoc.column,
-            .length   = tokEndLoc.column - tokBeginLoc.column,
-            .type     = type,
-            .modifier = modifier,
+            .line      = tokRange.start.line,
+            .character = tokRange.start.character,
+            .length    = tokRange.end.character - tokRange.start.character,
+            .type      = type,
+            .modifier  = modifier,
         };
     }
 
     auto CollectLexSemanticTokens(CompiledModule& compiler, std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         auto lexContext = compiler.GetLexContext();
-        for (const auto& tok : lexContext.GetAllToken()) {
+        for (const auto& tok : lexContext.GetAllTokenView()) {
             std::optional<SemanticTokenType> type;
 
             if (IsKeywordToken(tok.klass)) {
@@ -97,7 +96,7 @@ namespace glsld
             }
 
             if (type) {
-                tokenBuffer.push_back(CreateSemanticTokenInfo(lexContext, tok.range, *type));
+                tokenBuffer.push_back(CreateSemanticTokenInfo(lexContext, tok, *type));
             }
         }
     }
@@ -117,7 +116,7 @@ namespace glsld
             auto VisitAstQualType(AstQualType& type) -> void
             {
                 if (type.GetTypeNameTok().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), type.GetTypeNameTok().range,
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), type.GetTypeNameTok(),
                                                                   SemanticTokenType::Type));
                 }
             }
@@ -126,16 +125,16 @@ namespace glsld
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        tokenBuffer.push_back(
-                            CreateSemanticTokenInfo(compiler.GetLexContext(), declarator.declTok.range,
-                                                    SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
+                        tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), declarator.declTok,
+                                                                      SemanticTokenType::Variable,
+                                                                      SemanticTokenModifier::Declaration));
                     }
                 }
             }
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclToken() && decl.GetDeclToken()->klass != TokenKlass::Error) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken()->range,
+                if (decl.GetDeclTokenen() && decl.GetDeclTokenen()->klass != TokenKlass::Error) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), *decl.GetDeclTokenen(),
                                                                   SemanticTokenType::Type,
                                                                   SemanticTokenModifier::Declaration));
                 }
@@ -143,8 +142,8 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
-                if (decl.GetDeclToken().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken().range,
+                if (decl.GetDeclTokenen().klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTokenen(),
                                                                   SemanticTokenType::Type,
                                                                   SemanticTokenModifier::Declaration));
                 }
@@ -152,22 +151,22 @@ namespace glsld
                 // Interface block decl
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.klass == TokenKlass::Identifier) {
                     tokenBuffer.push_back(
-                        CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclarator()->declTok.range,
+                        CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclarator()->declTok,
                                                 SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
                 }
             }
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
                 if (decl.GetName().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetName().range,
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetName(),
                                                                   SemanticTokenType::Function,
                                                                   SemanticTokenModifier::Declaration));
                 }
             }
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclTok() && decl.GetDeclTok()->klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTok()->range,
+                if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), *decl.GetDeclToken(),
                                                                   SemanticTokenType::Parameter,
                                                                   SemanticTokenModifier::Declaration));
                 }
@@ -176,9 +175,9 @@ namespace glsld
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        tokenBuffer.push_back(
-                            CreateSemanticTokenInfo(compiler.GetLexContext(), declarator.declTok.range,
-                                                    SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
+                        tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), declarator.declTok,
+                                                                      SemanticTokenType::Variable,
+                                                                      SemanticTokenModifier::Declaration));
                     }
                 }
             }
@@ -187,19 +186,21 @@ namespace glsld
             {
                 switch (expr.GetAccessType()) {
                 case NameAccessType::Function:
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), expr.GetAccessName().range,
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), expr.GetAccessName(),
                                                                   SemanticTokenType::Function));
                     break;
                 case NameAccessType::Constructor:
-                    // FIXME: handle correctly
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), expr.GetAccessName(),
+                                                                  SemanticTokenType::Type));
                     break;
                 case NameAccessType::Variable:
-                case NameAccessType::Unknown:
+                case NameAccessType::Swizzle:
                     if (expr.GetAccessName().klass == TokenKlass::Identifier) {
-                        tokenBuffer.push_back(CreateSemanticTokenInfo(
-                            compiler.GetLexContext(), expr.GetAccessName().range, SemanticTokenType::Variable));
+                        tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), expr.GetAccessName(),
+                                                                      SemanticTokenType::Variable));
                     }
                     break;
+                case NameAccessType::Unknown:
                 default:
                     GLSLD_UNREACHABLE();
                 }
@@ -215,7 +216,7 @@ namespace glsld
         CollectLexSemanticTokens(compiler, tokenBuffer);
         CollectAstSemanticTokens(compiler, tokenBuffer);
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
-            return std::tie(lhs.line, lhs.column) < std::tie(rhs.line, rhs.column);
+            return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
         });
 
         lsp::SemanticTokens result;
@@ -224,16 +225,16 @@ namespace glsld
         for (const auto& tokInfo : tokenBuffer) {
             if (lastTokLine == -1) {
                 result.data.push_back(tokInfo.line);
-                result.data.push_back(tokInfo.column);
+                result.data.push_back(tokInfo.character);
             }
             else {
                 if (lastTokLine == tokInfo.line) {
                     result.data.push_back(0);
-                    result.data.push_back(tokInfo.column - lastTokColumn);
+                    result.data.push_back(tokInfo.character - lastTokColumn);
                 }
                 else {
                     result.data.push_back(tokInfo.line - lastTokLine);
-                    result.data.push_back(tokInfo.column);
+                    result.data.push_back(tokInfo.character);
                 }
             }
 
@@ -242,7 +243,7 @@ namespace glsld
             result.data.push_back(GetTokenModifierIndex(tokInfo.modifier));
 
             lastTokLine   = tokInfo.line;
-            lastTokColumn = tokInfo.column;
+            lastTokColumn = tokInfo.character;
         }
 
         return result;

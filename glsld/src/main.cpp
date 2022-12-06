@@ -5,6 +5,8 @@
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
+using namespace glsld;
+
 int main()
 {
     using namespace std::literals;

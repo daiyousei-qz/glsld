@@ -675,19 +675,18 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) -> SyntaxToken
         {
-            return lexContext->GetToken(currentTokIndex + lookahead);
+            return lexContext->GetToken(currentTok.index + lookahead);
         }
 
-        auto GetTokenIndex() -> size_t
+        auto GetTokenIndex() -> SyntaxTokenIndex
         {
-            return currentTokIndex;
+            return currentTok.index;
         }
 
         // FIXME: need to restore brace depth tracker
         auto RestoreTokenIndex(size_t index) -> void
         {
-            currentTokIndex = index;
-            currentTok      = lexContext->GetToken(currentTokIndex);
+            currentTok = lexContext->GetToken(index);
         }
 
         auto ConsumeToken() -> void
@@ -724,7 +723,7 @@ namespace glsld
                     break;
                 }
 
-                RestoreTokenIndex(currentTokIndex + 1);
+                RestoreTokenIndex(currentTok.index + 1);
             }
         }
 
@@ -759,29 +758,30 @@ namespace glsld
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<AstNodeBase, T>
-        auto CreateRangedAstNode(size_t beginTokIndex, size_t endTokIndex, Args&&... args) -> T*
+        auto CreateRangedAstNode(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex, Args&&... args) -> T*
         {
-            return astContext->CreateAstNode<T>(lexContext->GetSyntaxRange(beginTokIndex, endTokIndex),
+            return astContext->CreateAstNode<T>(SyntaxTokenRange{beginTokIndex, endTokIndex},
                                                 std::forward<Args>(args)...);
         }
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<AstNodeBase, T>
-        auto CreateAstNode(size_t beginTokIndex, Args&&... args) -> T*
+        auto CreateAstNode(SyntaxTokenIndex beginTokIndex, Args&&... args) -> T*
         {
-            return astContext->CreateAstNode<T>(lexContext->GetSyntaxRange(beginTokIndex, GetTokenIndex()),
+            return astContext->CreateAstNode<T>(SyntaxTokenRange{beginTokIndex, GetTokenIndex()},
                                                 std::forward<Args>(args)...);
         }
 
-        auto ReportError(size_t tokIndex, std::string message) -> void
+        auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
-            auto synRange = lexContext->GetSyntaxRange(tokIndex);
-            auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
-            diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
+            // FIXME: report error
+            // auto synRange = lexContext->GetSyntaxRange(tokIndex);
+            // auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
+            // diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
         }
         auto ReportError(std::string message) -> void
         {
-            ReportError(GetTokenIndex(), std::move(message));
+            // ReportError(GetTokenIndex(), std::move(message));
         }
 
     private:
@@ -802,7 +802,6 @@ namespace glsld
         size_t scopeBraceDepth = 0;
 
         LexContext* lexContext = nullptr;
-        size_t currentTokIndex = 0;
         SyntaxToken currentTok = {};
 
         AstContext* astContext;

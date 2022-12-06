@@ -1,6 +1,7 @@
 #pragma once
 #include "Semantic.h"
 #include "Typing.h"
+#include "ConstEvaluate.h"
 
 namespace glsld
 {
@@ -41,7 +42,7 @@ namespace glsld
         auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
+                return fmt::format("TypeDesc: {}", typeDesc->GetDebugName());
             }
             else {
                 return fmt::format("{}", static_cast<const void*>(typeDesc));
@@ -98,12 +99,7 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
-            }
-            else {
-                return fmt::format("{}", static_cast<const void*>(typeDesc));
-            }
+            return fmt::format("TypeDesc={}", TypeDescToString(typeDesc));
         }
 
     private:
@@ -115,6 +111,15 @@ namespace glsld
     class AstPayload<AstExpr>
     {
     public:
+        auto GetConstValue() -> ConstValue
+        {
+            return constValue;
+        }
+        auto SetConstValue(ConstValue constValue) -> void
+        {
+            this->constValue = constValue;
+        }
+
         auto GetDeducedType() -> const TypeDesc*
         {
             return deducedType;
@@ -135,15 +140,19 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            return fmt::format("DeducedType=?; ContextualType=?");
+            return fmt::format("ConstValue: {}; DeducedType: {}; ContextualType: {}", constValue.ToString(),
+                               TypeDescToString(deducedType), TypeDescToString(contextualType));
         }
 
     private:
+        // Constant folded value
+        ConstValue constValue = {};
+
         // Type of the evaluated expression
-        const TypeDesc* deducedType = nullptr;
+        const TypeDesc* deducedType = GetErrorTypeDesc();
 
         // Type of the context where the expression is used
-        const TypeDesc* contextualType = nullptr;
+        const TypeDesc* contextualType = GetErrorTypeDesc();
     };
 
     template <>
@@ -159,23 +168,32 @@ namespace glsld
             this->accessType = accessType;
         }
 
+        auto GetSwizzleInfo() -> SwizzleDesc
+        {
+            return swizzleInfo;
+        }
+        auto SetSwizzleInfo(SwizzleDesc swizzle) -> void
+        {
+            this->swizzleInfo = swizzle;
+        }
+
         auto GetAccessedDecl() -> AstDecl*
         {
-            return decl;
+            return accessedDecl;
         }
         auto SetAccessedDecl(AstDecl* decl) -> void
         {
-            this->decl = decl;
+            this->accessedDecl = decl;
         }
 
         auto DumpPayloadData() const -> std::string
         {
-            // return fmt::format("{} ;Name=?");
-            return "";
+            return fmt::format("AccessType: {}; Name: ?", NameAccessTypeToString(accessType));
         }
 
     private:
         NameAccessType accessType = NameAccessType::Unknown;
-        AstDecl* decl             = nullptr;
+        SwizzleDesc swizzleInfo;
+        AstDecl* accessedDecl = nullptr;
     };
 } // namespace glsld

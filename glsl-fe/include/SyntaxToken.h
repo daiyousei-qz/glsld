@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "SourceInfo.h"
 #include <string>
 
 namespace glsld
@@ -129,50 +130,50 @@ namespace glsld
         const char* ptr = nullptr;
     };
 
-    struct SyntaxLocationInfo
+    using SyntaxTokenIndex = uint32_t;
+
+    struct SyntaxTokenRange
     {
-        // Index of the file that this location is marked
-        int file;
-
-        // Offset into the file that this location is marked
-        int offset;
-
-        // Line number of the location (zero-based)
-        int line;
-
-        // Column number of the location (zero-based)
-        int column;
-    };
-
-    struct SyntaxLocation
-    {
-    public:
-        SyntaxLocation()
+        SyntaxTokenRange() = default;
+        SyntaxTokenRange(SyntaxTokenIndex tokIndex) : startTokenIndex(tokIndex), endTokenIndex(tokIndex + 1)
         {
         }
-        explicit SyntaxLocation(int index) : index(index)
+        SyntaxTokenRange(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex)
+            : startTokenIndex(beginTokIndex), endTokenIndex(endTokIndex)
         {
+            GLSLD_ASSERT(beginTokIndex <= endTokIndex);
         }
 
-        int GetIndex()
-        {
-            return index;
-        }
-
-    private:
-        int index = -1;
-    };
-
-    struct SyntaxRange
-    {
-        SyntaxLocation begin;
-        SyntaxLocation end;
+        SyntaxTokenIndex startTokenIndex = 0;
+        SyntaxTokenIndex endTokenIndex   = 0;
     };
 
     struct SyntaxToken
     {
-        TokenKlass klass  = TokenKlass::Error;
-        LexString text    = {};
-        SyntaxRange range = {};
+        SyntaxTokenIndex index = 0;
+        TokenKlass klass       = TokenKlass::Error;
+        LexString text         = {};
+
+        auto IsError() const -> bool
+        {
+            return klass == TokenKlass::Error;
+        }
+        auto IsIdentifier() const -> bool
+        {
+            return klass == TokenKlass::Identifier;
+        }
+        auto IsKeyword() const -> bool
+        {
+            return IsKeywordToken(klass);
+        }
     };
+
+    struct SyntaxTokenInfo
+    {
+        int file;
+        TokenKlass klass;
+        LexString text;
+        TextRange range;
+    };
+
 } // namespace glsld

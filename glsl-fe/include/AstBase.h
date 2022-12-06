@@ -131,11 +131,11 @@ namespace glsld
         }
 
         // Number of tokens that this Ast node covers
-        auto GetNumToken() -> int
+        auto GetNumToken() -> uint32_t
         {
-            return range.end.GetIndex() - range.begin.GetIndex();
+            return range.endTokenIndex - range.startTokenIndex;
         }
-        auto GetRange() -> SyntaxRange
+        auto GetRange() -> SyntaxTokenRange
         {
             return range;
         }
@@ -170,13 +170,13 @@ namespace glsld
         friend class AstContext;
 
         // This should be correctly called by AstContext during the construction of the node
-        auto Initialize(AstNodeTag tag, SyntaxRange range) -> void
+        auto Initialize(AstNodeTag tag, SyntaxTokenRange range) -> void
         {
             this->tag   = tag;
             this->range = range;
         }
 
-        AstNodeTag tag    = AstNodeTag::Invalid;
-        SyntaxRange range = {};
+        AstNodeTag tag         = AstNodeTag::Invalid;
+        SyntaxTokenRange range = {};
     };
 } // namespace glsld

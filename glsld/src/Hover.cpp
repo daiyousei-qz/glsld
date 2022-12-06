@@ -8,6 +8,7 @@ namespace glsld
     enum class HoverType
     {
         Variable,
+        Swizzle,
         MemberVariable,
         Parameter,
         Function,
@@ -32,6 +33,9 @@ namespace glsld
         switch (hover.type) {
         case HoverType::Variable:
             builder.Append("Variable");
+            break;
+        case HoverType::Swizzle:
+            builder.Append("Swizzle");
             break;
         case HoverType::MemberVariable:
             builder.Append("Member Variable");
@@ -60,13 +64,13 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto CreateUnknownHoverContent(HoverType type, std::string_view name)
+    static auto CreateHoverContent(HoverType type, std::string_view name, bool unknown = true)
     {
         return HoverContent{
             .type    = type,
             .name    = std::string{name},
             .code    = "",
-            .unknown = true,
+            .unknown = unknown,
         };
     }
 
@@ -114,35 +118,35 @@ namespace glsld
         return std::nullopt;
     }
 
-    static auto GetHoverContent(AstNameAccessExpr& expr) -> std::optional<HoverContent>
-    {
-        if (expr.GetAccessName().klass != TokenKlass::Identifier) {
-            return std::nullopt;
-        }
+    // static auto GetHoverContent(AstNameAccessExpr& expr) -> std::optional<HoverContent>
+    // {
+    //     if (expr.GetAccessName().klass != TokenKlass::Identifier) {
+    //         return std::nullopt;
+    //     }
 
-        auto accessName = expr.GetAccessName().text.StrView();
-        if (expr.GetAccessedDecl()) {
-            auto accessDecl = expr.GetAccessedDecl();
-            auto declHover  = GetHoverContent(*accessDecl, accessName);
-            if (declHover) {
-                return std::move(declHover);
-            }
-        }
+    //     auto accessName = expr.GetAccessName().text.StrView();
+    //     if (expr.GetAccessedDecl()) {
+    //         auto accessDecl = expr.GetAccessedDecl();
+    //         auto declHover  = GetHoverContent(*accessDecl, accessName);
+    //         if (declHover) {
+    //             return std::move(declHover);
+    //         }
+    //     }
 
-        switch (expr.GetAccessType()) {
-        case NameAccessType::Function:
-            return CreateUnknownHoverContent(HoverType::Function, accessName);
-        case NameAccessType::Constructor:
-            return CreateUnknownHoverContent(HoverType::Type, accessName);
-        case NameAccessType::Variable:
-            return CreateUnknownHoverContent(HoverType::Variable, accessName);
-        case NameAccessType::Unknown:
-            return std::nullopt;
-        default:
-            GLSLD_UNREACHABLE();
-        }
-        return std::nullopt;
-    }
+    //     switch (expr.GetAccessType()) {
+    //     case NameAccessType::Function:
+    //         return CreateHoverContent(HoverType::Function, accessName, true);
+    //     case NameAccessType::Constructor:
+    //         return CreateHoverContent(HoverType::Type, accessName, true);
+    //     case NameAccessType::Variable:
+    //         return CreateHoverContent(HoverType::Variable, accessName, true);
+    //     case NameAccessType::Unknown:
+    //         return std::nullopt;
+    //     default:
+    //         GLSLD_UNREACHABLE();
+    //     }
+    //     return std::nullopt;
+    // }
 
     auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>
     {
@@ -155,7 +159,7 @@ namespace glsld
                 if (hoverContent) {
                     return lsp::Hover{
                         .contents = ComputeHoverText(*hoverContent),
-                        .range    = TextRange::ToLspRange(range),
+                        .range    = ToLspRange(range),
                     };
                 }
 
@@ -167,11 +171,16 @@ namespace glsld
                 if (type == NameAccessType::Unknown) {
                     return std::nullopt;
                 }
+                if (token.IsKeyword()) {
+                    // Don't provide hover for keyword
+                    return std::nullopt;
+                }
 
-                auto hoverContent = CreateUnknownHoverContent(TranslateHoverType(type), token.text.StrView());
+                bool isUnknown    = type != NameAccessType::Swizzle;
+                auto hoverContent = CreateHoverContent(TranslateHoverType(type), token.text.StrView(), isUnknown);
                 return lsp::Hover{
                     .contents = ComputeHoverText(hoverContent),
-                    .range    = TextRange::ToLspRange(range),
+                    .range    = ToLspRange(range),
                 };
             }
 
@@ -181,6 +190,8 @@ namespace glsld
                 case NameAccessType::Unknown:
                 case NameAccessType::Variable:
                     return HoverType::Variable;
+                case NameAccessType::Swizzle:
+                    return HoverType::Swizzle;
                 case NameAccessType::Constructor:
                     return HoverType::Type;
                 case NameAccessType::Function:
@@ -191,7 +202,7 @@ namespace glsld
             }
         };
 
-        return ProcessDeclToken(compiler, TextPosition::FromLspPosition(position), HoverProcessor{});
+        return ProcessDeclToken(compiler, FromLspPosition(position), HoverProcessor{});
     }
 
 } // namespace glsld

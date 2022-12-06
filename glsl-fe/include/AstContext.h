@@ -2,6 +2,7 @@
 #include "Common.h"
 #include "Ast.h"
 #include "Typing.h"
+#include <map>
 #include <type_traits>
 
 namespace glsld
@@ -16,6 +17,10 @@ namespace glsld
         {
             for (auto node : nodes) {
                 node->DispatchInvoke([](auto& dispatchedNode) { delete &dispatchedNode; });
+            }
+
+            for (const auto& [key, typeDesc] : arrayTypeCache) {
+                delete typeDesc;
             }
         }
 
@@ -32,7 +37,7 @@ namespace glsld
 
         template <typename T, typename... Args>
             requires AstNodeTrait<T>::isLeafNode
-        auto CreateAstNode(SyntaxRange range, Args&&... args) -> T*
+        auto CreateAstNode(SyntaxTokenRange range, Args&&... args) -> T*
         {
             auto result = new T(std::forward<Args>(args)...);
             result->Initialize(AstNodeTrait<T>::tag, range);
@@ -54,7 +59,34 @@ namespace glsld
             return GetErrorTypeDesc();
         }
 
-        // std::unordered_map<std::vector<const TypeDesc*>, const TypeDesc*>
+        // TODO: To ensure TypeDesc of the same type always uses a single pointer, we need a common context for
+        // different module compile?
+        auto GetArrayType(const TypeDesc* elementType, const std::vector<size_t>& dimSizes) -> const TypeDesc*
+        {
+            const TypeDesc* realElementType = elementType;
+            std::vector<size_t> realDimSizes;
+
+            // Fold array type if needed
+            if (auto arrayTypeDesc = elementType->GetArrayDesc()) {
+                realElementType = arrayTypeDesc->elementType;
+                realDimSizes    = arrayTypeDesc->dimSizes;
+                std::ranges::copy(dimSizes, std::back_inserter(realDimSizes));
+            }
+            else {
+                realDimSizes = dimSizes;
+            }
+
+            GLSLD_ASSERT(!realElementType->IsArray());
+
+            // Find and cache the type desc if needed
+            auto cachedItem = arrayTypeCache[std::pair{elementType, dimSizes}];
+            if (cachedItem == nullptr) {
+                cachedItem = new TypeDesc{"unknown[]", ArrayTypeDesc{.elementType = elementType, .dimSizes = dimSizes}};
+            }
+            return cachedItem;
+        }
+
+        std::map<std::pair<const TypeDesc*, std::vector<size_t>>, const TypeDesc*> arrayTypeCache;
 
         std::vector<AstDecl*> globalDecls;
         std::vector<AstVariableDecl*> variableDecls;

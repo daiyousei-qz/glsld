@@ -18,12 +18,28 @@ namespace glsld
         }
         auto VisitAstNodeBase(AstNodeBase& node) -> void
         {
-            node.DispatchInvoke([this](auto& dispatchedNode) {
-                auto nodeDataDump = dispatchedNode.DumpNodeData();
-                if (!nodeDataDump.empty()) {
-                    PrintIdent();
-                    Print("{}", nodeDataDump);
+            node.DispatchInvoke([this]<typename AstType>(AstType& dispatchedNode) {
+                auto printDumpedData = [&](const std::string& data) {
+                    if (!data.empty()) {
+                        PrintIdent();
+                        Print("{}", data);
+                    }
+                };
+
+                printDumpedData(dispatchedNode.DumpNodeData());
+
+                // FIXME: find a better solution for the following dispatch
+                if constexpr (std::is_base_of_v<AstExpr, AstType>) {
+                    printDumpedData(static_cast<const AstPayload<AstExpr>&>(dispatchedNode).DumpPayloadData());
                 }
+                else if constexpr (std::is_base_of_v<AstStmt, AstType>) {
+                    printDumpedData(static_cast<const AstPayload<AstStmt>&>(dispatchedNode).DumpPayloadData());
+                }
+                else if constexpr (std::is_base_of_v<AstDecl, AstType>) {
+                    printDumpedData(static_cast<const AstPayload<AstDecl>&>(dispatchedNode).DumpPayloadData());
+                }
+
+                printDumpedData(static_cast<const AstPayload<AstType>&>(dispatchedNode).DumpPayloadData());
             });
         }
 
@@ -32,77 +48,6 @@ namespace glsld
             depth -= 1;
         }
 
-        // auto VisitAstQualType(AstQualType& type) -> void
-        // {
-        //     PrintIdent();
-        //     Print("TypeDesc={};", GetDebugName(type.GetTypeDesc()));
-        // }
-
-        // auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
-        // {
-        //     PrintIdent();
-        //     if (decl.GetName().klass != TokenKlass::Error) {
-        //         Print("Name={};", decl.GetName().text.Get());
-        //     }
-        //     else {
-        //         Print("Name=<Error>;");
-        //     }
-        // }
-        // auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
-        // {
-        //     PrintIdent();
-        //     for (const auto& declarator : decl.GetDeclarators()) {
-        //         if (declarator.declTok.klass != TokenKlass::Error) {
-        //             Print("Name={};", declarator.declTok.text.Get());
-        //         }
-        //         else {
-        //             Print("Name=<Error>;");
-        //         }
-        //     }
-        // }
-
-        // auto VisitAstConstantExpr(AstConstantExpr& expr)
-        // {
-        //     PrintIdent();
-        //     Print("Value={};", expr.GetToken().text.Get());
-        //     PrintAstExprPayload(expr);
-        // }
-
-        // auto VisitAstUnaryExpr(AstUnaryExpr& expr)
-        // {
-        //     PrintIdent();
-        //     Print("Op={};", UnaryOpToString(expr.GetOperator()));
-        //     PrintAstExprPayload(expr);
-        // }
-
-        // auto VisitAstBinaryExpr(AstBinaryExpr& expr)
-        // {
-        //     PrintIdent();
-        //     Print("Op={};", BinaryOpToString(expr.GetOperator()));
-        //     PrintAstExprPayload(expr);
-        // }
-
-        // auto VisitAstInvokeExpr(AstInvokeExpr& expr)
-        // {
-        //     PrintIdent();
-        //     PrintAstExprPayload(expr);
-        // }
-
-        // auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
-        // {
-        //     PrintIdent();
-        //     if (expr.GetAccessName().klass != TokenKlass::Error) {
-        //         Print("Name={}; ", expr.GetAccessName().text.Get());
-        //     }
-        //     else {
-        //         Print("Name=<Error>;");
-        //     }
-
-        //     Print("AccessType={}; AccessedDecl={}; ", NameAccessTypeToString(expr.GetAccessType()),
-        //           static_cast<const void*>(expr.GetAccessedDecl()));
-        //     PrintAstExprPayload(expr);
-        // }
-
         auto Export() -> std::string
         {
             buffer.push_back('\n');
@@ -110,22 +55,6 @@ namespace glsld
         }
 
     private:
-        auto GetDebugName(const TypeDesc* typeDesc) -> std::string
-        {
-            if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return std::string{typeDesc->GetDebugName()};
-            }
-            else {
-                return fmt::format("{}", static_cast<const void*>(typeDesc));
-            }
-        }
-
-        auto PrintAstExprPayload(AstExpr& expr) -> void
-        {
-            Print("DeducedType={}; ContextualType={}; ", GetDebugName(expr.GetDeducedType()),
-                  GetDebugName(expr.GetContextualType()));
-        }
-
         template <typename... Args>
         auto Print(fmt::format_string<Args...> fmt, Args&&... args) -> void
         {
@@ -139,7 +68,6 @@ namespace glsld
             }
 
             for (int i = 0; i < depth; ++i) {
-
                 if (isNode && i + 1 == depth) {
                     Print("'--");
                 }

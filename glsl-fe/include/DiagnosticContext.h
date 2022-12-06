@@ -14,7 +14,7 @@ namespace glsld
 
     struct DiagnosticMessage
     {
-        SyntaxRange range;
+        SyntaxTokenRange range;
         std::string message;
     };
 

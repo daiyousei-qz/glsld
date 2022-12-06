@@ -23,14 +23,8 @@ namespace glsld
                 return AstVisitPolicy::Visit;
             }
 
-            auto locBegin = lexContext.LookupSyntaxLocation(decl.GetRange().begin);
-            auto locEnd   = lexContext.LookupSyntaxLocation(decl.GetRange().end);
-            auto range    = TextRange{
-                   .start = {.line = locBegin.line, .character = locBegin.column},
-                   .end   = {.line = locEnd.line, .character = locEnd.column},
-            };
-
-            if (range.ContainPosition(position)) {
+            auto declRange = lexContext.LookupTextRange(decl.GetRange());
+            if (declRange.Contains(position)) {
                 return AstVisitPolicy::Traverse;
             }
             else {
@@ -47,8 +41,8 @@ namespace glsld
 
         auto VisitAstParamDecl(AstParamDecl& decl) -> void
         {
-            if (decl.GetDeclTok() && decl.GetDeclTok()->klass == TokenKlass::Identifier) {
-                AddCompletionItem(decl.GetDeclTok()->text.Str(), lsp::CompletionItemKind::Variable);
+            if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
+                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Variable);
             }
         }
 
@@ -111,10 +105,85 @@ namespace glsld
                 });
             }
 
+            // Swizzle
+            for (int i = 0; i < 4; ++i) {
+                result.push_back(lsp::CompletionItem{
+                    .label = std::string{"xxxx"},
+                    .kind  = lsp::CompletionItemKind::Field,
+                });
+            }
+
             return result;
         }();
 
         return cachedCompletionItems;
+    }
+
+    auto GetSwizzleCompletionList(size_t n) -> std::vector<lsp::CompletionItem>
+    {
+        static const auto cachedCompletionItems = []() {
+            constexpr StringView swizzleSets[] = {
+                "xyzw",
+                "rgba",
+                "stqp",
+            };
+
+            std::array<std::vector<lsp::CompletionItem>, 4> result;
+
+            for (int numSrcComp = 1; numSrcComp <= 4; ++numSrcComp) {
+                std::vector<lsp::CompletionItem> tmp;
+
+                for (int n = 0; n < numSrcComp; ++n) {
+                    int i = n;
+                    for (auto set : swizzleSets) {
+                        tmp.push_back(lsp::CompletionItem{
+                            .label = std::string{set[i]},
+                            .kind  = lsp::CompletionItemKind::Field,
+                        });
+                    }
+                }
+                for (int n = 0; n < numSrcComp * numSrcComp; ++n) {
+                    int i = n / numSrcComp;
+                    int j = n % numSrcComp;
+                    for (auto set : swizzleSets) {
+                        tmp.push_back(lsp::CompletionItem{
+                            .label = std::string{set[i], set[j]},
+                            .kind  = lsp::CompletionItemKind::Field,
+                        });
+                    }
+                }
+                for (int n = 0; n < numSrcComp * numSrcComp * numSrcComp; ++n) {
+                    int i = n / numSrcComp / numSrcComp;
+                    int j = n / numSrcComp % numSrcComp;
+                    int k = n % numSrcComp;
+                    for (auto set : swizzleSets) {
+                        tmp.push_back(lsp::CompletionItem{
+                            .label = std::string{set[i], set[j], set[k]},
+                            .kind  = lsp::CompletionItemKind::Field,
+                        });
+                    }
+                }
+                for (int n = 0; n < numSrcComp * numSrcComp * numSrcComp * numSrcComp; ++n) {
+                    int i = n / numSrcComp / numSrcComp / numSrcComp;
+                    int j = n / numSrcComp / numSrcComp % numSrcComp;
+                    int k = n / numSrcComp % numSrcComp;
+                    int l = n % numSrcComp;
+                    for (auto set : swizzleSets) {
+                        tmp.push_back(lsp::CompletionItem{
+                            .label = std::string{set[i], set[j], set[k], set[l]},
+                            .kind  = lsp::CompletionItemKind::Field,
+                        });
+                    }
+                }
+
+                result[numSrcComp - 1] = std::move(tmp);
+            }
+
+            return result;
+        }();
+
+        GLSLD_ASSERT(n < 4);
+        return cachedCompletionItems[n];
     }
 
     // FIXME: not populate keyword while typing a decl
@@ -123,7 +192,7 @@ namespace glsld
     {
         auto result = GetDefaultLibraryCompletionList();
 
-        CompletionVisitor visitor{compiler.GetLexContext(), TextPosition::FromLspPosition(position), false};
+        CompletionVisitor visitor{compiler.GetLexContext(), FromLspPosition(position), false};
         visitor.TraverseAst(compiler.GetAstContext());
         std::ranges::copy(visitor.Export(), std::back_inserter(result));
 

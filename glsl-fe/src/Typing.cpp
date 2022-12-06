@@ -237,10 +237,21 @@ namespace glsld
         return false;
     }
 
+    auto TypeDesc::IsSameWith(BuiltinType type) const -> bool
+    {
+        return this == GetBuiltinTypeDesc(type);
+    }
+
+    auto TypeDesc::IsSameWith(const TypeDesc* other) const -> bool
+    {
+        // FIXME: compare for composite type
+        return this == other;
+    }
+
     auto TypeDesc::IsConvertibleTo(const TypeDesc* to) const -> bool
     {
         // Exact match
-        if (this == to) {
+        if (this->IsSameWith(to)) {
             return true;
         }
 
@@ -280,8 +291,8 @@ namespace glsld
         }
         else {
             // FIXME: implement other type conversion
-            if (this == lhsTo) {
-                return this != rhsTo;
+            if (this->IsSameWith(lhsTo)) {
+                return !this->IsSameWith(rhsTo);
             }
             else {
                 return false;
@@ -310,4 +321,66 @@ namespace glsld
 
         GLSLD_UNREACHABLE();
     }
+
+    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const TypeDesc*
+    {
+        switch (type) {
+        case ScalarType::Bool:
+            switch (dim) {
+            case 2:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec2);
+            case 3:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec3);
+            case 4:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec4);
+            }
+            break;
+        case ScalarType::Int:
+            switch (dim) {
+            case 2:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec2);
+            case 3:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec3);
+            case 4:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec4);
+            }
+            break;
+        case ScalarType::Uint:
+            switch (dim) {
+            case 2:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec2);
+            case 3:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec3);
+            case 4:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec4);
+            }
+            break;
+        case ScalarType::Float:
+            switch (dim) {
+            case 2:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_vec2);
+            case 3:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_vec3);
+            case 4:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_vec4);
+            }
+            break;
+        case ScalarType::Double:
+            switch (dim) {
+            case 2:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec2);
+            case 3:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec3);
+            case 4:
+                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec4);
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        return GetErrorTypeDesc();
+    }
+
 } // namespace glsld

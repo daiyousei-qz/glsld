@@ -1,6 +1,7 @@
 #pragma once
 #include "Common.h"
 #include <string_view>
+#include <array>
 
 namespace glsld
 {
@@ -169,6 +170,7 @@ namespace glsld
         Variable,
         Function,
         Constructor,
+        Swizzle,
     };
     inline auto NameAccessTypeToString(NameAccessType type) -> std::string_view
     {
@@ -181,8 +183,29 @@ namespace glsld
             return "Function";
         case NameAccessType::Constructor:
             return "Constructor";
+        case NameAccessType::Swizzle:
+            return "Swizzle";
         }
 
         GLSLD_UNREACHABLE();
     }
+
+    class SwizzleDesc
+    {
+    public:
+        SwizzleDesc() = default;
+        SwizzleDesc(uint32_t x)
+        {
+            GLSLD_ASSERT(x <= 3);
+            xs[0] = x;
+        }
+
+        auto IsValid() const noexcept -> bool
+        {
+            return xs[0] > 3;
+        }
+
+    private:
+        std::array<uint8_t, 4> xs = {255, 255, 255, 255};
+    };
 } // namespace glsld

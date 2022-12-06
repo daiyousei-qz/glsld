@@ -10,59 +10,35 @@
 
 namespace glsld
 {
-    struct TextPosition
+    inline auto FromLspPosition(lsp::Position position) -> TextPosition
     {
-        int line      = 0;
-        int character = 0;
-
-        static auto FromLspPosition(lsp::Position position) -> TextPosition
-        {
-            return TextPosition{
-                .line      = static_cast<int>(position.line),
-                .character = static_cast<int>(position.character),
-            };
-        }
-        static auto ToLspPosition(TextPosition position) -> lsp::Position
-        {
-            return lsp::Position{
-                .line      = static_cast<uint32_t>(position.line),
-                .character = static_cast<uint32_t>(position.character),
-            };
-        }
-    };
-
-    struct TextRange
+        return TextPosition{
+            .line      = static_cast<int>(position.line),
+            .character = static_cast<int>(position.character),
+        };
+    }
+    inline auto ToLspPosition(TextPosition position) -> lsp::Position
     {
-        TextPosition start;
-        TextPosition end;
+        return lsp::Position{
+            .line      = static_cast<uint32_t>(position.line),
+            .character = static_cast<uint32_t>(position.character),
+        };
+    }
 
-        auto ContainPosition(TextPosition position) -> bool
-        {
-            if (position.line < start.line || (position.line == start.line && position.character < start.character)) {
-                return false;
-            }
-            if (position.line > end.line || (position.line == end.line && position.character >= end.character)) {
-                return false;
-            }
-
-            return true;
-        }
-
-        static auto FromLspRange(lsp::Range range) -> TextRange
-        {
-            return TextRange{
-                .start = TextPosition::FromLspPosition(range.start),
-                .end   = TextPosition::FromLspPosition(range.end),
-            };
-        }
-        static auto ToLspRange(TextRange range) -> lsp::Range
-        {
-            return lsp::Range{
-                .start = TextPosition::ToLspPosition(range.start),
-                .end   = TextPosition::ToLspPosition(range.end),
-            };
-        }
-    };
+    inline auto FromLspRange(lsp::Range range) -> TextRange
+    {
+        return TextRange{
+            FromLspPosition(range.start),
+            FromLspPosition(range.end),
+        };
+    }
+    inline auto ToLspRange(TextRange range) -> lsp::Range
+    {
+        return lsp::Range{
+            .start = ToLspPosition(range.start),
+            .end   = ToLspPosition(range.end),
+        };
+    }
 
     struct SourcePiece
     {
@@ -70,7 +46,7 @@ namespace glsld
         std::string_view text;
     };
 
-    // inline auto ContainPosition(TextRange range, TextPosition position) -> bool
+    // inline auto Contains(TextRange range, TextPosition position) -> bool
     // {
     //     if (position.line < range.start.line ||
     //         (position.line == range.start.line && position.character < range.start.character)) {
@@ -106,7 +82,7 @@ namespace glsld
     //     -> std::tuple<TextPosition, std::string_view, std::string_view>
     // {
     //     if (endPosition) {
-    //         if (!ContainPosition(TextRange{.start = startPosition, .end = *endPosition}, midPosition)) {
+    //         if (!Contains(TextRange{.start = startPosition, .end = *endPosition}, midPosition)) {
     //             return {*endPosition, text, std::string_view{}};
     //         }
     //     }
@@ -366,8 +342,8 @@ namespace glsld
 
         if (auto structDecl = type->GetStructDecl()) {
             result += "struct ";
-            if (structDecl->GetDeclToken()) {
-                result += ReconstructSourceText(*structDecl->GetDeclToken());
+            if (structDecl->GetDeclTokenen()) {
+                result += ReconstructSourceText(*structDecl->GetDeclTokenen());
             }
             result += " { ... }";
         }
@@ -383,9 +359,9 @@ namespace glsld
         result += "(";
         for (auto param : params) {
             result += ReconstructSourceText(param->GetType());
-            if (param->GetDeclTok()) {
+            if (param->GetDeclToken()) {
                 result += " ";
-                result += ReconstructSourceText(*param->GetDeclTok());
+                result += ReconstructSourceText(*param->GetDeclToken());
             }
             result += ",";
         }

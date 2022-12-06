@@ -3,6 +3,7 @@
 #include "SymbolTable.h"
 #include "Typing.h"
 
+#include <charconv>
 #include <optional>
 
 namespace glsld
@@ -24,17 +25,44 @@ namespace glsld
         }
 
     private:
+        //
         // Type
+        //
 
         auto ResolveType(AstQualType& type) -> void
         {
-            // FIXME: set correct type
+            const TypeDesc* typeDesc = nullptr;
+
+            // Resolve element type
             if (auto builtinType = GetBuiltinType(type.GetTypeNameTok())) {
-                type.SetTypeDesc(GetBuiltinTypeDesc(*builtinType));
+                typeDesc = GetBuiltinTypeDesc(*builtinType);
             }
             else {
-                type.SetTypeDesc(GetErrorTypeDesc());
+                // FIXME: set correct type
+                typeDesc = GetErrorTypeDesc();
             }
+
+            // Resolve array type if any
+            if (type.GetArraySpec() != nullptr && !type.GetArraySpec()->GetSizeList().empty()) {
+                std::vector<size_t> dimSizes;
+                for (auto arrayDim : type.GetArraySpec()->GetSizeList()) {
+                    if (arrayDim != nullptr) {
+                        auto dimSizeValue = arrayDim->GetConstValue();
+                        if (dimSizeValue.GetValueType() == ConstValueType::Int32) {
+                            dimSizes.push_back(dimSizeValue.GetIntValue());
+                            continue;
+                        }
+                    }
+
+                    dimSizes.push_back(0);
+                }
+
+                if (!dimSizes.empty()) {
+                    typeDesc = astContext->GetArrayType(typeDesc, std::move(dimSizes));
+                }
+            }
+
+            type.SetTypeDesc(typeDesc);
         }
 
         //
@@ -48,40 +76,23 @@ namespace glsld
 
         auto DeclareStructType(AstStructDecl& decl) -> void
         {
-            if (decl.GetDeclToken()) {
-                TryAddSymbol(decl.GetDeclToken()->text, decl);
-            }
             decl.SetTypeDesc(astContext->CreateStructType(&decl));
+            symbolTable.AddStructType(decl);
         }
         auto DeclareVariable(AstVariableDecl& decl) -> void
         {
-            auto type = decl.GetType()->GetTypeDesc();
-            for (const auto& declarator : decl.GetDeclarators()) {
-                TryAddSymbol(declarator.declTok.text, decl);
-            }
+            // type?
+            symbolTable.AddVariableDecl(decl);
         }
         auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
         {
-            if (!decl.GetDeclarator()) {
-                // For unnamed interface block, names of internal members should be added to the current scope
-                for (auto memberDecl : decl.GetMembers()) {
-                    for (const auto& declarator : memberDecl->GetDeclarators()) {
-                        if (declarator.declTok.klass == TokenKlass::Identifier) {
-                            TryAddSymbol(declarator.declTok.text, *memberDecl);
-                        }
-                    }
-                }
-            }
-            else {
-                // Otherwise, add the decl token for the interface block
-            }
-            decl.SetTypeDesc(astContext->CreateStructType(&decl));
+            // FIXME: is this needed?
+            // decl.SetTypeDesc(astContext->CreateStructType(&decl));
+            symbolTable.AddInterfaceBlockType(decl);
         }
         auto DeclareParameter(AstParamDecl& decl) -> void
         {
-            if (decl.GetDeclTok()) {
-                TryAddSymbol(decl.GetDeclTok()->text, decl);
-            }
+            symbolTable.AddParamDecl(decl);
         }
 
         // NOTE this is before children nodes are visited
@@ -99,9 +110,7 @@ namespace glsld
             currentFunction = nullptr;
             symbolTable.PopScope();
 
-            if (decl.GetName().klass != TokenKlass::Error) {
-                symbolTable.AddFunction(decl);
-            }
+            symbolTable.AddFunction(decl);
         }
 
         auto EnterBlockScope() -> void
@@ -130,13 +139,22 @@ namespace glsld
                     func->SetAccessType(NameAccessType::Constructor);
                 }
                 else {
-                    func->SetAccessType(NameAccessType::Function);
+                    auto symbol = symbolTable.FindSymbol(func->GetAccessName().text.Str());
+                    if (symbol && (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>())) {
+                        // FIXME: could interface block being constructor?
+                        func->SetAccessType(NameAccessType::Constructor);
+                    }
+                    else {
+                        // We assume unknown identifier being called is function
+                        func->SetAccessType(NameAccessType::Function);
+                    }
                 }
             }
         }
 
         auto CheckErrorExpr(AstErrorExpr& expr) -> void
         {
+            expr.SetConstValue(ConstValue{});
             expr.SetDeducedType(GetErrorTypeDesc());
         }
         auto CheckConstantExpr(AstConstantExpr& expr) -> void
@@ -144,68 +162,67 @@ namespace glsld
             // FIXME: handle literals with typing suffix
             switch (expr.GetToken().klass) {
             case TokenKlass::K_true:
+                expr.SetConstValue(true);
+                break;
             case TokenKlass::K_false:
-                expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_bool));
+                expr.SetConstValue(false);
                 break;
             case TokenKlass::IntegerConstant:
-            {
-                // FIXME: probably the following logic shouldn't be here
-                auto literalText = expr.GetToken().text.StrView();
-                if (literalText.ends_with("u") || literalText.ends_with("U")) {
-                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_uint));
-                }
-                else {
-                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_int));
-                }
+                expr.SetConstValue(ParseIntegerLiteral(expr.GetToken().text.StrView()));
                 break;
-            }
             case TokenKlass::FloatConstant:
-            {
-                // FIXME: probably the following logic shouldn't be here
-                auto literalText = expr.GetToken().text.StrView();
-                if (literalText.ends_with("lf") || literalText.ends_with("LF")) {
-                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_double));
-                }
-                else {
-                    expr.SetDeducedType(GetBuiltinTypeDesc(BuiltinType::Ty_float));
-                }
+                expr.SetConstValue(ParseFloatLiteral(expr.GetToken().text.StrView()));
                 break;
-            }
             default:
                 GLSLD_UNREACHABLE();
             }
+
+            expr.SetDeducedType(expr.GetConstValue().GetTypeDesc());
         }
         auto CheckNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
-            expr.SetDeducedType(GetErrorTypeDesc());
-
             if (expr.GetAccessType() == NameAccessType::Unknown) {
                 expr.SetAccessType(NameAccessType::Variable);
             }
+            else {
+                // NOTE we resolve function call in CheckInvokeExpr, so type checking for invoked
+                // expression is there as well.
+                return;
+            }
 
+            auto accessName = expr.GetAccessName().text.StrView();
             if (expr.GetAccessChain()) {
-                // Accessing a member name
+                // Accessing with `expr.xxx`
+                if (expr.GetAccessChain()->GetDeducedType()->IsVector()) {
+                    // This is a swizzle access
+                    ResolveSwizzleAccess(expr);
+                }
+                else if (expr.GetAccessChain()->GetDeducedType()->IsStruct()) {
+                    // This is a field access
+                }
+                else {
+                    // bad access chain
+                }
             }
             else {
                 // Accessing a non-member name
-                if (expr.GetAccessType() == NameAccessType::Variable) {
-                    auto accessName = expr.GetAccessName().text.Str();
-                    auto symbol     = symbolTable.FindSymbol(accessName);
-                    if (symbol) {
-                        if (auto varDecl = symbol->As<AstVariableDecl>()) {
-                            expr.SetAccessedDecl(symbol);
-                            // FIXME: handle array type
-                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
-                        }
-                        else if (auto paramDecl = symbol->As<AstParamDecl>()) {
-                            expr.SetAccessedDecl(symbol);
-                            // FIXME: handle array type
-                            expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
-                        }
+                GLSLD_ASSERT(expr.GetAccessType() == NameAccessType::Variable);
+                auto symbol = symbolTable.FindSymbol(std::string{accessName});
+                if (symbol) {
+                    if (auto varDecl = symbol->As<AstVariableDecl>()) {
+                        expr.SetAccessedDecl(symbol);
+                        // FIXME: handle array type
+                        expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                    }
+                    else if (auto paramDecl = symbol->As<AstParamDecl>()) {
+                        expr.SetAccessedDecl(symbol);
+                        // FIXME: handle array type
+                        expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
                     }
                 }
-
-                // NOTE we resolve function call in CheckInvokeExpr
+                else {
+                    expr.SetDeducedType(GetErrorTypeDesc());
+                }
             }
         }
         auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
@@ -214,25 +231,120 @@ namespace glsld
         }
         auto CheckUnaryExpr(AstUnaryExpr& expr) -> void
         {
-            expr.SetDeducedType(GetErrorTypeDesc());
+            expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
+            expr.SetDeducedType(EvalUnary(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
         }
         auto CheckBinaryExpr(AstBinaryExpr& expr) -> void
         {
-            expr.SetDeducedType(GetErrorTypeDesc());
+            expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
+                                                expr.GetRightOperandExpr()->GetConstValue()));
+            expr.SetDeducedType(EvalBinary(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
+                                           expr.GetRightOperandExpr()->GetDeducedType()));
         }
         auto CheckSelectExpr(AstSelectExpr& expr) -> void
         {
+            expr.SetConstValue(EvaluateSelectOp(expr.GetPredicateExpr()->GetConstValue(),
+                                                expr.GetIfBranchExpr()->GetConstValue(),
+                                                expr.GetElseBranchExpr()->GetConstValue()));
             expr.SetDeducedType(GetErrorTypeDesc());
         }
         auto CheckInvokeExpr(AstInvokeExpr& expr) -> void
         {
+            // resolve first
+            ResolveInvokeExpr(expr);
+
             expr.SetDeducedType(GetErrorTypeDesc());
 
             // FIXME: handle function call
             // FIXME: handle things like `S[2](...)`
             if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+                if (invokedExpr->GetAccessName().klass != TokenKlass::Identifier) {
+                    // This is a constructor
+                    auto builtinType = GetBuiltinType(invokedExpr->GetAccessName());
+                    GLSLD_ASSERT(builtinType.has_value());
+                    expr.SetDeducedType(GetBuiltinTypeDesc(*builtinType));
+                    return;
+                }
+            }
+        }
 
-                // resolve first
+        //
+        // Type Eval
+        //
+        auto EvalUnary(UnaryOp op, const TypeDesc* operand) -> const TypeDesc*
+        {
+            switch (op) {
+            case UnaryOp::Identity:
+                return operand;
+            case UnaryOp::Nagate:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint) ||
+                    operand->IsSameWith(BuiltinType::Ty_float) || operand->IsSameWith(BuiltinType::Ty_double)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::BitwiseNot:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::LogicalNot:
+                if (operand->IsSameWith(BuiltinType::Ty_bool)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::PrefixInc:
+            case UnaryOp::PrefixDec:
+            case UnaryOp::PostfixInc:
+            case UnaryOp::PostfixDec:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            }
+
+            GLSLD_UNREACHABLE();
+        }
+
+        auto EvalBinary(BinaryOp op, const TypeDesc* lhs, const TypeDesc* rhs) -> const TypeDesc*
+        {
+            // FIXME: implement this
+            if (lhs->IsSameWith(rhs)) {
+                return lhs;
+            }
+            else {
+                return GetErrorTypeDesc();
+            }
+        }
+
+    private:
+        auto ResolveSwizzleAccess(AstNameAccessExpr& expr) -> void
+        {
+            GLSLD_ASSERT(expr.GetAccessChain()->GetDeducedType()->IsVector());
+            auto swizzleName = expr.GetAccessName().text.StrView();
+
+            if (swizzleName.size() <= 4) {
+                // FIXME: set correct scalar type
+                expr.SetAccessType(NameAccessType::Swizzle);
+                expr.SetDeducedType(GetVectorTypeDesc(ScalarType::Float, swizzleName.size()));
+            }
+        }
+
+        // The following type of expression could be invoked:
+        // 1. `func()` where `func` is a function name
+        // 2. `type()` where `type` is a type specifier
+        // 3. `expr.length` where `expr` has array/vector type
+        auto ResolveInvokeExpr(AstInvokeExpr& expr) -> void
+        {
+            if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+                // Case 1: `ID()`
                 auto accessName = invokedExpr->GetAccessName().text.Str();
                 std::vector<const TypeDesc*> argTypes;
                 for (auto argExpr : expr.GetArguments()) {
@@ -268,32 +380,63 @@ namespace glsld
                 default:
                     GLSLD_UNREACHABLE();
                 }
-
-                if (invokedExpr->GetAccessName().klass != TokenKlass::Identifier) {
-                    // This is a constructor
-                    auto builtinType = GetBuiltinType(invokedExpr->GetAccessName());
-                    GLSLD_ASSERT(builtinType.has_value());
-                    expr.SetDeducedType(GetBuiltinTypeDesc(*builtinType));
-                    return;
-                }
+            }
+            else if (auto invokedExpr = expr.GetInvokedExpr()->As<AstIndexAccessExpr>();
+                     invokedExpr && invokedExpr->GetInvokedExpr()->Is<AstNameAccessExpr>()) {
+                // Case 2: `Type[...]()`
+                invokedExpr->GetInvokedExpr()->As<AstNameAccessExpr>()->SetAccessType(NameAccessType::Constructor);
             }
         }
 
-        //
-        // Type Eval
-        //
-        auto EvalUnary(UnaryOp op, const TypeDesc* oparand) -> const TypeDesc*
-        {
-            GLSLD_NO_IMPL();
-        }
-
-        auto EvalBinary(BinaryOp op, const TypeDesc* lhs, const TypeDesc* rhs) -> const TypeDesc*
-        {
-            GLSLD_NO_IMPL();
-        }
-
-    private:
         // FIXME: avoid doing another traversal. We could do this during parsing
+        auto ParseIntegerLiteral(StringView literalText) -> ConstValue
+        {
+            GLSLD_ASSERT(!literalText.Empty());
+            if (literalText.EndWith("u") || literalText.EndWith("U")) {
+                auto literalTextNoSuffix = literalText.DropBack(1);
+
+                uint32_t value;
+                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
+                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
+                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
+                return ConstValue{value};
+            }
+            else {
+                auto literalTextNoSuffix = literalText;
+
+                int32_t value;
+                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
+                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
+                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
+                return ConstValue{value};
+            }
+        }
+
+        auto ParseFloatLiteral(StringView literalText) -> ConstValue
+        {
+            GLSLD_ASSERT(!literalText.Empty());
+            if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
+                auto literalTextNoSuffix = literalText.DropBack(2);
+
+                double value;
+                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
+                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
+                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
+                return ConstValue{value};
+            }
+            else {
+                auto literalTextNoSuffix = literalText;
+                if (literalText.EndWith("f") || literalText.EndWith("F")) {
+                    literalTextNoSuffix = literalText.DropBack(1);
+                }
+
+                float value;
+                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
+                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
+                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
+                return ConstValue{value};
+            }
+        }
         class TypeCheckVisitor : public AstVisitor<TypeCheckVisitor>
         {
         public:
@@ -409,14 +552,6 @@ namespace glsld
             }
             else {
                 return externalSymbolTable ? externalSymbolTable->FindFunction(name, argTypes) : nullptr;
-            }
-        }
-
-        auto TryAddSymbol(LexString name, AstDecl& decl) -> void
-        {
-            auto s = name.StrView();
-            if (!s.empty()) {
-                symbolTable.AddSymbol(std::string{s}, &decl);
             }
         }
 

@@ -293,7 +293,7 @@ namespace glsld
         AstExpr* expr;
         AstStmt* child;
     };
-    class AstJumpStmt final : public AstStmt
+    class AstJumpStmt final : public AstStmt, public AstPayload<AstJumpStmt>
     {
     public:
         AstJumpStmt(JumpType type) : type(type)

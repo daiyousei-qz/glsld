@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <ranges>
 
 namespace glsld
 {
@@ -20,78 +21,77 @@ namespace glsld
             Initialize(sourceString);
         }
 
-        auto GetAllToken() const -> ArrayView<SyntaxToken>
+        auto GetAllTokenView() const
         {
-            return tokens;
+            return std::views::iota(SyntaxTokenIndex{0}, static_cast<SyntaxTokenIndex>(tokens.size())) |
+                   std::views::transform([this](SyntaxTokenIndex index) { return GetToken(index); });
         }
 
-        auto GetToken(size_t tokIndex) const -> SyntaxToken
+        auto GetRangedTokenView(SyntaxTokenRange range) const
         {
-            return GetTokenRef(tokIndex);
+            return std::views::iota(range.startTokenIndex, range.endTokenIndex) |
+                   std::views::transform([this](SyntaxTokenIndex index) { return GetToken(index); });
         }
 
-        auto GetSyntaxRange(size_t tokIndex) const -> SyntaxRange
+        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
         {
-            return GetTokenRef(tokIndex).range;
+            GLSLD_ASSERT(tokIndex < tokens.size());
+            return SyntaxToken{
+                .index = tokIndex,
+                .klass = tokens[tokIndex].klass,
+                .text  = tokens[tokIndex].text,
+            };
         }
 
-        //
-        auto GetSyntaxRange(size_t beginTokIndex, size_t endTokIndex) const -> SyntaxRange
+        auto GetTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken
         {
-            GLSLD_ASSERT(beginTokIndex <= endTokIndex);
-            if (beginTokIndex == endTokIndex) {
-                return SyntaxRange{
-                    .begin = GetTokenRef(beginTokIndex).range.begin,
-                    .end   = GetTokenRef(beginTokIndex).range.begin,
+            if (tokIndex >= tokens.size()) {
+                return GetToken(tokens.size() - 1);
+            }
+            else {
+                return GetToken(tokIndex);
+            }
+        }
+
+        auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange
+        {
+            GLSLD_ASSERT(tokIndex < tokens.size());
+            return tokens[tokIndex].range;
+        }
+        auto LookupTextRange(SyntaxToken token) const -> TextRange
+        {
+            GLSLD_ASSERT(token.index < tokens.size());
+            return tokens[token.index].range;
+        }
+        auto LookupTextRange(SyntaxTokenRange range) const -> TextRange
+        {
+            GLSLD_ASSERT(range.endTokenIndex < tokens.size());
+            if (range.endTokenIndex > range.startTokenIndex) {
+                return TextRange{
+                    tokens[range.startTokenIndex].range.start,
+                    tokens[range.endTokenIndex - 1].range.end,
                 };
             }
             else {
-                return SyntaxRange{
-                    .begin = GetTokenRef(beginTokIndex).range.begin,
-                    .end   = GetTokenRef(endTokIndex - 1).range.end,
+                return TextRange{
+                    tokens[range.startTokenIndex].range.start,
+                    tokens[range.startTokenIndex].range.start,
                 };
             }
         }
 
-        auto LookupSyntaxLocation(SyntaxLocation location) const -> SyntaxLocationInfo
+        auto LookupFirstTextPosition(SyntaxTokenRange range) const -> TextPosition
         {
-            if (location.GetIndex() < 0 || location.GetIndex() > locationInfo.size()) {
-                return SyntaxLocationInfo{
-                    .file   = -1,
-                    .offset = -1,
-                    .line   = -1,
-                    .column = -1,
-                };
-            }
-
-            return locationInfo[location.GetIndex()];
+            return tokens[range.startTokenIndex].range.start;
+        }
+        auto LookupLastTextPosition(SyntaxTokenRange range) const -> TextPosition
+        {
+            return tokens[range.endTokenIndex].range.end;
         }
 
     private:
-        auto GetTokenRef(size_t tokIndex) const -> const SyntaxToken&
-        {
-            if (tokIndex < tokens.size()) {
-                return tokens[tokIndex];
-            }
-            else {
-                // This is EOF
-                return tokens.back();
-            }
-        }
-
         auto Initialize(std::string_view sourceString) -> void
         {
-            auto RegisterLocation = [this](int offset, int line, int column) -> SyntaxLocation {
-                locationInfo.push_back(SyntaxLocationInfo{
-                    .file   = 0,
-                    .offset = offset,
-                    .line   = line,
-                    .column = column,
-                });
-
-                return SyntaxLocation{static_cast<int>(locationInfo.size() - 1)};
-            };
-
             glsld::Tokenizer tokenizer{sourceString};
             std::string buffer;
             while (true) {
@@ -106,30 +106,17 @@ namespace glsld
                     tokText = LexString{atomTable.insert(buffer).first->c_str()};
                 }
 
-                if (tokInfo.klass != TokenKlass::Comment) {
-                    tokens.push_back(SyntaxToken{
-                        .klass = tokInfo.klass,
-                        .text  = tokText,
-                        .range =
-                            {
-                                .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
-                                .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
-                                                          tokInfo.columnEnd),
-                            },
-                    });
-                }
-                else {
-                    commentTokens.push_back(SyntaxToken{
-                        .klass = tokInfo.klass,
-                        .text  = tokText,
-                        .range =
-                            {
-                                .begin = RegisterLocation(tokInfo.rawOffset, tokInfo.lineBegin, tokInfo.columnBegin),
-                                .end   = RegisterLocation(tokInfo.rawOffset + tokInfo.rawSize, tokInfo.lineEnd,
-                                                          tokInfo.columnEnd),
-                            },
-                    });
-                }
+                auto& tokenContainer = tokInfo.klass != TokenKlass::Comment ? tokens : commentTokens;
+                tokenContainer.push_back(SyntaxTokenInfo{
+                    .file  = 0,
+                    .klass = tokInfo.klass,
+                    .text  = tokText,
+                    .range =
+                        TextRange{
+                            {tokInfo.lineBegin, tokInfo.columnBegin},
+                            {tokInfo.lineEnd, tokInfo.columnEnd},
+                        },
+                });
 
                 if (tokInfo.klass == glsld::TokenKlass::Eof) {
                     break;
@@ -140,8 +127,7 @@ namespace glsld
         // FIXME: optimize memory layout
         std::unordered_set<std::string> atomTable;
 
-        std::vector<SyntaxToken> tokens;
-        std::vector<SyntaxToken> commentTokens;
-        std::vector<SyntaxLocationInfo> locationInfo;
+        std::vector<SyntaxTokenInfo> tokens;
+        std::vector<SyntaxTokenInfo> commentTokens;
     };
 } // namespace glsld

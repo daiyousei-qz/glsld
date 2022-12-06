@@ -6,6 +6,7 @@
 #include "Parser.h"
 #include "TypeChecker.h"
 #include "AstPrinter.h"
+#include "SourceInfo.h"
 
 #include <memory>
 #include <string>
@@ -133,6 +134,23 @@ namespace glsld
         auto Traverse() -> void
         {
             AstVisitor<Derived>::TraverseAst(module->GetAstContext());
+        }
+
+    protected:
+        auto GetLexContext() const -> const LexContext&
+        {
+            return module->GetLexContext();
+        }
+        auto GetAstContext() const -> const AstContext&
+        {
+            return module->GetAstContext();
+        }
+
+        auto EnterIfContainsPosition(AstNodeBase& node, TextPosition position) -> AstVisitPolicy
+        {
+        }
+        auto EnterIfOverlapRange(AstNodeBase& node, TextRange range) -> AstVisitPolicy
+        {
         }
 
     private:

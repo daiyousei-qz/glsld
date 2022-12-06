@@ -325,7 +325,7 @@ namespace glsld
         auto DumpNodeData() const -> std::string
         {
             if (!structDecl) {
-                return fmt::format("TypeName: {}", typeName.text.StrView());
+                return fmt::format("BaseTypeToken: {}", typeName.text.StrView());
             }
             else {
                 return "";

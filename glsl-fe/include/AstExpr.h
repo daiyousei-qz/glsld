@@ -56,7 +56,7 @@ namespace glsld
 
         auto DumpNodeData() const -> std::string
         {
-            return fmt::format("Value: {}", valueToken.text.StrView());
+            return fmt::format("LiteralText: {}", valueToken.text.StrView());
         }
 
     private:

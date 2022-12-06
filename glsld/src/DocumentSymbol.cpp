@@ -7,20 +7,8 @@ namespace glsld
         std::vector<lsp::DocumentSymbol> result;
 
         for (auto decl : compiler.GetAstContext().globalDecls) {
-            auto declBeginLoc = compiler.GetLexContext().LookupSyntaxLocation(decl->GetRange().begin);
-            auto declEndLoc   = compiler.GetLexContext().LookupSyntaxLocation(decl->GetRange().end);
-            lsp::Range testRange{
-                .start =
-                    {
-                        .line      = static_cast<uint32_t>(declBeginLoc.line),
-                        .character = static_cast<uint32_t>(declBeginLoc.column),
-                    },
-                .end =
-                    {
-                        .line      = static_cast<uint32_t>(declEndLoc.line),
-                        .character = static_cast<uint32_t>(declEndLoc.column),
-                    },
-            };
+            auto declRange       = compiler.GetLexContext().LookupTextRange(decl->GetRange());
+            lsp::Range testRange = ToLspRange(declRange);
 
             if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                 if (funcDecl->GetName().klass == TokenKlass::Identifier) {

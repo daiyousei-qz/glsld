@@ -20,28 +20,24 @@ namespace glsld
             }
         };
 
-        auto decl = ProcessDeclToken(compiler, TextPosition::FromLspPosition(position), DeclarationProcessor{});
+        auto decl = ProcessDeclToken(compiler, FromLspPosition(position), DeclarationProcessor{});
         if (decl.has_value()) {
-            auto srcRange = (*decl)->GetRange();
+            TextRange declRange;
             if (auto funcDecl = (*decl)->As<AstFunctionDecl>(); funcDecl) {
-                srcRange = funcDecl->GetName().range;
+                declRange = compiler.GetLexContext().LookupTextRange(funcDecl->GetName());
             }
-            else if (auto paramDecl = (*decl)->As<AstParamDecl>(); paramDecl && paramDecl->GetDeclTok()) {
-                srcRange = paramDecl->GetDeclTok()->range;
+            else if (auto paramDecl = (*decl)->As<AstParamDecl>(); paramDecl && paramDecl->GetDeclToken()) {
+                declRange = compiler.GetLexContext().LookupTextRange(*paramDecl->GetDeclToken());
             }
             // FIXME:
             // else if (auto varDecl = (*decl)->As<AstVariableDecl>(); varDecl) {
             // }
-
-            auto locBegin = compiler.GetLexContext().LookupSyntaxLocation(srcRange.begin);
-            auto locEnd   = compiler.GetLexContext().LookupSyntaxLocation(srcRange.end);
-
+            else {
+                declRange = compiler.GetLexContext().LookupTextRange((*decl)->GetRange());
+            }
             return {lsp::Location{
                 .uri   = uri,
-                .range = TextRange::ToLspRange(TextRange{
-                    .start = {.line = locBegin.line, .character = locBegin.column},
-                    .end   = {.line = locEnd.line, .character = locEnd.column},
-                }),
+                .range = ToLspRange(declRange),
             }};
         }
         else {

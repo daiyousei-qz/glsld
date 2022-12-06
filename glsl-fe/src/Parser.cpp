@@ -53,7 +53,7 @@ namespace glsld
 
     auto Parser::ParseDeclId() -> SyntaxToken
     {
-        if (PeekToken().klass == TokenKlass::Identifier) {
+        if (PeekToken().IsIdentifier()) {
             auto result = PeekToken();
             ConsumeToken();
             return result;
@@ -414,6 +414,14 @@ namespace glsld
             else if (TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier)) {
                 // type/variable decl
                 return ParseTypeOrVariableDecl(beginTokIndex, type);
+            }
+            else if (type->GetStructDecl()) {
+                // If type is a struct definition, we assume it's type decl with missing ';' for better diagnostic
+
+                // This would always fail, so we are just trying to infer the ';'
+                ParsePermissiveSemicolon();
+
+                return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
             }
             else {
                 // unknown decl

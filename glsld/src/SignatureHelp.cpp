@@ -12,14 +12,8 @@ namespace glsld
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            auto locBegin = lexContext.LookupSyntaxLocation(node.GetRange().begin);
-            auto locEnd   = lexContext.LookupSyntaxLocation(node.GetRange().end);
-            auto range    = TextRange{
-                   .start = {.line = locBegin.line, .character = locBegin.column},
-                   .end   = {.line = locEnd.line, .character = locEnd.column},
-            };
-
-            if (range.ContainPosition(position)) {
+            auto nodeRange = lexContext.LookupTextRange(node.GetRange());
+            if (nodeRange.Contains(position)) {
                 return AstVisitPolicy::Traverse;
             }
             else {
@@ -47,7 +41,7 @@ namespace glsld
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
     auto ComputeSignatureHelp(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::SignatureHelp>
     {
-        SignatureHelpVisitor visitor{compiler.GetLexContext(), TextPosition::FromLspPosition(position)};
+        SignatureHelpVisitor visitor{compiler.GetLexContext(), FromLspPosition(position)};
         visitor.TraverseAst(compiler.GetAstContext());
         auto expr = visitor.Export();
 

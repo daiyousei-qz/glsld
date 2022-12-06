@@ -31,6 +31,11 @@ namespace glsld
         auto AddFunction(AstFunctionDecl& decl) -> void
         {
             GLSLD_ASSERT(levels.size() == 1);
+
+            if (decl.GetName().klass != TokenKlass::Identifier) {
+                return;
+            }
+
             // deduplicate?
             auto name = decl.GetName().text.Str();
             if (!name.empty()) {
@@ -40,7 +45,48 @@ namespace glsld
                 }
 
                 funcDeclLookup.insert(
-                    {decl.GetName().text.Str(), FunctionRegistry{.paramTypes = std::move(paramTypes), .decl = &decl}});
+                    {decl.GetName().text.Str(), FunctionEntry{.paramTypes = std::move(paramTypes), .decl = &decl}});
+            }
+        }
+
+        auto AddStructType(AstStructDecl& decl) -> void
+        {
+            if (decl.GetDeclTokenen() && decl.GetDeclTokenen()->klass == TokenKlass::Identifier) {
+                TryAddSymbol(*decl.GetDeclTokenen(), decl);
+            }
+        }
+
+        auto AddInterfaceBlockType(AstInterfaceBlockDecl& decl) -> void
+        {
+            if (!decl.GetDeclarator()) {
+                // For unnamed interface block, names of internal members should be added to the current scope
+                for (auto memberDecl : decl.GetMembers()) {
+                    for (const auto& declarator : memberDecl->GetDeclarators()) {
+                        if (declarator.declTok.klass == TokenKlass::Identifier) {
+                            TryAddSymbol(declarator.declTok, *memberDecl);
+                        }
+                    }
+                }
+            }
+            else {
+                // Otherwise, add the decl token for the interface block
+                TryAddSymbol(decl.GetDeclTokenen(), decl);
+            }
+        }
+
+        auto AddVariableDecl(AstVariableDecl& decl) -> void
+        {
+            for (auto declarator : decl.GetDeclarators()) {
+                if (declarator.declTok.klass == TokenKlass::Identifier) {
+                    TryAddSymbol(declarator.declTok, decl);
+                }
+            }
+        }
+
+        auto AddParamDecl(AstParamDecl& decl) -> void
+        {
+            if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
+                TryAddSymbol(*decl.GetDeclToken(), decl);
             }
         }
 
@@ -51,10 +97,11 @@ namespace glsld
             auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
 
             // First pass: resolve candidates and early return if exact match is found
-            std::vector<FunctionRegistry> candidateList;
+            std::vector<FunctionEntry> candidateList;
             for (auto it = itBegin; it != itEnd; ++it) {
                 auto funcEntry = it->second;
 
+                // FIXME: use proper compare, this could fail for composite type
                 if (funcEntry.paramTypes == argTypes) {
                     return funcEntry.decl;
                 }
@@ -79,8 +126,8 @@ namespace glsld
             }
 
             // Second pass: select the best match with partial order
-            std::vector<FunctionRegistry> currentBestList;
-            std::vector<FunctionRegistry> nextBestList;
+            std::vector<FunctionEntry> currentBestList;
+            std::vector<FunctionEntry> nextBestList;
             for (auto candidate : candidateList) {
                 auto pickedCandidate = false;
                 for (auto currentBest : currentBestList) {
@@ -127,12 +174,6 @@ namespace glsld
             }
         }
 
-        auto AddSymbol(std::string name, AstDecl* decl) -> void
-        {
-            GLSLD_ASSERT(!levels.empty());
-            levels.back().declLookup[name] = decl;
-        }
-
         auto FindSymbol(const std::string& name) const -> AstDecl*
         {
             GLSLD_ASSERT(!levels.empty());
@@ -146,7 +187,28 @@ namespace glsld
         }
 
     private:
-        struct FunctionRegistry
+        // FIXME: avoid allocation
+        auto TryAddSymbol(SyntaxToken declToken, AstDecl& decl) -> bool
+        {
+            GLSLD_ASSERT(!levels.empty());
+
+            // FIXME: avoid string allocation
+            auto name = declToken.text.Str();
+            if (name.empty()) {
+                return false;
+            }
+
+            auto& entry = levels.back().declLookup[std::move(name)];
+            if (entry == nullptr) {
+                entry = &decl;
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        struct FunctionEntry
         {
             std::vector<const TypeDesc*> paramTypes;
             AstFunctionDecl* decl;
@@ -157,7 +219,7 @@ namespace glsld
             std::unordered_map<std::string, AstDecl*> declLookup;
         };
 
-        std::unordered_multimap<std::string, FunctionRegistry> funcDeclLookup;
+        std::unordered_multimap<std::string, FunctionEntry> funcDeclLookup;
         std::vector<SymbolTableLevel> levels;
     };
 } // namespace glsld
