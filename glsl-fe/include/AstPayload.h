@@ -155,6 +155,45 @@ namespace glsld
         const TypeDesc* contextualType = GetErrorTypeDesc();
     };
 
+    class DeclView
+    {
+    public:
+        DeclView() = default;
+        DeclView(AstDecl* decl) : decl(decl)
+        {
+        }
+        DeclView(AstDecl* decl, size_t index) : decl(decl), index(index)
+        {
+        }
+
+        auto IsValid() const -> bool
+        {
+            return decl != nullptr;
+        }
+
+        auto GetDecl() const -> AstDecl*
+        {
+            return decl;
+        }
+        auto GetIndex() const -> size_t
+        {
+            return index;
+        }
+
+        operator bool() const
+        {
+            return IsValid();
+        }
+        auto operator==(const DeclView&) const -> bool = default;
+
+    private:
+        // Referenced declaration AST.
+        AstDecl* decl = nullptr;
+
+        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
+        size_t index = 0;
+    };
+
     template <>
     class AstPayload<AstNameAccessExpr>
     {
@@ -177,11 +216,11 @@ namespace glsld
             this->swizzleInfo = swizzle;
         }
 
-        auto GetAccessedDecl() -> AstDecl*
+        auto GetAccessedDecl() -> DeclView
         {
             return accessedDecl;
         }
-        auto SetAccessedDecl(AstDecl* decl) -> void
+        auto SetAccessedDecl(DeclView decl) -> void
         {
             this->accessedDecl = decl;
         }
@@ -194,6 +233,6 @@ namespace glsld
     private:
         NameAccessType accessType = NameAccessType::Unknown;
         SwizzleDesc swizzleInfo;
-        AstDecl* accessedDecl = nullptr;
+        DeclView accessedDecl = {};
     };
 } // namespace glsld

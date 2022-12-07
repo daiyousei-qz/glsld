@@ -76,12 +76,12 @@ namespace glsld
 
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclTokenen()) {
-                    auto declRange = lexContext.LookupTextRange(decl.GetRange());
+                if (decl.GetDeclToken()) {
+                    auto declRange = lexContext.LookupTextRange(*decl.GetDeclToken());
                     if (declRange.Contains(position)) {
                         GLSLD_ASSERT(!finished);
                         finished = true;
-                        result   = callback.ProcessToken(*decl.GetDeclTokenen(), declRange, decl);
+                        result   = callback.ProcessToken(*decl.GetDeclToken(), declRange, decl);
                     }
                 }
             }
@@ -140,7 +140,7 @@ namespace glsld
                     auto accessedDecl = expr.GetAccessedDecl();
                     finished          = true;
                     if (accessedDecl) {
-                        result = callback.ProcessToken(expr.GetAccessName(), declRange, *accessedDecl);
+                        result = callback.ProcessToken(expr.GetAccessName(), declRange, *accessedDecl.GetDecl());
                     }
                     else {
                         result =

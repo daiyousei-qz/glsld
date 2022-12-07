@@ -77,27 +77,30 @@ namespace glsld
     static auto GetHoverContent(AstDecl& decl, std::string_view hoverId) -> std::optional<HoverContent>
     {
         HoverContent hover;
+        std::string buffer;
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
+            ReconstructSourceText(buffer, *funcDecl);
             return HoverContent{
                 .type = HoverType::Function,
                 .name = std::string{hoverId},
-                .code = fmt::format("{} {}{}", ReconstructSourceText(funcDecl->GetReturnType()), hoverId,
-                                    ReconstructSourceText(funcDecl->GetParams())),
+                .code = std::move(buffer),
             };
         }
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
+            ReconstructSourceText(buffer, *paramDecl);
             return HoverContent{
                 .type = HoverType::Parameter,
                 .name = std::string{hoverId},
-                .code = fmt::format("{} {}", ReconstructSourceText(paramDecl->GetType()), hoverId),
+                .code = std::move(buffer),
             };
         }
         else if (auto varDecl = decl.As<AstVariableDecl>()) {
-            // FIXME: array spec
+            // FIXME: use correct declarator index
+            ReconstructSourceText(buffer, *varDecl, 0);
             return HoverContent{
                 .type = HoverType::Variable,
                 .name = std::string{hoverId},
-                .code = fmt::format("{} {}", ReconstructSourceText(varDecl->GetType()), hoverId),
+                .code = std::move(buffer),
             };
         }
         else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
@@ -117,36 +120,6 @@ namespace glsld
 
         return std::nullopt;
     }
-
-    // static auto GetHoverContent(AstNameAccessExpr& expr) -> std::optional<HoverContent>
-    // {
-    //     if (expr.GetAccessName().klass != TokenKlass::Identifier) {
-    //         return std::nullopt;
-    //     }
-
-    //     auto accessName = expr.GetAccessName().text.StrView();
-    //     if (expr.GetAccessedDecl()) {
-    //         auto accessDecl = expr.GetAccessedDecl();
-    //         auto declHover  = GetHoverContent(*accessDecl, accessName);
-    //         if (declHover) {
-    //             return std::move(declHover);
-    //         }
-    //     }
-
-    //     switch (expr.GetAccessType()) {
-    //     case NameAccessType::Function:
-    //         return CreateHoverContent(HoverType::Function, accessName, true);
-    //     case NameAccessType::Constructor:
-    //         return CreateHoverContent(HoverType::Type, accessName, true);
-    //     case NameAccessType::Variable:
-    //         return CreateHoverContent(HoverType::Variable, accessName, true);
-    //     case NameAccessType::Unknown:
-    //         return std::nullopt;
-    //     default:
-    //         GLSLD_UNREACHABLE();
-    //     }
-    //     return std::nullopt;
-    // }
 
     auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>
     {

@@ -2444,6 +2444,23 @@ namespace glsld::lsp
 
         return true;
     }
+    inline auto MapJson(JsonToObjectMapper& mapper, Color& value) -> bool
+    {
+        if (!mapper.Map("red", value.red)) {
+            return false;
+        }
+        if (!mapper.Map("green", value.green)) {
+            return false;
+        }
+        if (!mapper.Map("blue", value.blue)) {
+            return false;
+        }
+        if (!mapper.Map("alpha", value.alpha)) {
+            return false;
+        }
+
+        return true;
+    }
 
     struct ColorInformation
     {

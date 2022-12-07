@@ -87,7 +87,7 @@ namespace glsld
         {
         }
 
-        auto GetDeclTokenen() -> const std::optional<SyntaxToken>&
+        auto GetDeclToken() -> const std::optional<SyntaxToken>&
         {
             return declTok;
         }
@@ -270,7 +270,7 @@ namespace glsld
         {
         }
 
-        auto GetDeclTokenen() -> const SyntaxToken&
+        auto GetDeclToken() -> const SyntaxToken&
         {
             return declTok;
         }

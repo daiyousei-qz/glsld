@@ -134,6 +134,9 @@ namespace glsld
 
     struct SyntaxTokenRange
     {
+        SyntaxTokenIndex startTokenIndex = 0;
+        SyntaxTokenIndex endTokenIndex   = 0;
+
         SyntaxTokenRange() = default;
         SyntaxTokenRange(SyntaxTokenIndex tokIndex) : startTokenIndex(tokIndex), endTokenIndex(tokIndex + 1)
         {
@@ -143,9 +146,6 @@ namespace glsld
         {
             GLSLD_ASSERT(beginTokIndex <= endTokIndex);
         }
-
-        SyntaxTokenIndex startTokenIndex = 0;
-        SyntaxTokenIndex endTokenIndex   = 0;
     };
 
     struct SyntaxToken

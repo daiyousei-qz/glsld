@@ -24,7 +24,8 @@ namespace glsld
             if (auto funcExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
                 if (funcExpr->GetAccessType() == NameAccessType::Function && funcExpr->GetAccessedDecl()) {
                     // We can resolve the function
-                    const auto paramDeclList = funcExpr->GetAccessedDecl()->As<AstFunctionDecl>()->GetParams();
+                    const auto paramDeclList =
+                        funcExpr->GetAccessedDecl().GetDecl()->As<AstFunctionDecl>()->GetParams();
 
                     for (size_t i = 0; i < paramDeclList.size(); ++i) {
                         GLSLD_ASSERT(i < expr.GetArguments().size());

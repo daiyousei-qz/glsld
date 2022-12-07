@@ -46,6 +46,11 @@ namespace glsld
 
         auto CreateStructType(AstStructDecl* decl) -> const TypeDesc*
         {
+            std::vector<std::pair<std::string, const TypeDesc*>> memberDesc;
+            for (auto memberDecl : decl->GetMembers()) {
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                }
+            }
             return GetErrorTypeDesc();
         }
 
@@ -57,6 +62,31 @@ namespace glsld
         auto GetFunctionType(ArrayView<const TypeDesc*> params) -> const TypeDesc*
         {
             return GetErrorTypeDesc();
+        }
+
+        auto GetArrayType(const TypeDesc* elementType, AstArraySpec* arraySpec) -> const TypeDesc*
+        {
+            std::vector<size_t> dimSizes;
+            if (arraySpec != nullptr && !arraySpec->GetSizeList().empty()) {
+                std::vector<size_t> dimSizes;
+                for (auto arrayDim : arraySpec->GetSizeList()) {
+                    if (arrayDim != nullptr) {
+                        auto dimSizeValue = arrayDim->GetConstValue();
+                        if (dimSizeValue.GetValueType() == ConstValueType::Int32) {
+                            dimSizes.push_back(dimSizeValue.GetIntValue());
+                            continue;
+                        }
+                    }
+
+                    dimSizes.push_back(0);
+                }
+
+                if (!dimSizes.empty()) {
+                    return GetArrayType(elementType, dimSizes);
+                }
+            }
+
+            return elementType;
         }
 
         // TODO: To ensure TypeDesc of the same type always uses a single pointer, we need a common context for

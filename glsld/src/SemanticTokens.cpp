@@ -133,8 +133,8 @@ namespace glsld
             }
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclTokenen() && decl.GetDeclTokenen()->klass != TokenKlass::Error) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), *decl.GetDeclTokenen(),
+                if (decl.GetDeclToken() && decl.GetDeclToken()->klass != TokenKlass::Error) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), *decl.GetDeclToken(),
                                                                   SemanticTokenType::Type,
                                                                   SemanticTokenModifier::Declaration));
                 }
@@ -142,8 +142,8 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
-                if (decl.GetDeclTokenen().klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclTokenen(),
+                if (decl.GetDeclToken().klass == TokenKlass::Identifier) {
+                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclToken(),
                                                                   SemanticTokenType::Type,
                                                                   SemanticTokenModifier::Declaration));
                 }

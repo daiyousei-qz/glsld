@@ -245,6 +245,7 @@ namespace glsld
     {
         std::string result;
 
+        // Reconstruct qualfiers
         if (type->GetQualifiers()) {
             auto quals = type->GetQualifiers()->GetQualfierGroup();
             // Precision Qualifier
@@ -340,15 +341,28 @@ namespace glsld
             }
         }
 
+        // FIXME: reconstruct from TypeDesc
         if (auto structDecl = type->GetStructDecl()) {
             result += "struct ";
-            if (structDecl->GetDeclTokenen()) {
-                result += ReconstructSourceText(*structDecl->GetDeclTokenen());
+            if (structDecl->GetDeclToken()) {
+                result += ReconstructSourceText(*structDecl->GetDeclToken());
             }
             result += " { ... }";
         }
         else {
             result += ReconstructSourceText(type->GetTypeNameTok());
+        }
+
+        if (auto typeDesc = type->GetTypeDesc()->GetArrayDesc()) {
+            // FIXME: print dim sizes in correct order
+            for (auto dimSize : typeDesc->dimSizes) {
+                if (dimSize == 0) {
+                    result += "[]";
+                }
+                else {
+                    result += fmt::format("[{}]", dimSize);
+                }
+            }
         }
 
         return result;
@@ -371,6 +385,196 @@ namespace glsld
         result += ")";
 
         return result;
+    }
+
+    inline auto ReconstructSourceText(std::string& buffer, AstQualType& type) -> void
+    {
+        // Reconstruct qualfiers
+        if (type.GetQualifiers()) {
+            auto quals = type.GetQualifiers()->GetQualfierGroup();
+            // Precision Qualifier
+            if (quals.GetHighp()) {
+                buffer += "highp ";
+            }
+            if (quals.GetMediump()) {
+                buffer += "mediump ";
+            }
+            if (quals.GetLowp()) {
+                buffer += "lowp ";
+            }
+
+            // Storage/Parameter qualifiers
+            if (quals.GetConst()) {
+                buffer += "const ";
+            }
+            if (quals.GetIn()) {
+                buffer += "in ";
+            }
+            if (quals.GetOut()) {
+                buffer += "out ";
+            }
+            if (quals.GetInout()) {
+                buffer += "inout ";
+            }
+            if (quals.GetAttribute()) {
+                buffer += "attribute ";
+            }
+            if (quals.GetUniform()) {
+                buffer += "uniform ";
+            }
+            if (quals.GetVarying()) {
+                buffer += "varying ";
+            }
+            if (quals.GetBuffer()) {
+                buffer += "buffer ";
+            }
+            if (quals.GetShared()) {
+                buffer += "shared ";
+            }
+
+            // Auxiliary storage qualifiers
+            if (quals.GetCentroid()) {
+                buffer += "centroid ";
+            }
+            if (quals.GetSample()) {
+                buffer += "sample ";
+            }
+            if (quals.GetPatch()) {
+                buffer += "patch ";
+            }
+
+            // Interpolation qualifiers
+            if (quals.qSmooth) {
+                buffer += "smooth ";
+            }
+            if (quals.qFlat) {
+                buffer += "flat ";
+            }
+            if (quals.qNoperspective) {
+                buffer += "noperspective ";
+            }
+
+            // Variance qualifier
+            if (quals.qInvariant) {
+                buffer += "invariant ";
+            }
+
+            // Precise qualifier
+            if (quals.qPrecise) {
+                buffer += "precise ";
+            }
+
+            // Memory qualifiers
+            if (quals.qCoherent) {
+                buffer += "coherent ";
+            }
+            if (quals.qCoherent) {
+                buffer += "coherent ";
+            }
+            if (quals.qVolatile) {
+                buffer += "volatile ";
+            }
+            if (quals.qRestrict) {
+                buffer += "restrict ";
+            }
+            if (quals.qReadonly) {
+                buffer += "readonly ";
+            }
+            if (quals.qWriteonly) {
+                buffer += "writeonly ";
+            }
+        }
+
+        // FIXME: reconstruct from TypeDesc
+        if (auto structDecl = type.GetStructDecl()) {
+            buffer += "struct ";
+            if (structDecl->GetDeclToken()) {
+                buffer += ReconstructSourceText(*structDecl->GetDeclToken());
+            }
+            buffer += " { ... }";
+        }
+        else {
+            buffer += ReconstructSourceText(type.GetTypeNameTok());
+        }
+
+        if (auto typeDesc = type.GetTypeDesc()->GetArrayDesc()) {
+            // FIXME: print dim sizes in correct order
+            for (auto dimSize : typeDesc->dimSizes) {
+                if (dimSize == 0) {
+                    buffer += "[]";
+                }
+                else {
+                    buffer += fmt::format("[{}]", dimSize);
+                }
+            }
+        }
+    }
+    inline auto ReconstructSourceText(std::string& buffer, AstStructMemberDecl& decl, size_t index) -> void
+    {
+        // FIXME: this is exactly the same implementation with AstVariableDecl
+        GLSLD_ASSERT(index < decl.GetDeclarators().size());
+
+        buffer += ReconstructSourceText(decl.GetType());
+        buffer += " ";
+
+        const auto& declarator = decl.GetDeclarators()[index];
+        buffer += declarator.declTok.text.StrView();
+        if (declarator.arraySize) {
+            for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
+                if (dimSizeExpr && dimSizeExpr->GetConstValue().GetValueType() == ConstValueType::Int32) {
+                    buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetIntValue());
+                }
+                else {
+                    buffer += "[]";
+                }
+            }
+        }
+    }
+    inline auto ReconstructSourceText(std::string& buffer, AstVariableDecl& decl, size_t index) -> void
+    {
+        GLSLD_ASSERT(index < decl.GetDeclarators().size());
+
+        buffer += ReconstructSourceText(decl.GetType());
+        buffer += " ";
+
+        const auto& declarator = decl.GetDeclarators()[index];
+        buffer += declarator.declTok.text.StrView();
+        if (declarator.arraySize) {
+            for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
+                if (dimSizeExpr && dimSizeExpr->GetConstValue().GetValueType() == ConstValueType::Int32) {
+                    buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetIntValue());
+                }
+                else {
+                    buffer += "[]";
+                }
+            }
+        }
+    }
+    inline auto ReconstructSourceText(std::string& buffer, AstParamDecl& decl) -> void
+    {
+        buffer += ReconstructSourceText(decl.GetType());
+        if (decl.GetDeclToken()) {
+            buffer += " ";
+            buffer += decl.GetDeclToken()->text.StrView();
+        }
+    }
+    inline auto ReconstructSourceText(std::string& buffer, AstFunctionDecl& decl) -> void
+    {
+        ReconstructSourceText(buffer, *decl.GetReturnType());
+        buffer += " ";
+
+        buffer += decl.GetName().text.StrView();
+
+        buffer += "(";
+        for (auto paramDecl : decl.GetParams()) {
+            ReconstructSourceText(buffer, *paramDecl);
+            buffer += ", ";
+        }
+        if (buffer.back() == ' ') {
+            buffer.pop_back();
+            buffer.pop_back();
+        }
+        buffer += ")";
     }
 
 } // namespace glsld

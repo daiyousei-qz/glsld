@@ -170,7 +170,7 @@ DECL_BUILTIN_TYPE(textureBuffer,     SamplerTypeDesc)
 DECL_BUILTIN_TYPE(itextureBuffer,    SamplerTypeDesc)
 DECL_BUILTIN_TYPE(utextureBuffer,    SamplerTypeDesc)
 
-        // Subpass (Vulkan-only)
+// Subpass (Vulkan-only)
 DECL_BUILTIN_TYPE(subpassInput,    SamplerTypeDesc)
 DECL_BUILTIN_TYPE(isubpassInput,   SamplerTypeDesc)
 DECL_BUILTIN_TYPE(usubpassInput,   SamplerTypeDesc)

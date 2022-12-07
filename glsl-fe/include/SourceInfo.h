@@ -50,5 +50,8 @@ namespace glsld
                 return range.Contains(start);
             }
         }
+
+        auto operator==(const TextRange&) const -> bool                  = default;
+        auto operator<=>(const TextRange&) const -> std::strong_ordering = delete;
     };
 } // namespace glsld

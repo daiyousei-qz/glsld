@@ -44,22 +44,7 @@ namespace glsld
 
             // Resolve array type if any
             if (type.GetArraySpec() != nullptr && !type.GetArraySpec()->GetSizeList().empty()) {
-                std::vector<size_t> dimSizes;
-                for (auto arrayDim : type.GetArraySpec()->GetSizeList()) {
-                    if (arrayDim != nullptr) {
-                        auto dimSizeValue = arrayDim->GetConstValue();
-                        if (dimSizeValue.GetValueType() == ConstValueType::Int32) {
-                            dimSizes.push_back(dimSizeValue.GetIntValue());
-                            continue;
-                        }
-                    }
-
-                    dimSizes.push_back(0);
-                }
-
-                if (!dimSizes.empty()) {
-                    typeDesc = astContext->GetArrayType(typeDesc, std::move(dimSizes));
-                }
+                typeDesc = astContext->GetArrayType(typeDesc, type.GetArraySpec());
             }
 
             type.SetTypeDesc(typeDesc);
@@ -140,7 +125,8 @@ namespace glsld
                 }
                 else {
                     auto symbol = symbolTable.FindSymbol(func->GetAccessName().text.Str());
-                    if (symbol && (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>())) {
+                    if (symbol &&
+                        (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
                         // FIXME: could interface block being constructor?
                         func->SetAccessType(NameAccessType::Constructor);
                     }
@@ -207,24 +193,37 @@ namespace glsld
             else {
                 // Accessing a non-member name
                 GLSLD_ASSERT(expr.GetAccessType() == NameAccessType::Variable);
-                auto symbol = symbolTable.FindSymbol(std::string{accessName});
-                if (symbol) {
-                    if (auto varDecl = symbol->As<AstVariableDecl>()) {
+                if (auto symbol = symbolTable.FindSymbol(std::string{accessName})) {
+                    if (auto varDecl = symbol.GetDecl()->As<AstVariableDecl>()) {
+                        const auto& declarator = varDecl->GetDeclarators()[symbol.GetIndex()];
+
                         expr.SetAccessedDecl(symbol);
                         // FIXME: handle array type
-                        expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                        if (declarator.arraySize != nullptr) {
+                            expr.SetDeducedType(
+                                astContext->GetArrayType(varDecl->GetType()->GetTypeDesc(), declarator.arraySize));
+                        }
+                        else {
+                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                        }
                     }
-                    else if (auto paramDecl = symbol->As<AstParamDecl>()) {
+                    else if (auto paramDecl = symbol.GetDecl()->As<AstParamDecl>()) {
                         expr.SetAccessedDecl(symbol);
                         // FIXME: handle array type
                         expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
                     }
-                    else if (auto memberDecl = symbol->As<AstStructMemberDecl>()) {
+                    else if (auto memberDecl = symbol.GetDecl()->As<AstStructMemberDecl>()) {
                         // Unnamed interface block member
                         // FIXME: should we really use AstStructMemberDecl?
-                        expr.SetAccessedDecl(memberDecl);
+                        const auto& declarator = memberDecl->GetDeclarators()[symbol.GetIndex()];
                         // FIXME: handle array type
-                        expr.SetDeducedType(memberDecl->GetType()->GetTypeDesc());
+                        if (declarator.arraySize != nullptr) {
+                            expr.SetDeducedType(
+                                astContext->GetArrayType(memberDecl->GetType()->GetTypeDesc(), declarator.arraySize));
+                        }
+                        else {
+                            expr.SetDeducedType(memberDecl->GetType()->GetTypeDesc());
+                        }
                     }
                 }
                 else {
@@ -367,7 +366,8 @@ namespace glsld
                     else {
                         // User-defined types
                         auto symbol = symbolTable.FindSymbol(accessName);
-                        if (symbol && (symbol->Is<AstStructDecl>() || symbol->Is<AstInterfaceBlockDecl>())) {
+                        if (symbol &&
+                            (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
                             invokedExpr->SetAccessedDecl(symbol);
                         }
                     }
@@ -379,7 +379,7 @@ namespace glsld
                     auto funcSymbol = FindFunction(accessName, argTypes);
                     if (funcSymbol) {
                         // FIXME: invoked expr should have deduced type of function?
-                        invokedExpr->SetAccessedDecl(funcSymbol);
+                        invokedExpr->SetAccessedDecl(DeclView{funcSymbol});
                         expr.SetDeducedType(funcSymbol->GetReturnType()->GetTypeDesc());
                     }
                     break;

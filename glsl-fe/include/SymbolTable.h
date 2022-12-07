@@ -51,8 +51,8 @@ namespace glsld
 
         auto AddStructType(AstStructDecl& decl) -> void
         {
-            if (decl.GetDeclTokenen() && decl.GetDeclTokenen()->klass == TokenKlass::Identifier) {
-                TryAddSymbol(*decl.GetDeclTokenen(), decl);
+            if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
+                TryAddSymbol(*decl.GetDeclToken(), decl);
             }
         }
 
@@ -70,7 +70,7 @@ namespace glsld
             }
             else {
                 // Otherwise, add the decl token for the interface block
-                TryAddSymbol(decl.GetDeclTokenen(), decl);
+                TryAddSymbol(decl.GetDeclToken(), decl);
             }
         }
 
@@ -174,7 +174,7 @@ namespace glsld
             }
         }
 
-        auto FindSymbol(const std::string& name) const -> AstDecl*
+        auto FindSymbol(const std::string& name) const -> DeclView
         {
             GLSLD_ASSERT(!levels.empty());
             for (const auto& level : levels | std::views::reverse) {
@@ -183,7 +183,7 @@ namespace glsld
                 }
             }
 
-            return nullptr;
+            return DeclView{};
         }
 
     private:
@@ -199,8 +199,8 @@ namespace glsld
             }
 
             auto& entry = levels.back().declLookup[std::move(name)];
-            if (entry == nullptr) {
-                entry = &decl;
+            if (!entry.IsValid()) {
+                entry = DeclView{&decl};
                 return true;
             }
             else {
@@ -216,7 +216,7 @@ namespace glsld
 
         struct SymbolTableLevel
         {
-            std::unordered_map<std::string, AstDecl*> declLookup;
+            std::unordered_map<std::string, DeclView> declLookup;
         };
 
         std::unordered_multimap<std::string, FunctionEntry> funcDeclLookup;
