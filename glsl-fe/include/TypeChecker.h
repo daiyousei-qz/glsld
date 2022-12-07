@@ -31,23 +31,31 @@ namespace glsld
 
         auto ResolveType(AstQualType& type) -> void
         {
-            const TypeDesc* typeDesc = nullptr;
+            const TypeDesc* resolvedType = GetErrorTypeDesc();
 
             // Resolve element type
             if (auto builtinType = GetBuiltinType(type.GetTypeNameTok())) {
-                typeDesc = GetBuiltinTypeDesc(*builtinType);
+                resolvedType = GetBuiltinTypeDesc(*builtinType);
+            }
+            else if (type.GetStructDecl()) {
+                // A struct type
+                // NOTE it is already resolved
+                resolvedType = type.GetStructDecl()->GetTypeDesc();
             }
             else {
-                // FIXME: set correct type
-                typeDesc = GetErrorTypeDesc();
+                auto symbol = FindSymbol(type.GetTypeNameTok().text.Str());
+                if (symbol && symbol.GetDecl()->Is<AstStructDecl>()) {
+                    // FIXME: could also be interface decl
+                    resolvedType = symbol.GetDecl()->As<AstStructDecl>()->GetTypeDesc();
+                }
             }
 
             // Resolve array type if any
             if (type.GetArraySpec() != nullptr && !type.GetArraySpec()->GetSizeList().empty()) {
-                typeDesc = astContext->GetArrayType(typeDesc, type.GetArraySpec());
+                resolvedType = astContext->GetArrayType(resolvedType, type.GetArraySpec());
             }
 
-            type.SetTypeDesc(typeDesc);
+            type.SetResolvedType(resolvedType);
         }
 
         //
@@ -66,7 +74,7 @@ namespace glsld
         }
         auto DeclareVariable(AstVariableDecl& decl) -> void
         {
-            // type?
+            // NOTE this could have 0 declarator. Then nothing is added.
             symbolTable.AddVariableDecl(decl);
         }
         auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
@@ -179,12 +187,37 @@ namespace glsld
             auto accessName = expr.GetAccessName().text.StrView();
             if (expr.GetAccessChain()) {
                 // Accessing with `expr.xxx`
-                if (expr.GetAccessChain()->GetDeducedType()->IsVector()) {
+                auto accessChainType = expr.GetAccessChain()->GetDeducedType();
+                if (accessChainType->IsScalar() || accessChainType->IsVector()) {
                     // This is a swizzle access
                     ResolveSwizzleAccess(expr);
                 }
-                else if (expr.GetAccessChain()->GetDeducedType()->IsStruct()) {
+                else if (auto structDesc = accessChainType->GetStructDesc()) {
                     // This is a field access
+                    if (auto structDecl = structDesc->decl->As<AstStructDecl>()) {
+                        for (auto memberDecl : structDecl->GetMembers()) {
+                            size_t declaratorIndex = 0;
+                            for (const auto& declarator : memberDecl->GetDeclarators()) {
+                                if (declarator.declTok.text.StrView() == accessName) {
+                                    expr.SetAccessedDecl(DeclView{memberDecl, declaratorIndex});
+                                    break;
+                                }
+
+                                declaratorIndex += 1;
+                            }
+
+                            if (declaratorIndex < memberDecl->GetDeclarators().size()) {
+                                break;
+                            }
+                        }
+                    }
+                    for (const auto& [memberName, memberType] : structDesc->members) {
+                        if (memberName == accessName) {
+                            expr.SetDeducedType(memberType);
+                            // expr.SetAccessType(NameAccessType::MemberVariable);
+                            break;
+                        }
+                    }
                 }
                 else {
                     // bad access chain
@@ -201,16 +234,16 @@ namespace glsld
                         // FIXME: handle array type
                         if (declarator.arraySize != nullptr) {
                             expr.SetDeducedType(
-                                astContext->GetArrayType(varDecl->GetType()->GetTypeDesc(), declarator.arraySize));
+                                astContext->GetArrayType(varDecl->GetType()->GetResolvedType(), declarator.arraySize));
                         }
                         else {
-                            expr.SetDeducedType(varDecl->GetType()->GetTypeDesc());
+                            expr.SetDeducedType(varDecl->GetType()->GetResolvedType());
                         }
                     }
                     else if (auto paramDecl = symbol.GetDecl()->As<AstParamDecl>()) {
                         expr.SetAccessedDecl(symbol);
                         // FIXME: handle array type
-                        expr.SetDeducedType(paramDecl->GetType()->GetTypeDesc());
+                        expr.SetDeducedType(paramDecl->GetType()->GetResolvedType());
                     }
                     else if (auto memberDecl = symbol.GetDecl()->As<AstStructMemberDecl>()) {
                         // Unnamed interface block member
@@ -218,11 +251,11 @@ namespace glsld
                         const auto& declarator = memberDecl->GetDeclarators()[symbol.GetIndex()];
                         // FIXME: handle array type
                         if (declarator.arraySize != nullptr) {
-                            expr.SetDeducedType(
-                                astContext->GetArrayType(memberDecl->GetType()->GetTypeDesc(), declarator.arraySize));
+                            expr.SetDeducedType(astContext->GetArrayType(memberDecl->GetType()->GetResolvedType(),
+                                                                         declarator.arraySize));
                         }
                         else {
-                            expr.SetDeducedType(memberDecl->GetType()->GetTypeDesc());
+                            expr.SetDeducedType(memberDecl->GetType()->GetResolvedType());
                         }
                     }
                 }
@@ -234,6 +267,23 @@ namespace glsld
         auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
         {
             expr.SetDeducedType(GetErrorTypeDesc());
+
+            if (!expr.GetArraySpec()) {
+                return;
+            }
+            for (auto dimExpr : expr.GetArraySpec()->GetSizeList()) {
+                if (!dimExpr || !dimExpr->GetDeducedType()->IsIntegralScalarType()) {
+                    return;
+                }
+            }
+
+            auto invokedExprType = expr.GetInvokedExpr()->GetDeducedType();
+            if (auto arrayTypeDesc = invokedExprType->GetArrayDesc()) {
+                size_t numIndexedDims = expr.GetArraySpec()->GetSizeList().size();
+                if (numIndexedDims < arrayTypeDesc->dimSizes.size()) {
+                    // FIXME: deduce array type
+                }
+            }
         }
         auto CheckUnaryExpr(AstUnaryExpr& expr) -> void
         {
@@ -333,7 +383,8 @@ namespace glsld
     private:
         auto ResolveSwizzleAccess(AstNameAccessExpr& expr) -> void
         {
-            GLSLD_ASSERT(expr.GetAccessChain()->GetDeducedType()->IsVector());
+            GLSLD_ASSERT(expr.GetAccessChain()->GetDeducedType()->IsScalar() ||
+                         expr.GetAccessChain()->GetDeducedType()->IsVector());
             auto swizzleName = expr.GetAccessName().text.StrView();
 
             if (swizzleName.size() <= 4) {
@@ -380,7 +431,7 @@ namespace glsld
                     if (funcSymbol) {
                         // FIXME: invoked expr should have deduced type of function?
                         invokedExpr->SetAccessedDecl(DeclView{funcSymbol});
-                        expr.SetDeducedType(funcSymbol->GetReturnType()->GetTypeDesc());
+                        expr.SetDeducedType(funcSymbol->GetReturnType()->GetResolvedType());
                     }
                     break;
                 }
@@ -405,8 +456,12 @@ namespace glsld
                 uint32_t value;
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
-                return ConstValue{value};
+                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                    return ConstValue{value};
+                }
+                else {
+                    return ConstValue{};
+                }
             }
             else {
                 auto literalTextNoSuffix = literalText;
@@ -414,8 +469,12 @@ namespace glsld
                 int32_t value;
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
-                return ConstValue{value};
+                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                    return ConstValue{value};
+                }
+                else {
+                    return ConstValue{};
+                }
             }
         }
 
@@ -428,8 +487,12 @@ namespace glsld
                 double value;
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
-                return ConstValue{value};
+                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                    return ConstValue{value};
+                }
+                else {
+                    return ConstValue{};
+                }
             }
             else {
                 auto literalTextNoSuffix = literalText;
@@ -440,8 +503,12 @@ namespace glsld
                 float value;
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                GLSLD_ASSERT(parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size());
-                return ConstValue{value};
+                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                    return ConstValue{value};
+                }
+                else {
+                    return ConstValue{};
+                }
             }
         }
         class TypeCheckVisitor : public AstVisitor<TypeCheckVisitor>
@@ -560,6 +627,11 @@ namespace glsld
             else {
                 return externalSymbolTable ? externalSymbolTable->FindFunction(name, argTypes) : nullptr;
             }
+        }
+
+        auto FindSymbol(const std::string& name) -> DeclView
+        {
+            return symbolTable.FindSymbol(name);
         }
 
         AstContext* astContext                 = nullptr;

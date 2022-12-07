@@ -136,14 +136,27 @@ namespace glsld
                 break;
                 // invariance qual?
             case TokenKlass::K_invariant:
+                qualifiers.qInvariant = true;
+                break;
                 // precise qual?
             case TokenKlass::K_precise:
+                qualifiers.qPrecise = true;
+                break;
                 // memory qualifier
             case TokenKlass::K_coherent:
+                qualifiers.qCoherent = true;
+                break;
             case TokenKlass::K_volatile:
+                qualifiers.qVolatile = true;
+                break;
             case TokenKlass::K_restrict:
+                qualifiers.qRestrict = true;
+                break;
             case TokenKlass::K_readonly:
+                qualifiers.qReadonly = true;
+                break;
             case TokenKlass::K_writeonly:
+                qualifiers.qWriteonly = true;
                 break;
                 // storage qual (also, parameter qual)
             case TokenKlass::K_const:
@@ -185,8 +198,13 @@ namespace glsld
                 break;
                 // Interpolation qual
             case TokenKlass::K_smooth:
+                qualifiers.qSmooth = true;
+                break;
             case TokenKlass::K_flat:
+                qualifiers.qFlat = true;
+                break;
             case TokenKlass::K_noperspective:
+                qualifiers.qNoperspective = true;
                 break;
             default:
                 inQualSeq = false;

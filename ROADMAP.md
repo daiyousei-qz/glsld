@@ -65,6 +65,6 @@ DONE!
 - `Test2\glsl.autosampledtextures.frag`
 - `Test2\400.geom` Inlay hint disappear during scrolling
 - Random crash
-- Go to definition shouldn't work with default library function
+- Go to definition shouldn't work with default library function!!!!
 - Hover on struct member is incorrect FIXED
 - Hover with "invariant/flat"

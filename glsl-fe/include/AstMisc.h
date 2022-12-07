@@ -19,7 +19,7 @@ namespace glsld
             return sizes;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             for (auto expr : sizes) {
@@ -54,7 +54,7 @@ namespace glsld
             return items;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -268,7 +268,7 @@ namespace glsld
             return layoutQuals;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -313,7 +313,7 @@ namespace glsld
             return structDecl;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             // FIXME: how to traverse expressions in the layout qualifier?
@@ -338,5 +338,39 @@ namespace glsld
 
         SyntaxToken typeName      = {};
         AstStructDecl* structDecl = nullptr;
+    };
+
+    class MSVC_EMPTY_BASES AstDeclarator : public AstNodeBase, public AstPayload<AstDeclarator>
+    {
+    public:
+        auto GetDeclToken() -> SyntaxToken
+        {
+            return declTok;
+        }
+        auto GetArraySpec() -> AstArraySpec*
+        {
+            return arraySpec;
+        }
+        auto GetInitializer() -> AstExpr*
+        {
+            return initializer;
+        }
+
+        template <AstVisitorT Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            visitor.Traverse(arraySpec);
+            visitor.Traverse(initializer);
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return fmt::format("DeclToken: {}", declTok.text.StrView());
+        }
+
+    private:
+        SyntaxToken declTok;
+        AstArraySpec* arraySpec;
+        AstExpr* initializer;
     };
 } // namespace glsld

@@ -13,7 +13,7 @@ namespace glsld
     class MSVC_EMPTY_BASES AstErrorStmt final : public AstStmt, public AstPayload<AstErrorStmt>
     {
     public:
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -31,7 +31,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             for (auto stmt : children) {
@@ -54,7 +54,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*expr);
@@ -76,7 +76,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*decl);
@@ -115,7 +115,7 @@ namespace glsld
             return loopBody;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*initClause);
@@ -151,7 +151,7 @@ namespace glsld
             return loopBody;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*predicate);
@@ -183,7 +183,7 @@ namespace glsld
             return loopBody;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*predicate);
@@ -223,7 +223,7 @@ namespace glsld
             return elseBranch;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*predicate);
@@ -255,7 +255,7 @@ namespace glsld
             return caseExpr;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(caseExpr);
@@ -277,7 +277,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*expr);
@@ -300,7 +300,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -330,7 +330,7 @@ namespace glsld
             return returnValue;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(returnValue);

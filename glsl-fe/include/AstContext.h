@@ -22,6 +22,9 @@ namespace glsld
             for (const auto& [key, typeDesc] : arrayTypeCache) {
                 delete typeDesc;
             }
+            for (const auto& [key, typeDesc] : structTypeCache) {
+                delete typeDesc;
+            }
         }
 
         auto AddGlobalDecl(AstDecl* decl) -> void
@@ -49,9 +52,18 @@ namespace glsld
             std::vector<std::pair<std::string, const TypeDesc*>> memberDesc;
             for (auto memberDecl : decl->GetMembers()) {
                 for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    auto typeDesc = GetArrayType(memberDecl->GetType()->GetResolvedType(), declarator.arraySize);
+                    memberDesc.push_back({declarator.declTok.text.Str(), typeDesc});
                 }
             }
-            return GetErrorTypeDesc();
+
+            structTypeCache.push_back(new TypeDesc(fmt::format("struct#{}", decl->GetDeclToken()->text.StrView()),
+                                                   StructTypeDesc{
+                                                       .decl    = decl,
+                                                       .name    = decl->GetDeclToken()->text.Str(),
+                                                       .members = std::move(memberDesc),
+                                                   }));
+            return structTypeCache.back();
         }
 
         auto CreateStructType(AstInterfaceBlockDecl* decl) -> const TypeDesc*
@@ -109,13 +121,24 @@ namespace glsld
             GLSLD_ASSERT(!realElementType->IsArray());
 
             // Find and cache the type desc if needed
-            auto cachedItem = arrayTypeCache[std::pair{elementType, dimSizes}];
+            auto cachedItem = arrayTypeCache[std::pair{realElementType, realDimSizes}];
             if (cachedItem == nullptr) {
-                cachedItem = new TypeDesc{"unknown[]", ArrayTypeDesc{.elementType = elementType, .dimSizes = dimSizes}};
+                std::string debugName = realElementType->GetDebugName();
+                for (auto dimSize : realDimSizes) {
+                    if (dimSize != 0) {
+                        debugName += fmt ::format("[{}]", dimSize);
+                    }
+                    else {
+                        debugName += "[]";
+                    }
+                }
+                cachedItem = new TypeDesc{std::move(debugName),
+                                          ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes}};
             }
             return cachedItem;
         }
 
+        std::vector<const TypeDesc*> structTypeCache;
         std::map<std::pair<const TypeDesc*, std::vector<size_t>>, const TypeDesc*> arrayTypeCache;
 
         std::vector<AstDecl*> globalDecls;

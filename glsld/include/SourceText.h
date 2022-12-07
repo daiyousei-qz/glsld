@@ -353,7 +353,7 @@ namespace glsld
             result += ReconstructSourceText(type->GetTypeNameTok());
         }
 
-        if (auto typeDesc = type->GetTypeDesc()->GetArrayDesc()) {
+        if (auto typeDesc = type->GetResolvedType()->GetArrayDesc()) {
             // FIXME: print dim sizes in correct order
             for (auto dimSize : typeDesc->dimSizes) {
                 if (dimSize == 0) {
@@ -468,9 +468,6 @@ namespace glsld
             if (quals.qCoherent) {
                 buffer += "coherent ";
             }
-            if (quals.qCoherent) {
-                buffer += "coherent ";
-            }
             if (quals.qVolatile) {
                 buffer += "volatile ";
             }
@@ -497,7 +494,7 @@ namespace glsld
             buffer += ReconstructSourceText(type.GetTypeNameTok());
         }
 
-        if (auto typeDesc = type.GetTypeDesc()->GetArrayDesc()) {
+        if (auto typeDesc = type.GetResolvedType()->GetArrayDesc()) {
             // FIXME: print dim sizes in correct order
             for (auto dimSize : typeDesc->dimSizes) {
                 if (dimSize == 0) {

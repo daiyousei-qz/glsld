@@ -179,4 +179,8 @@ namespace glsld
         AstNodeTag tag         = AstNodeTag::Invalid;
         SyntaxTokenRange range = {};
     };
+
+    // FIXME: is there a way to add constraint for this?
+    template <typename VisitorType>
+    concept AstVisitorT = true;
 } // namespace glsld

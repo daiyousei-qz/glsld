@@ -24,7 +24,7 @@ namespace glsld
         {
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -49,7 +49,7 @@ namespace glsld
             return valueToken;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -84,7 +84,7 @@ namespace glsld
             return accessName;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(accessChain);
@@ -118,7 +118,7 @@ namespace glsld
             return operand;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(operand);
@@ -153,7 +153,7 @@ namespace glsld
             return rhs;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor)
         {
             visitor.Traverse(*lhs);
@@ -191,7 +191,7 @@ namespace glsld
             return elseBranch;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*predicate);
@@ -227,7 +227,7 @@ namespace glsld
             return args;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*invokedExpr);
@@ -263,7 +263,7 @@ namespace glsld
             return arraySpec;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(*invokedExpr);

@@ -94,15 +94,17 @@ namespace glsld
         // NOTE dim size of 0 means unsized/error-sized dimension
         std::vector<size_t> dimSizes;
     };
+
+    class AstDecl;
     struct StructTypeDesc
     {
+        // FIXME: what should be in a struct type desc?
+        AstDecl* decl;
         std::string name;
-        std::vector<std::pair<std::string, TypeDesc*>> members;
+        std::vector<std::pair<std::string, const TypeDesc*>> members;
     };
     struct FunctionTypeDesc
     {
-        TypeDesc* ret;
-        std::vector<TypeDesc*> params;
     };
 
     class TypeDesc
@@ -157,7 +159,7 @@ namespace glsld
         //     return std::holds_alternative<FunctionTypeDesc>(descPayload);
         // }
 
-        auto GetDebugName() const -> std::string_view
+        auto GetDebugName() const -> const std::string&
         {
             return debugName;
         }
@@ -185,6 +187,11 @@ namespace glsld
         auto GetStructDesc() const -> const StructTypeDesc*
         {
             return std::get_if<StructTypeDesc>(&descPayload);
+        }
+
+        auto IsIntegralScalarType() const -> bool
+        {
+            return IsSameWith(BuiltinType::Ty_int) || IsSameWith(BuiltinType::Ty_uint);
         }
 
         auto IsSameWith(BuiltinType type) const -> bool;

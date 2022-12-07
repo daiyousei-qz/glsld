@@ -41,7 +41,7 @@ namespace glsld
             if (!name.empty()) {
                 std::vector<const TypeDesc*> paramTypes;
                 for (auto paramDecl : decl.GetParams()) {
-                    paramTypes.push_back(paramDecl->GetType()->GetTypeDesc());
+                    paramTypes.push_back(paramDecl->GetType()->GetResolvedType());
                 }
 
                 funcDeclLookup.insert(

@@ -1,7 +1,7 @@
 #pragma once
 #include "Semantic.h"
 #include "Typing.h"
-#include "ConstEvaluate.h"
+#include "ConstValue.h"
 
 namespace glsld
 {
@@ -30,28 +30,28 @@ namespace glsld
     class AstPayload<AstQualType>
     {
     public:
-        auto GetTypeDesc() -> const TypeDesc*
+        auto GetResolvedType() -> const TypeDesc*
         {
-            return typeDesc;
+            return resolvedType;
         }
-        auto SetTypeDesc(const TypeDesc* typeDesc) -> void
+        auto SetResolvedType(const TypeDesc* type) -> void
         {
-            this->typeDesc = typeDesc;
+            this->resolvedType = type;
         }
 
         auto DumpPayloadData() const -> std::string
         {
-            if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return fmt::format("TypeDesc: {}", typeDesc->GetDebugName());
+            if (resolvedType && !resolvedType->GetDebugName().empty()) {
+                return fmt::format("TypeDesc: {}", resolvedType->GetDebugName());
             }
             else {
-                return fmt::format("{}", static_cast<const void*>(typeDesc));
+                return fmt::format("{}", static_cast<const void*>(resolvedType));
             }
         }
 
     private:
         // Type of this specifier
-        const TypeDesc* typeDesc = nullptr;
+        const TypeDesc* resolvedType = nullptr;
 
         AstDecl* decl = nullptr;
     };

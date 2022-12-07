@@ -15,7 +15,7 @@ namespace glsld
     class MSVC_EMPTY_BASES AstEmptyDecl : public AstDecl, public AstPayload<AstEmptyDecl>
     {
     public:
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
         }
@@ -58,7 +58,7 @@ namespace glsld
             return decls;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
@@ -96,7 +96,7 @@ namespace glsld
             return members;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             for (auto member : members) {
@@ -140,7 +140,7 @@ namespace glsld
             return decls;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
@@ -178,7 +178,7 @@ namespace glsld
             return declTok;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
@@ -233,7 +233,7 @@ namespace glsld
             return body;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(returnType);
@@ -283,7 +283,7 @@ namespace glsld
             return declarator;
         }
 
-        template <typename Visitor>
+        template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             for (auto member : members) {
