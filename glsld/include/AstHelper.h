@@ -21,25 +21,29 @@ namespace glsld
             -> std::optional<T> = 0;
     };
 
-    template <typename T>
-    static auto ProcessDeclToken(CompiledModule& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
-        -> std::optional<T>
+    struct DeclTokenLookupResult
     {
-        class DeclTokenVisitor : public AstVisitor<DeclTokenVisitor>
+        SyntaxToken token;
+        TextRange range;
+        DeclView accessedDecl;
+        NameAccessType accessType;
+    };
+
+    static auto FindDeclToken(CompiledModule& compiler, TextPosition position) -> std::optional<DeclTokenLookupResult>
+    {
+        class DeclTokenVisitor : public ModuleVisitor<DeclTokenVisitor>
         {
         public:
-            DeclTokenVisitor(CompiledModule& compiler, TextPosition position, const DeclTokenCallback<T>& callback)
-                : lexContext(compiler.GetLexContext()), astContext(compiler.GetAstContext()), position(position),
-                  callback(callback)
+            DeclTokenVisitor(CompiledModule& compiler, TextPosition position)
+                : ModuleVisitor<DeclTokenVisitor>(compiler), position(position)
             {
             }
 
-            auto Execute() -> std::optional<T>
+            auto Execute() -> std::optional<DeclTokenLookupResult>
             {
-                finished = false;
-                result   = std::nullopt;
+                result = std::nullopt;
 
-                this->TraverseAst(astContext);
+                this->Traverse();
 
                 return std::move(result);
             }
@@ -47,11 +51,11 @@ namespace glsld
             auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
             {
                 // we already find the hover
-                if (finished) {
+                if (result) {
                     return AstVisitPolicy::Leave;
                 }
 
-                auto range = lexContext.LookupTextRange(node.GetRange());
+                TextRange range = this->GetLexContext().LookupTextRange(node.GetRange());
                 if (range.Contains(position)) {
                     return AstVisitPolicy::Traverse;
                 }
@@ -60,104 +64,124 @@ namespace glsld
                 }
             }
 
-            // auto VisitAstQualType(AstQualType& type) -> void
-            // {
-            //     auto locBegin = lexContext.LookupSyntaxLocation(type.GetTypeNameTok().range.begin);
-            //     auto locEnd   = lexContext.LookupSyntaxLocation(type.GetTypeNameTok().range.end);
-            //     if (locBegin.line != position.line || locEnd.line != position.line) {
-            //         return;
-            //     }
-            //     if (locBegin.column <= position.character && locEnd.column >= position.character) {
-            //         GLSLD_ASSERT(!finished);
-            //         finished = true;
-            //         result   = callback.ProcessToken(type.GetTypeNameTok(), GetTextRange(locBegin, locEnd), ???);
-            //     }
-            // }
+            auto VisitAstQualType(AstQualType& type) -> void
+            {
+                if (!type.GetStructDecl()) {
+                    // NOTE we process struct decl at `VisitAstStructDecl`
+                    TextRange range = this->GetLexContext().LookupTextRange(type.GetTypeNameTok());
+                    if (range.Contains(position)) {
+                        // FIXME: implement this
+                    }
+                }
+            }
 
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken()) {
-                    auto declRange = lexContext.LookupTextRange(*decl.GetDeclToken());
+                    auto declToken = *decl.GetDeclToken();
+                    auto declRange = this->GetLexContext().LookupTextRange(declToken);
                     if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!finished);
-                        finished = true;
-                        result   = callback.ProcessToken(*decl.GetDeclToken(), declRange, decl);
+                        GLSLD_ASSERT(!result);
+                        result = DeclTokenLookupResult{
+                            .token        = declToken,
+                            .range        = declRange,
+                            .accessedDecl = &decl,
+                            // FIXME: access type unknown?
+                            .accessType = NameAccessType::Unknown,
+                        };
                     }
                 }
             }
 
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
-                auto declRange = lexContext.LookupTextRange(decl.GetName());
+                auto declRange = this->GetLexContext().LookupTextRange(decl.GetName());
                 if (declRange.Contains(position)) {
-                    GLSLD_ASSERT(!finished);
-                    finished = true;
-                    result   = callback.ProcessToken(decl.GetName(), declRange, decl);
+                    GLSLD_ASSERT(!result);
+                    result = DeclTokenLookupResult{
+                        .token        = decl.GetName(),
+                        .range        = declRange,
+                        .accessedDecl = &decl,
+                        .accessType   = NameAccessType::Function,
+                    };
                 }
             }
 
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclToken()) {
-                    auto declRange = lexContext.LookupTextRange(*decl.GetDeclToken());
+                    auto declToken = *decl.GetDeclToken();
+                    auto declRange = this->GetLexContext().LookupTextRange(*decl.GetDeclToken());
                     if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!finished);
-                        finished = true;
-                        result   = callback.ProcessToken(*decl.GetDeclToken(), declRange, decl);
+                        GLSLD_ASSERT(!result);
+                        result = DeclTokenLookupResult{
+                            .token        = declToken,
+                            .range        = declRange,
+                            .accessedDecl = &decl,
+                            .accessType   = NameAccessType::Variable,
+                        };
                     }
                 }
             }
 
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
             {
+                size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    auto declRange = lexContext.LookupTextRange(declarator.declTok);
+                    auto declRange = this->GetLexContext().LookupTextRange(declarator.declTok);
                     if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!finished);
-                        finished = true;
-                        result   = callback.ProcessToken(declarator.declTok, declRange, decl);
+                        GLSLD_ASSERT(!result);
+                        result = DeclTokenLookupResult{
+                            .token        = declarator.declTok,
+                            .range        = declRange,
+                            .accessedDecl = DeclView{&decl, declaratorIndex},
+                            .accessType   = NameAccessType::Variable,
+                        };
                     }
+
+                    declaratorIndex += 1;
                 }
             }
 
             auto VisitAstStructMemberDecl(AstStructMemberDecl& decl) -> void
             {
+                size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    auto declRange = lexContext.LookupTextRange(declarator.declTok);
+                    auto declRange = this->GetLexContext().LookupTextRange(declarator.declTok);
                     if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!finished);
-                        finished = true;
-                        result   = callback.ProcessToken(declarator.declTok, declRange, decl);
+                        GLSLD_ASSERT(!result);
+                        result = DeclTokenLookupResult{
+                            .token        = declarator.declTok,
+                            .range        = declRange,
+                            .accessedDecl = DeclView{&decl, declaratorIndex},
+                            .accessType   = NameAccessType::Variable,
+                        };
                     }
+
+                    declaratorIndex += 1;
                 }
             }
 
             auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
             {
-                auto declRange = lexContext.LookupTextRange(expr.GetAccessName());
+                auto declToken = expr.GetAccessName();
+                auto declRange = this->GetLexContext().LookupTextRange(declToken);
                 if (declRange.Contains(position)) {
-                    GLSLD_ASSERT(!finished);
-                    auto accessedDecl = expr.GetAccessedDecl();
-                    finished          = true;
-                    if (accessedDecl) {
-                        result = callback.ProcessToken(expr.GetAccessName(), declRange, *accessedDecl.GetDecl());
-                    }
-                    else {
-                        result =
-                            callback.ProcessTokenWithoutDecl(expr.GetAccessName(), declRange, expr.GetAccessType());
-                    }
+                    GLSLD_ASSERT(!result);
+                    result = DeclTokenLookupResult{
+                        .token        = declToken,
+                        .range        = declRange,
+                        .accessedDecl = expr.GetAccessedDecl(),
+                        .accessType   = expr.GetAccessType(),
+                    };
                 }
             }
 
-            bool finished           = false;
-            std::optional<T> result = std::nullopt;
+            std::optional<DeclTokenLookupResult> result = std::nullopt;
 
-            const LexContext& lexContext;
-            const AstContext& astContext;
             TextPosition position;
-            const DeclTokenCallback<T>& callback;
         };
 
-        return DeclTokenVisitor{compiler, position, callback}.Execute();
+        return DeclTokenVisitor{compiler, position}.Execute();
     }
 } // namespace glsld

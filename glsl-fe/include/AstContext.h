@@ -22,7 +22,7 @@ namespace glsld
             for (const auto& [key, typeDesc] : arrayTypeCache) {
                 delete typeDesc;
             }
-            for (const auto& [key, typeDesc] : structTypeCache) {
+            for (const auto& typeDesc : structTypeCache) {
                 delete typeDesc;
             }
         }
@@ -57,12 +57,13 @@ namespace glsld
                 }
             }
 
-            structTypeCache.push_back(new TypeDesc(fmt::format("struct#{}", decl->GetDeclToken()->text.StrView()),
-                                                   StructTypeDesc{
-                                                       .decl    = decl,
-                                                       .name    = decl->GetDeclToken()->text.Str(),
-                                                       .members = std::move(memberDesc),
-                                                   }));
+            auto typeName = decl->GetDeclToken() ? decl->GetDeclToken()->text.StrView() : "";
+            structTypeCache.push_back(
+                new TypeDesc(fmt::format("struct#{}", typeName), StructTypeDesc{
+                                                                     .decl    = decl,
+                                                                     .name    = std::string{typeName},
+                                                                     .members = std::move(memberDesc),
+                                                                 }));
             return structTypeCache.back();
         }
 
@@ -119,6 +120,10 @@ namespace glsld
             }
 
             GLSLD_ASSERT(!realElementType->IsArray());
+
+            if (realDimSizes.empty()) {
+                return elementType;
+            }
 
             // Find and cache the type desc if needed
             auto cachedItem = arrayTypeCache[std::pair{realElementType, realDimSizes}];

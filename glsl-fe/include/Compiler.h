@@ -124,7 +124,7 @@ namespace glsld
     };
 
     template <typename Derived>
-    class ModuleVisitor : protected AstVisitor<Derived>
+    class ModuleVisitor : public AstVisitor<Derived>
     {
     public:
         ModuleVisitor(CompiledModule& module) : module(&module)
@@ -135,6 +135,8 @@ namespace glsld
         {
             AstVisitor<Derived>::TraverseAst(module->GetAstContext());
         }
+
+        using AstVisitor<Derived>::Traverse;
 
     protected:
         auto GetLexContext() const -> const LexContext&

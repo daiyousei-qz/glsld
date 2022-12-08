@@ -6,42 +6,34 @@ namespace glsld
     auto ComputeDeclaration(CompiledModule& compiler, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
-        struct DeclarationProcessor : public DeclTokenCallback<AstDecl*>
-        {
-            auto ProcessToken(SyntaxToken token, TextRange range, AstDecl& decl) const
-                -> std::optional<AstDecl*> override
-            {
-                return &decl;
-            }
-            auto ProcessTokenWithoutDecl(SyntaxToken token, TextRange range, NameAccessType type) const
-                -> std::optional<AstDecl*> override
-            {
-                return std::nullopt;
-            }
-        };
+        auto declTokenResult = FindDeclToken(compiler, FromLspPosition(position));
+        if (declTokenResult && declTokenResult->accessedDecl.IsValid()) {
+            AstDecl& decl          = *declTokenResult->accessedDecl.GetDecl();
+            size_t declaratorIndex = declTokenResult->accessedDecl.GetIndex();
 
-        auto decl = ProcessDeclToken(compiler, FromLspPosition(position), DeclarationProcessor{});
-        if (decl.has_value()) {
             TextRange declRange;
-            if (auto funcDecl = (*decl)->As<AstFunctionDecl>(); funcDecl) {
+            if (auto funcDecl = decl.As<AstFunctionDecl>(); funcDecl) {
                 declRange = compiler.GetLexContext().LookupTextRange(funcDecl->GetName());
             }
-            else if (auto paramDecl = (*decl)->As<AstParamDecl>(); paramDecl && paramDecl->GetDeclToken()) {
+            else if (auto paramDecl = decl.As<AstParamDecl>(); paramDecl && paramDecl->GetDeclToken()) {
                 declRange = compiler.GetLexContext().LookupTextRange(*paramDecl->GetDeclToken());
             }
-            // FIXME:
-            // else if (auto varDecl = (*decl)->As<AstVariableDecl>(); varDecl) {
-            // }
-            else {
-                declRange = compiler.GetLexContext().LookupTextRange((*decl)->GetRange());
+            else if (auto varDecl = decl.As<AstVariableDecl>(); varDecl) {
+                declRange =
+                    compiler.GetLexContext().LookupTextRange(varDecl->GetDeclarators()[declaratorIndex].declTok);
             }
+            else if (auto memberDecl = decl.As<AstStructMemberDecl>(); memberDecl) {
+                declRange =
+                    compiler.GetLexContext().LookupTextRange(memberDecl->GetDeclarators()[declaratorIndex].declTok);
+            }
+            else {
+                declRange = compiler.GetLexContext().LookupTextRange(decl.GetRange());
+            }
+
             return {lsp::Location{
                 .uri   = uri,
                 .range = ToLspRange(declRange),
             }};
-        }
-        else {
-            return {};
         }
 
         return {};

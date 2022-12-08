@@ -70,19 +70,29 @@ namespace glsld
         auto DeclareStructType(AstStructDecl& decl) -> void
         {
             decl.SetTypeDesc(astContext->CreateStructType(&decl));
+            for (auto memberDecl : decl.GetMembers()) {
+                for (size_t i = 0; i < memberDecl->GetDeclarators().size(); ++i) {
+                    const auto& declarator = memberDecl->GetDeclarators()[i];
+                    decl.AddMemberDecl(declarator.declTok.text.Str(), DeclView{memberDecl, i});
+                }
+            }
+
             symbolTable.AddStructType(decl);
         }
+
         auto DeclareVariable(AstVariableDecl& decl) -> void
         {
             // NOTE this could have 0 declarator. Then nothing is added.
             symbolTable.AddVariableDecl(decl);
         }
+
         auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
         {
             // FIXME: is this needed?
             // decl.SetTypeDesc(astContext->CreateStructType(&decl));
             symbolTable.AddInterfaceBlockType(decl);
         }
+
         auto DeclareParameter(AstParamDecl& decl) -> void
         {
             symbolTable.AddParamDecl(decl);
@@ -96,6 +106,7 @@ namespace glsld
             currentFunction = &decl;
             symbolTable.PushScope();
         }
+
         auto ExitFunctionScope(AstFunctionDecl& decl) -> void
         {
             GLSLD_ASSERT(InFunctionScope());
@@ -111,6 +122,7 @@ namespace glsld
             GLSLD_ASSERT(InFunctionScope());
             symbolTable.PushScope();
         }
+
         auto ExitBlockScope() -> void
         {
             GLSLD_ASSERT(InFunctionScope());
@@ -151,6 +163,7 @@ namespace glsld
             expr.SetConstValue(ConstValue{});
             expr.SetDeducedType(GetErrorTypeDesc());
         }
+
         auto CheckConstantExpr(AstConstantExpr& expr) -> void
         {
             // FIXME: handle literals with typing suffix
@@ -195,27 +208,11 @@ namespace glsld
                 else if (auto structDesc = accessChainType->GetStructDesc()) {
                     // This is a field access
                     if (auto structDecl = structDesc->decl->As<AstStructDecl>()) {
-                        for (auto memberDecl : structDecl->GetMembers()) {
-                            size_t declaratorIndex = 0;
-                            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                                if (declarator.declTok.text.StrView() == accessName) {
-                                    expr.SetAccessedDecl(DeclView{memberDecl, declaratorIndex});
-                                    break;
-                                }
-
-                                declaratorIndex += 1;
-                            }
-
-                            if (declaratorIndex < memberDecl->GetDeclarators().size()) {
-                                break;
-                            }
-                        }
-                    }
-                    for (const auto& [memberName, memberType] : structDesc->members) {
-                        if (memberName == accessName) {
-                            expr.SetDeducedType(memberType);
-                            // expr.SetAccessType(NameAccessType::MemberVariable);
-                            break;
+                        auto accessedDecl = structDecl->FindMemberDecl(std::string{accessName});
+                        if (accessedDecl.IsValid()) {
+                            GLSLD_ASSERT(accessedDecl.GetDecl()->Is<AstStructMemberDecl>());
+                            expr.SetDeducedType(GetDeclType(accessedDecl));
+                            expr.SetAccessedDecl(accessedDecl);
                         }
                     }
                 }
@@ -264,6 +261,7 @@ namespace glsld
                 }
             }
         }
+
         auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
         {
             expr.SetDeducedType(GetErrorTypeDesc());
@@ -280,16 +278,24 @@ namespace glsld
             auto invokedExprType = expr.GetInvokedExpr()->GetDeducedType();
             if (auto arrayTypeDesc = invokedExprType->GetArrayDesc()) {
                 size_t numIndexedDims = expr.GetArraySpec()->GetSizeList().size();
-                if (numIndexedDims < arrayTypeDesc->dimSizes.size()) {
-                    // FIXME: deduce array type
+                if (numIndexedDims <= arrayTypeDesc->dimSizes.size()) {
+                    // FIXME: deduce array type properly
+                    auto dim2 = arrayTypeDesc->dimSizes;
+                    for (size_t i = 0; i < numIndexedDims; ++i) {
+                        dim2.pop_back();
+                    }
+
+                    expr.SetDeducedType(astContext->GetArrayType(arrayTypeDesc->elementType, dim2));
                 }
             }
         }
+
         auto CheckUnaryExpr(AstUnaryExpr& expr) -> void
         {
             expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
             expr.SetDeducedType(EvalUnary(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
         }
+
         auto CheckBinaryExpr(AstBinaryExpr& expr) -> void
         {
             expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
@@ -297,6 +303,7 @@ namespace glsld
             expr.SetDeducedType(EvalBinary(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
                                            expr.GetRightOperandExpr()->GetDeducedType()));
         }
+
         auto CheckSelectExpr(AstSelectExpr& expr) -> void
         {
             expr.SetConstValue(EvaluateSelectOp(expr.GetPredicateExpr()->GetConstValue(),
@@ -304,6 +311,7 @@ namespace glsld
                                                 expr.GetElseBranchExpr()->GetConstValue()));
             expr.SetDeducedType(GetErrorTypeDesc());
         }
+
         auto CheckInvokeExpr(AstInvokeExpr& expr) -> void
         {
             // resolve first
@@ -327,6 +335,46 @@ namespace glsld
         //
         // Type Eval
         //
+        auto GetDeclType(DeclView declView) -> const TypeDesc*
+        {
+            if (!declView.IsValid()) {
+                return GetErrorTypeDesc();
+            }
+
+            auto decl = declView.GetDecl();
+            if (decl->Is<AstEmptyDecl>()) {
+                return GetErrorTypeDesc();
+            }
+            else if (auto structDecl = decl->As<AstStructDecl>()) {
+                return structDecl->GetTypeDesc();
+            }
+            else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>()) {
+                return blockDecl->GetTypeDesc();
+            }
+            else if (auto memberDecl = decl->As<AstStructMemberDecl>()) {
+                if (declView.GetIndex() < memberDecl->GetDeclarators().size()) {
+                    return astContext->GetArrayType(memberDecl->GetType()->GetResolvedType(),
+                                                    memberDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+                }
+            }
+            else if (auto varDecl = decl->As<AstVariableDecl>()) {
+                if (declView.GetIndex() < varDecl->GetDeclarators().size()) {
+                    return astContext->GetArrayType(varDecl->GetType()->GetResolvedType(),
+                                                    varDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+                }
+            }
+            else if (auto paramDecl = decl->As<AstParamDecl>()) {
+                // FIXME: arrayness
+                return paramDecl->GetType()->GetResolvedType();
+            }
+            else if (auto funcDecl = decl->As<AstFunctionDecl>()) {
+                // FIXME: function type?
+                return GetErrorTypeDesc();
+            }
+
+            GLSLD_UNREACHABLE();
+        }
+
         auto EvalUnary(UnaryOp op, const TypeDesc* operand) -> const TypeDesc*
         {
             switch (op) {

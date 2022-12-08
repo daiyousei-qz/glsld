@@ -3,6 +3,8 @@
 #include "Typing.h"
 #include "ConstValue.h"
 
+#include <map>
+
 namespace glsld
 {
     class TypeDesc;
@@ -15,6 +17,46 @@ namespace glsld
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
+
+    // A view into
+    class DeclView
+    {
+    public:
+        DeclView() = default;
+        DeclView(AstDecl* decl) : decl(decl)
+        {
+        }
+        DeclView(AstDecl* decl, size_t index) : decl(decl), index(index)
+        {
+        }
+
+        auto IsValid() const -> bool
+        {
+            return decl != nullptr;
+        }
+
+        auto GetDecl() const -> AstDecl*
+        {
+            return decl;
+        }
+        auto GetIndex() const -> size_t
+        {
+            return index;
+        }
+
+        operator bool() const
+        {
+            return IsValid();
+        }
+        auto operator==(const DeclView&) const -> bool = default;
+
+    private:
+        // Referenced declaration AST.
+        AstDecl* decl = nullptr;
+
+        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
+        size_t index = 0;
+    };
 
     template <typename AstType>
     class AstPayload
@@ -30,13 +72,22 @@ namespace glsld
     class AstPayload<AstQualType>
     {
     public:
-        auto GetResolvedType() -> const TypeDesc*
+        auto GetResolvedType() const -> const TypeDesc*
         {
             return resolvedType;
         }
         auto SetResolvedType(const TypeDesc* type) -> void
         {
             this->resolvedType = type;
+        }
+
+        auto GetTypeDecl() const -> AstDecl*
+        {
+            return decl;
+        }
+        auto SetTypeDecl(AstDecl* decl) -> void
+        {
+            this->decl = decl;
         }
 
         auto DumpPayloadData() const -> std::string
@@ -53,6 +104,7 @@ namespace glsld
         // Type of this specifier
         const TypeDesc* resolvedType = nullptr;
 
+        // Declaration of this type
         AstDecl* decl = nullptr;
     };
 
@@ -69,6 +121,22 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
+        auto FindMemberDecl(const std::string& name) -> DeclView
+        {
+            auto it = memberLookup.find(name);
+            if (it != memberLookup.end()) {
+                return it->second;
+            }
+            else {
+                return DeclView{};
+            }
+        }
+        auto AddMemberDecl(const std::string& name, DeclView decl) -> void
+        {
+            // FIXME: find duplicate
+            memberLookup[name] = decl;
+        }
+
         auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
@@ -82,6 +150,8 @@ namespace glsld
     private:
         // Struct type that this decl introduces
         const TypeDesc* typeDesc = nullptr;
+
+        std::map<std::string, DeclView> memberLookup;
     };
 
     template <>
@@ -153,45 +223,6 @@ namespace glsld
 
         // Type of the context where the expression is used
         const TypeDesc* contextualType = GetErrorTypeDesc();
-    };
-
-    class DeclView
-    {
-    public:
-        DeclView() = default;
-        DeclView(AstDecl* decl) : decl(decl)
-        {
-        }
-        DeclView(AstDecl* decl, size_t index) : decl(decl), index(index)
-        {
-        }
-
-        auto IsValid() const -> bool
-        {
-            return decl != nullptr;
-        }
-
-        auto GetDecl() const -> AstDecl*
-        {
-            return decl;
-        }
-        auto GetIndex() const -> size_t
-        {
-            return index;
-        }
-
-        operator bool() const
-        {
-            return IsValid();
-        }
-        auto operator==(const DeclView&) const -> bool = default;
-
-    private:
-        // Referenced declaration AST.
-        AstDecl* decl = nullptr;
-
-        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
-        size_t index = 0;
     };
 
     template <>
