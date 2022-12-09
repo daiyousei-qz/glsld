@@ -51,9 +51,7 @@ namespace glsld
             }
 
             // Resolve array type if any
-            if (type.GetArraySpec() != nullptr && !type.GetArraySpec()->GetSizeList().empty()) {
-                resolvedType = astContext->GetArrayType(resolvedType, type.GetArraySpec());
-            }
+            resolvedType = astContext->GetArrayType(resolvedType, type.GetArraySpec());
 
             type.SetResolvedType(resolvedType);
         }
@@ -62,72 +60,24 @@ namespace glsld
         // Global Decl
         //
 
-        auto InFunctionScope() -> bool
-        {
-            return currentFunction != nullptr;
-        }
+        auto InFunctionScope() -> bool;
 
-        auto DeclareStructType(AstStructDecl& decl) -> void
-        {
-            decl.SetTypeDesc(astContext->CreateStructType(&decl));
-            for (auto memberDecl : decl.GetMembers()) {
-                for (size_t i = 0; i < memberDecl->GetDeclarators().size(); ++i) {
-                    const auto& declarator = memberDecl->GetDeclarators()[i];
-                    decl.AddMemberDecl(declarator.declTok.text.Str(), DeclView{memberDecl, i});
-                }
-            }
+        auto DeclareStruct(AstStructDecl& decl) -> void;
 
-            symbolTable.AddStructType(decl);
-        }
+        auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void;
 
-        auto DeclareVariable(AstVariableDecl& decl) -> void
-        {
-            // NOTE this could have 0 declarator. Then nothing is added.
-            symbolTable.AddVariableDecl(decl);
-        }
+        auto DeclareVariable(AstVariableDecl& decl) -> void;
 
-        auto DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
-        {
-            // FIXME: is this needed?
-            // decl.SetTypeDesc(astContext->CreateStructType(&decl));
-            symbolTable.AddInterfaceBlockType(decl);
-        }
-
-        auto DeclareParameter(AstParamDecl& decl) -> void
-        {
-            symbolTable.AddParamDecl(decl);
-        }
+        auto DeclareParameter(AstParamDecl& decl) -> void;
 
         // NOTE this is before children nodes are visited
-        auto EnterFunctionScope(AstFunctionDecl& decl) -> void
-        {
-            GLSLD_ASSERT(!InFunctionScope());
+        auto EnterFunctionScope(AstFunctionDecl& decl) -> void;
 
-            currentFunction = &decl;
-            symbolTable.PushScope();
-        }
+        auto ExitFunctionScope(AstFunctionDecl& decl) -> void;
 
-        auto ExitFunctionScope(AstFunctionDecl& decl) -> void
-        {
-            GLSLD_ASSERT(InFunctionScope());
+        auto EnterBlockScope() -> void;
 
-            currentFunction = nullptr;
-            symbolTable.PopScope();
-
-            symbolTable.AddFunction(decl);
-        }
-
-        auto EnterBlockScope() -> void
-        {
-            GLSLD_ASSERT(InFunctionScope());
-            symbolTable.PushScope();
-        }
-
-        auto ExitBlockScope() -> void
-        {
-            GLSLD_ASSERT(InFunctionScope());
-            symbolTable.PopScope();
-        }
+        auto ExitBlockScope() -> void;
 
         //
         // Expr
@@ -135,202 +85,23 @@ namespace glsld
         // PreprocessXXXExpr: action before children are type checked
         // CheckXXXExpr: action after children are type checked
 
-        auto PreprocessInvokeExpr(AstInvokeExpr& expr) -> void
-        {
-            // FIXME: handle construct like `float[4](...)`
-            if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                if (func->GetAccessName().klass != TokenKlass::Identifier) {
-                    // This is a constructor
-                    func->SetAccessType(NameAccessType::Constructor);
-                }
-                else {
-                    auto symbol = symbolTable.FindSymbol(func->GetAccessName().text.Str());
-                    if (symbol &&
-                        (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
-                        // FIXME: could interface block being constructor?
-                        func->SetAccessType(NameAccessType::Constructor);
-                    }
-                    else {
-                        // We assume unknown identifier being called is function
-                        func->SetAccessType(NameAccessType::Function);
-                    }
-                }
-            }
-        }
+        auto PreprocessInvokeExpr(AstInvokeExpr& expr) -> void;
 
-        auto CheckErrorExpr(AstErrorExpr& expr) -> void
-        {
-            expr.SetConstValue(ConstValue{});
-            expr.SetDeducedType(GetErrorTypeDesc());
-        }
+        auto CheckErrorExpr(AstErrorExpr& expr) -> void;
 
-        auto CheckConstantExpr(AstConstantExpr& expr) -> void
-        {
-            // FIXME: handle literals with typing suffix
-            switch (expr.GetToken().klass) {
-            case TokenKlass::K_true:
-                expr.SetConstValue(true);
-                break;
-            case TokenKlass::K_false:
-                expr.SetConstValue(false);
-                break;
-            case TokenKlass::IntegerConstant:
-                expr.SetConstValue(ParseIntegerLiteral(expr.GetToken().text.StrView()));
-                break;
-            case TokenKlass::FloatConstant:
-                expr.SetConstValue(ParseFloatLiteral(expr.GetToken().text.StrView()));
-                break;
-            default:
-                GLSLD_UNREACHABLE();
-            }
+        auto CheckConstantExpr(AstConstantExpr& expr) -> void;
 
-            expr.SetDeducedType(expr.GetConstValue().GetTypeDesc());
-        }
-        auto CheckNameAccessExpr(AstNameAccessExpr& expr) -> void
-        {
-            if (expr.GetAccessType() == NameAccessType::Unknown) {
-                expr.SetAccessType(NameAccessType::Variable);
-            }
-            else {
-                // NOTE we resolve function call in CheckInvokeExpr, so type checking for invoked
-                // expression is there as well.
-                return;
-            }
+        auto CheckNameAccessExpr(AstNameAccessExpr& expr) -> void;
 
-            auto accessName = expr.GetAccessName().text.StrView();
-            if (expr.GetAccessChain()) {
-                // Accessing with `expr.xxx`
-                auto accessChainType = expr.GetAccessChain()->GetDeducedType();
-                if (accessChainType->IsScalar() || accessChainType->IsVector()) {
-                    // This is a swizzle access
-                    ResolveSwizzleAccess(expr);
-                }
-                else if (auto structDesc = accessChainType->GetStructDesc()) {
-                    // This is a field access
-                    if (auto structDecl = structDesc->decl->As<AstStructDecl>()) {
-                        auto accessedDecl = structDecl->FindMemberDecl(std::string{accessName});
-                        if (accessedDecl.IsValid()) {
-                            GLSLD_ASSERT(accessedDecl.GetDecl()->Is<AstStructMemberDecl>());
-                            expr.SetDeducedType(GetDeclType(accessedDecl));
-                            expr.SetAccessedDecl(accessedDecl);
-                        }
-                    }
-                }
-                else {
-                    // bad access chain
-                }
-            }
-            else {
-                // Accessing a non-member name
-                GLSLD_ASSERT(expr.GetAccessType() == NameAccessType::Variable);
-                if (auto symbol = symbolTable.FindSymbol(std::string{accessName})) {
-                    if (auto varDecl = symbol.GetDecl()->As<AstVariableDecl>()) {
-                        const auto& declarator = varDecl->GetDeclarators()[symbol.GetIndex()];
+        auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void;
 
-                        expr.SetAccessedDecl(symbol);
-                        // FIXME: handle array type
-                        if (declarator.arraySize != nullptr) {
-                            expr.SetDeducedType(
-                                astContext->GetArrayType(varDecl->GetType()->GetResolvedType(), declarator.arraySize));
-                        }
-                        else {
-                            expr.SetDeducedType(varDecl->GetType()->GetResolvedType());
-                        }
-                    }
-                    else if (auto paramDecl = symbol.GetDecl()->As<AstParamDecl>()) {
-                        expr.SetAccessedDecl(symbol);
-                        // FIXME: handle array type
-                        expr.SetDeducedType(paramDecl->GetType()->GetResolvedType());
-                    }
-                    else if (auto memberDecl = symbol.GetDecl()->As<AstStructMemberDecl>()) {
-                        // Unnamed interface block member
-                        // FIXME: should we really use AstStructMemberDecl?
-                        const auto& declarator = memberDecl->GetDeclarators()[symbol.GetIndex()];
-                        // FIXME: handle array type
-                        if (declarator.arraySize != nullptr) {
-                            expr.SetDeducedType(astContext->GetArrayType(memberDecl->GetType()->GetResolvedType(),
-                                                                         declarator.arraySize));
-                        }
-                        else {
-                            expr.SetDeducedType(memberDecl->GetType()->GetResolvedType());
-                        }
-                    }
-                }
-                else {
-                    expr.SetDeducedType(GetErrorTypeDesc());
-                }
-            }
-        }
+        auto CheckUnaryExpr(AstUnaryExpr& expr) -> void;
 
-        auto CheckIndexAccessExpr(AstIndexAccessExpr& expr) -> void
-        {
-            expr.SetDeducedType(GetErrorTypeDesc());
+        auto CheckBinaryExpr(AstBinaryExpr& expr) -> void;
 
-            if (!expr.GetArraySpec()) {
-                return;
-            }
-            for (auto dimExpr : expr.GetArraySpec()->GetSizeList()) {
-                if (!dimExpr || !dimExpr->GetDeducedType()->IsIntegralScalarType()) {
-                    return;
-                }
-            }
+        auto CheckSelectExpr(AstSelectExpr& expr) -> void;
 
-            auto invokedExprType = expr.GetInvokedExpr()->GetDeducedType();
-            if (auto arrayTypeDesc = invokedExprType->GetArrayDesc()) {
-                size_t numIndexedDims = expr.GetArraySpec()->GetSizeList().size();
-                if (numIndexedDims <= arrayTypeDesc->dimSizes.size()) {
-                    // FIXME: deduce array type properly
-                    auto dim2 = arrayTypeDesc->dimSizes;
-                    for (size_t i = 0; i < numIndexedDims; ++i) {
-                        dim2.pop_back();
-                    }
-
-                    expr.SetDeducedType(astContext->GetArrayType(arrayTypeDesc->elementType, dim2));
-                }
-            }
-        }
-
-        auto CheckUnaryExpr(AstUnaryExpr& expr) -> void
-        {
-            expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
-            expr.SetDeducedType(EvalUnary(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
-        }
-
-        auto CheckBinaryExpr(AstBinaryExpr& expr) -> void
-        {
-            expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
-                                                expr.GetRightOperandExpr()->GetConstValue()));
-            expr.SetDeducedType(EvalBinary(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
-                                           expr.GetRightOperandExpr()->GetDeducedType()));
-        }
-
-        auto CheckSelectExpr(AstSelectExpr& expr) -> void
-        {
-            expr.SetConstValue(EvaluateSelectOp(expr.GetPredicateExpr()->GetConstValue(),
-                                                expr.GetIfBranchExpr()->GetConstValue(),
-                                                expr.GetElseBranchExpr()->GetConstValue()));
-            expr.SetDeducedType(GetErrorTypeDesc());
-        }
-
-        auto CheckInvokeExpr(AstInvokeExpr& expr) -> void
-        {
-            // resolve first
-            ResolveInvokeExpr(expr);
-
-            expr.SetDeducedType(GetErrorTypeDesc());
-
-            // FIXME: handle function call
-            // FIXME: handle things like `S[2](...)`
-            if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                if (invokedExpr->GetAccessName().klass != TokenKlass::Identifier) {
-                    // This is a constructor
-                    auto builtinType = GetBuiltinType(invokedExpr->GetAccessName());
-                    GLSLD_ASSERT(builtinType.has_value());
-                    expr.SetDeducedType(GetBuiltinTypeDesc(*builtinType));
-                    return;
-                }
-            }
-        }
+        auto CheckInvokeExpr(AstInvokeExpr& expr) -> void;
 
         //
         // Type Eval
@@ -494,71 +265,6 @@ namespace glsld
             }
         }
 
-        // FIXME: avoid doing another traversal. We could do this during parsing
-        auto ParseIntegerLiteral(StringView literalText) -> ConstValue
-        {
-            GLSLD_ASSERT(!literalText.Empty());
-            if (literalText.EndWith("u") || literalText.EndWith("U")) {
-                auto literalTextNoSuffix = literalText.DropBack(1);
-
-                uint32_t value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
-                }
-                else {
-                    return ConstValue{};
-                }
-            }
-            else {
-                auto literalTextNoSuffix = literalText;
-
-                int32_t value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
-                }
-                else {
-                    return ConstValue{};
-                }
-            }
-        }
-
-        auto ParseFloatLiteral(StringView literalText) -> ConstValue
-        {
-            GLSLD_ASSERT(!literalText.Empty());
-            if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
-                auto literalTextNoSuffix = literalText.DropBack(2);
-
-                double value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
-                }
-                else {
-                    return ConstValue{};
-                }
-            }
-            else {
-                auto literalTextNoSuffix = literalText;
-                if (literalText.EndWith("f") || literalText.EndWith("F")) {
-                    literalTextNoSuffix = literalText.DropBack(1);
-                }
-
-                float value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
-                }
-                else {
-                    return ConstValue{};
-                }
-            }
-        }
         class TypeCheckVisitor : public AstVisitor<TypeCheckVisitor>
         {
         public:
@@ -592,7 +298,7 @@ namespace glsld
 
             auto ExitAstStructDecl(AstStructDecl& decl) -> void
             {
-                typeChecker.DeclareStructType(decl);
+                typeChecker.DeclareStruct(decl);
             }
             auto ExitAstVariableDecl(AstVariableDecl& decl) -> void
             {

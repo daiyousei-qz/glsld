@@ -6,19 +6,16 @@
 
 namespace glsld
 {
-    // template <typename T>
-    // struct DeclTokenCallback2
-    // {
-    //     virtual auto ProcessToken(std::string_view id, TextRange range, AstDecl& decl) const -> std::optional<T> = 0;
-    // };
-
-    template <typename T>
-    struct DeclTokenCallback
+    enum class DeclTokenType
     {
-    public:
-        virtual auto ProcessToken(SyntaxToken token, TextRange range, AstDecl& decl) const -> std::optional<T> = 0;
-        virtual auto ProcessTokenWithoutDecl(SyntaxToken token, TextRange range, NameAccessType type) const
-            -> std::optional<T> = 0;
+        Unknown,
+        Variable,
+        Swizzle,
+        MemberVariable,
+        Parameter,
+        Function,
+        Type,
+        InterfaceBlock,
     };
 
     struct DeclTokenLookupResult
@@ -26,7 +23,7 @@ namespace glsld
         SyntaxToken token;
         TextRange range;
         DeclView accessedDecl;
-        NameAccessType accessType;
+        DeclTokenType accessType;
     };
 
     static auto FindDeclToken(CompiledModule& compiler, TextPosition position) -> std::optional<DeclTokenLookupResult>
@@ -86,8 +83,7 @@ namespace glsld
                             .token        = declToken,
                             .range        = declRange,
                             .accessedDecl = &decl,
-                            // FIXME: access type unknown?
-                            .accessType = NameAccessType::Unknown,
+                            .accessType   = DeclTokenType::Type,
                         };
                     }
                 }
@@ -102,7 +98,7 @@ namespace glsld
                         .token        = decl.GetName(),
                         .range        = declRange,
                         .accessedDecl = &decl,
-                        .accessType   = NameAccessType::Function,
+                        .accessType   = DeclTokenType::Function,
                     };
                 }
             }
@@ -118,7 +114,7 @@ namespace glsld
                             .token        = declToken,
                             .range        = declRange,
                             .accessedDecl = &decl,
-                            .accessType   = NameAccessType::Variable,
+                            .accessType   = DeclTokenType::Parameter,
                         };
                     }
                 }
@@ -135,7 +131,7 @@ namespace glsld
                             .token        = declarator.declTok,
                             .range        = declRange,
                             .accessedDecl = DeclView{&decl, declaratorIndex},
-                            .accessType   = NameAccessType::Variable,
+                            .accessType   = DeclTokenType::Variable,
                         };
                     }
 
@@ -154,7 +150,7 @@ namespace glsld
                             .token        = declarator.declTok,
                             .range        = declRange,
                             .accessedDecl = DeclView{&decl, declaratorIndex},
-                            .accessType   = NameAccessType::Variable,
+                            .accessType   = DeclTokenType::MemberVariable,
                         };
                     }
 
@@ -164,6 +160,25 @@ namespace glsld
 
             auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
             {
+                DeclTokenType accessType;
+                switch (expr.GetAccessType()) {
+                case NameAccessType::Unknown:
+                    accessType = DeclTokenType::Unknown;
+                    break;
+                case NameAccessType::Variable:
+                    accessType = DeclTokenType::Variable;
+                    break;
+                case NameAccessType::Function:
+                    accessType = DeclTokenType::Function;
+                    break;
+                case NameAccessType::Constructor:
+                    accessType = DeclTokenType::Type;
+                    break;
+                case NameAccessType::Swizzle:
+                    accessType = DeclTokenType::Swizzle;
+                    break;
+                }
+
                 auto declToken = expr.GetAccessName();
                 auto declRange = this->GetLexContext().LookupTextRange(declToken);
                 if (declRange.Contains(position)) {
@@ -172,7 +187,7 @@ namespace glsld
                         .token        = declToken,
                         .range        = declRange,
                         .accessedDecl = expr.GetAccessedDecl(),
-                        .accessType   = expr.GetAccessType(),
+                        .accessType   = accessType,
                     };
                 }
             }

@@ -5,19 +5,9 @@
 
 namespace glsld
 {
-    enum class HoverType
-    {
-        Variable,
-        Swizzle,
-        MemberVariable,
-        Parameter,
-        Function,
-        Type,
-    };
-
     struct HoverContent
     {
-        HoverType type;
+        DeclTokenType type;
         std::string name;
         std::string code;
         bool unknown = false;
@@ -31,25 +21,28 @@ namespace glsld
             builder.Append("Unknown ");
         }
         switch (hover.type) {
-        case HoverType::Variable:
+        case DeclTokenType::Variable:
             builder.Append("Variable");
             break;
-        case HoverType::Swizzle:
+        case DeclTokenType::Swizzle:
             builder.Append("Swizzle");
             break;
-        case HoverType::MemberVariable:
+        case DeclTokenType::MemberVariable:
             builder.Append("Member Variable");
             break;
-        case HoverType::Parameter:
+        case DeclTokenType::Parameter:
             builder.Append("Parameter");
             break;
-        case HoverType::Function:
+        case DeclTokenType::Function:
             builder.Append("Function");
             break;
-        case HoverType::Type:
+        case DeclTokenType::Type:
             builder.Append("Type");
             break;
-        default:
+        case DeclTokenType::InterfaceBlock:
+            builder.Append("Interface Block");
+            break;
+        case DeclTokenType::Unknown:
             GLSLD_UNREACHABLE();
         }
         builder.Append(fmt::format(" `{}`", hover.name));
@@ -64,7 +57,7 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto CreateHoverContent(HoverType type, std::string_view name, bool unknown = true)
+    static auto CreateHoverContent(DeclTokenType type, std::string_view name, bool unknown = true)
     {
         return HoverContent{
             .type    = type,
@@ -87,7 +80,7 @@ namespace glsld
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
             ReconstructSourceText(buffer, *funcDecl);
             return HoverContent{
-                .type = HoverType::Function,
+                .type = DeclTokenType::Function,
                 .name = std::string{hoverId},
                 .code = std::move(buffer),
             };
@@ -95,7 +88,7 @@ namespace glsld
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
             ReconstructSourceText(buffer, *paramDecl);
             return HoverContent{
-                .type = HoverType::Parameter,
+                .type = DeclTokenType::Parameter,
                 .name = std::string{hoverId},
                 .code = std::move(buffer),
             };
@@ -104,7 +97,7 @@ namespace glsld
             // FIXME: use correct declarator index
             ReconstructSourceText(buffer, *varDecl, 0);
             return HoverContent{
-                .type = HoverType::Variable,
+                .type = DeclTokenType::Variable,
                 .name = std::string{hoverId},
                 .code = std::move(buffer),
             };
@@ -112,37 +105,27 @@ namespace glsld
         else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
             ReconstructSourceText(buffer, *memberDecl, declView.GetIndex());
             return HoverContent{
-                .type = HoverType::MemberVariable,
+                .type = DeclTokenType::MemberVariable,
                 .name = std::string{hoverId},
                 .code = std::move(buffer),
             };
         }
         else if (auto structDecl = decl.As<AstStructDecl>()) {
             return HoverContent{
-                .type = HoverType::Type,
+                .type = DeclTokenType::Type,
                 .name = std::string{hoverId},
                 .code = fmt::format("struct  {}", hoverId),
             };
         }
+        else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>()) {
+            return HoverContent{
+                .type = DeclTokenType::InterfaceBlock,
+                .name = std::string{hoverId},
+                .code = fmt::format("block  {}", hoverId),
+            };
+        }
 
         return std::nullopt;
-    }
-
-    auto TranslateHoverType(NameAccessType type) -> HoverType
-    {
-        switch (type) {
-        case NameAccessType::Unknown:
-        case NameAccessType::Variable:
-            return HoverType::Variable;
-        case NameAccessType::Swizzle:
-            return HoverType::Swizzle;
-        case NameAccessType::Constructor:
-            return HoverType::Type;
-        case NameAccessType::Function:
-            return HoverType::Function;
-        default:
-            GLSLD_UNREACHABLE();
-        }
     }
 
     auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>
@@ -164,7 +147,7 @@ namespace glsld
             }
             else {
                 // Decl token that's either builtin or unknown
-                if (declTokenResult->accessType == NameAccessType::Unknown) {
+                if (declTokenResult->accessType == DeclTokenType::Unknown) {
                     return std::nullopt;
                 }
 
@@ -174,8 +157,8 @@ namespace glsld
                     return std::nullopt;
                 }
 
-                bool isUnknown    = declTokenResult->accessType != NameAccessType::Swizzle;
-                auto hoverType    = TranslateHoverType(declTokenResult->accessType);
+                bool isUnknown    = declTokenResult->accessType != DeclTokenType::Swizzle;
+                auto hoverType    = declTokenResult->accessType;
                 auto hoverContent = CreateHoverContent(hoverType, hoverIdentifier, isUnknown);
                 return lsp::Hover{
                     .contents = ComputeHoverText(hoverContent),

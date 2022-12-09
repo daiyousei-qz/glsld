@@ -70,30 +70,10 @@ namespace glsld
                 }
             }
             else {
-                // consume a bad char to ensure we are proceeding
+                // Consume a bad char to ensure we are proceeding
                 sourceView.Consume();
             }
         }
-        // else if (IsAlpha(firstChar) || firstChar == '_') {
-        //     // keyword or identifier
-        //     sourceView.Consume();
-        //     klass = ParseIdentifier(firstChar);
-        // }
-        // else if (IsDigit(firstChar)) {
-        //     // number literal
-        //     sourceView.Consume();
-        //     klass = ParseNumberLiteral(firstChar);
-        // }
-        // else if (firstChar == '.' && IsDigit(sourceView.Peek(0))) {
-        //     // number literal
-        //     sourceView.Consume();
-        //     klass = ParseNumberLiteral(firstChar);
-        // }
-        // else {
-        //     // punctuation
-        //     sourceView.Consume();
-        //     klass = ParsePunctuation(firstChar);
-        // }
 
         auto endCursor = sourceView.CurrentCursor();
         result.klass   = klass;

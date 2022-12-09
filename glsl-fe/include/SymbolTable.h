@@ -21,6 +21,7 @@ namespace glsld
         {
             levels.push_back(SymbolTableLevel{});
         }
+
         auto PopScope() -> void
         {
             // global scope cannot be popped
@@ -49,17 +50,21 @@ namespace glsld
             }
         }
 
-        auto AddStructType(AstStructDecl& decl) -> void
+        auto AddStructDecl(AstStructDecl& decl) -> void
         {
             if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
                 TryAddSymbol(*decl.GetDeclToken(), decl);
             }
         }
 
-        auto AddInterfaceBlockType(AstInterfaceBlockDecl& decl) -> void
+        auto AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
         {
-            if (!decl.GetDeclarator()) {
-                // For unnamed interface block, names of internal members should be added to the current scope
+            if (decl.GetDeclarator()) {
+                // For named interface block, add the decl token for the interface block
+                TryAddSymbol(decl.GetDeclarator()->declTok, decl);
+            }
+            else {
+                // For unnamed interface block, names of internal members should be directly added to the current scope
                 for (auto memberDecl : decl.GetMembers()) {
                     for (const auto& declarator : memberDecl->GetDeclarators()) {
                         if (declarator.declTok.klass == TokenKlass::Identifier) {
@@ -67,10 +72,6 @@ namespace glsld
                         }
                     }
                 }
-            }
-            else {
-                // Otherwise, add the decl token for the interface block
-                TryAddSymbol(decl.GetDeclToken(), decl);
             }
         }
 

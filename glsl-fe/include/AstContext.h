@@ -47,29 +47,44 @@ namespace glsld
             return result;
         }
 
-        auto CreateStructType(AstStructDecl* decl) -> const TypeDesc*
+        auto CreateStructType(AstStructDecl& decl) -> const TypeDesc*
         {
             std::vector<std::pair<std::string, const TypeDesc*>> memberDesc;
-            for (auto memberDecl : decl->GetMembers()) {
+            for (auto memberDecl : decl.GetMembers()) {
                 for (const auto& declarator : memberDecl->GetDeclarators()) {
                     auto typeDesc = GetArrayType(memberDecl->GetType()->GetResolvedType(), declarator.arraySize);
                     memberDesc.push_back({declarator.declTok.text.Str(), typeDesc});
                 }
             }
 
-            auto typeName = decl->GetDeclToken() ? decl->GetDeclToken()->text.StrView() : "";
+            auto typeName = decl.GetDeclToken() ? decl.GetDeclToken()->text.StrView() : "";
             structTypeCache.push_back(
                 new TypeDesc(fmt::format("struct#{}", typeName), StructTypeDesc{
-                                                                     .decl    = decl,
+                                                                     .decl    = &decl,
                                                                      .name    = std::string{typeName},
                                                                      .members = std::move(memberDesc),
                                                                  }));
             return structTypeCache.back();
         }
 
-        auto CreateStructType(AstInterfaceBlockDecl* decl) -> const TypeDesc*
+        auto CreateStructType(AstInterfaceBlockDecl& decl) -> const TypeDesc*
         {
-            return GetErrorTypeDesc();
+            std::vector<std::pair<std::string, const TypeDesc*>> memberDesc;
+            for (auto memberDecl : decl.GetMembers()) {
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    auto typeDesc = GetArrayType(memberDecl->GetType()->GetResolvedType(), declarator.arraySize);
+                    memberDesc.push_back({declarator.declTok.text.Str(), typeDesc});
+                }
+            }
+
+            auto typeName = decl.GetDeclToken().text.StrView();
+            structTypeCache.push_back(
+                new TypeDesc(fmt::format("block#{}", typeName), StructTypeDesc{
+                                                                    .decl    = &decl,
+                                                                    .name    = std::string{typeName},
+                                                                    .members = std::move(memberDesc),
+                                                                }));
+            return structTypeCache.back();
         }
 
         auto GetFunctionType(ArrayView<const TypeDesc*> params) -> const TypeDesc*

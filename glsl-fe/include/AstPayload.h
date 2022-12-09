@@ -167,6 +167,22 @@ namespace glsld
             this->typeDesc = typeDesc;
         }
 
+        auto FindMemberDecl(const std::string& name) -> DeclView
+        {
+            auto it = memberLookup.find(name);
+            if (it != memberLookup.end()) {
+                return it->second;
+            }
+            else {
+                return DeclView{};
+            }
+        }
+        auto AddMemberDecl(const std::string& name, DeclView decl) -> void
+        {
+            // FIXME: find duplicate
+            memberLookup[name] = decl;
+        }
+
         auto DumpPayloadData() const -> std::string
         {
             return fmt::format("TypeDesc={}", TypeDescToString(typeDesc));
@@ -175,6 +191,8 @@ namespace glsld
     private:
         // Struct type that this decl introduces
         const TypeDesc* typeDesc = nullptr;
+
+        std::map<std::string, DeclView> memberLookup;
     };
 
     template <>

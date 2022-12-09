@@ -5,6 +5,38 @@
 
 namespace glsld
 {
+    enum class ShaderStage
+    {
+        Unknown,
+        Vertex,
+        Fragment,
+        Geometry,
+        TessControl,
+        TessEvaluation,
+        Compute,
+    };
+    inline auto ShaderStageToString(ShaderStage stage) -> std::string_view
+    {
+        switch (stage) {
+        case ShaderStage::Unknown:
+            return "Unknown";
+        case ShaderStage::Vertex:
+            return "Vertex";
+        case ShaderStage::Fragment:
+            return "Fragment";
+        case ShaderStage::Geometry:
+            return "Geometry";
+        case ShaderStage::TessControl:
+            return "TessControl";
+        case ShaderStage::TessEvaluation:
+            return "TessEvaluation";
+        case ShaderStage::Compute:
+            return "Compute";
+        }
+
+        GLSLD_UNREACHABLE();
+    }
+
     enum class UnaryOp
     {
         Identity,
