@@ -13,7 +13,7 @@
 #include <numeric>
 #include <algorithm>
 #include <ranges>
-#include <stdexcept>
+#include <exception>
 
 #include <fmt/format.h>
 
@@ -73,7 +73,7 @@ namespace glsld
             for (auto state : equivalentStates) {
                 if (state->GetAcceptId() != -1 && state->GetAcceptId() != acceptId) {
                     if (acceptId != -1) {
-                        throw std::exception{"error: multiple accept id"};
+                        throw std::logic_error{"error: multiple accept id"};
                     }
                     acceptId = state->GetAcceptId();
                 }

@@ -79,8 +79,14 @@ public:
         return data_.end();
     }
 
-    constexpr auto operator==(const FlatSet& other) const -> bool = default;
-    constexpr auto operator<=>(const FlatSet& other) const        = default;
+    constexpr auto operator==(const FlatSet& other) const -> bool
+    {
+        return data_ == other.data_;
+    }
+    constexpr auto operator<=>(const FlatSet& other) const
+    {
+        return data_ <=> other.data_;
+    }
 
 public:
     std::vector<T> data_;
