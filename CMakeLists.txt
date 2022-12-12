@@ -1,18 +1,20 @@
 cmake_minimum_required(VERSION 3.18)
-project(glsld CXX)
-
-set(CMAKE_CXX_STANDARD 20)
 
 # OS and Compiler Config
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     add_compile_definitions(GLSLD_OS_WIN)
     set(GLSLD_OS_WIN 1)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(GLSLD_VCPKG_TRIPLET "x64-windows-static")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
     add_compile_definitions(GLSLD_OS_LINUX)
     set(GLSLD_OS_LINUX 1)
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(GLSLD_VCPKG_TRIPLET "x64-linux")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     add_compile_definitions(GLSLD_OS_DARWIN)
     set(GLSLD_OS_DARWIN 1)
+
+    # FIXME: test for x86?
+    set(GLSLD_VCPKG_TRIPLET "arm64-osx")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -27,21 +29,17 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
 endif()
 
 # Load vcpkg
+set(VCPKG_TARGET_TRIPLET ${GLSLD_VCPKG_TRIPLET} CACHE STRING "" FORCE)
+
 if(NOT CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
         CACHE STRING "Vcpkg toolchain file")
 endif()
 
-if(NOT VCPKG_TARGET_TRIPLET)
-    if(GLSLD_OS_WIN)
-        set(VCPKG_TARGET_TRIPLET "x64-windows-static")
-    elseif(GLSLD_OS_LINUX)
-        set(VCPKG_TARGET_TRIPLET "x64-linux")
-    elseif(GLSLD_OS_DARWIN)
-        # FIXME: test for x86?
-        set(VCPKG_TARGET_TRIPLET "arm64-osx")
-    endif()
-endif()
+# NOTE it is important to have project declaration to come after vcpkg config
+project(glsld CXX)
+
+set(CMAKE_CXX_STANDARD 20)
 
 if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
