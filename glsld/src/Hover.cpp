@@ -111,17 +111,18 @@ namespace glsld
             };
         }
         else if (auto structDecl = decl.As<AstStructDecl>()) {
+            ReconstructSourceText(buffer, *structDecl);
             return HoverContent{
                 .type = DeclTokenType::Type,
                 .name = std::string{hoverId},
-                .code = fmt::format("struct  {}", hoverId),
+                .code = std::move(buffer),
             };
         }
         else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>()) {
             return HoverContent{
                 .type = DeclTokenType::InterfaceBlock,
                 .name = std::string{hoverId},
-                .code = fmt::format("block  {}", hoverId),
+                .code = fmt::format("block {}", hoverId),
             };
         }
 
@@ -137,6 +138,7 @@ namespace glsld
 
             if (declTokenResult->accessedDecl.IsValid()) {
                 // Decl token with resolved user declaration
+                GLSLD_ASSERT(declTokenResult->token.IsIdentifier());
                 auto hoverContent = GetHoverContent(declTokenResult->accessedDecl, hoverIdentifier);
                 if (hoverContent) {
                     return lsp::Hover{

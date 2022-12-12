@@ -2,6 +2,7 @@
 #include "SyntaxToken.h"
 #include "Tokenizer.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -53,6 +54,24 @@ namespace glsld
             }
         }
 
+        // Find last token that comes before the position
+        auto FindTokenByPosition(TextPosition position) const -> SyntaxToken
+        {
+            auto it = std::ranges::upper_bound(tokens, position, {},
+                                               [](const SyntaxTokenInfo& tok) { return tok.range.start; });
+            if (it != tokens.end() && it != tokens.begin()) {
+                SyntaxTokenIndex index = std::distance(tokens.begin(), it) - 1;
+                return SyntaxToken{
+                    .index = index,
+                    .klass = tokens[index].klass,
+                    .text  = tokens[index].text,
+                };
+            }
+            else {
+                return SyntaxToken{};
+            }
+        }
+
         auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange
         {
             GLSLD_ASSERT(tokIndex < tokens.size());
@@ -60,8 +79,13 @@ namespace glsld
         }
         auto LookupTextRange(SyntaxToken token) const -> TextRange
         {
-            GLSLD_ASSERT(token.index < tokens.size());
-            return tokens[token.index].range;
+            if (token.IsValid()) {
+                GLSLD_ASSERT(token.index < tokens.size());
+                return tokens[token.index].range;
+            }
+            else {
+                return TextRange{};
+            }
         }
         auto LookupTextRange(SyntaxTokenRange range) const -> TextRange
         {

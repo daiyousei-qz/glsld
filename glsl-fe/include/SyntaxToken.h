@@ -130,7 +130,8 @@ namespace glsld
         const char* ptr = nullptr;
     };
 
-    using SyntaxTokenIndex = uint32_t;
+    using SyntaxTokenIndex                              = uint32_t;
+    inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
 
     struct SyntaxTokenRange
     {
@@ -150,10 +151,14 @@ namespace glsld
 
     struct SyntaxToken
     {
-        SyntaxTokenIndex index = 0;
+        SyntaxTokenIndex index = InvalidTokenIndex;
         TokenKlass klass       = TokenKlass::Error;
         LexString text         = {};
 
+        auto IsValid() const -> bool
+        {
+            return index != InvalidTokenIndex;
+        }
         auto IsError() const -> bool
         {
             return klass == TokenKlass::Error;

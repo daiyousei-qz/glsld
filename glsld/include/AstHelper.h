@@ -65,58 +65,26 @@ namespace glsld
             {
                 if (!type.GetStructDecl()) {
                     // NOTE we process struct decl at `VisitAstStructDecl`
-                    TextRange range = this->GetLexContext().LookupTextRange(type.GetTypeNameTok());
-                    if (range.Contains(position)) {
-                        // FIXME: implement this
-                    }
+                    TryDeclToken(type.GetTypeNameTok(), type.GetResolvedStructDecl(), DeclTokenType::Type);
                 }
             }
 
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken()) {
-                    auto declToken = *decl.GetDeclToken();
-                    auto declRange = this->GetLexContext().LookupTextRange(declToken);
-                    if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!result);
-                        result = DeclTokenLookupResult{
-                            .token        = declToken,
-                            .range        = declRange,
-                            .accessedDecl = &decl,
-                            .accessType   = DeclTokenType::Type,
-                        };
-                    }
+                    TryDeclToken(*decl.GetDeclToken(), &decl, DeclTokenType::Type);
                 }
             }
 
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
-                auto declRange = this->GetLexContext().LookupTextRange(decl.GetName());
-                if (declRange.Contains(position)) {
-                    GLSLD_ASSERT(!result);
-                    result = DeclTokenLookupResult{
-                        .token        = decl.GetName(),
-                        .range        = declRange,
-                        .accessedDecl = &decl,
-                        .accessType   = DeclTokenType::Function,
-                    };
-                }
+                TryDeclToken(decl.GetName(), &decl, DeclTokenType::Function);
             }
 
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclToken()) {
-                    auto declToken = *decl.GetDeclToken();
-                    auto declRange = this->GetLexContext().LookupTextRange(*decl.GetDeclToken());
-                    if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!result);
-                        result = DeclTokenLookupResult{
-                            .token        = declToken,
-                            .range        = declRange,
-                            .accessedDecl = &decl,
-                            .accessType   = DeclTokenType::Parameter,
-                        };
-                    }
+                if (decl.GetDeclarator()) {
+                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, DeclTokenType::Parameter);
                 }
             }
 
@@ -124,16 +92,7 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    auto declRange = this->GetLexContext().LookupTextRange(declarator.declTok);
-                    if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!result);
-                        result = DeclTokenLookupResult{
-                            .token        = declarator.declTok,
-                            .range        = declRange,
-                            .accessedDecl = DeclView{&decl, declaratorIndex},
-                            .accessType   = DeclTokenType::Variable,
-                        };
-                    }
+                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, DeclTokenType::Variable);
 
                     declaratorIndex += 1;
                 }
@@ -143,18 +102,16 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    auto declRange = this->GetLexContext().LookupTextRange(declarator.declTok);
-                    if (declRange.Contains(position)) {
-                        GLSLD_ASSERT(!result);
-                        result = DeclTokenLookupResult{
-                            .token        = declarator.declTok,
-                            .range        = declRange,
-                            .accessedDecl = DeclView{&decl, declaratorIndex},
-                            .accessType   = DeclTokenType::MemberVariable,
-                        };
-                    }
+                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, DeclTokenType::MemberVariable);
 
                     declaratorIndex += 1;
+                }
+            }
+
+            auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+            {
+                if (decl.GetDeclarator()) {
+                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, DeclTokenType::InterfaceBlock);
                 }
             }
 
@@ -179,16 +136,22 @@ namespace glsld
                     break;
                 }
 
-                auto declToken = expr.GetAccessName();
-                auto declRange = this->GetLexContext().LookupTextRange(declToken);
-                if (declRange.Contains(position)) {
-                    GLSLD_ASSERT(!result);
-                    result = DeclTokenLookupResult{
-                        .token        = declToken,
-                        .range        = declRange,
-                        .accessedDecl = expr.GetAccessedDecl(),
-                        .accessType   = accessType,
-                    };
+                TryDeclToken(expr.GetAccessName(), expr.GetAccessedDecl(), accessType);
+            }
+
+            auto TryDeclToken(const SyntaxToken& token, DeclView declView, DeclTokenType type) -> void
+            {
+                if (token.IsIdentifier()) {
+                    auto tokRange = this->GetLexContext().LookupTextRange(token);
+                    if (tokRange.Contains(position)) {
+                        GLSLD_ASSERT(!result);
+                        result = DeclTokenLookupResult{
+                            .token        = token,
+                            .range        = tokRange,
+                            .accessedDecl = declView,
+                            .accessType   = type,
+                        };
+                    }
                 }
             }
 

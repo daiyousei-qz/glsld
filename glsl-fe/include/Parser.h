@@ -177,14 +177,29 @@ namespace glsld
         // RECOVERY: ^'EOF'
         auto ParseDeclAndTryRecover() -> AstDecl*;
 
+        // Parse an initializer list.
+        //
+        // PARSE: initializer
+        //      - initializer := assignment_expr
+        //      - initializer := '{' initializer [',' initializer]... '}'
+        //
+        // FIXME: recovery?
+        auto ParseInitializer() -> AstNodeBase*;
+
+        // EXPECT: 'ID'
+        // PARSE: declarator
+        //      - declarator := 'ID' [array_spec]
+        //      - declarator := 'ID' [array_spec] [ '=' initializer ]
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseDeclarator() -> VariableDeclarator;
+
         // EXPECT: 'ID'
         // PARSE: declarator_list
         //      - declarator_list := declarator [',' declarator]...
-        //      - declarator := 'ID' [array_spec] ['=' initializer]
-        //      - initializer := ?
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseVariableDeclarators() -> std::vector<VariableDeclarator>;
+        auto ParseDeclaratorList() -> std::vector<VariableDeclarator>;
 
         // EXPECT: '('
         //
@@ -192,7 +207,7 @@ namespace glsld
         //      - func_param_list := '(' ')'
         //      - func_param_list := '(' 'K_void' ')'
         //      - func_param_list := '(' func_param_decl [',' func_param_decl]...  ')'
-        //      - func_param_decl := qualified_type_spec 'ID'
+        //      - func_param_decl := qualified_type_spec 'ID' [array_sped]
         //
         // RECOVERY: ^'EOF' or ^';'
         // WHAT'S AN ERROR SECTION?
@@ -217,6 +232,10 @@ namespace glsld
         auto ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*;
 
         // EXPECT: 'ID' '{' or '{'
+        //
+        // PARSE: interface_block
+        //      - interface_block := 'ID' '{' [declartion]... '}' [declarator] ';'
+        //
         // RECOVERY: ^'EOF' or ^';'
         auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
@@ -244,13 +263,6 @@ namespace glsld
         //
         // RECOVERY: ?
         auto ParseExprNoComma() -> AstExpr*;
-
-        // Parse an initializer list.
-        //
-        // EXPECT: '{'
-        //
-        // PARSE: '{' ... '}'
-        auto ParseInitializerExpr() -> AstExpr*;
 
         // Parse a comma expression.
         //

@@ -29,13 +29,13 @@ namespace glsld
     struct VariableDeclarator
     {
         // Symbol identifier
-        SyntaxToken declTok;
+        SyntaxToken declTok = {};
 
         // Array specifier
-        AstArraySpec* arraySize;
+        AstArraySpec* arraySize = nullptr;
 
-        // Initializer
-        AstExpr* init;
+        // Initializer (must be AstExpr or AstInitializerList)
+        AstNodeBase* init = nullptr;
     };
 
     class MSVC_EMPTY_BASES AstStructMemberDecl : public AstDecl, public AstPayload<AstStructMemberDecl>
@@ -165,7 +165,8 @@ namespace glsld
     class MSVC_EMPTY_BASES AstParamDecl : public AstDecl, public AstPayload<AstParamDecl>
     {
     public:
-        AstParamDecl(AstQualType* type, std::optional<SyntaxToken> declTok) : type(type), declTok(declTok)
+        AstParamDecl(AstQualType* type, std::optional<VariableDeclarator> declarator)
+            : type(type), declarator(declarator)
         {
         }
 
@@ -173,21 +174,27 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclToken() -> const std::optional<SyntaxToken>&
+        auto GetDeclarator() -> const std::optional<VariableDeclarator>&
         {
-            return declTok;
+            return declarator;
         }
 
         template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
             visitor.Traverse(type);
+            if (declarator) {
+                visitor.Traverse(declarator->arraySize);
+
+                // FIXME: do we want to traverse this? GLSL doesn't allow it.
+                visitor.Traverse(declarator->init);
+            }
         }
 
         auto DumpNodeData() const -> std::string
         {
-            if (declTok && declTok->IsIdentifier()) {
-                return fmt::format("DeclId: {}", declTok->text.StrView());
+            if (declarator && declarator->declTok.IsIdentifier()) {
+                return fmt::format("DeclId: {}", declarator->declTok.text.StrView());
             }
             else {
                 return "";
@@ -196,7 +203,7 @@ namespace glsld
 
     private:
         AstQualType* type;
-        std::optional<SyntaxToken> declTok;
+        std::optional<VariableDeclarator> declarator;
     };
 
     // declares a function
@@ -260,12 +267,8 @@ namespace glsld
     class MSVC_EMPTY_BASES AstInterfaceBlockDecl : public AstDecl, public AstPayload<AstInterfaceBlockDecl>
     {
     public:
-        AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members)
-            : declTok(declTok), members(std::move(members))
-        {
-        }
         AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members,
-                              VariableDeclarator declarator)
+                              std::optional<VariableDeclarator> declarator)
             : declTok(declTok), members(std::move(members)), declarator(declarator)
         {
         }

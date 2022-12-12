@@ -56,11 +56,12 @@ namespace glsld
                 for (auto funcDecl : GetDefaultLibraryModule()->GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
+                        std::string documentation;
+                        ReconstructSourceText(documentation, *funcDecl);
+
                         result.push_back(lsp::SignatureInformation{
-                            .label = std::string{funcName},
-                            .documentation =
-                                fmt::format("```glsl\n{} {}{}\n```", ReconstructSourceText(funcDecl->GetReturnType()),
-                                            funcName, ReconstructSourceText(funcDecl->GetParams())),
+                            .label         = std::string{funcName},
+                            .documentation = fmt::format("```glsl\n{}\n```", documentation),
                         });
                     }
                 }
@@ -69,11 +70,12 @@ namespace glsld
                 for (auto funcDecl : compiler.GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
+                        std::string documentation;
+                        ReconstructSourceText(documentation, *funcDecl);
+
                         result.push_back(lsp::SignatureInformation{
-                            .label = std::string{funcName},
-                            .documentation =
-                                fmt::format("```glsl\n{} {}{}\n```", ReconstructSourceText(funcDecl->GetReturnType()),
-                                            funcName, ReconstructSourceText(funcDecl->GetParams())),
+                            .label         = std::string{funcName},
+                            .documentation = fmt::format("```glsl\n{}\n```", documentation),
                         });
                     }
                 }

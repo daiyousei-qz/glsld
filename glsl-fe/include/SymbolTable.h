@@ -86,8 +86,8 @@ namespace glsld
 
         auto AddParamDecl(AstParamDecl& decl) -> void
         {
-            if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
-                TryAddSymbol(*decl.GetDeclToken(), decl);
+            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                TryAddSymbol(decl.GetDeclarator()->declTok, decl);
             }
         }
 

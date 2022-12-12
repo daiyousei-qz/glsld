@@ -34,9 +34,13 @@ namespace glsld
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
 
-                        auto locBegin = lexContext.LookupFirstTextPosition(argExpr->GetRange());
-                        auto hintText = paramDecl->GetDeclToken().value_or(SyntaxToken{}).text.StrView();
-                        if (!hintText.empty()) {
+                        auto locBegin       = lexContext.LookupFirstTextPosition(argExpr->GetRange());
+                        StringView hintText = "";
+                        if (paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
+                            hintText = paramDecl->GetDeclarator()->declTok.text.StrView();
+                        }
+
+                        if (!hintText.Empty()) {
                             result.push_back(lsp::InlayHint{
                                 .position     = ToLspPosition({locBegin.line, locBegin.character}),
                                 .label        = fmt::format("{}:", hintText),

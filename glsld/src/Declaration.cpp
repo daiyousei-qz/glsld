@@ -15,8 +15,9 @@ namespace glsld
             if (auto funcDecl = decl.As<AstFunctionDecl>(); funcDecl) {
                 declRange = compiler.GetLexContext().LookupTextRange(funcDecl->GetName());
             }
-            else if (auto paramDecl = decl.As<AstParamDecl>(); paramDecl && paramDecl->GetDeclToken()) {
-                declRange = compiler.GetLexContext().LookupTextRange(*paramDecl->GetDeclToken());
+            else if (auto paramDecl = decl.As<AstParamDecl>();
+                     paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
+                declRange = compiler.GetLexContext().LookupTextRange(paramDecl->GetDeclarator()->declTok);
             }
             else if (auto varDecl = decl.As<AstVariableDecl>(); varDecl) {
                 declRange =

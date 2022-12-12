@@ -67,4 +67,4 @@ DONE!
 - Random crash
 - Go to definition shouldn't work with default library function!!!!
 - Hover on struct member is incorrect FIXED
-- Hover with "invariant/flat"
+- Hover with "invariant/flat" FIXED

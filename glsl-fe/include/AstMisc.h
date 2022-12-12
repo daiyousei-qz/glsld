@@ -1,5 +1,6 @@
 #pragma once
 #include "AstBase.h"
+#include <algorithm>
 
 namespace glsld
 {
@@ -14,7 +15,7 @@ namespace glsld
         {
         }
 
-        auto GetSizeList() -> ArrayView<AstExpr*>
+        auto GetSizeList() const -> ArrayView<AstExpr*>
         {
             return sizes;
         }
@@ -296,19 +297,19 @@ namespace glsld
         {
         }
 
-        auto GetQualifiers() -> AstTypeQualifierSeq*
+        auto GetQualifiers() const -> AstTypeQualifierSeq*
         {
             return qualifiers;
         }
-        auto GetArraySpec() -> AstArraySpec*
+        auto GetArraySpec() const -> AstArraySpec*
         {
             return arraySpec;
         }
-        auto GetTypeNameTok() -> SyntaxToken
+        auto GetTypeNameTok() const -> SyntaxToken
         {
             return typeName;
         }
-        auto GetStructDecl() -> AstStructDecl*
+        auto GetStructDecl() const -> AstStructDecl*
         {
             return structDecl;
         }
@@ -372,5 +373,36 @@ namespace glsld
         SyntaxToken declTok;
         AstArraySpec* arraySpec;
         AstExpr* initializer;
+    };
+
+    class MSVC_EMPTY_BASES AstInitializerList final : public AstNodeBase, public AstPayload<AstInitializerList>
+    {
+    public:
+        AstInitializerList(std::vector<AstNodeBase*> items) : items(items)
+        {
+            GLSLD_ASSERT(std::ranges::all_of(
+                items, [](AstNodeBase* node) { return node->Is<AstExpr>() || node->Is<AstInitializerList>(); }));
+        }
+
+        auto GetItems() const -> const std::vector<AstNodeBase*>&
+        {
+            return items;
+        }
+
+        template <AstVisitorT Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            for (auto node : items) {
+                visitor.Traverse(*node);
+            }
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
+    private:
+        std::vector<AstNodeBase*> items;
     };
 } // namespace glsld

@@ -18,7 +18,7 @@ namespace glsld
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
 
-    // A view into
+    // A view into a declaration
     class DeclView
     {
     public:
@@ -81,13 +81,13 @@ namespace glsld
             this->resolvedType = type;
         }
 
-        auto GetTypeDecl() const -> AstDecl*
+        auto GetResolvedStructDecl() const -> AstDecl*
         {
-            return decl;
+            return resolvedStructDecl;
         }
-        auto SetTypeDecl(AstDecl* decl) -> void
+        auto SetResolvedStructDecl(AstDecl* decl) -> void
         {
-            this->decl = decl;
+            this->resolvedStructDecl = decl;
         }
 
         auto DumpPayloadData() const -> std::string
@@ -105,7 +105,7 @@ namespace glsld
         const TypeDesc* resolvedType = nullptr;
 
         // Declaration of this type
-        AstDecl* decl = nullptr;
+        AstDecl* resolvedStructDecl = nullptr;
     };
 
     template <>

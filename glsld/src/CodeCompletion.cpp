@@ -8,11 +8,47 @@
 
 namespace glsld
 {
-    class CompletionVisitor : public AstVisitor<CompletionVisitor>
+    enum class CompletionType
+    {
+        InFunction,
+        InAccessChain,
+    };
+
+    class CompletionVisitorBase
+    {
+    protected:
+        CompletionVisitorBase(bool externalModule) : externalModule(externalModule)
+        {
+        }
+
+        auto AddCompletionItem(std::string label, lsp::CompletionItemKind kind) -> void
+        {
+            // We do deduplicate for external modules
+            if (externalModule) {
+                if (addedSymbol.find(label) != addedSymbol.end()) {
+                    return;
+                }
+
+                addedSymbol.insert(label);
+            }
+
+            result.push_back({lsp::CompletionItem{
+                .label = label,
+                .kind  = kind,
+            }});
+        }
+
+        bool externalModule;
+        std::unordered_set<std::string> addedSymbol;
+
+        std::vector<lsp::CompletionItem> result;
+    };
+
+    class RegularCompletionVisitor : public CompletionVisitorBase, public AstVisitor<RegularCompletionVisitor>
     {
     public:
-        CompletionVisitor(const LexContext& lexContext, TextPosition position, bool externalModule)
-            : lexContext(lexContext), position(position), externalModule(externalModule)
+        RegularCompletionVisitor(const LexContext& lexContext, TextPosition position, bool externalModule)
+            : CompletionVisitorBase(externalModule), lexContext(lexContext), position(position)
         {
         }
 
@@ -39,19 +75,34 @@ namespace glsld
             }
         }
 
+        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        {
+            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                // FIXME: is this a variable?
+                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
+            }
+        }
+
         auto VisitAstParamDecl(AstParamDecl& decl) -> void
         {
-            if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
-                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Variable);
+            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
             }
         }
 
         auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
         {
             for (const auto& declarator : decl.GetDeclarators()) {
-                if (declarator.declTok.klass == TokenKlass::Identifier) {
+                if (declarator.declTok.IsIdentifier()) {
                     AddCompletionItem(declarator.declTok.text.Str(), lsp::CompletionItemKind::Variable);
                 }
+            }
+        }
+
+        auto VisitAstStructDecl(AstStructDecl& decl) -> void
+        {
+            if (decl.GetDeclToken() && decl.GetDeclToken()->IsIdentifier()) {
+                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Struct);
             }
         }
 
@@ -61,29 +112,12 @@ namespace glsld
         }
 
     private:
-        auto AddCompletionItem(std::string label, lsp::CompletionItemKind kind) -> void
-        {
-            // We do deduplicate for external modules
-            if (externalModule) {
-                if (addedSymbol.find(label) != addedSymbol.end()) {
-                    return;
-                }
-
-                addedSymbol.insert(label);
-            }
-
-            result.push_back({lsp::CompletionItem{
-                .label = label,
-                .kind  = kind,
-            }});
-        }
-
         const LexContext& lexContext;
         TextPosition position;
-        bool externalModule;
-        std::unordered_set<std::string> addedSymbol;
+    };
 
-        std::vector<lsp::CompletionItem> result;
+    class AccessChainCompletionVisitor : public AstVisitor<AccessChainCompletionVisitor>
+    {
     };
 
     auto GetDefaultLibraryCompletionList() -> std::vector<lsp::CompletionItem>
@@ -93,7 +127,7 @@ namespace glsld
 
             // Builtins
             auto defaultLibraryModule = GetDefaultLibraryModule();
-            CompletionVisitor visitor{defaultLibraryModule->GetLexContext(), TextPosition{}, true};
+            RegularCompletionVisitor visitor{defaultLibraryModule->GetLexContext(), TextPosition{}, true};
             visitor.TraverseAst(defaultLibraryModule->GetAstContext());
             result = visitor.Export();
 
@@ -178,16 +212,38 @@ namespace glsld
         return cachedCompletionItems[n];
     }
 
+    auto IsAccessChainCompletion(const LexContext& lexContext, TextPosition position) -> bool
+    {
+        auto lastToken = lexContext.FindTokenByPosition(position);
+        if (lastToken.klass == TokenKlass::Dot) {
+            return true;
+        }
+        if (lastToken.index > 0 && (lastToken.IsIdentifier() || lastToken.IsKeyword())) {
+            auto secondLastToken = lexContext.GetToken(lastToken.index - 1);
+            if (secondLastToken.klass == TokenKlass::Dot) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // FIXME: not populate keyword while typing a decl
     // FIXME: not populate functions while typing a dot
-    auto ComputeCompletion(CompiledModule& compiler, lsp::Position position) -> std::vector<lsp::CompletionItem>
+    auto ComputeCompletion(CompiledModule& compiler, lsp::Position lspPosition) -> std::vector<lsp::CompletionItem>
     {
-        auto result = GetDefaultLibraryCompletionList();
+        auto position = FromLspPosition(lspPosition);
 
-        CompletionVisitor visitor{compiler.GetLexContext(), FromLspPosition(position), false};
-        visitor.TraverseAst(compiler.GetAstContext());
-        std::ranges::copy(visitor.Export(), std::back_inserter(result));
+        if (IsAccessChainCompletion(compiler.GetLexContext(), position)) {
+        }
+        else {
+            auto result = GetDefaultLibraryCompletionList();
 
-        return result;
+            RegularCompletionVisitor visitor{compiler.GetLexContext(), position, false};
+            visitor.TraverseAst(compiler.GetAstContext());
+            std::ranges::copy(visitor.Export(), std::back_inserter(result));
+
+            return result;
+        }
     }
 } // namespace glsld

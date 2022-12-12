@@ -1,6 +1,7 @@
 #pragma once
 #include "Semantic.h"
 #include "Typing.h"
+#include "VecMat.h"
 
 #include <array>
 #include <cstdint>
@@ -8,22 +9,6 @@
 
 namespace glsld
 {
-    template <typename T, size_t N>
-    class Vec
-    {
-    public:
-    private:
-        std::array<T, N> data;
-    };
-
-    template <typename T, size_t M, size_t N>
-    class Mat
-    {
-    public:
-    private:
-        std::array<T, M * N> data;
-    };
-
     enum class ConstValueType
     {
         Error,

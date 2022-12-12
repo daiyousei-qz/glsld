@@ -69,7 +69,182 @@ namespace glsld
                 }
             }
         }
+
+        auto EvalUnaryType(UnaryOp op, const TypeDesc* operand) -> const TypeDesc*
+        {
+            switch (op) {
+            case UnaryOp::Identity:
+                return operand;
+            case UnaryOp::Nagate:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint) ||
+                    operand->IsSameWith(BuiltinType::Ty_float) || operand->IsSameWith(BuiltinType::Ty_double)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::BitwiseNot:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::LogicalNot:
+                if (operand->IsSameWith(BuiltinType::Ty_bool)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            case UnaryOp::PrefixInc:
+            case UnaryOp::PrefixDec:
+            case UnaryOp::PostfixInc:
+            case UnaryOp::PostfixDec:
+                if (operand->IsSameWith(BuiltinType::Ty_int) || operand->IsSameWith(BuiltinType::Ty_uint)) {
+                    return operand;
+                }
+                else {
+                    return GetErrorTypeDesc();
+                }
+            }
+
+            GLSLD_UNREACHABLE();
+        }
+
+        auto EvalBinaryType(BinaryOp op, const TypeDesc* lhs, const TypeDesc* rhs) -> const TypeDesc*
+        {
+            // FIXME: implement this
+            if (lhs->IsSameWith(rhs)) {
+                return lhs;
+            }
+            else {
+                return GetErrorTypeDesc();
+            }
+        }
+
     } // namespace
+
+    class TypeCheckVisitor : public AstVisitor<TypeCheckVisitor>
+    {
+    public:
+        TypeCheckVisitor(TypeChecker& typeChecker) : typeChecker(typeChecker)
+        {
+        }
+
+        auto ExitAstQualType(AstQualType& type) -> void
+        {
+            typeChecker.ResolveType(type);
+        }
+
+        auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
+        {
+            if (typeChecker.InFunctionScope()) {
+                // nested function isn't allowed
+                return AstVisitPolicy::Leave;
+            }
+
+            return AstVisitPolicy::Traverse;
+        }
+
+        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        {
+            typeChecker.EnterFunctionScope(decl);
+        }
+        auto ExitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        {
+            typeChecker.ExitFunctionScope(decl);
+        }
+
+        auto ExitAstStructDecl(AstStructDecl& decl) -> void
+        {
+            typeChecker.DeclareStruct(decl);
+        }
+        auto ExitAstVariableDecl(AstVariableDecl& decl) -> void
+        {
+            typeChecker.DeclareVariable(decl);
+        }
+        auto ExitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        {
+            typeChecker.DeclareInterfaceBlock(decl);
+        }
+        auto ExitAstParamDecl(AstParamDecl& decl) -> void
+        {
+            typeChecker.DeclareParameter(decl);
+        }
+
+        auto VisitAstCompoundStmt(AstCompoundStmt& stmt) -> void
+        {
+            // ignore the outermost compound stmt because we share scope with the function decl
+            if (compoundStmtDepth > 0) {
+                typeChecker.EnterBlockScope();
+            }
+            compoundStmtDepth += 1;
+        }
+        auto ExitAstCompoundStmt(AstCompoundStmt& stmt) -> void
+        {
+            // ignore the outermost compound stmt because we share scope with the function decl
+            compoundStmtDepth -= 1;
+            if (compoundStmtDepth > 0) {
+                typeChecker.ExitBlockScope();
+            }
+        }
+
+        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        {
+            typeChecker.PreprocessInvokeExpr(expr);
+        }
+
+        auto ExitAstExpr(AstExpr& expr) -> void
+        {
+            switch (expr.GetTag()) {
+            case AstNodeTag::AstErrorExpr:
+                typeChecker.CheckErrorExpr(*expr.As<AstErrorExpr>());
+                break;
+            case AstNodeTag::AstConstantExpr:
+                typeChecker.CheckConstantExpr(*expr.As<AstConstantExpr>());
+                break;
+            case AstNodeTag::AstNameAccessExpr:
+                typeChecker.CheckNameAccessExpr(*expr.As<AstNameAccessExpr>());
+                break;
+            case AstNodeTag::AstUnaryExpr:
+                typeChecker.CheckUnaryExpr(*expr.As<AstUnaryExpr>());
+                break;
+            case AstNodeTag::AstBinaryExpr:
+                typeChecker.CheckBinaryExpr(*expr.As<AstBinaryExpr>());
+                break;
+            case AstNodeTag::AstSelectExpr:
+                typeChecker.CheckSelectExpr(*expr.As<AstSelectExpr>());
+                break;
+            case AstNodeTag::AstInvokeExpr:
+                typeChecker.CheckInvokeExpr(*expr.As<AstInvokeExpr>());
+                break;
+            case AstNodeTag::AstIndexAccessExpr:
+                typeChecker.CheckIndexAccessExpr(*expr.As<AstIndexAccessExpr>());
+                break;
+            default:
+                GLSLD_UNREACHABLE();
+            }
+        }
+
+    private:
+        TypeChecker& typeChecker;
+
+        int compoundStmtDepth = 0;
+    };
+
+    auto TypeChecker::TypeCheck(AstContext& ast, const SymbolTable* externalSymbolTable) -> SymbolTable
+    {
+        this->astContext          = &ast;
+        this->externalSymbolTable = externalSymbolTable;
+        TypeCheckVisitor{*this}.TraverseAst(ast);
+
+        this->currentFunction     = nullptr;
+        this->externalSymbolTable = nullptr;
+        this->astContext          = nullptr;
+
+        return std::move(symbolTable);
+    }
 
     auto TypeChecker::InFunctionScope() -> bool
     {
@@ -311,15 +486,15 @@ namespace glsld
     auto TypeChecker::CheckUnaryExpr(AstUnaryExpr& expr) -> void
     {
         expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
-        expr.SetDeducedType(EvalUnary(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
+        expr.SetDeducedType(EvalUnaryType(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckBinaryExpr(AstBinaryExpr& expr) -> void
     {
         expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
                                             expr.GetRightOperandExpr()->GetConstValue()));
-        expr.SetDeducedType(EvalBinary(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
-                                       expr.GetRightOperandExpr()->GetDeducedType()));
+        expr.SetDeducedType(EvalBinaryType(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
+                                           expr.GetRightOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckSelectExpr(AstSelectExpr& expr) -> void

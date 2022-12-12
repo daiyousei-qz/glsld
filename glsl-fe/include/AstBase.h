@@ -125,17 +125,17 @@ namespace glsld
         }
 #endif
 
-        auto GetTag() -> AstNodeTag
+        auto GetTag() const -> AstNodeTag
         {
             return tag;
         }
 
         // Number of tokens that this Ast node covers
-        auto GetNumToken() -> uint32_t
+        auto GetNumToken() const -> uint32_t
         {
             return range.endTokenIndex - range.startTokenIndex;
         }
-        auto GetRange() -> SyntaxTokenRange
+        auto GetRange() const -> SyntaxTokenRange
         {
             return range;
         }
@@ -143,7 +143,7 @@ namespace glsld
         auto Dump() -> void;
 
         template <typename AstType>
-        inline auto Is() -> bool
+        inline auto Is() const -> bool
         {
             if constexpr (AstNodeTrait<AstType>::isLeafNode) {
                 return GetTag() == AstNodeTrait<AstType>::tag;

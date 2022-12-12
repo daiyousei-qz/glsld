@@ -5,7 +5,8 @@
 
 namespace glsld
 {
-    // Both line and character are zero-based.
+    // A position into a text document.
+    // NOTE both line and character are zero-based.
     struct TextPosition
     {
         int line      = 0;

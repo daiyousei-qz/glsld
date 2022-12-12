@@ -59,7 +59,6 @@ namespace glsld
             return result;
         }
         else {
-            // FIXME: which token should we return? RECOVERY?
             ReportError("Expect identifier");
             return SyntaxToken{};
         }
@@ -106,6 +105,8 @@ namespace glsld
             }
 
             result.push_back(LayoutItem{idToken, value});
+
+            // We'll continue parsing regardless if a ',' has been consumed
         }
 
         ParseClosingParen();
@@ -247,7 +248,7 @@ namespace glsld
 
             auto beginTokIndex = GetTokenIndex();
             auto typeResult    = ParseQualType();
-            auto declarators   = ParseVariableDeclarators();
+            auto declarators   = ParseDeclaratorList();
 
             if (!InRecoveryMode()) {
                 result.push_back(CreateAstNode<AstStructMemberDecl>(beginTokIndex, typeResult, std::move(declarators)));
@@ -434,9 +435,9 @@ namespace glsld
                 return ParseTypeOrVariableDecl(beginTokIndex, type);
             }
             else if (type->GetStructDecl()) {
-                // If type is a struct definition, we assume it's type decl with missing ';' for better diagnostic
+                // If type is a struct definition, we assume this is a type decl with missing ';' for better diagnostic
 
-                // This would always fail, so we are just trying to infer the ';'
+                // This would always fail. We are just trying to infer the ';'
                 ParsePermissiveSemicolon();
 
                 return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
@@ -463,32 +464,57 @@ namespace glsld
         return declResult;
     }
 
-    auto Parser::ParseVariableDeclarators() -> std::vector<VariableDeclarator>
+    auto Parser::ParseInitializer() -> AstNodeBase*
+    {
+        auto beginTokIndex = GetTokenIndex();
+
+        if (TryConsumeToken(TokenKlass::LBrace)) {
+            // FIXME: implement this
+            RecoverFromError(RecoveryMode::Brace);
+
+            if (!TryConsumeToken(TokenKlass::RBrace)) {
+                EnterRecoveryMode();
+            }
+
+            return CreateAstNode<AstInitializerList>(beginTokIndex, std::vector<AstNodeBase*>{});
+        }
+        else {
+            return ParseExprNoComma();
+        }
+    }
+
+    auto Parser::ParseDeclarator() -> VariableDeclarator
+    {
+        TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
+
+        VariableDeclarator result;
+
+        // Parse declaration identifier
+        result.declTok = ParseDeclId();
+
+        // Parse array specifier
+        if (TryTestToken(TokenKlass::LBracket)) {
+            result.arraySize = ParseArraySpec();
+        }
+
+        if (TryConsumeToken(TokenKlass::Assign)) {
+            result.init = ParseInitializer();
+        }
+
+        return result;
+    }
+
+    auto Parser::ParseDeclaratorList() -> std::vector<VariableDeclarator>
     {
         TRACE_PARSER();
 
         std::vector<VariableDeclarator> result;
-        while (!Eof()) {
-            auto declTok = ParseDeclId();
+        while (TryTestToken(TokenKlass::Identifier)) {
+            result.push_back(ParseDeclarator());
 
-            AstArraySpec* arraySpec = nullptr;
-            if (TryTestToken(TokenKlass::LBracket)) {
-                arraySpec = ParseArraySpec();
-            }
-
-            // FIXME: parse initializer
-            AstExpr* init = nullptr;
-            if (TryConsumeToken(TokenKlass::Assign)) {
-                if (TryTestToken(TokenKlass::LBrace)) {
-                    init = ParseInitializerExpr();
-                }
-                else {
-                    init = ParseExpr();
-                }
-            }
-
-            result.push_back(VariableDeclarator{.declTok = declTok, .arraySize = arraySpec, .init = init});
-            if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Comma)) {
+            if (!TryConsumeToken(TokenKlass::Comma)) {
                 break;
             }
         }
@@ -524,16 +550,17 @@ namespace glsld
                 break;
             }
 
-            std::optional<SyntaxToken> id;
+            std::optional<VariableDeclarator> declarator;
             if (TryTestToken(TokenKlass::Identifier)) {
-                id = ParseDeclId();
+                declarator = ParseDeclarator();
             }
-            else if (TryTestToken(TokenKlass::Comma, 1)) {
-                // FIXME: do we want to do such recovery here?
+            else if (!TryTestToken(TokenKlass::RParen) && TryTestToken(TokenKlass::Comma, 1)) {
+                // This is a special handling to permissively parse construct like the following:
+                // `foo(int int, int y)`
                 ConsumeToken();
             }
 
-            result.push_back(CreateAstNode<AstParamDecl>(beginTokIndex, type, id));
+            result.push_back(CreateAstNode<AstParamDecl>(beginTokIndex, type, declarator));
 
             if (!TryConsumeToken(TokenKlass::Comma)) {
                 break;
@@ -586,7 +613,7 @@ namespace glsld
         }
 
         // Parse variable decl
-        auto declarators = ParseVariableDeclarators();
+        auto declarators = ParseDeclaratorList();
 
         // Parse ';'
         ParsePermissiveSemicolon();
@@ -598,31 +625,27 @@ namespace glsld
     {
         TRACE_PARSER();
 
+        // Parse interface block name
         GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier, TokenKlass::LBrace));
         auto declTok = ParseDeclId();
 
+        // Parse interface block body
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
         auto blockBody = ParseStructBody();
         if (InRecoveryMode() || TryConsumeToken(TokenKlass::Semicolon)) {
-            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody);
+            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody, std::nullopt);
         }
 
-        std::vector<VariableDeclarator> declarators;
+        // Parse declarator if any
+        std::optional<VariableDeclarator> declarator;
         if (TryTestToken(TokenKlass::Identifier)) {
-            declarators = ParseVariableDeclarators();
+            declarator = ParseDeclarator();
         }
+
+        // Parse ';'
         ParsePermissiveSemicolon();
 
-        if (declarators.size() > 1) {
-            ReportError("interface block could only have one declatorator");
-        }
-
-        if (declarators.size() > 0) {
-            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody, declarators[0]);
-        }
-        else {
-            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody);
-        }
+        return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody, declarator);
     }
 
     auto Parser::ParsePrecisionDecl() -> AstDecl*
@@ -648,12 +671,6 @@ namespace glsld
         return expr;
     }
 
-    // Parse an expression without comma operator. If no token is consumed, enter recovery mode to advance parsing.
-    //
-    // PARSE: expr_nocomma
-    //      - expr_nocomma := assignment_expr
-    //
-    // RECOVERY: ?
     auto Parser::ParseExprNoComma() -> AstExpr*
     {
         auto beginTokIndex = GetTokenIndex();
@@ -664,26 +681,6 @@ namespace glsld
         }
 
         return expr;
-    }
-
-    // EXPECT: '{'
-    //
-    // PARSE: '{' ... '}'
-    auto Parser::ParseInitializerExpr() -> AstExpr*
-    {
-        auto beginTokIndex = GetTokenIndex();
-
-        GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
-        ConsumeToken();
-
-        // FIXME: implement this
-        RecoverFromError(RecoveryMode::Brace);
-
-        if (!TryConsumeToken(TokenKlass::RBrace)) {
-            EnterRecoveryMode();
-        }
-
-        return CreateErrorExpr();
     }
 
     static auto GetPrefixUnaryOpDesc(TokenKlass klass) -> std::optional<UnaryOp>

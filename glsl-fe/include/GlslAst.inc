@@ -7,7 +7,7 @@ DECL_AST_TYPE(AstTypeQualifierSeq)
 DECL_AST_TYPE(AstQualType)
 DECL_AST_TYPE(AstArraySpec)
 // DECL_AST_TYPE(AstDeclarator)
-
+DECL_AST_TYPE(AstInitializerList)
 // expr
 DECL_AST_BEGIN_BASE(AstExpr)
 DECL_AST_TYPE(AstErrorExpr)

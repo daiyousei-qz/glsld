@@ -165,10 +165,10 @@ namespace glsld
             }
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclToken() && decl.GetDeclToken()->klass == TokenKlass::Identifier) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compiler.GetLexContext(), *decl.GetDeclToken(),
-                                                                  SemanticTokenType::Parameter,
-                                                                  SemanticTokenModifier::Declaration));
+                if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                    tokenBuffer.push_back(
+                        CreateSemanticTokenInfo(compiler.GetLexContext(), decl.GetDeclarator()->declTok,
+                                                SemanticTokenType::Parameter, SemanticTokenModifier::Declaration));
                 }
             }
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
