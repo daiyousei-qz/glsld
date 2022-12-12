@@ -54,7 +54,10 @@ namespace glsld
             }
         }
 
-        // Find last token that comes before the position
+        // Find last token that comes before the position or contains the position
+        // 1. " ... | Tokan A |  ^  | Token B | ..."
+        // 2. " ... | Tokan^ A | | Token B | ..."
+        // Both token A should be returned
         auto FindTokenByPosition(TextPosition position) const -> SyntaxToken
         {
             auto it = std::ranges::upper_bound(tokens, position, {},

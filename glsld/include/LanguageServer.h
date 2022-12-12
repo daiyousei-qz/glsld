@@ -13,6 +13,8 @@
 
 namespace glsld
 {
+    auto InitializeStdIO() -> void;
+
     // handles jsonrpc
     class LanguageServer : public LanguageServerCallback
     {
@@ -29,6 +31,8 @@ namespace glsld
     private:
         auto Initialize() -> void
         {
+            InitializeStdIO();
+
             language  = std::make_unique<LanguageService>(this);
             transport = std::make_unique<TransportService>(stdin, stdout, this);
             threading = std::make_unique<ThreadingService>();

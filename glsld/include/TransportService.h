@@ -90,7 +90,7 @@ namespace glsld
         auto PushMessage(const std::string_view& payload)
         {
             // TODO: optimize this
-            std::string header = fmt::format("Content-Length: {}\n\n", payload.size());
+            std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.size());
 
             fwrite(header.data(), sizeof(char), header.size(), outFile);
             fwrite(payload.data(), sizeof(char), payload.size(), outFile);
