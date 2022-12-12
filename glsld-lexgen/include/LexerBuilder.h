@@ -19,10 +19,10 @@ namespace glsld
     class NfaState
     {
     public:
-        constexpr NfaState(int i) : index(i)
+        NfaState(int i) : index(i)
         {
         }
-        constexpr ~NfaState()
+        ~NfaState()
         {
         }
 
@@ -73,22 +73,22 @@ namespace glsld
     class NfaAutomata
     {
     public:
-        constexpr NfaAutomata()
+        NfaAutomata()
         {
         }
-        constexpr ~NfaAutomata()
+        ~NfaAutomata()
         {
             Release();
         }
 
-        constexpr NfaAutomata(const NfaAutomata&)                    = delete;
-        constexpr auto operator=(const NfaAutomata&) -> NfaAutomata& = delete;
+        NfaAutomata(const NfaAutomata&)                    = delete;
+        auto operator=(const NfaAutomata&) -> NfaAutomata& = delete;
 
-        constexpr NfaAutomata(NfaAutomata&& other)
+        NfaAutomata(NfaAutomata&& other)
         {
             std::swap(states, other.states);
         }
-        constexpr auto operator=(NfaAutomata&& other) -> NfaAutomata&
+        auto operator=(NfaAutomata&& other) -> NfaAutomata&
         {
             Release();
             std::swap(states, other.states);
@@ -96,7 +96,7 @@ namespace glsld
             return *this;
         }
 
-        constexpr auto Release() -> void
+        auto Release() -> void
         {
             for (NfaState* state : states) {
                 delete state;
@@ -117,27 +117,27 @@ namespace glsld
             }
         }
 
-        constexpr auto NewState() -> NfaState*
+        auto NewState() -> NfaState*
         {
             return states.emplace_back(new NfaState{static_cast<int>(states.size())});
         }
 
-        constexpr auto NumState() const -> size_t
+        auto NumState() const -> size_t
         {
             return states.size();
         }
 
-        constexpr auto operator[](size_t index) -> NfaState*
+        auto operator[](size_t index) -> NfaState*
         {
             return states[index];
         }
 
-        constexpr auto operator[](size_t index) const -> const NfaState*
+        auto operator[](size_t index) const -> const NfaState*
         {
             return states[index];
         }
 
-        constexpr auto Print() -> void
+        auto Print() -> void
         {
             for (auto src : states) {
                 if (src->GetAcceptId() != -1) {

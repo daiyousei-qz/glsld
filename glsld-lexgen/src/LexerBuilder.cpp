@@ -1,6 +1,7 @@
 #include "LexerBuilder.h"
 #include "FlatSet.h"
 #include "SyntaxToken.h"
+
 #include <array>
 #include <functional>
 #include <vector>
@@ -12,6 +13,8 @@
 #include <numeric>
 #include <algorithm>
 #include <ranges>
+#include <stdexcept>
+
 #include <fmt/format.h>
 
 namespace glsld

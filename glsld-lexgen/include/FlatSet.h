@@ -79,17 +79,8 @@ public:
         return data_.end();
     }
 
-    template <typename T>
-    constexpr auto operator==(const FlatSet<T>& other) const -> bool
-    {
-        return data_ == other.data_;
-    }
-
-    template <typename T>
-    constexpr auto operator<=>(const FlatSet<T>& other) const
-    {
-        return data_ <=> other.data_;
-    }
+    constexpr auto operator==(const FlatSet& other) const -> bool = default;
+    constexpr auto operator<=>(const FlatSet& other) const        = default;
 
 public:
     std::vector<T> data_;

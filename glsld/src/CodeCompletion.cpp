@@ -234,16 +234,14 @@ namespace glsld
     {
         auto position = FromLspPosition(lspPosition);
 
-        if (IsAccessChainCompletion(compiler.GetLexContext(), position)) {
-        }
-        else {
-            auto result = GetDefaultLibraryCompletionList();
+        // if (IsAccessChainCompletion(compiler.GetLexContext(), position)) {
+        // }
+        auto result = GetDefaultLibraryCompletionList();
 
-            RegularCompletionVisitor visitor{compiler.GetLexContext(), position, false};
-            visitor.TraverseAst(compiler.GetAstContext());
-            std::ranges::copy(visitor.Export(), std::back_inserter(result));
+        RegularCompletionVisitor visitor{compiler.GetLexContext(), position, false};
+        visitor.TraverseAst(compiler.GetAstContext());
+        std::ranges::copy(visitor.Export(), std::back_inserter(result));
 
-            return result;
-        }
+        return result;
     }
 } // namespace glsld

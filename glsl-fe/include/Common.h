@@ -39,12 +39,12 @@ namespace glsld
         constexpr StringView(const char* p, size_t count) : data(p, count)
         {
         }
-        constexpr StringView(nullptr_t p) = delete;
-
-        constexpr StringView(const std::string& s) : data(s)
+        constexpr StringView(std::nullptr_t p) = delete;
+        constexpr StringView(std::string_view s) : data(s)
         {
         }
-        constexpr StringView(std::string_view s) : data(s)
+
+        explicit StringView(const std::string& s) : data(s)
         {
         }
 
