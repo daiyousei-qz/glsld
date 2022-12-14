@@ -80,19 +80,19 @@ namespace glsld
         auto operator-(const Vec& other) const noexcept -> Vec
         {
             Vec result = *this;
-            result += other;
+            result -= other;
             return result;
         }
         auto operator*(const Vec& other) const noexcept -> Vec
         {
             Vec result = *this;
-            result += other;
+            result *= other;
             return result;
         }
         auto operator/(const Vec& other) const noexcept -> Vec
         {
             Vec result = *this;
-            result += other;
+            result /= other;
             return result;
         }
         auto operator%(const Vec& other) const noexcept -> Vec

@@ -84,7 +84,7 @@ namespace glsld
                 return std::pair{Take(offset), Drop(offset + 1)};
             }
             else {
-                return std::pair{*this, StringView{}};
+                return std::pair{*this, StringView{data.end(), data.end()}};
             }
         }
         [[nodiscard]] constexpr auto Split(StringView seperator) const noexcept -> std::pair<StringView, StringView>
@@ -94,7 +94,7 @@ namespace glsld
                 return std::pair{Take(offset), Drop(offset + seperator.Size())};
             }
             else {
-                return std::pair{*this, StringView{}};
+                return std::pair{*this, StringView{data.end(), data.end()}};
             }
         }
 

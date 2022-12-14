@@ -54,10 +54,10 @@ DONE!
 - `for(i=1.5; i>0.; i-=.01){}` FIXED
 - `const float EPSILON	= 1e-3;` FIXED
 - `Hover parameter` FIXED
-- `line break '\'`
-- `Hover on QualType`
+- `line break '\'` FIXED
+- `Hover on QualType` FIXED
 - `Go to definition should link to the decl token`
-- `Need a better tokenizer`
+- `Need a better tokenizer` FIXED
 - `Should support builtin function documentation`
 - `sin(1.)?` FIXED
 - `Test\310.inheritMemory.frag?` FIXED

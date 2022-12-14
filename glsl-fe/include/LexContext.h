@@ -123,7 +123,7 @@ namespace glsld
             std::string buffer;
             while (true) {
                 buffer.clear();
-                auto tokInfo = tokenizer.NextToken(buffer);
+                auto tokInfo = tokenizer.NextToken(&buffer);
 
                 LexString tokText;
                 if (auto it = atomTable.find(buffer); it != atomTable.end()) {
@@ -138,11 +138,7 @@ namespace glsld
                     .file  = 0,
                     .klass = tokInfo.klass,
                     .text  = tokText,
-                    .range =
-                        TextRange{
-                            {tokInfo.lineBegin, tokInfo.columnBegin},
-                            {tokInfo.lineEnd, tokInfo.columnEnd},
-                        },
+                    .range = TextRange{tokInfo.begin, tokInfo.end},
                 });
 
                 if (tokInfo.klass == glsld::TokenKlass::Eof) {

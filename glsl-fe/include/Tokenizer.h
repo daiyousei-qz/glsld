@@ -3,186 +3,60 @@
 #include "SyntaxToken.h"
 
 #include <unordered_map>
-#include <string_view>
-#include <optional>
+#include <vector>
 
 namespace glsld
 {
     struct TokenInfo
     {
         TokenKlass klass;
-
-        int rawOffset;
-        int rawSize;
-
-        // NOTE these are all 0-based
-        int lineBegin;
-        int lineEnd;
-        int columnBegin;
-        int columnEnd;
+        TextPosition begin;
+        TextPosition end;
     };
 
-    class RawSourceView
+    class Tokenizer
     {
     public:
-        RawSourceView(std::string_view source_text)
-            : line(0), column(0), cursor(source_text.data()), begin(source_text.data()),
-              end(source_text.data() + source_text.size())
+        Tokenizer(StringView source)
+            : srcBegin(source.Data()), srcEnd(source.Data() + source.Size()), lineCursor(source.Data())
         {
+            // Load first line and calibrate line index to be zero-based
+            LoadLine();
+            lineIndex = 0;
         }
 
         auto Eof() -> bool
         {
-            return cursor == end;
+            return lineCursor == srcEnd && lineBuffer.empty();
         }
 
-        auto GetLineNum() -> int
-        {
-            return line;
-        }
-
-        auto GetColumnNum() -> int
-        {
-            return column;
-        }
-
-        auto HeadCursor() -> const char*
-        {
-            return begin;
-        }
-
-        auto LastCursor() -> const char*
-        {
-            GLSLD_ASSERT(cursor != begin);
-            return cursor - 1;
-        }
-
-        auto CurrentCursor() -> const char*
-        {
-            return cursor;
-        }
-
-        auto Peek() -> char
-        {
-            GLSLD_ASSERT(!Eof());
-            return *cursor;
-        }
-
-        auto Peek(int lookahead) -> char
-        {
-            if (end - cursor > lookahead) {
-                return cursor[lookahead];
-            }
-
-            return '\0';
-        }
-
-        auto Consume() -> char
-        {
-            GLSLD_ASSERT(!Eof());
-
-            char ch = *cursor;
-            if (ch == '\n') {
-                line += 1;
-                column = 0;
-            }
-            else {
-                column += 1;
-            }
-
-            ++cursor;
-            return ch;
-        }
-
-    public:
-        int line;
-        int column;
-        const char* cursor;
-        const char* begin;
-        const char* end;
-    };
-
-    // FIXME: tokenizer may issue error?
-    class Tokenizer
-    {
-    public:
-        Tokenizer(std::string_view source) : sourceView(source)
-        {
-        }
-
-        auto NextToken(std::string& buf) -> TokenInfo;
+        auto NextToken(std::string* buf) -> TokenInfo;
 
     private:
-        auto ParsePPComment() -> TokenKlass
-        {
-            sourceView.Consume();
+        auto GetCurrentTextPosition() -> TextPosition;
 
-            while (!sourceView.Eof() && sourceView.Peek() != '\n') {
-                sourceView.Consume();
-            }
+        auto ParseLineComment(std::string* buf) -> TokenKlass;
 
-            return TokenKlass::Comment;
-        }
+        auto ParseBlockComment(std::string* buf) -> TokenKlass;
 
-        auto ParseLineComment() -> TokenKlass
-        {
-            // Parse second '/'
-            sourceView.Consume();
+        auto ParseRegularToken(std::string* buf) -> TokenKlass;
 
-            while (!sourceView.Eof() && sourceView.Peek() != '\n') {
-                sourceView.Consume();
-            }
+        auto PeekChar() -> char;
 
-            return TokenKlass::Comment;
-        }
+        auto PeekChar(size_t lookahead) -> char;
 
-        auto ParseBlockComment() -> TokenKlass
-        {
-            // Parse '*'
-            sourceView.Consume();
+        auto SkipWhitespace() -> void;
 
-            while (!sourceView.Eof()) {
-                if (sourceView.Peek(0) == '*' && sourceView.Peek(1) == '/') {
-                    break;
-                }
-                sourceView.Consume();
-            }
+        auto LoadLine() -> void;
 
-            if (!sourceView.Eof()) {
-                sourceView.Consume();
-                sourceView.Consume();
-                return TokenKlass::Comment;
-            }
-            else {
-                return TokenKlass::Error;
-            }
-        }
+        const char* srcBegin;
+        const char* srcEnd;
+        const char* lineCursor;
 
-        auto IsWhitespace(char ch) -> bool
-        {
-            switch (ch) {
-            case ' ':
-            case '\t':
-            case '\r':
-            case '\n':
-                return true;
-            default:
-                return false;
-            }
-        }
-        auto IsAlpha(char ch) -> bool
-        {
-            return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-        }
-        auto IsDigit(char ch) -> bool
-        {
-            return ch >= '0' && ch <= '9';
-        }
-        auto IsAlphanum(char ch) -> bool
-        {
-            return IsAlpha(ch) || IsDigit(ch);
-        }
-
-        RawSourceView sourceView;
+        bool freshLine     = true;
+        size_t lineIndex   = 0;
+        size_t bufferIndex = 0;
+        std::vector<char> lineBuffer;
+        std::vector<size_t> lineBreakBuffer;
     };
 } // namespace glsld
