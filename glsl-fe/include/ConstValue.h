@@ -6,151 +6,108 @@
 #include <array>
 #include <cstdint>
 #include <variant>
+#include <type_traits>
 
 namespace glsld
 {
-    enum class ConstValueType
-    {
-        Error,
-        Bool,
-        Int32,
-        UInt32,
-        Float,
-        Double,
-
-        Vec3f,
-        Vec4f,
-    };
-
-    template <ConstValueType Type>
+    template <BuiltinType Type>
     struct ConstValueTraits;
 
-    template <>
-    struct ConstValueTraits<ConstValueType::Error>
-    {
-        struct ErrorTag
-        {
-        };
-
-        using CType = ErrorTag;
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    template <>                                                                                                        \
+    struct ConstValueTraits<BuiltinType::Ty_##GLSL_TYPE>                                                               \
+    {                                                                                                                  \
+        using CPPType = CPP_TYPE;                                                                                      \
     };
-    template <>
-    struct ConstValueTraits<ConstValueType::Bool>
-    {
-        using CType = bool;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::Int32>
-    {
-        using CType = int32_t;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::UInt32>
-    {
-        using CType = uint32_t;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::Float>
-    {
-        using CType = float;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::Double>
-    {
-        using CType = double;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::Vec3f>
-    {
-        using CType = Vec<float, 3>;
-    };
-    template <>
-    struct ConstValueTraits<ConstValueType::Vec4f>
-    {
-        using CType = Vec<float, 4>;
-    };
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
 
     // FIXME:
     class ConstValue
     {
+        // struct ErrorTag
+        // {
+        // };
+
+        using ErrorTag = int;
+
     public:
         ConstValue() = default;
-        ConstValue(bool value) : valueType(ConstValueType::Bool), boolValue(value)
+
+        template <BuiltinType Type>
+        static ConstValue FromValue(typename ConstValueTraits<Type>::CPPType value)
+            requires(!std::is_void_v<typename ConstValueTraits<Type>::CPPType>)
         {
-        }
-        ConstValue(int32_t value) : valueType(ConstValueType::Int32), intValue(value)
-        {
-        }
-        ConstValue(uint32_t value) : valueType(ConstValueType::UInt32), uintValue(value)
-        {
-        }
-        ConstValue(float value) : valueType(ConstValueType::Float), floatValue(value)
-        {
-        }
-        ConstValue(double value) : valueType(ConstValueType::Double), doubleValue(value)
-        {
+            ConstValue result;
+            result.valueType = Type;
+
+            if constexpr (false) {
+                GLSLD_UNREACHABLE();
+            }
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    else if constexpr (Type == BuiltinType::Ty_##GLSL_TYPE)                                                            \
+    {                                                                                                                  \
+        result.val_##GLSL_TYPE = value;                                                                                \
+    }
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
+            else {
+                GLSLD_UNREACHABLE();
+            }
+
+            return result;
         }
 
         auto IsErrorValue() const -> bool
         {
-            return valueType == ConstValueType::Error;
+            return valueType == BuiltinType::Ty_void;
         }
-        auto GetValueType() const -> ConstValueType
+        auto HasBoolValue() const -> bool
+        {
+            return valueType == BuiltinType::Ty_bool;
+        }
+        auto HasIntValue() const -> bool
+        {
+            return valueType == BuiltinType::Ty_int;
+        }
+        auto HasUintValue() const -> bool
+        {
+            return valueType == BuiltinType::Ty_uint;
+        }
+        auto GetValueType() const -> BuiltinType
         {
             return valueType;
         }
 
         auto GetBoolValue() const -> bool
         {
-            GLSLD_ASSERT(valueType == ConstValueType::Bool);
-            return boolValue;
+            GLSLD_ASSERT(valueType == BuiltinType::Ty_bool);
+            return val_bool;
         }
-
         auto GetIntValue() const -> int32_t
         {
-            GLSLD_ASSERT(valueType == ConstValueType::Int32);
-            return intValue;
+            GLSLD_ASSERT(valueType == BuiltinType::Ty_int);
+            return val_int;
         }
-
         auto GetUIntValue() const -> uint32_t
         {
-            GLSLD_ASSERT(valueType == ConstValueType::Int32);
-            return intValue;
+            GLSLD_ASSERT(valueType == BuiltinType::Ty_uint);
+            return val_uint;
         }
 
-        auto GetFloatValue() const -> float
-        {
-            GLSLD_ASSERT(valueType == ConstValueType::Float);
-            return floatValue;
-        }
-
-        auto GetDoubleValue() const -> double
-        {
-            GLSLD_ASSERT(valueType == ConstValueType::Double);
-            return doubleValue;
-        }
-
-        template <ConstValueType Type>
+        template <BuiltinType Type>
         auto GetCValue() const
         {
-            if constexpr (Type == ConstValueType::Error) {
+            if constexpr (false) {
                 GLSLD_UNREACHABLE();
             }
-            else if constexpr (Type == ConstValueType::Bool) {
-                return boolValue;
-            }
-            else if constexpr (Type == ConstValueType::Int32) {
-                return intValue;
-            }
-            else if constexpr (Type == ConstValueType::UInt32) {
-                return uintValue;
-            }
-            else if constexpr (Type == ConstValueType::Float) {
-                return floatValue;
-            }
-            else if constexpr (Type == ConstValueType::Double) {
-                return doubleValue;
-            }
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    else if constexpr (Type == BuiltinType::Ty_##GLSL_TYPE)                                                            \
+    {                                                                                                                  \
+        return val_##GLSL_TYPE;                                                                                        \
+    }
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
             else {
                 GLSLD_UNREACHABLE();
             }
@@ -159,25 +116,16 @@ namespace glsld
         auto ToString() const -> std::string
         {
             switch (valueType) {
-            case ConstValueType::Error:
-                return fmt::format("<error>");
-            case ConstValueType::Bool:
-                return fmt::format("{}", boolValue);
-            case ConstValueType::Int32:
-                return fmt::format("{}", intValue);
-            case ConstValueType::UInt32:
-                return fmt::format("{}", uintValue);
-            case ConstValueType::Float:
-                return fmt::format("{}", floatValue);
-            case ConstValueType::Double:
-                return fmt::format("{}", doubleValue);
-
-            case ConstValueType::Vec3f:
-                return "vec3?";
-                // return fmt::format("{}", vec3fValue);
-            case ConstValueType::Vec4f:
-                return "vec4?";
-                // return fmt::format("{}", vec4fValue);
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
+        if constexpr (std::is_void_v<CPP_TYPE>) {                                                                      \
+            return "<error>";                                                                                          \
+        }                                                                                                              \
+        else {                                                                                                         \
+            return fmt::format("{}", val_##GLSL_TYPE);                                                                 \
+        }
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
             }
 
             GLSLD_UNREACHABLE();
@@ -186,47 +134,36 @@ namespace glsld
         auto GetTypeDesc() const -> const TypeDesc*
         {
             switch (valueType) {
-            case ConstValueType::Error:
-                return GetErrorTypeDesc();
-            case ConstValueType::Bool:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_bool);
-            case ConstValueType::Int32:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_int);
-            case ConstValueType::UInt32:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_uint);
-            case ConstValueType::Float:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_float);
-            case ConstValueType::Double:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_double);
-
-            case ConstValueType::Vec3f:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_vec3);
-            case ConstValueType::Vec4f:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_vec4);
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
+        if constexpr (std::is_void_v<CPP_TYPE>) {                                                                      \
+            return GetErrorTypeDesc();                                                                                 \
+        }                                                                                                              \
+        else {                                                                                                         \
+            return GetBuiltinTypeDesc(BuiltinType::Ty_##GLSL_TYPE);                                                    \
+        }
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
             }
 
             GLSLD_UNREACHABLE();
         }
 
     private:
-        ConstValueType valueType = ConstValueType::Error;
+        // We use void type as error
+        BuiltinType valueType = BuiltinType::Ty_void;
 
         union
         {
-            bool boolValue;
-            int32_t intValue;
-            uint32_t uintValue;
-
-            float floatValue;
-            double doubleValue;
-
-            // FIXME: move to heap
-            Vec<float, 3> vec3fValue;
-            Vec<float, 4> vec4fValue;
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
+    std::conditional_t<std::is_void_v<CPP_TYPE>, ErrorTag, CPP_TYPE> val_##GLSL_TYPE;
+#include "GlslType.inc"
+#undef DECL_BUILTIN_TYPE
         };
     };
 
-    auto EvaluateUnaryOp(UnaryOp op, ConstValue operand) -> ConstValue;
-    auto EvaluateBinaryOp(BinaryOp op, ConstValue lhs, ConstValue rhs) -> ConstValue;
-    auto EvaluateSelectOp(ConstValue predicate, ConstValue ifBranchVal, ConstValue elseBranchVal) -> ConstValue;
+    auto EvaluateUnaryOp(UnaryOp op, const ConstValue& operand) -> ConstValue;
+    auto EvaluateBinaryOp(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue;
+    auto EvaluateSelectOp(const ConstValue& predicate, const ConstValue& ifBranchVal, const ConstValue& elseBranchVal)
+        -> ConstValue;
 } // namespace glsld

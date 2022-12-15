@@ -27,6 +27,9 @@ namespace glsld
                 declRange =
                     compiler.GetLexContext().LookupTextRange(memberDecl->GetDeclarators()[declaratorIndex].declTok);
             }
+            else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>(); blockDecl) {
+                declRange = compiler.GetLexContext().LookupTextRange(blockDecl->GetDeclarator()->declTok);
+            }
             else {
                 declRange = compiler.GetLexContext().LookupTextRange(decl.GetRange());
             }

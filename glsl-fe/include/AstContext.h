@@ -99,8 +99,8 @@ namespace glsld
                 std::vector<size_t> dimSizes;
                 for (auto arrayDim : arraySpec->GetSizeList()) {
                     if (arrayDim != nullptr) {
-                        auto dimSizeValue = arrayDim->GetConstValue();
-                        if (dimSizeValue.GetValueType() == ConstValueType::Int32) {
+                        const auto& dimSizeValue = arrayDim->GetConstValue();
+                        if (dimSizeValue.HasIntValue()) {
                             dimSizes.push_back(dimSizeValue.GetIntValue());
                             continue;
                         }

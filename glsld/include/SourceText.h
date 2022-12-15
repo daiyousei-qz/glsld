@@ -222,7 +222,7 @@ namespace glsld
         buffer += declarator.declTok.text.StrView();
         if (declarator.arraySize) {
             for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
-                if (dimSizeExpr && dimSizeExpr->GetConstValue().GetValueType() == ConstValueType::Int32) {
+                if (dimSizeExpr && dimSizeExpr->GetConstValue().HasIntValue()) {
                     buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetIntValue());
                 }
                 else {
@@ -234,7 +234,7 @@ namespace glsld
     inline auto ReconstructSourceText(std::string& buffer, const AstArraySpec& arraySpec) -> void
     {
         for (auto dimSizeExpr : arraySpec.GetSizeList()) {
-            if (dimSizeExpr && dimSizeExpr->GetConstValue().GetValueType() == ConstValueType::Int32) {
+            if (dimSizeExpr && dimSizeExpr->GetConstValue().HasIntValue()) {
                 buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetIntValue());
             }
             else {

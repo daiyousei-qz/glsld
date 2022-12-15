@@ -9,6 +9,7 @@ namespace glsld
     enum class DeclTokenType
     {
         Unknown,
+        LayoutQualifier,
         Variable,
         Swizzle,
         MemberVariable,
@@ -66,6 +67,13 @@ namespace glsld
                 if (!type.GetStructDecl()) {
                     // NOTE we process struct decl at `VisitAstStructDecl`
                     TryDeclToken(type.GetTypeNameTok(), type.GetResolvedStructDecl(), DeclTokenType::Type);
+                }
+            }
+
+            auto VisitAstTypeQualifierSeq(AstTypeQualifierSeq& quals) -> void
+            {
+                for (const auto& layoutQual : quals.GetLayoutQuals()) {
+                    TryDeclToken(layoutQual.idToken, DeclView{}, DeclTokenType ::LayoutQualifier);
                 }
             }
 

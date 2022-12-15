@@ -15,7 +15,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
+                    return ConstValue::FromValue<BuiltinType::Ty_uint>(value);
                 }
                 else {
                     return ConstValue{};
@@ -28,7 +28,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
+                    return ConstValue::FromValue<BuiltinType::Ty_int>(value);
                 }
                 else {
                     return ConstValue{};
@@ -46,7 +46,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
+                    return ConstValue::FromValue<BuiltinType::Ty_double>(value);
                 }
                 else {
                     return ConstValue{};
@@ -62,7 +62,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue{value};
+                    return ConstValue::FromValue<BuiltinType::Ty_float>(value);
                 }
                 else {
                     return ConstValue{};
@@ -107,6 +107,9 @@ namespace glsld
                 else {
                     return GetErrorTypeDesc();
                 }
+            case UnaryOp::Length:
+                // FIXME: test if the type has length operation
+                return GetBuiltinTypeDesc(BuiltinType::Ty_int);
             }
 
             GLSLD_UNREACHABLE();
@@ -352,10 +355,10 @@ namespace glsld
         // FIXME: handle literals with typing suffix
         switch (expr.GetToken().klass) {
         case TokenKlass::K_true:
-            expr.SetConstValue(true);
+            expr.SetConstValue(ConstValue::FromValue<BuiltinType::Ty_bool>(true));
             break;
         case TokenKlass::K_false:
-            expr.SetConstValue(false);
+            expr.SetConstValue(ConstValue::FromValue<BuiltinType::Ty_bool>(false));
             break;
         case TokenKlass::IntegerConstant:
             expr.SetConstValue(ParseIntegerLiteral(expr.GetToken().text.StrView()));

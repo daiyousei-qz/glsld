@@ -2,7 +2,6 @@
 DECL_AST_BEGIN_BASE(AstNodeBase)
 
 // misc
-DECL_AST_TYPE(AstLayoutQualifier)
 DECL_AST_TYPE(AstTypeQualifierSeq)
 DECL_AST_TYPE(AstQualType)
 DECL_AST_TYPE(AstArraySpec)

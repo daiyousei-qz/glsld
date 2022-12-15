@@ -45,6 +45,8 @@ namespace glsld
             }
 
         protected:
+            int uniqueId;
+
             std::unique_ptr<DiagnosticContext> diagContext = nullptr;
             std::unique_ptr<LexContext> lexContext         = nullptr;
             std::unique_ptr<AstContext> astContext         = nullptr;

@@ -29,7 +29,7 @@ namespace glsld
 
     enum class BuiltinType
     {
-#define DECL_BUILTIN_TYPE(TYPE, ...) Ty_##TYPE,
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, ...) Ty_##GLSL_TYPE,
 #include "GlslType.inc"
 #undef DECL_BUILTIN_TYPE
     };
@@ -37,9 +37,9 @@ namespace glsld
     inline auto GetBuiltinType(const SyntaxToken& tok) -> std::optional<BuiltinType>
     {
         switch (tok.klass) {
-#define DECL_BUILTIN_TYPE(TYPE, ...)                                                                                   \
-    case TokenKlass::K_##TYPE:                                                                                         \
-        return BuiltinType::Ty_##TYPE;
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, ...)                                                                              \
+    case TokenKlass::K_##GLSL_TYPE:                                                                                    \
+        return BuiltinType::Ty_##GLSL_TYPE;
 #include "GlslType.inc"
 #undef DECL_BUILTIN_TYPE
         default:

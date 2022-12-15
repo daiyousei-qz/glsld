@@ -89,7 +89,7 @@ namespace glsld
         // ACCEPT: 'K_layout' '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseLayoutQualifier() -> AstLayoutQualifier*;
+        auto ParseLayoutQualifier() -> std::vector<LayoutItem>;
 
         // Try to parse a sequence of qualifiers
         // PARSE: qual_seq

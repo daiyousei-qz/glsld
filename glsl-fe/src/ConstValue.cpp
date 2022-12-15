@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    template <ConstValueType... DispatchingTypes>
+    template <BuiltinType... DispatchingTypes>
     struct ConstOpDispatcher
     {
         template <typename F>
@@ -21,14 +21,14 @@ namespace glsld
         }
     };
 
-    template <ConstValueType FirstType, ConstValueType... RestTypes>
+    template <BuiltinType FirstType, BuiltinType... RestTypes>
     struct ConstOpDispatcher<FirstType, RestTypes...>
     {
         template <typename F>
         auto DispatchUnaryOp(const ConstValue& operand) -> ConstValue
         {
             if (operand.GetValueType() == FirstType) {
-                return ConstValue{F{}(operand.GetCValue<FirstType>())};
+                return ConstValue::FromValue<FirstType>(F{}(operand.GetCValue<FirstType>()));
             }
             else {
                 return ConstOpDispatcher<RestTypes...>{}.template DispatchUnaryOp<F>(operand);
@@ -40,7 +40,7 @@ namespace glsld
         {
             GLSLD_ASSERT(lhs.GetValueType() == rhs.GetValueType());
             if (lhs.GetValueType() == FirstType) {
-                return ConstValue{F{}(lhs.GetCValue<FirstType>(), rhs.GetCValue<FirstType>())};
+                return ConstValue::FromValue<FirstType>(F{}(lhs.GetCValue<FirstType>(), rhs.GetCValue<FirstType>()));
             }
             else {
                 return ConstOpDispatcher<RestTypes...>{}.template DispatchBinaryOp<F>(lhs, rhs);
@@ -49,19 +49,19 @@ namespace glsld
     };
 
     using ArithmeticScalarDispatcher =
-        ConstOpDispatcher<ConstValueType::Int32, ConstValueType::UInt32, ConstValueType::Float, ConstValueType::Double>;
+        ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_uint, BuiltinType::Ty_float, BuiltinType::Ty_double>;
     using NegatableScalarDispatcher =
-        ConstOpDispatcher<ConstValueType::Int32, ConstValueType::Float, ConstValueType::Double>;
-    using IntegralScalarDispatcher = ConstOpDispatcher<ConstValueType::Int32, ConstValueType::UInt32>;
-    using FloatScalarDispatcher    = ConstOpDispatcher<ConstValueType::Float, ConstValueType::Double>;
-    using BoolScalarDispatcher     = ConstOpDispatcher<ConstValueType::Bool>;
+        ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_float, BuiltinType::Ty_double>;
+    using IntegralScalarDispatcher = ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_uint>;
+    using FloatScalarDispatcher    = ConstOpDispatcher<BuiltinType::Ty_float, BuiltinType::Ty_double>;
+    using BoolScalarDispatcher     = ConstOpDispatcher<BuiltinType::Ty_bool>;
 
     using UniversalDispatcher  = ArithmeticScalarDispatcher;
     using ArithmeticDispatcher = ArithmeticScalarDispatcher;
     using IntegralDispatcher   = IntegralScalarDispatcher;
     using BoolDispatcher       = BoolScalarDispatcher;
 
-    auto EvaluateUnaryOp(UnaryOp op, ConstValue operand) -> ConstValue
+    auto EvaluateUnaryOp(UnaryOp op, const ConstValue& operand) -> ConstValue
     {
         switch (op) {
         case UnaryOp::Identity:
@@ -78,11 +78,14 @@ namespace glsld
         case UnaryOp::PostfixDec:
             // Const value is immutable
             return ConstValue{};
+        case UnaryOp::Length:
+            // FIXME: implement this
+            return ConstValue{};
         }
 
         GLSLD_UNREACHABLE();
     }
-    auto EvaluateBinaryOp(BinaryOp op, ConstValue lhs, ConstValue rhs) -> ConstValue
+    auto EvaluateBinaryOp(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
     {
         // FIXME: do we have implicit conversion in constant expression?
         if (lhs.GetValueType() != rhs.GetValueType()) {
@@ -150,10 +153,11 @@ namespace glsld
 
         GLSLD_UNREACHABLE();
     }
-    auto EvaluateSelectOp(ConstValue predicate, ConstValue ifBranchVal, ConstValue elseBranchVal) -> ConstValue
+    auto EvaluateSelectOp(const ConstValue& predicate, const ConstValue& ifBranchVal, const ConstValue& elseBranchVal)
+        -> ConstValue
     {
         // Predicate must be bool
-        if (predicate.GetValueType() != ConstValueType::Bool) {
+        if (predicate.GetValueType() != BuiltinType::Ty_bool) {
             return ConstValue{};
         }
 

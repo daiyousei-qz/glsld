@@ -223,6 +223,11 @@ namespace glsld
                 lineBuffer.pop_back();
                 lineBreakBuffer.push_back(lineBuffer.size());
             }
+            else if (lineBuffer.size() >= 2 && lineBuffer[lineBuffer.size() - 2] == '\\' && lineBuffer.back() == '\r') {
+                lineBuffer.pop_back();
+                lineBuffer.pop_back();
+                lineBreakBuffer.push_back(lineBuffer.size());
+            }
             else {
                 // Append a endline to make character tracking easier
                 lineBuffer.push_back('\n');

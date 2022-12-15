@@ -309,10 +309,10 @@ namespace glsld
     auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*
     {
         switch (type) {
-#define DECL_BUILTIN_TYPE(TYPE, DESC_PAYLOAD_TYPE, ...)                                                                \
-    case BuiltinType::Ty_##TYPE:                                                                                       \
+#define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, DESC_PAYLOAD_TYPE, ...)                                                 \
+    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
     {                                                                                                                  \
-        static TypeDesc typeDesc{#TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                               \
+        static TypeDesc typeDesc{#GLSL_TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                          \
         return &typeDesc;                                                                                              \
     }
 #include "GlslType.inc"

@@ -21,6 +21,9 @@ namespace glsld
             builder.Append("Unknown ");
         }
         switch (hover.type) {
+        case DeclTokenType::LayoutQualifier:
+            builder.Append("Layout Qualifier");
+            break;
         case DeclTokenType::Variable:
             builder.Append("Variable");
             break;
@@ -159,7 +162,8 @@ namespace glsld
                     return std::nullopt;
                 }
 
-                bool isUnknown    = declTokenResult->accessType != DeclTokenType::Swizzle;
+                bool isUnknown = declTokenResult->accessType != DeclTokenType::Swizzle &&
+                                 declTokenResult->accessType != DeclTokenType::LayoutQualifier;
                 auto hoverType    = declTokenResult->accessType;
                 auto hoverContent = CreateHoverContent(hoverType, hoverIdentifier, isUnknown);
                 return lsp::Hover{

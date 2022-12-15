@@ -78,7 +78,7 @@ namespace glsld
 #pragma endregion
 
 #pragma region Parsing QualType
-    auto Parser::ParseLayoutQualifier() -> AstLayoutQualifier*
+    auto Parser::ParseLayoutQualifier() -> std::vector<LayoutItem>
     {
         TRACE_PARSER();
 
@@ -89,7 +89,7 @@ namespace glsld
 
         std::vector<LayoutItem> result;
         if (!TryConsumeToken(TokenKlass::LParen)) {
-            return CreateAstNode<AstLayoutQualifier>(beginTokIndex, result);
+            return result;
         }
 
         while (!Eof()) {
@@ -100,17 +100,20 @@ namespace glsld
                 value = ParseExprNoComma();
             }
 
-            if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Comma)) {
+            result.push_back(LayoutItem{idToken, value});
+
+            if (!TryConsumeToken(TokenKlass::Comma)) {
                 break;
             }
 
-            result.push_back(LayoutItem{idToken, value});
-
+            if (InRecoveryMode()) {
+                ExitRecoveryMode();
+            }
             // We'll continue parsing regardless if a ',' has been consumed
         }
 
         ParseClosingParen();
-        return CreateAstNode<AstLayoutQualifier>(beginTokIndex, std::move(result));
+        return result;
     }
 
     auto Parser::ParseTypeQualifiers() -> AstTypeQualifierSeq*
@@ -119,7 +122,7 @@ namespace glsld
 
         auto beginTokIndex = GetTokenIndex();
         QualifierGroup qualifiers;
-        std::vector<AstLayoutQualifier*> layoutQuals;
+        std::vector<LayoutItem> layoutQuals;
 
         bool inQualSeq = true;
         while (InParsingMode() && inQualSeq) {
@@ -161,16 +164,16 @@ namespace glsld
                 break;
                 // storage qual (also, parameter qual)
             case TokenKlass::K_const:
-                qualifiers.SetConst();
+                qualifiers.qConst = true;
                 break;
             case TokenKlass::K_in:
-                qualifiers.SetIn();
+                qualifiers.qIn = true;
                 break;
             case TokenKlass::K_out:
-                qualifiers.SetOut();
+                qualifiers.qOut = true;
                 break;
             case TokenKlass::K_inout:
-                qualifiers.SetInout();
+                qualifiers.qInout = true;
                 break;
             case TokenKlass::K_attribute:
                 qualifiers.SetAttribute();
@@ -218,7 +221,7 @@ namespace glsld
 
             // Handle layout qualifier
             if (TryTestToken(TokenKlass::K_layout)) {
-                layoutQuals.push_back(ParseLayoutQualifier());
+                std::ranges::copy(ParseLayoutQualifier(), std::back_inserter(layoutQuals));
                 inQualSeq = true;
             }
         }
@@ -337,8 +340,7 @@ namespace glsld
     {
         TRACE_PARSER();
 
-        // FIXME: shouldn't this be the beginning of qualifiers?
-        auto beginTokIndex = GetTokenIndex();
+        auto beginTokIndex = quals ? quals->GetRange().startTokenIndex : GetTokenIndex();
 
         if (TryTestToken(TokenKlass::K_struct)) {
             auto structDefinitionResult = ParseStructDefinition();
@@ -946,10 +948,18 @@ namespace glsld
             }
             case TokenKlass::Dot:
             {
-                // Member access
+                // Member access or .length() call
                 ConsumeToken();
                 auto accessName = ParseDeclId();
-                result          = CreateAstNode<AstNameAccessExpr>(beginTokIndex, result, accessName);
+                if (accessName.text.Equals("length") && TryTestToken(TokenKlass::LParen) &&
+                    TryTestToken(TokenKlass::RParen, 1)) {
+                    ConsumeToken();
+                    ConsumeToken();
+                    result = CreateAstNode<AstUnaryExpr>(beginTokIndex, UnaryOp::Length, result);
+                }
+                else {
+                    result = CreateAstNode<AstNameAccessExpr>(beginTokIndex, result, accessName);
+                }
                 break;
             }
             case TokenKlass::Increment:

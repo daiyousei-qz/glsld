@@ -107,6 +107,11 @@ namespace glsld
             return ptr;
         }
 
+        auto Equals(const char* other) const -> bool
+        {
+            return ptr ? strcmp(ptr, other) == 0 : false;
+        }
+
         auto Str() const -> std::string
         {
             return ptr ? ptr : "";

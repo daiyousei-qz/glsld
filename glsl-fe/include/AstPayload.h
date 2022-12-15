@@ -101,10 +101,10 @@ namespace glsld
         }
 
     private:
-        // Type of this specifier
+        // Resolved descriptor of this type
         const TypeDesc* resolvedType = nullptr;
 
-        // Declaration of this type
+        // Resolved declaration of this type
         AstDecl* resolvedStructDecl = nullptr;
     };
 
@@ -199,16 +199,34 @@ namespace glsld
     class AstPayload<AstExpr>
     {
     public:
-        auto GetConstValue() -> ConstValue
+        ~AstPayload()
         {
-            return constValue;
-        }
-        auto SetConstValue(ConstValue constValue) -> void
-        {
-            this->constValue = constValue;
+            if (constValue) {
+                delete constValue;
+                constValue = nullptr;
+            }
         }
 
-        auto GetDeducedType() -> const TypeDesc*
+        auto GetConstValue() const -> const ConstValue&
+        {
+            static const ConstValue errorValue{};
+            if (constValue) {
+                return *constValue;
+            }
+            else {
+                return errorValue;
+            }
+        }
+        auto SetConstValue(const ConstValue& value) -> void
+        {
+            if (constValue) {
+                delete constValue;
+            }
+
+            constValue = new ConstValue(value);
+        }
+
+        auto GetDeducedType() const -> const TypeDesc*
         {
             return deducedType;
         }
@@ -217,7 +235,7 @@ namespace glsld
             this->deducedType = deducedType;
         }
 
-        auto GetContextualType() -> const TypeDesc*
+        auto GetContextualType() const -> const TypeDesc*
         {
             return contextualType;
         }
@@ -228,13 +246,13 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            return fmt::format("ConstValue: {}; DeducedType: {}; ContextualType: {}", constValue.ToString(),
+            return fmt::format("ConstValue: {}; DeducedType: {}; ContextualType: {}", GetConstValue().ToString(),
                                TypeDescToString(deducedType), TypeDescToString(contextualType));
         }
 
     private:
         // Constant folded value
-        ConstValue constValue = {};
+        const ConstValue* constValue = nullptr;
 
         // Type of the evaluated expression
         const TypeDesc* deducedType = GetErrorTypeDesc();

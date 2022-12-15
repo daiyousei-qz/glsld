@@ -81,7 +81,7 @@ namespace glsld
         // The tag for the AstType if it's a leaf node, otherwise it's Invalid
         static constexpr AstNodeTag tag = AstNodeTag::Invalid;
 
-        // any valid tag in range (tagBegin, tagEnd) is or derives AstType
+        // any valid tag in range [tagBegin, tagEnd] is or derives AstType
         static constexpr int tagBegin = 0;
         static constexpr int tagEnd   = 0;
     };
@@ -140,8 +140,6 @@ namespace glsld
             return range;
         }
 
-        auto Dump() -> void;
-
         template <typename AstType>
         inline auto Is() const -> bool
         {
@@ -160,6 +158,8 @@ namespace glsld
             return Is<AstType>() ? static_cast<AstType*>(this) : nullptr;
         }
 
+        auto Dump() -> void;
+
         // Invoke expression `f(*this, args...)` where `this` is dispatched into the real type.
         //
         // This is defined at Ast.h because of definition issue
@@ -176,7 +176,13 @@ namespace glsld
             this->range = range;
         }
 
-        AstNodeTag tag         = AstNodeTag::Invalid;
+        // An integral tag that identifies the Ast type
+        AstNodeTag tag = AstNodeTag::Invalid;
+
+        // A unique id that identifies the parent module
+        int moduleId = 0;
+
+        // A range of ids that identifies syntax tokens that form this Ast node
         SyntaxTokenRange range = {};
     };
 
