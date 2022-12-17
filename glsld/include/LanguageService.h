@@ -61,6 +61,18 @@ namespace glsld
             return false;
         }
 
+        auto StealBuffer() -> std::string
+        {
+            std::unique_lock<std::mutex> lock{mu};
+            if (available) {
+                // After compilation finishes, the sourceString buffer is no longer needed
+                return std::move(sourceString);
+            }
+            else {
+                return sourceString;
+            }
+        }
+
         auto GetSourceString() const -> const std::string&
         {
             return sourceString;
@@ -100,7 +112,7 @@ namespace glsld
                         .textDocumentSync =
                             {
                                 .openClose = true,
-                                .change    = lsp::TextDocumentSyncKind::Full,
+                                .change    = lsp::TextDocumentSyncKind::Incremental,
                             },
                         .completionProvider =
                             lsp::CompletionOptions{
@@ -144,16 +156,38 @@ namespace glsld
 
         auto DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
         {
-            auto provider = (providerLookup[params.textDocument.uri] = std::make_shared<IntellisenseProvider>(
-                                 params.textDocument.version, std::move(params.textDocument.text)));
+            auto& providerEntry = providerLookup[params.textDocument.uri];
+            if (providerEntry) {
+                // Bad request
+                return;
+            }
 
-            ScheduleTask([provider = std::move(provider)]() { provider->Setup(); });
+            providerEntry = std::make_shared<IntellisenseProvider>(params.textDocument.version,
+                                                                   std::move(params.textDocument.text));
+
+            ScheduleTask([provider = providerEntry]() { provider->Setup(); });
         }
         auto DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
         {
-            auto provider = (providerLookup[params.textDocument.uri] = std::make_shared<IntellisenseProvider>(
-                                 params.textDocument.version, std::move(params.contentChanges[0].text)));
-            ScheduleTask([provider = std::move(provider)]() { provider->Setup(); });
+            auto& providerEntry = providerLookup[params.textDocument.uri];
+            if (!providerEntry) {
+                // Bad request
+                return;
+            }
+
+            auto sourceBuffer = providerEntry->StealBuffer();
+            for (const auto& change : params.contentChanges) {
+                if (change.range) {
+                    ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
+                }
+                else {
+                    sourceBuffer = std::move(change.text);
+                }
+            }
+            providerEntry =
+                std::make_shared<IntellisenseProvider>(params.textDocument.version, std::move(sourceBuffer));
+
+            ScheduleTask([provider = providerEntry]() { provider->Setup(); });
         }
         auto DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
         {

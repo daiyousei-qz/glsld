@@ -40,6 +40,48 @@ namespace glsld
         };
     }
 
+    inline auto ApplySourceChange(std::string& sourceBuffer, TextRange range, StringView changedText) -> void
+    {
+        TextPosition cur = {};
+        size_t index     = 0;
+
+        // Find the begining index of the range
+        for (; index < sourceBuffer.size(); ++index) {
+            if (cur >= range.start) {
+                break;
+            }
+
+            if (sourceBuffer[index] == '\n') {
+                cur.line += 1;
+                cur.character = 0;
+            }
+            else {
+                cur.character += 1;
+            }
+        }
+
+        size_t indexBegin = index;
+
+        // Find the ending index of the range
+        for (; index < sourceBuffer.size(); ++index) {
+            if (cur >= range.end) {
+                break;
+            }
+
+            if (sourceBuffer[index] == '\n') {
+                cur.line += 1;
+                cur.character = 0;
+            }
+            else {
+                cur.character += 1;
+            }
+        }
+
+        size_t indexEnd = index;
+
+        sourceBuffer.replace(indexBegin, indexEnd - indexBegin, changedText.StdStrView());
+    }
+
     struct SourcePiece
     {
         std::optional<TextRange> range;
