@@ -39,36 +39,19 @@ namespace glsld
         //     if (entry.is_regular_file()) {
         //         fmt::print("[] Compiling {}\n", entry.path().string());
 
-        //         glsld::CompiledModule compiler;
         //         auto inputData = ReadFile(entry.path().string());
-        //         compiler.Compile(*inputData);
+        //         glsld::Compile(StringView{*inputData});
         //         fmt::print("succussfully parsed input file\n\n");
         //     }
         // }
 
         auto result = glsld::Compile(StringView{*inputData});
-
         fmt::print("succussfully parsed input file\n");
     }
-
-    auto CreateLexingAutomata() -> void;
 } // namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
-    //     auto testText =
-    //         R"(
-    // hello
-    // world
-    // !
-    // )";
-
-    //     auto v     = std::vector<SourcePiece>{SourcePiece{.range = std::nullopt, .text = testText}};
-    //     auto edit1 = ApplyTextChange(v, TextRange{.start = {1, 0}, .end = {1, 1}}, "hh");
-    //     auto edit2 = ApplyTextChange(edit1, TextRange{.start = {2, 1}, .end = {2, 5}}, "iii");
-    //     auto x     = ToString(edit2);
-    //     fmt::print("{}", x);
-
     cl::ParseArguments(argc, argv);
     glsld::DoMain();
     return 0;

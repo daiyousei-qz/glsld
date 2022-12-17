@@ -32,6 +32,10 @@ namespace glsld
                 declRange = compileResult.GetLexContext().LookupTextRange(
                     memberDecl->GetDeclarators()[declaratorIndex].declTok);
             }
+            else if (auto structDecl = decl.As<AstStructDecl>();
+                     structDecl && structDecl->GetDeclToken() && structDecl->GetDeclToken()->IsIdentifier()) {
+                declRange = compileResult.GetLexContext().LookupTextRange(*structDecl->GetDeclToken());
+            }
             else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>(); blockDecl) {
                 declRange = compileResult.GetLexContext().LookupTextRange(blockDecl->GetDeclarator()->declTok);
             }

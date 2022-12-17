@@ -2,6 +2,7 @@
 #include "AstHelper.h"
 #include "Markdown.h"
 #include "SourceText.h"
+#include "StandardDocumentation.h"
 
 namespace glsld
 {
@@ -9,6 +10,7 @@ namespace glsld
     {
         DeclTokenType type;
         std::string name;
+        std::string documentation;
         std::string code;
         bool unknown = false;
     };
@@ -50,6 +52,11 @@ namespace glsld
         }
         builder.Append(fmt::format(" `{}`", hover.name));
 
+        if (!hover.documentation.empty()) {
+            builder.AppendRuler();
+            builder.AppendParagraph(hover.documentation);
+        }
+
         if (!hover.code.empty()) {
             builder.AppendRuler();
             builder.Append("```glsl\n");
@@ -83,9 +90,10 @@ namespace glsld
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
             ReconstructSourceText(buffer, *funcDecl);
             return HoverContent{
-                .type = DeclTokenType::Function,
-                .name = std::string{hoverId},
-                .code = std::move(buffer),
+                .type          = DeclTokenType::Function,
+                .name          = std::string{hoverId},
+                .documentation = QueryFunctionDocumentation(hoverId).Str(),
+                .code          = std::move(buffer),
             };
         }
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
@@ -125,7 +133,7 @@ namespace glsld
             return HoverContent{
                 .type = DeclTokenType::InterfaceBlock,
                 .name = std::string{hoverId},
-                .code = fmt::format("block {}", hoverId),
+                .code = "",
             };
         }
 

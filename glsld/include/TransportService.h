@@ -21,7 +21,6 @@
 
 namespace glsld
 {
-    // FIXME: figure out why vscode is requiring \n instead of \r\n
     class TransportService
     {
     public:
@@ -38,7 +37,7 @@ namespace glsld
             payloadBuffer.clear();
 
             // Read LSP headers from input file
-            // Although LSP requires "\r\n" as end-line, we allow "\n" as well.
+            // Although LSP requires "\r\n" as end-line, we only use "\n" as the delimitor for simplicity.
             size_t payloadLength = 0;
             while (true) {
                 if (!ReadLine(lineBuffer)) {
@@ -77,7 +76,8 @@ namespace glsld
                 auto len = fread(payloadBuffer.data() + readSize, sizeof(char), payloadLength - readSize, inFile);
 
                 if (len == 0) {
-                    return false; // eof
+                    // See EOF
+                    return false;
                 }
 
                 readSize += len;

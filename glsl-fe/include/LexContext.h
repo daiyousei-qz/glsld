@@ -120,7 +120,7 @@ namespace glsld
         // Both token A should be returned
         auto FindTokenByPosition(TextPosition position) const -> SyntaxToken
         {
-            auto it = std::ranges::upper_bound(tokens, position, {},
+            auto it = std::ranges::lower_bound(tokens, position, {},
                                                [](const SyntaxTokenInfo& tok) { return tok.range.start; });
             if (it != tokens.end() && it != tokens.begin()) {
                 SyntaxTokenIndex index = std::distance(tokens.begin(), it) - 1;

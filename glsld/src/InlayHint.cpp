@@ -2,35 +2,39 @@
 
 namespace glsld
 {
-    class InlayHintVisitor : public AstVisitor<InlayHintVisitor>
+    class InlayHintVisitor : public ModuleVisitor<InlayHintVisitor>
     {
     public:
-        InlayHintVisitor(const CompileResult& compileResult, TextRange range)
-            : compileResult(compileResult), range(range)
+        using ModuleVisitor::ModuleVisitor;
+
+        auto Execute(TextRange range) -> std::vector<lsp::InlayHint>
         {
+            this->range = range;
+
+            this->Traverse();
+
+            return std::move(result);
         }
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            auto nodeRange = compileResult.GetLexContext().LookupTextRange(node.GetRange());
-            if (range.Contains(nodeRange.start) || range.Contains(nodeRange.end)) {
-                return AstVisitPolicy::Traverse;
-            }
-
-            return AstVisitPolicy::Leave;
+            return this->EnterIfOverlapRange(node, range);
         }
 
         auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
         {
             if (auto funcExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
                 if (funcExpr->GetAccessType() == NameAccessType::Function && funcExpr->GetAccessedDecl()) {
-                    // We can resolve the function
-                    const auto paramDeclList =
-                        funcExpr->GetAccessedDecl().GetDecl()->As<AstFunctionDecl>()->GetParams();
+                    // We can resolve this function. So inlay hints could/should be computed.
+
+                    const auto funcDecl = funcExpr->GetAccessedDecl().GetDecl()->As<AstFunctionDecl>();
+                    GLSLD_ASSERT(funcDecl);
+
+                    const auto paramDeclList = funcDecl->GetParams();
 
                     for (size_t i = 0; i < paramDeclList.size(); ++i) {
                         GLSLD_ASSERT(i < expr.GetArguments().size());
-                        const auto& lexContext = compileResult.GetLexContext();
+                        const auto& lexContext = this->GetLexContext();
 
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
@@ -54,23 +58,15 @@ namespace glsld
             }
         }
 
-        auto Export() -> std::vector<lsp::InlayHint>
-        {
-            return std::move(result);
-        }
-
     private:
-        std::vector<lsp::InlayHint> result;
-
-        const CompileResult& compileResult;
         TextRange range;
+
+        std::vector<lsp::InlayHint> result;
     };
 
     auto ComputeInlayHint(const CompileResult& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
-        InlayHintVisitor visitor{compileResult, FromLspRange(range)};
-        visitor.TraverseAst(compileResult.GetAstContext());
-        return visitor.Export();
+        return InlayHintVisitor{compileResult}.Execute(FromLspRange(range));
     }
 
 } // namespace glsld

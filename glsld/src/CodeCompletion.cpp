@@ -328,8 +328,6 @@ namespace glsld
         return nullptr;
     }
 
-    // FIXME: not populate keyword while typing a decl
-    // FIXME: not populate functions while typing a dot
     auto ComputeCompletion(const CompileResult& compileResult, lsp::Position lspPosition)
         -> std::vector<lsp::CompletionItem>
     {
