@@ -175,6 +175,8 @@ namespace glsld
                 return;
             }
 
+            // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
+            // compilation
             auto sourceBuffer = providerEntry->StealBuffer();
             for (const auto& change : params.contentChanges) {
                 if (change.range) {
