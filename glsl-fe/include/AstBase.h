@@ -130,6 +130,11 @@ namespace glsld
             return tag;
         }
 
+        auto GetModuleId() const -> int
+        {
+            return moduleId;
+        }
+
         // Number of tokens that this Ast node covers
         auto GetNumToken() const -> uint32_t
         {
@@ -170,17 +175,18 @@ namespace glsld
         friend class AstContext;
 
         // This should be correctly called by AstContext during the construction of the node
-        auto Initialize(AstNodeTag tag, SyntaxTokenRange range) -> void
+        auto Initialize(AstNodeTag tag, int moduleId, SyntaxTokenRange range) -> void
         {
-            this->tag   = tag;
-            this->range = range;
+            this->tag      = tag;
+            this->moduleId = moduleId;
+            this->range    = range;
         }
 
         // An integral tag that identifies the Ast type
         AstNodeTag tag = AstNodeTag::Invalid;
 
         // A unique id that identifies the parent module
-        int moduleId = 0;
+        int moduleId = -1;
 
         // A range of ids that identifies syntax tokens that form this Ast node
         SyntaxTokenRange range = {};

@@ -1,6 +1,5 @@
 #pragma once
 #include "SyntaxToken.h"
-#include "Tokenizer.h"
 
 #include <algorithm>
 #include <string>
@@ -16,10 +15,71 @@ namespace glsld
     class LexContext
     {
     public:
-        // FIXME: remove tokenizer out
-        LexContext(std::string_view sourceString)
+        LexContext()
         {
-            Initialize(sourceString);
+        }
+
+        LexContext(const LexContext&)                    = delete;
+        auto operator=(const LexContext&) -> LexContext& = delete;
+
+        LexContext(LexContext&&)                    = default;
+        auto operator=(LexContext&&) -> LexContext& = default;
+
+        auto AddCommentToken(TextRange range, const std::string& lexText) -> void
+        {
+            GLSLD_ASSERT(tokens.empty() || tokens.back().klass != TokenKlass::Eof);
+
+            LexString tokText;
+            if (auto it = atomTable.find(lexText); it != atomTable.end()) {
+                tokText = LexString{it->c_str()};
+            }
+            else {
+                tokText = LexString{atomTable.insert(std::string{lexText}).first->c_str()};
+            }
+
+            commentTokens.push_back(SyntaxTokenInfo{
+                .file  = 0,
+                .klass = TokenKlass::Comment,
+                .text  = tokText,
+                .range = range,
+            });
+        }
+
+        auto AddToken(TokenKlass klass, TextRange range, const std::string& lexText) -> SyntaxToken
+        {
+            GLSLD_ASSERT(tokens.empty() || tokens.back().klass != TokenKlass::Eof);
+            GLSLD_ASSERT(klass != TokenKlass::Comment && klass != TokenKlass::Eof);
+
+            LexString tokText;
+            if (auto it = atomTable.find(lexText); it != atomTable.end()) {
+                tokText = LexString{it->c_str()};
+            }
+            else {
+                tokText = LexString{atomTable.insert(std::string{lexText}).first->c_str()};
+            }
+
+            auto& tokenContainer = klass != TokenKlass::Comment ? tokens : commentTokens;
+            tokens.push_back(SyntaxTokenInfo{
+                .file  = 0,
+                .klass = klass,
+                .text  = tokText,
+                .range = range,
+            });
+            return GetToken(tokens.size() - 1);
+        }
+
+        auto AddEof(TextRange range) -> SyntaxToken
+        {
+            if (tokens.empty() || tokens.back().klass != TokenKlass::Eof) {
+                tokens.push_back(SyntaxTokenInfo{
+                    .file  = 0,
+                    .klass = TokenKlass::Eof,
+                    .text  = LexString{},
+                    .range = range,
+                });
+            }
+
+            return GetToken(tokens.size() - 1);
         }
 
         auto GetAllTokenView() const
@@ -117,36 +177,6 @@ namespace glsld
         }
 
     private:
-        auto Initialize(std::string_view sourceString) -> void
-        {
-            glsld::Tokenizer tokenizer{sourceString};
-            std::string buffer;
-            while (true) {
-                buffer.clear();
-                auto tokInfo = tokenizer.NextToken(&buffer);
-
-                LexString tokText;
-                if (auto it = atomTable.find(buffer); it != atomTable.end()) {
-                    tokText = LexString{it->c_str()};
-                }
-                else {
-                    tokText = LexString{atomTable.insert(buffer).first->c_str()};
-                }
-
-                auto& tokenContainer = tokInfo.klass != TokenKlass::Comment ? tokens : commentTokens;
-                tokenContainer.push_back(SyntaxTokenInfo{
-                    .file  = 0,
-                    .klass = tokInfo.klass,
-                    .text  = tokText,
-                    .range = TextRange{tokInfo.begin, tokInfo.end},
-                });
-
-                if (tokInfo.klass == glsld::TokenKlass::Eof) {
-                    break;
-                }
-            }
-        }
-
         // FIXME: optimize memory layout
         std::unordered_set<std::string> atomTable;
 

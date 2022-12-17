@@ -49,7 +49,7 @@ namespace glsld
         std::vector<lsp::ColorInformation> result;
     };
 
-    auto ComputeDocumentColor(CompiledModule& compiler) -> std::vector<lsp::ColorInformation>
+    auto ComputeDocumentColor(const CompileResult& compileResult) -> std::vector<lsp::ColorInformation>
     {
         // return {lsp::ColorInformation{
         //     .range = {.start = {.line = 0, .character = 0}, .end{.line = 0, .character = 4}},

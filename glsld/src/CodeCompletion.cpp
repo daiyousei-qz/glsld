@@ -129,8 +129,8 @@ namespace glsld
             auto defaultLibraryModule = GetDefaultLibraryModule();
             RegularCompletionVisitor visitor{defaultLibraryModule->GetLexContext(), TextPosition{}, true};
             visitor.TraverseAst(defaultLibraryModule->GetAstContext());
-            result = visitor.Export();
 
+            result = visitor.Export();
             // Keywords
             for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
                 result.push_back(lsp::CompletionItem{
@@ -230,7 +230,8 @@ namespace glsld
 
     // FIXME: not populate keyword while typing a decl
     // FIXME: not populate functions while typing a dot
-    auto ComputeCompletion(CompiledModule& compiler, lsp::Position lspPosition) -> std::vector<lsp::CompletionItem>
+    auto ComputeCompletion(const CompileResult& compileResult, lsp::Position lspPosition)
+        -> std::vector<lsp::CompletionItem>
     {
         auto position = FromLspPosition(lspPosition);
 
@@ -238,8 +239,8 @@ namespace glsld
         // }
         auto result = GetDefaultLibraryCompletionList();
 
-        RegularCompletionVisitor visitor{compiler.GetLexContext(), position, false};
-        visitor.TraverseAst(compiler.GetAstContext());
+        RegularCompletionVisitor visitor{compileResult.GetLexContext(), position, false};
+        visitor.TraverseAst(compileResult.GetAstContext());
         std::ranges::copy(visitor.Export(), std::back_inserter(result));
 
         return result;

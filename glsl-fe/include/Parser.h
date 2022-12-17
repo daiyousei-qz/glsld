@@ -18,18 +18,18 @@ namespace glsld
     class Parser
     {
     public:
-        Parser(LexContext* lexCtx, AstContext* astCtx, DiagnosticContext* diagCtx)
-            : lexContext(lexCtx), astContext(astCtx), diagContext(diagCtx)
+        Parser(const LexContext& lexCtx, AstContext& astCtx, DiagnosticContext& diagCtx, int moduleId)
+            : lexContext(lexCtx), astContext(astCtx), diagContext(diagCtx), moduleId(moduleId)
         {
             RestoreTokenIndex(0);
         }
 
-        auto DoParseTranslationUnit() -> void
+        auto DoParse() -> void
         {
             TRACE_PARSER();
 
             while (!Eof()) {
-                astContext->AddGlobalDecl(ParseDeclAndTryRecover());
+                astContext.AddGlobalDecl(ParseDeclAndTryRecover());
             }
         }
 
@@ -687,7 +687,7 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) -> SyntaxToken
         {
-            return lexContext->GetToken(currentTok.index + lookahead);
+            return lexContext.GetToken(currentTok.index + lookahead);
         }
 
         auto GetTokenIndex() -> SyntaxTokenIndex
@@ -698,7 +698,7 @@ namespace glsld
         // FIXME: need to restore brace depth tracker
         auto RestoreTokenIndex(size_t index) -> void
         {
-            currentTok = lexContext->GetToken(index);
+            currentTok = lexContext.GetToken(index);
         }
 
         auto ConsumeToken() -> void
@@ -759,29 +759,21 @@ namespace glsld
         auto CreateErrorExpr() -> AstErrorExpr*
         {
             auto tokIndex = GetTokenIndex();
-            return CreateRangedAstNode<AstErrorExpr>(tokIndex, tokIndex);
+            return astContext.CreateAstNode<AstErrorExpr>(moduleId, SyntaxTokenRange{tokIndex, tokIndex});
         }
 
         auto CreateErrorStmt() -> AstErrorStmt*
         {
             auto tokIndex = GetTokenIndex();
-            return CreateRangedAstNode<AstErrorStmt>(tokIndex, tokIndex);
-        }
-
-        template <typename T, typename... Args>
-            requires std::is_base_of_v<AstNodeBase, T>
-        auto CreateRangedAstNode(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex, Args&&... args) -> T*
-        {
-            return astContext->CreateAstNode<T>(SyntaxTokenRange{beginTokIndex, endTokIndex},
-                                                std::forward<Args>(args)...);
+            return astContext.CreateAstNode<AstErrorStmt>(moduleId, SyntaxTokenRange{tokIndex, tokIndex});
         }
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<AstNodeBase, T>
         auto CreateAstNode(SyntaxTokenIndex beginTokIndex, Args&&... args) -> T*
         {
-            return astContext->CreateAstNode<T>(SyntaxTokenRange{beginTokIndex, GetTokenIndex()},
-                                                std::forward<Args>(args)...);
+            return astContext.CreateAstNode<T>(moduleId, SyntaxTokenRange{beginTokIndex, GetTokenIndex()},
+                                               std::forward<Args>(args)...);
         }
 
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
@@ -806,6 +798,11 @@ namespace glsld
             Recovery,
         };
 
+        int moduleId;
+        const LexContext& lexContext;
+        AstContext& astContext;
+        DiagnosticContext& diagContext;
+
         ParsingState state = ParsingState::Parsing;
 
         size_t parenDepth      = 0;
@@ -813,11 +810,7 @@ namespace glsld
         size_t braceDepth      = 0;
         size_t scopeBraceDepth = 0;
 
-        LexContext* lexContext = nullptr;
         SyntaxToken currentTok = {};
-
-        AstContext* astContext;
-        DiagnosticContext* diagContext;
     };
 
 } // namespace glsld

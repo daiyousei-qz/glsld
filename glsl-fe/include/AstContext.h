@@ -11,7 +11,7 @@ namespace glsld
     class AstContext
     {
     public:
-        friend class Parser;
+        AstContext() = default;
 
         ~AstContext()
         {
@@ -27,6 +27,12 @@ namespace glsld
             }
         }
 
+        AstContext(const AstContext&)                    = delete;
+        auto operator=(const AstContext&) -> AstContext& = delete;
+
+        AstContext(AstContext&&)                    = default;
+        auto operator=(AstContext&&) -> AstContext& = default;
+
         auto AddGlobalDecl(AstDecl* decl) -> void
         {
             globalDecls.push_back(decl);
@@ -40,10 +46,11 @@ namespace glsld
 
         template <typename T, typename... Args>
             requires AstNodeTrait<T>::isLeafNode
-        auto CreateAstNode(SyntaxTokenRange range, Args&&... args) -> T*
+        auto CreateAstNode(int moduleId, SyntaxTokenRange range, Args&&... args) -> T*
         {
             auto result = new T(std::forward<Args>(args)...);
-            result->Initialize(AstNodeTrait<T>::tag, range);
+            result->Initialize(AstNodeTrait<T>::tag, moduleId, range);
+            nodes.push_back(result);
             return result;
         }
 

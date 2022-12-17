@@ -267,12 +267,16 @@ namespace glsld
     class MSVC_EMPTY_BASES AstInterfaceBlockDecl : public AstDecl, public AstPayload<AstInterfaceBlockDecl>
     {
     public:
-        AstInterfaceBlockDecl(SyntaxToken declTok, std::vector<AstStructMemberDecl*> members,
-                              std::optional<VariableDeclarator> declarator)
-            : declTok(declTok), members(std::move(members)), declarator(declarator)
+        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok,
+                              std::vector<AstStructMemberDecl*> members, std::optional<VariableDeclarator> declarator)
+            : quals(quals), declTok(declTok), members(std::move(members)), declarator(declarator)
         {
         }
 
+        auto GetQualifiers() -> const AstTypeQualifierSeq*
+        {
+            return quals;
+        }
         auto GetDeclToken() -> const SyntaxToken&
         {
             return declTok;
@@ -289,6 +293,7 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) -> void
         {
+            visitor.Traverse(quals);
             for (auto member : members) {
                 visitor.Traverse(member);
             }
@@ -304,6 +309,7 @@ namespace glsld
         }
 
     private:
+        AstTypeQualifierSeq* quals                   = nullptr;
         SyntaxToken declTok                          = {};
         std::vector<AstStructMemberDecl*> members    = {};
         std::optional<VariableDeclarator> declarator = std::nullopt;

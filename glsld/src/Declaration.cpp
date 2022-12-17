@@ -3,35 +3,40 @@
 
 namespace glsld
 {
-    auto ComputeDeclaration(CompiledModule& compiler, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(const CompileResult& compileResult, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
-        auto declTokenResult = FindDeclToken(compiler, FromLspPosition(position));
+        auto declTokenResult = FindDeclToken(compileResult, FromLspPosition(position));
         if (declTokenResult && declTokenResult->accessedDecl.IsValid()) {
             AstDecl& decl          = *declTokenResult->accessedDecl.GetDecl();
             size_t declaratorIndex = declTokenResult->accessedDecl.GetIndex();
 
+            // Avoid giving declaration if the accessed decl isn't in this module
+            if (decl.GetModuleId() != compileResult.GetId()) {
+                return {};
+            }
+
             TextRange declRange;
             if (auto funcDecl = decl.As<AstFunctionDecl>(); funcDecl) {
-                declRange = compiler.GetLexContext().LookupTextRange(funcDecl->GetName());
+                declRange = compileResult.GetLexContext().LookupTextRange(funcDecl->GetName());
             }
             else if (auto paramDecl = decl.As<AstParamDecl>();
                      paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
-                declRange = compiler.GetLexContext().LookupTextRange(paramDecl->GetDeclarator()->declTok);
+                declRange = compileResult.GetLexContext().LookupTextRange(paramDecl->GetDeclarator()->declTok);
             }
             else if (auto varDecl = decl.As<AstVariableDecl>(); varDecl) {
                 declRange =
-                    compiler.GetLexContext().LookupTextRange(varDecl->GetDeclarators()[declaratorIndex].declTok);
+                    compileResult.GetLexContext().LookupTextRange(varDecl->GetDeclarators()[declaratorIndex].declTok);
             }
             else if (auto memberDecl = decl.As<AstStructMemberDecl>(); memberDecl) {
-                declRange =
-                    compiler.GetLexContext().LookupTextRange(memberDecl->GetDeclarators()[declaratorIndex].declTok);
+                declRange = compileResult.GetLexContext().LookupTextRange(
+                    memberDecl->GetDeclarators()[declaratorIndex].declTok);
             }
             else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>(); blockDecl) {
-                declRange = compiler.GetLexContext().LookupTextRange(blockDecl->GetDeclarator()->declTok);
+                declRange = compileResult.GetLexContext().LookupTextRange(blockDecl->GetDeclarator()->declTok);
             }
             else {
-                declRange = compiler.GetLexContext().LookupTextRange(decl.GetRange());
+                declRange = compileResult.GetLexContext().LookupTextRange(decl.GetRange());
             }
 
             return {lsp::Location{

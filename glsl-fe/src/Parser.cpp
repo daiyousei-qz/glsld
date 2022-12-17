@@ -635,7 +635,7 @@ namespace glsld
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
         auto blockBody = ParseStructBody();
         if (InRecoveryMode() || TryConsumeToken(TokenKlass::Semicolon)) {
-            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody, std::nullopt);
+            return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, quals, declTok, blockBody, std::nullopt);
         }
 
         // Parse declarator if any
@@ -647,7 +647,7 @@ namespace glsld
         // Parse ';'
         ParsePermissiveSemicolon();
 
-        return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, declTok, blockBody, declarator);
+        return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, quals, declTok, blockBody, declarator);
     }
 
     auto Parser::ParsePrecisionDecl() -> AstDecl*
@@ -841,9 +841,8 @@ namespace glsld
         if (!TryConsumeToken(TokenKlass::Colon)) {
             if (InRecoveryMode()) {
                 // we cannot infer a ':' in recovery mode, so just return early
-                auto tokIndex = GetTokenIndex();
                 return CreateAstNode<AstSelectExpr>(beginTokIndex, predicateOrExprResult, ifBranchExpr,
-                                                    CreateRangedAstNode<AstErrorExpr>(tokIndex, tokIndex));
+                                                    CreateErrorExpr());
             }
 
             ReportError("expecting ':'");
@@ -1010,7 +1009,7 @@ namespace glsld
         default:
             // error, but we see this as a successful parse
             ReportError("expect an expression");
-            return CreateRangedAstNode<AstErrorExpr>(beginTokIndex, beginTokIndex);
+            return CreateErrorExpr();
         }
     }
 

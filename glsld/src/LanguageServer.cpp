@@ -12,6 +12,9 @@ namespace glsld
 #if defined(GLSLD_OS_WIN)
         _setmode(_fileno(stdout), O_BINARY);
         _setmode(_fileno(stdin), O_BINARY);
+#else
+        freopen(nullptr, "rb", stdout);
+        freopen(nullptr, "wb", stdin);
 #endif
     }
 } // namespace glsld

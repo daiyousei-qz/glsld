@@ -5,13 +5,14 @@ namespace glsld
     class InlayHintVisitor : public AstVisitor<InlayHintVisitor>
     {
     public:
-        InlayHintVisitor(CompiledModule& compiler, TextRange range) : compiler(compiler), range(range)
+        InlayHintVisitor(const CompileResult& compileResult, TextRange range)
+            : compileResult(compileResult), range(range)
         {
         }
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            auto nodeRange = compiler.GetLexContext().LookupTextRange(node.GetRange());
+            auto nodeRange = compileResult.GetLexContext().LookupTextRange(node.GetRange());
             if (range.Contains(nodeRange.start) || range.Contains(nodeRange.end)) {
                 return AstVisitPolicy::Traverse;
             }
@@ -29,7 +30,7 @@ namespace glsld
 
                     for (size_t i = 0; i < paramDeclList.size(); ++i) {
                         GLSLD_ASSERT(i < expr.GetArguments().size());
-                        const auto& lexContext = compiler.GetLexContext();
+                        const auto& lexContext = compileResult.GetLexContext();
 
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
@@ -61,14 +62,14 @@ namespace glsld
     private:
         std::vector<lsp::InlayHint> result;
 
-        CompiledModule& compiler;
+        const CompileResult& compileResult;
         TextRange range;
     };
 
-    auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>
+    auto ComputeInlayHint(const CompileResult& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
-        InlayHintVisitor visitor{compiler, FromLspRange(range)};
-        visitor.TraverseAst(compiler.GetAstContext());
+        InlayHintVisitor visitor{compileResult, FromLspRange(range)};
+        visitor.TraverseAst(compileResult.GetAstContext());
         return visitor.Export();
     }
 

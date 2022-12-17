@@ -5,13 +5,13 @@
 
 namespace glsld
 {
-    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledExternalModule>
+    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledDependency>
     {
         static const auto defaultLibrarySource =
 #include "DefaultLibrary.glsl.h"
             ;
 
-        static const auto module = GlslCompiler{}.CompileExternalModule(defaultLibrarySource);
+        static const auto module = std::make_shared<CompiledDependency>(Compile(defaultLibrarySource));
 
         return module;
     }

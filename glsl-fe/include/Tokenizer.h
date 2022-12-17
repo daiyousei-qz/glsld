@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "LexContext.h"
 #include "SyntaxToken.h"
 
 #include <unordered_map>
@@ -17,29 +18,36 @@ namespace glsld
     class Tokenizer
     {
     public:
-        Tokenizer(StringView source)
-            : srcBegin(source.Data()), srcEnd(source.Data() + source.Size()), lineCursor(source.Data())
+        Tokenizer(LexContext& lexContext, StringView source)
+            : lexContext(lexContext), srcBegin(source.Data()), srcEnd(source.Data() + source.Size()),
+              lineCursor(source.Data())
         {
             // Load first line and calibrate line index to be zero-based
             LoadLine();
             lineIndex = 0;
         }
 
+        auto DoTokenize() -> void
+        {
+            while (NextToken()) {
+            }
+        }
+
+    private:
         auto Eof() -> bool
         {
             return lineCursor == srcEnd && lineBuffer.empty();
         }
 
-        auto NextToken(std::string* buf) -> TokenInfo;
+        auto NextToken() -> bool;
 
-    private:
         auto GetCurrentTextPosition() -> TextPosition;
 
-        auto ParseLineComment(std::string* buf) -> TokenKlass;
+        auto ParseLineComment() -> TokenKlass;
 
-        auto ParseBlockComment(std::string* buf) -> TokenKlass;
+        auto ParseBlockComment() -> TokenKlass;
 
-        auto ParseRegularToken(std::string* buf) -> TokenKlass;
+        auto ParseRegularToken() -> TokenKlass;
 
         auto PeekChar() -> char;
 
@@ -48,6 +56,8 @@ namespace glsld
         auto SkipWhitespace() -> void;
 
         auto LoadLine() -> void;
+
+        LexContext& lexContext;
 
         const char* srcBegin;
         const char* srcEnd;
@@ -58,5 +68,7 @@ namespace glsld
         size_t bufferIndex = 0;
         std::vector<char> lineBuffer;
         std::vector<size_t> lineBreakBuffer;
+
+        std::string tokenBuffer;
     };
 } // namespace glsld

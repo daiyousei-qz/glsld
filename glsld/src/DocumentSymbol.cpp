@@ -2,12 +2,12 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(CompiledModule& compiler) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(const CompileResult& compileResult) -> std::vector<lsp::DocumentSymbol>
     {
         std::vector<lsp::DocumentSymbol> result;
 
-        for (auto decl : compiler.GetAstContext().globalDecls) {
-            auto declRange       = compiler.GetLexContext().LookupTextRange(decl->GetRange());
+        for (auto decl : compileResult.GetAstContext().globalDecls) {
+            auto declRange       = compileResult.GetLexContext().LookupTextRange(decl->GetRange());
             lsp::Range testRange = ToLspRange(declRange);
 
             if (auto funcDecl = decl->As<AstFunctionDecl>()) {

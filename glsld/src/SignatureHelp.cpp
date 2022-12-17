@@ -39,10 +39,11 @@ namespace glsld
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::SignatureHelp>
+    auto ComputeSignatureHelp(const CompileResult& compileResult, lsp::Position position)
+        -> std::optional<lsp::SignatureHelp>
     {
-        SignatureHelpVisitor visitor{compiler.GetLexContext(), FromLspPosition(position)};
-        visitor.TraverseAst(compiler.GetAstContext());
+        SignatureHelpVisitor visitor{compileResult.GetLexContext(), FromLspPosition(position)};
+        visitor.TraverseAst(compileResult.GetAstContext());
         auto expr = visitor.Export();
 
         if (expr) {
@@ -67,7 +68,7 @@ namespace glsld
                 }
 
                 // For function in this module
-                for (auto funcDecl : compiler.GetAstContext().functionDecls) {
+                for (auto funcDecl : compileResult.GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         std::string documentation;

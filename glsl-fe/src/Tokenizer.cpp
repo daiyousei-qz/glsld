@@ -17,8 +17,10 @@ namespace glsld
         }
     }
 
-    auto Tokenizer::NextToken(std::string* buf) -> TokenInfo
+    auto Tokenizer::NextToken() -> bool
     {
+        tokenBuffer.clear();
+
         while (true) {
             SkipWhitespace();
             if (Eof()) {
@@ -40,26 +42,30 @@ namespace glsld
             TokenKlass klass = TokenKlass::Error;
             if (PeekChar() == '/' && PeekChar(1) == '/') {
                 // Parse line comment
-                klass = ParseLineComment(buf);
+                klass = ParseLineComment();
             }
             else if (PeekChar() == '/' && PeekChar(1) == '*') {
                 // Parse block comment
-                klass = ParseBlockComment(buf);
+                klass = ParseBlockComment();
             }
             else {
                 // Parse normal token
-                klass = ParseRegularToken(buf);
+                klass = ParseRegularToken();
             }
 
-            return TokenInfo{
-                .klass = klass,
-                .begin = tokBegin,
-                .end   = GetCurrentTextPosition(),
-            };
+            if (klass == TokenKlass::Comment) {
+                lexContext.AddCommentToken(TextRange{tokBegin, GetCurrentTextPosition()}, tokenBuffer);
+            }
+            else {
+                lexContext.AddToken(klass, TextRange{tokBegin, GetCurrentTextPosition()}, tokenBuffer);
+            }
+
+            return true;
         }
 
         auto eofPosition = TextPosition{.line = static_cast<int>(lineIndex), .character = 0};
-        return TokenInfo{.klass = TokenKlass::Eof, .begin = eofPosition, .end = eofPosition};
+        lexContext.AddEof(TextRange{eofPosition, eofPosition});
+        return false;
     }
 
     auto Tokenizer::GetCurrentTextPosition() -> TextPosition
@@ -76,52 +82,42 @@ namespace glsld
         return TextPosition{.line = static_cast<int>(line), .character = static_cast<int>(character)};
     }
 
-    auto Tokenizer::ParseLineComment(std::string* buf) -> TokenKlass
+    auto Tokenizer::ParseLineComment() -> TokenKlass
     {
         GLSLD_ASSERT(PeekChar() == '/' && PeekChar(1) == '/');
-        if (buf) {
-            *buf += StringView{lineBuffer.begin() + bufferIndex, lineBuffer.end() - 1}.StdStrView();
-        }
+        tokenBuffer += StringView{lineBuffer.begin() + bufferIndex, lineBuffer.end() - 1}.StdStrView();
 
         bufferIndex = lineBuffer.size();
         return TokenKlass::Comment;
     }
 
-    auto Tokenizer::ParseBlockComment(std::string* buf) -> TokenKlass
+    auto Tokenizer::ParseBlockComment() -> TokenKlass
     {
         GLSLD_ASSERT(PeekChar() == '/' && PeekChar(1) == '*');
-        if (buf) {
-            *buf += "/*";
-        }
+        tokenBuffer += "/*";
         bufferIndex += 2;
 
         while (!Eof()) {
             while (bufferIndex + 1 < lineBuffer.size()) {
                 if (PeekChar() == '*' && PeekChar(1) == '/') {
-                    if (buf) {
-                        *buf += "*/";
-                    }
+                    tokenBuffer += "*/";
                     bufferIndex += 2;
                     return TokenKlass::Comment;
                 }
                 else {
-                    if (buf) {
-                        *buf += PeekChar();
-                    }
+                    tokenBuffer += PeekChar();
                     bufferIndex += 1;
                 }
             }
 
-            if (buf) {
-                *buf += "\n";
-            }
+            tokenBuffer += "\n";
             LoadLine();
         }
 
         return TokenKlass::Error;
     }
 
-    auto Tokenizer::ParseRegularToken(std::string* buf) -> TokenKlass
+    auto Tokenizer::ParseRegularToken() -> TokenKlass
     {
         TokenKlass result = TokenKlass::Error;
 
@@ -131,9 +127,7 @@ namespace glsld
             bufferIndex += tokenizeResult.numAcceptedChar;
 
             auto tokenView = remainingSource.Take(tokenizeResult.numAcceptedChar);
-            if (buf) {
-                *buf += tokenView.StdStrView();
-            }
+            tokenBuffer += tokenView.StdStrView();
 
             result = static_cast<TokenKlass>(tokenizeResult.acceptedKlass);
             if (result == TokenKlass::Identifier) {
@@ -150,10 +144,7 @@ namespace glsld
         else {
             // No accepted char, we consume one bad char to ensure proceeding
             bufferIndex += 1;
-
-            if (buf) {
-                *buf += remainingSource.Take(1).StdStrView();
-            }
+            tokenBuffer += remainingSource.Take(1).StdStrView();
         }
 
         return result;

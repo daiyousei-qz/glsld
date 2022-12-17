@@ -9,27 +9,29 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(CompiledModule& compiler) -> std::vector<lsp::DocumentSymbol>;
+    auto ComputeDocumentSymbol(const CompileResult& compileResult) -> std::vector<lsp::DocumentSymbol>;
 
     auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(CompiledModule& compiler) -> lsp::SemanticTokens;
-    auto ComputeSemanticTokensDelta(CompiledModule& compiler) -> lsp::SemanticTokensDelta;
+    auto ComputeSemanticTokens(const CompileResult& compileResult) -> lsp::SemanticTokens;
+    auto ComputeSemanticTokensDelta(const CompileResult& compileResult) -> lsp::SemanticTokensDelta;
 
-    auto ComputeCompletion(CompiledModule& compiler, lsp::Position position) -> std::vector<lsp::CompletionItem>;
+    auto ComputeCompletion(const CompileResult& compileResult, lsp::Position position)
+        -> std::vector<lsp::CompletionItem>;
 
-    auto ComputeSignatureHelp(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::SignatureHelp>;
+    auto ComputeSignatureHelp(const CompileResult& compileResult, lsp::Position position)
+        -> std::optional<lsp::SignatureHelp>;
 
-    auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>;
+    auto ComputeHover(const CompileResult& compileResult, lsp::Position position) -> std::optional<lsp::Hover>;
 
     // we assume single source file for now
-    auto ComputeDeclaration(CompiledModule& compiler, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(const CompileResult& compileResult, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>;
 
-    auto ComputeInlayHint(CompiledModule& compiler, lsp::Range range) -> std::vector<lsp::InlayHint>;
+    auto ComputeInlayHint(const CompileResult& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>;
 
-    auto ComputeDocumentColor(CompiledModule& compiler) -> std::vector<lsp::ColorInformation>;
+    auto ComputeDocumentColor(const CompileResult& compileResult) -> std::vector<lsp::ColorInformation>;
 
-    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledExternalModule>;
+    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledDependency>;
 
     class IntellisenseProvider
     {
@@ -41,7 +43,7 @@ namespace glsld
 
         auto Setup()
         {
-            compiler = GlslCompiler{}.CompileModule(sourceString, GetDefaultLibraryModule());
+            compileResult = Compile(StringView{sourceString}, GetDefaultLibraryModule());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;
@@ -59,21 +61,21 @@ namespace glsld
             return false;
         }
 
-        auto GetSourceString() -> const std::string&
+        auto GetSourceString() const -> const std::string&
         {
             return sourceString;
         }
 
-        auto GetCompiler() -> CompiledModule&
+        auto GetCompileResult() const -> const CompileResult&
         {
             GLSLD_ASSERT(available);
-            return *compiler;
+            return *compileResult;
         }
 
     private:
         int version;
         std::string sourceString;
-        std::shared_ptr<CompiledModule> compiler;
+        std::unique_ptr<CompileResult> compileResult;
 
         std::atomic<bool> available = false;
         std::mutex mu;
@@ -168,7 +170,7 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        auto result = ComputeDocumentSymbol(provider->GetCompiler());
+                        auto result = ComputeDocumentSymbol(provider->GetCompileResult());
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -181,7 +183,7 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        lsp::SemanticTokens result = ComputeSemanticTokens(provider->GetCompiler());
+                        lsp::SemanticTokens result = ComputeSemanticTokens(provider->GetCompileResult());
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -195,7 +197,7 @@ namespace glsld
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
                         std::vector<lsp::CompletionItem> result =
-                            ComputeCompletion(provider->GetCompiler(), params.baseParams.position);
+                            ComputeCompletion(provider->GetCompileResult(), params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -209,7 +211,7 @@ namespace glsld
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
                         std::optional<lsp::SignatureHelp> result =
-                            ComputeSignatureHelp(provider->GetCompiler(), params.baseParams.position);
+                            ComputeSignatureHelp(provider->GetCompileResult(), params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -223,7 +225,7 @@ namespace glsld
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
                         std::optional<lsp::Hover> result =
-                            ComputeHover(provider->GetCompiler(), params.baseParams.position);
+                            ComputeHover(provider->GetCompileResult(), params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -236,8 +238,9 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result = ComputeDeclaration(
-                            provider->GetCompiler(), params.baseParams.textDocument.uri, params.baseParams.position);
+                        std::vector<lsp::Location> result =
+                            ComputeDeclaration(provider->GetCompileResult(), params.baseParams.textDocument.uri,
+                                               params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -250,8 +253,9 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result = ComputeDeclaration(
-                            provider->GetCompiler(), params.baseParams.textDocument.uri, params.baseParams.position);
+                        std::vector<lsp::Location> result =
+                            ComputeDeclaration(provider->GetCompileResult(), params.baseParams.textDocument.uri,
+                                               params.baseParams.position);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -264,7 +268,8 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        std::vector<lsp::InlayHint> result = ComputeInlayHint(provider->GetCompiler(), params.range);
+                        std::vector<lsp::InlayHint> result =
+                            ComputeInlayHint(provider->GetCompileResult(), params.range);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
@@ -277,7 +282,7 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        auto result = ComputeDocumentColor(provider->GetCompiler());
+                        auto result = ComputeDocumentColor(provider->GetCompileResult());
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });

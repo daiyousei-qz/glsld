@@ -13,129 +13,113 @@
 
 namespace glsld
 {
-    class LexContext;
-    class ParseContext;
-    class DiagnosticContext;
+    class CompiledDependency;
 
-    class CompiledModule;
-    class CompiledExternalModule;
-
-    namespace detail
-    {
-        class CompiledModuleImpl
-        {
-        public:
-            CompiledModuleImpl() = default;
-
-            auto GetDiagnosticContext() const -> const DiagnosticContext&
-            {
-                return *diagContext;
-            }
-            auto GetLexContext() const -> const LexContext&
-            {
-                return *lexContext;
-            }
-            auto GetAstContext() const -> const AstContext&
-            {
-                return *astContext;
-            }
-            auto GetSymbolTable() const -> const SymbolTable&
-            {
-                return symbolTable;
-            }
-
-        protected:
-            int uniqueId;
-
-            std::unique_ptr<DiagnosticContext> diagContext = nullptr;
-            std::unique_ptr<LexContext> lexContext         = nullptr;
-            std::unique_ptr<AstContext> astContext         = nullptr;
-
-            // For global symbols
-            SymbolTable symbolTable;
-        };
-    } // namespace detail
-
-    class CompiledModule : public detail::CompiledModuleImpl
+    class CompileResult
     {
     public:
-        using CompiledModuleImpl::CompiledModuleImpl;
+        CompileResult(StringView sourceText, std::shared_ptr<CompiledDependency> module = nullptr);
 
-        auto GetDependentModule() -> const CompiledExternalModule*
+        CompileResult(const CompileResult&)                    = delete;
+        auto operator=(const CompileResult&) -> CompileResult& = delete;
+
+        CompileResult(CompileResult&&);
+        auto operator=(CompileResult&&) -> CompileResult&;
+
+        auto GetId() const -> int
         {
-            return dependentModule.get();
+            return moduleId;
+        }
+
+        auto IsValid() const -> bool
+        {
+            return moduleId >= 0;
+        }
+
+        auto HasDependency() const -> bool
+        {
+            return !dependentModules.empty();
+        }
+
+        auto GetDiagnosticContext() const -> const DiagnosticContext&
+        {
+            return *diagContext;
+        }
+        auto GetLexContext() const -> const LexContext&
+        {
+            return *lexContext;
+        }
+        auto GetAstContext() const -> const AstContext&
+        {
+            return *astContext;
+        }
+        auto GetSymbolTable() const -> const SymbolTable&
+        {
+            return symbolTable;
         }
 
     private:
-        friend class GlslCompiler;
-        friend class CompiledExternalModule;
+        friend auto Compile(StringView, std::shared_ptr<CompiledDependency>) -> std::unique_ptr<CompileResult>;
 
-        std::shared_ptr<CompiledExternalModule> dependentModule;
+        int moduleId = -1;
+
+        std::unique_ptr<DiagnosticContext> diagContext;
+        std::unique_ptr<LexContext> lexContext;
+        std::unique_ptr<AstContext> astContext;
+
+        SymbolTable symbolTable;
+
+        std::vector<std::shared_ptr<CompiledDependency>> dependentModules;
     };
 
-    class CompiledExternalModule : public detail::CompiledModuleImpl
+    class CompiledDependency : public std::enable_shared_from_this<CompiledDependency>
     {
     public:
-        CompiledExternalModule(CompiledModule module)
+        CompiledDependency(std::unique_ptr<CompileResult> data) : compileResult(std::move(*data))
         {
-            GLSLD_ASSERT(module.dependentModule == nullptr);
-            diagContext = std::move(module.diagContext);
-            lexContext  = std::move(module.lexContext);
-            astContext  = std::move(module.astContext);
-            symbolTable = std::move(module.symbolTable);
-        }
-    };
-
-    class GlslCompiler final
-    {
-    public:
-        auto CompileModule(std::string_view sourceString, std::shared_ptr<CompiledExternalModule> module = nullptr)
-            -> std::shared_ptr<CompiledModule>
-        {
-            return std::make_shared<CompiledModule>(CompileImpl(sourceString, module));
+            GLSLD_ASSERT(!this->compileResult.HasDependency());
         }
 
-        auto CompileExternalModule(std::string_view sourceString) -> std::shared_ptr<CompiledExternalModule>
+        auto GetId() const -> int
         {
-            return std::make_shared<CompiledExternalModule>(CompileImpl(sourceString, nullptr));
+            return compileResult.GetId();
+        }
+
+        auto GetDiagnosticContext() const -> const DiagnosticContext&
+        {
+            return compileResult.GetDiagnosticContext();
+        }
+        auto GetLexContext() const -> const LexContext&
+        {
+            return compileResult.GetLexContext();
+        }
+        auto GetAstContext() const -> const AstContext&
+        {
+            return compileResult.GetAstContext();
+        }
+        auto GetSymbolTable() const -> const SymbolTable&
+        {
+            return compileResult.GetSymbolTable();
         }
 
     private:
-        auto CompileImpl(std::string_view sourceString, std::shared_ptr<CompiledExternalModule> module)
-            -> CompiledModule
-        {
-            CompiledModule result;
-            result.diagContext = std::make_unique<DiagnosticContext>();
-            result.lexContext  = std::make_unique<LexContext>(sourceString);
-            result.astContext  = std::make_unique<AstContext>();
-
-            Parser parser{result.lexContext.get(), result.astContext.get(), result.diagContext.get()};
-            parser.DoParseTranslationUnit();
-
-            result.symbolTable =
-                TypeChecker{}.TypeCheck(*result.astContext, module ? &module->GetSymbolTable() : nullptr);
-
-#if defined(GLSLD_DEBUG)
-            AstPrinter printer;
-            printer.TraverseAst(*result.astContext);
-            fmt::print(stderr, "{}", printer.Export());
-#endif
-
-            return result;
-        }
+        CompileResult compileResult;
     };
+
+    auto Compile(StringView sourceText, std::shared_ptr<CompiledDependency> module = nullptr)
+        -> std::unique_ptr<CompileResult>;
 
     template <typename Derived>
     class ModuleVisitor : public AstVisitor<Derived>
     {
     public:
-        ModuleVisitor(CompiledModule& module) : module(&module)
+        ModuleVisitor(const CompileResult& data) : data(&data)
         {
         }
 
         auto Traverse() -> void
         {
-            AstVisitor<Derived>::TraverseAst(module->GetAstContext());
+            AstVisitor<Derived>::TraverseAst(data->GetAstContext());
         }
 
         using AstVisitor<Derived>::Traverse;
@@ -143,11 +127,11 @@ namespace glsld
     protected:
         auto GetLexContext() const -> const LexContext&
         {
-            return module->GetLexContext();
+            return data->GetLexContext();
         }
         auto GetAstContext() const -> const AstContext&
         {
-            return module->GetAstContext();
+            return data->GetAstContext();
         }
 
         auto EnterIfContainsPosition(AstNodeBase& node, TextPosition position) -> AstVisitPolicy
@@ -158,7 +142,7 @@ namespace glsld
         }
 
     private:
-        CompiledModule* module;
+        const CompileResult* data;
     };
 
 } // namespace glsld

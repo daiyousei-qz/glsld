@@ -132,9 +132,9 @@ namespace glsld
         return std::nullopt;
     }
 
-    auto ComputeHover(CompiledModule& compiler, lsp::Position position) -> std::optional<lsp::Hover>
+    auto ComputeHover(const CompileResult& compileResult, lsp::Position position) -> std::optional<lsp::Hover>
     {
-        auto declTokenResult = FindDeclToken(compiler, FromLspPosition(position));
+        auto declTokenResult = FindDeclToken(compileResult, FromLspPosition(position));
         if (declTokenResult) {
             auto hoverIdentifier = declTokenResult->token.text.StrView();
             auto hoverRange      = declTokenResult->range;
