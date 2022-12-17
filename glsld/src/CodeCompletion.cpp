@@ -371,7 +371,22 @@ namespace glsld
             // FIXME: handle other type
         }
         else if (completionType != CompletionType::None) {
-            result = GetDefaultLibraryCompletionList();
+            std::ranges::copy_if(GetDefaultLibraryCompletionList(), std::back_inserter(result),
+                                 [completionType](const lsp::CompletionItem& item) -> bool {
+                                     if (completionType == CompletionType::AllowExpr) {
+                                         return true;
+                                     }
+                                     else {
+                                         GLSLD_ASSERT(completionType == CompletionType::NoExpr);
+                                         switch (item.kind) {
+                                         case lsp::CompletionItemKind::Struct:
+                                         case lsp::CompletionItemKind::Keyword:
+                                             return true;
+                                         default:
+                                             return false;
+                                         }
+                                     }
+                                 });
 
             std::ranges::copy(GenericCompletionCollector{compileResult}.Execute(completionType, editPosition, false),
                               std::back_inserter(result));
