@@ -258,6 +258,7 @@ namespace glsld
     private:
         AstQualType* returnType;
         SyntaxToken declTok;
+
         std::vector<AstParamDecl*> params;
 
         // function body, nullptr if it's a declaration

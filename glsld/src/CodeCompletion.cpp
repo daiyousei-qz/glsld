@@ -10,17 +10,199 @@ namespace glsld
 {
     enum class CompletionType
     {
-        InFunction,
-        InAccessChain,
+        None,
+
+        // Typing in an environment where expression is not allowed
+        // For example, inside a struct definition
+        NoExpr,
+
+        // Typing in an environment where expression is allowed
+        // For example, inside a function definition
+        AllowExpr,
+
+        // Assuming AllowExpr, typing a.xxx
+        AccessChain,
     };
 
-    class CompletionVisitorBase
+    class CompletionTypeDecider : public ModuleVisitor<CompletionTypeDecider>
     {
-    protected:
-        CompletionVisitorBase(bool externalModule) : externalModule(externalModule)
+    public:
+        using ModuleVisitor::ModuleVisitor;
+
+        auto Execute(TextPosition editPosition) -> CompletionType
         {
+            this->inFunctionDefinition = false;
+            this->inStructDefinition   = false;
+            this->inBlockDefinition    = false;
+            this->editPosition         = editPosition;
+
+            this->Traverse();
+
+            if (inStructDefinition || inBlockDefinition) {
+                return CompletionType::NoExpr;
+            }
+            else if (inFunctionDefinition) {
+                return CompletionType::AllowExpr;
+            }
+            else {
+                return CompletionType::None;
+            }
         }
 
+        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        {
+            return this->EnterIfContainsPosition(node, editPosition);
+        }
+
+        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        {
+            if (decl.GetBody() && this->NodeContainPosition(*decl.GetBody(), editPosition)) {
+                inFunctionDefinition = true;
+            }
+        }
+
+        auto VisitAstStructDecl(AstStructDecl& decl) -> void
+        {
+            inStructDefinition = true;
+        }
+
+        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        {
+            inBlockDefinition = true;
+        }
+
+    private:
+        bool inFunctionDefinition = false;
+        bool inStructDefinition   = false;
+        bool inBlockDefinition    = false;
+
+        TextPosition editPosition;
+    };
+
+    class AccessChainExprFinder : public ModuleVisitor<AccessChainExprFinder>
+    {
+    public:
+        using ModuleVisitor::ModuleVisitor;
+
+        auto Execute(SyntaxToken dotToken) -> AstNameAccessExpr*
+        {
+            this->result   = nullptr;
+            this->dotToken = dotToken;
+
+            this->Traverse();
+
+            return result;
+        }
+
+        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        {
+            if (node.GetRange().startTokenIndex <= dotToken.index && node.GetRange().endTokenIndex > dotToken.index) {
+                return AstVisitPolicy::Traverse;
+            }
+            else {
+                return AstVisitPolicy::Leave;
+            }
+        }
+
+        auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
+        {
+            result = &expr;
+        }
+
+    private:
+        AstNameAccessExpr* result;
+        SyntaxToken dotToken;
+    };
+
+    class GenericCompletionCollector : public ModuleVisitor<GenericCompletionCollector>
+    {
+    public:
+        using ModuleVisitor::ModuleVisitor;
+
+        auto Execute(CompletionType type, TextPosition editPosition, bool externalModule)
+            -> std::vector<lsp::CompletionItem>
+        {
+            this->type           = type;
+            this->editPosition   = editPosition;
+            this->externalModule = externalModule;
+            this->addedSymbol.clear();
+
+            this->Traverse();
+
+            return std::move(result);
+        }
+
+        // FIXME: visit global decl, don't enter
+        auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
+        {
+            if (type != CompletionType::AllowExpr) {
+                return AstVisitPolicy::Leave;
+            }
+
+            // NOTE we only collect global symbols for external module
+            if (externalModule) {
+                return AstVisitPolicy::Visit;
+            }
+            else {
+                return EnterIfContainsPosition(decl, editPosition);
+            }
+        }
+
+        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        {
+            if (type != CompletionType::AllowExpr) {
+                return;
+            }
+
+            if (decl.GetName().IsIdentifier()) {
+                AddCompletionItem(decl.GetName().text.Str(), lsp::CompletionItemKind::Function);
+            }
+        }
+
+        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        {
+            if (type != CompletionType::AllowExpr) {
+                return;
+            }
+
+            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                // FIXME: is this a variable?
+                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
+            }
+        }
+
+        auto VisitAstParamDecl(AstParamDecl& decl) -> void
+        {
+            if (type != CompletionType::AllowExpr) {
+                return;
+            }
+
+            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
+            }
+        }
+
+        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
+        {
+            if (type != CompletionType::AllowExpr) {
+                return;
+            }
+
+            for (const auto& declarator : decl.GetDeclarators()) {
+                if (declarator.declTok.IsIdentifier()) {
+                    AddCompletionItem(declarator.declTok.text.Str(), lsp::CompletionItemKind::Variable);
+                }
+            }
+        }
+
+        auto VisitAstStructDecl(AstStructDecl& decl) -> void
+        {
+            if (decl.GetDeclToken() && decl.GetDeclToken()->IsIdentifier()) {
+                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Struct);
+            }
+        }
+
+    private:
         auto AddCompletionItem(std::string label, lsp::CompletionItemKind kind) -> void
         {
             // We do deduplicate for external modules
@@ -41,83 +223,10 @@ namespace glsld
         bool externalModule;
         std::unordered_set<std::string> addedSymbol;
 
+        CompletionType type;
+        TextPosition editPosition;
+
         std::vector<lsp::CompletionItem> result;
-    };
-
-    class RegularCompletionVisitor : public CompletionVisitorBase, public AstVisitor<RegularCompletionVisitor>
-    {
-    public:
-        RegularCompletionVisitor(const LexContext& lexContext, TextPosition position, bool externalModule)
-            : CompletionVisitorBase(externalModule), lexContext(lexContext), position(position)
-        {
-        }
-
-        auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
-        {
-            // NOTE we only collect global symbols for external module
-            if (externalModule) {
-                return AstVisitPolicy::Visit;
-            }
-
-            auto declRange = lexContext.LookupTextRange(decl.GetRange());
-            if (declRange.Contains(position)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Visit;
-            }
-        }
-
-        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
-        {
-            if (decl.GetName().klass == TokenKlass::Identifier) {
-                AddCompletionItem(decl.GetName().text.Str(), lsp::CompletionItemKind::Function);
-            }
-        }
-
-        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
-        {
-            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                // FIXME: is this a variable?
-                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
-            }
-        }
-
-        auto VisitAstParamDecl(AstParamDecl& decl) -> void
-        {
-            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
-            }
-        }
-
-        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
-        {
-            for (const auto& declarator : decl.GetDeclarators()) {
-                if (declarator.declTok.IsIdentifier()) {
-                    AddCompletionItem(declarator.declTok.text.Str(), lsp::CompletionItemKind::Variable);
-                }
-            }
-        }
-
-        auto VisitAstStructDecl(AstStructDecl& decl) -> void
-        {
-            if (decl.GetDeclToken() && decl.GetDeclToken()->IsIdentifier()) {
-                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Struct);
-            }
-        }
-
-        auto Export() -> std::vector<lsp::CompletionItem>
-        {
-            return std::move(result);
-        }
-
-    private:
-        const LexContext& lexContext;
-        TextPosition position;
-    };
-
-    class AccessChainCompletionVisitor : public AstVisitor<AccessChainCompletionVisitor>
-    {
     };
 
     auto GetDefaultLibraryCompletionList() -> std::vector<lsp::CompletionItem>
@@ -126,11 +235,8 @@ namespace glsld
             std::vector<lsp::CompletionItem> result;
 
             // Builtins
-            auto defaultLibraryModule = GetDefaultLibraryModule();
-            RegularCompletionVisitor visitor{defaultLibraryModule->GetLexContext(), TextPosition{}, true};
-            visitor.TraverseAst(defaultLibraryModule->GetAstContext());
-
-            result = visitor.Export();
+            result = GenericCompletionCollector{GetDefaultLibraryModule()->GetCompileResult()}.Execute(
+                CompletionType::AllowExpr, TextPosition{}, true);
             // Keywords
             for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
                 result.push_back(lsp::CompletionItem{
@@ -212,20 +318,14 @@ namespace glsld
         return cachedCompletionItems[n];
     }
 
-    auto IsAccessChainCompletion(const LexContext& lexContext, TextPosition position) -> bool
+    auto FindAccessChainExpr(const CompileResult& compileResult, TextPosition editPosition) -> AstNameAccessExpr*
     {
-        auto lastToken = lexContext.FindTokenByPosition(position);
+        auto lastToken = compileResult.GetLexContext().FindTokenByPosition(editPosition);
         if (lastToken.klass == TokenKlass::Dot) {
-            return true;
-        }
-        if (lastToken.index > 0 && (lastToken.IsIdentifier() || lastToken.IsKeyword())) {
-            auto secondLastToken = lexContext.GetToken(lastToken.index - 1);
-            if (secondLastToken.klass == TokenKlass::Dot) {
-                return true;
-            }
+            return AccessChainExprFinder{compileResult}.Execute(lastToken);
         }
 
-        return false;
+        return nullptr;
     }
 
     // FIXME: not populate keyword while typing a decl
@@ -233,15 +333,49 @@ namespace glsld
     auto ComputeCompletion(const CompileResult& compileResult, lsp::Position lspPosition)
         -> std::vector<lsp::CompletionItem>
     {
-        auto position = FromLspPosition(lspPosition);
+        auto editPosition = FromLspPosition(lspPosition);
 
-        // if (IsAccessChainCompletion(compiler.GetLexContext(), position)) {
-        // }
-        auto result = GetDefaultLibraryCompletionList();
+        AstNameAccessExpr* nameAccessExpr = nullptr;
+        CompletionType completionType     = CompletionType::None;
+        if ((nameAccessExpr = FindAccessChainExpr(compileResult, editPosition))) {
+            completionType = CompletionType::AccessChain;
+        }
+        else {
+            completionType = CompletionTypeDecider{compileResult}.Execute(editPosition);
+        }
 
-        RegularCompletionVisitor visitor{compileResult.GetLexContext(), position, false};
-        visitor.TraverseAst(compileResult.GetAstContext());
-        std::ranges::copy(visitor.Export(), std::back_inserter(result));
+        std::vector<lsp::CompletionItem> result;
+        if (completionType == CompletionType::AccessChain) {
+            GLSLD_ASSERT(nameAccessExpr);
+            if (!nameAccessExpr->GetAccessChain()) {
+                return result;
+            }
+
+            auto type = nameAccessExpr->GetAccessChain()->GetDeducedType();
+            if (auto structDesc = type->GetStructDesc()) {
+                for (const auto& [memberName, memberType] : structDesc->members) {
+                    result.push_back({lsp::CompletionItem{
+                        .label = memberName,
+                        .kind  = lsp::CompletionItemKind::Field,
+                    }});
+                }
+            }
+            else if (type->IsArray() || type->IsVector()) {
+                // FIXME: swizzle?
+                result.push_back({lsp::CompletionItem{
+                    .label = "length",
+                    .kind  = lsp::CompletionItemKind::Method,
+                }});
+            }
+
+            // FIXME: handle other type
+        }
+        else if (completionType != CompletionType::None) {
+            result = GetDefaultLibraryCompletionList();
+
+            std::ranges::copy(GenericCompletionCollector{compileResult}.Execute(completionType, editPosition, false),
+                              std::back_inserter(result));
+        }
 
         return result;
     }

@@ -85,6 +85,10 @@ namespace glsld
             return compileResult.GetId();
         }
 
+        auto GetCompileResult() const -> const CompileResult&
+        {
+            return compileResult;
+        }
         auto GetDiagnosticContext() const -> const DiagnosticContext&
         {
             return compileResult.GetDiagnosticContext();
@@ -113,7 +117,7 @@ namespace glsld
     class ModuleVisitor : public AstVisitor<Derived>
     {
     public:
-        ModuleVisitor(const CompileResult& data) : data(&data)
+        ModuleVisitor(const CompileResult& compileResult) : data(&compileResult)
         {
         }
 
@@ -134,11 +138,30 @@ namespace glsld
             return data->GetAstContext();
         }
 
-        auto EnterIfContainsPosition(AstNodeBase& node, TextPosition position) -> AstVisitPolicy
+        auto NodeContainPosition(const AstNodeBase& node, TextPosition position) const -> bool
         {
+            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
+            return nodeRange.Contains(position);
         }
-        auto EnterIfOverlapRange(AstNodeBase& node, TextRange range) -> AstVisitPolicy
+
+        auto EnterIfContainsPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
         {
+            if (NodeContainPosition(node, position)) {
+                return AstVisitPolicy::Traverse;
+            }
+            else {
+                return AstVisitPolicy::Leave;
+            }
+        }
+        auto EnterIfOverlapRange(const AstNodeBase& node, TextRange range) const -> AstVisitPolicy
+        {
+            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
+            if (nodeRange.Overlaps(range)) {
+                return AstVisitPolicy::Traverse;
+            }
+            else {
+                return AstVisitPolicy::Leave;
+            }
         }
 
     private:
