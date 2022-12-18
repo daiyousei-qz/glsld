@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "StandardDocumentation.h"
 
 namespace glsld
 {
@@ -57,12 +58,13 @@ namespace glsld
                 for (auto funcDecl : GetDefaultLibraryModule()->GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
-                        std::string documentation;
-                        ReconstructSourceText(documentation, *funcDecl);
+                        std::string label;
+                        ReconstructSourceText(label, *funcDecl);
+                        std::string documentation = QueryFunctionDocumentation(funcName).Str();
 
                         result.push_back(lsp::SignatureInformation{
-                            .label         = std::string{funcName},
-                            .documentation = fmt::format("```glsl\n{}\n```", documentation),
+                            .label         = std::move(label),
+                            .documentation = std::move(documentation),
                         });
                     }
                 }
@@ -71,12 +73,12 @@ namespace glsld
                 for (auto funcDecl : compileResult.GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
-                        std::string documentation;
-                        ReconstructSourceText(documentation, *funcDecl);
+                        std::string label;
+                        ReconstructSourceText(label, *funcDecl);
 
                         result.push_back(lsp::SignatureInformation{
-                            .label         = std::string{funcName},
-                            .documentation = fmt::format("```glsl\n{}\n```", documentation),
+                            .label         = std::string{label},
+                            .documentation = fmt::format("```glsl\n{}\n```", label),
                         });
                     }
                 }

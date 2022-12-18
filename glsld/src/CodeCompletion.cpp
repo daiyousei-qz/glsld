@@ -350,20 +350,20 @@ namespace glsld
             }
 
             auto type = nameAccessExpr->GetAccessChain()->GetDeducedType();
-            if (auto structDesc = type->GetStructDesc()) {
+            if (type->IsArray() || type->IsVector()) {
+                // FIXME: swizzle?
+                result.push_back({lsp::CompletionItem{
+                    .label = "length",
+                    .kind  = lsp::CompletionItemKind::Method,
+                }});
+            }
+            else if (auto structDesc = type->GetStructDesc()) {
                 for (const auto& [memberName, memberType] : structDesc->members) {
                     result.push_back({lsp::CompletionItem{
                         .label = memberName,
                         .kind  = lsp::CompletionItemKind::Field,
                     }});
                 }
-            }
-            else if (type->IsArray() || type->IsVector()) {
-                // FIXME: swizzle?
-                result.push_back({lsp::CompletionItem{
-                    .label = "length",
-                    .kind  = lsp::CompletionItemKind::Method,
-                }});
             }
 
             // FIXME: handle other type
