@@ -16,5 +16,7 @@ namespace glsld
         freopen(nullptr, "rb", stdout);
         freopen(nullptr, "wb", stdin);
 #endif
+
+        setvbuf(stdin, nullptr, _IOFBF, 64 * 1024);
     }
 } // namespace glsld

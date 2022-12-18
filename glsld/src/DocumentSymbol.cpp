@@ -2,39 +2,73 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(const CompileResult& compileResult) -> std::vector<lsp::DocumentSymbol>
+    class DocumentSymbolCollector : public ModuleVisitor<DocumentSymbolCollector>
     {
-        std::vector<lsp::DocumentSymbol> result;
+    public:
+        using ModuleVisitor::ModuleVisitor;
 
-        for (auto decl : compileResult.GetAstContext().globalDecls) {
-            auto declRange       = compileResult.GetLexContext().LookupTextRange(decl->GetRange());
-            lsp::Range testRange = ToLspRange(declRange);
+        auto Execute() -> std::vector<lsp::DocumentSymbol>
+        {
+            this->Traverse();
 
-            if (auto funcDecl = decl->As<AstFunctionDecl>()) {
-                if (funcDecl->GetName().klass == TokenKlass::Identifier) {
-                    result.push_back(lsp::DocumentSymbol{
-                        .name           = funcDecl->GetName().text.Str(),
-                        .kind           = lsp::SymbolKind::Function,
-                        .range          = testRange,
-                        .selectionRange = testRange,
-                    });
+            return std::move(result);
+        }
+
+        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        {
+            // Only visit global decl
+            return AstVisitPolicy::Visit;
+        }
+
+        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        {
+            TryAddSymbol(decl.GetName(), lsp::SymbolKind::Function);
+        }
+
+        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
+        {
+            if (auto structDecl = decl.GetType()->GetStructDecl()) {
+                if (structDecl->GetDeclToken()) {
+                    TryAddSymbol(*structDecl->GetDeclToken(), lsp::SymbolKind::Struct);
                 }
             }
-            else if (auto varDecl = decl->As<AstVariableDecl>()) {
-                for (const auto& declarator : varDecl->GetDeclarators()) {
-                    if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        result.push_back(lsp::DocumentSymbol{
-                            .name           = declarator.declTok.text.Str(),
-                            .kind           = lsp::SymbolKind::Variable,
-                            .range          = testRange,
-                            .selectionRange = testRange,
-                        });
+
+            for (const auto& declarator : decl.GetDeclarators()) {
+                TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
+            }
+        }
+
+        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        {
+            if (!decl.GetDeclarator()) {
+                for (auto blockMember : decl.GetMembers()) {
+                    for (const auto& declarator : blockMember->GetDeclarators()) {
+                        TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
                     }
                 }
             }
         }
 
-        return result;
+    private:
+        auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> void
+        {
+            if (token.IsIdentifier()) {
+                auto tokRange = ToLspRange(this->GetLexContext().LookupTextRange(token));
+                result.push_back(lsp::DocumentSymbol{
+                    .name           = token.text.Str(),
+                    .kind           = kind,
+                    .range          = tokRange,
+                    .selectionRange = tokRange,
+                });
+            }
+        }
+
+        std::vector<lsp::DocumentSymbol> result;
+    };
+
+    auto ComputeDocumentSymbol(const CompileResult& compileResult) -> std::vector<lsp::DocumentSymbol>
+    {
+        return DocumentSymbolCollector{compileResult}.Execute();
     }
 
 } // namespace glsld

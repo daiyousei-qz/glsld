@@ -80,7 +80,7 @@ namespace glsld
             }
 
             auto payload = rpcBlob.dump();
-            transport->PushMessage(payload);
+            transport->PushMessage(StringView{payload});
         }
 
         auto DoHandleNotification(const char* method, lsp::JsonObject params) -> void override
@@ -91,7 +91,7 @@ namespace glsld
             rpcBlob["params"]  = std::move(params);
 
             auto payload = rpcBlob.dump();
-            transport->PushMessage(payload);
+            transport->PushMessage(StringView{payload});
         }
 
     private:
