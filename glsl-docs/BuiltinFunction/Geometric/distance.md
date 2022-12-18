@@ -1,0 +1,1 @@
+Returns the distance between p0 and p1, i.e., length(p0 - p1)

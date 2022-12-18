@@ -1,0 +1,1 @@
+Returns a signed or unsigned integer value representing the encoding of a floating-point value. The float value’s bit-level representation is preserved.

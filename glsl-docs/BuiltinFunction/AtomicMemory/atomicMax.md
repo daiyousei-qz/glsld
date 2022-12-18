@@ -1,0 +1,1 @@
+Computes a new value by taking the maximum of the value of data and the contents of mem.

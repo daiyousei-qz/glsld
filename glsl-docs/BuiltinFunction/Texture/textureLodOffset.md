@@ -1,0 +1,1 @@
+Do an offset texture lookup with explicit level-of-detail. See textureLod and textureOffset.

@@ -1,0 +1,1 @@
+Returns 2 raised to the x power, i.e., 2^x.

@@ -1,0 +1,1 @@
+Returns the natural exponentiation of x, i.e., e^x.

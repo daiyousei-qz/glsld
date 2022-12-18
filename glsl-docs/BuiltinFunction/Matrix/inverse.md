@@ -1,0 +1,1 @@
+Returns a matrix that is the inverse of m. The input matrix m is not modified. The values in the returned matrix are undefined if m is singular or poorly-conditioned (nearly singular).

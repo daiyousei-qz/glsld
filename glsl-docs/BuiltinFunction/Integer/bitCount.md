@@ -1,0 +1,1 @@
+Returns the number of one bits in the binary representation of value.

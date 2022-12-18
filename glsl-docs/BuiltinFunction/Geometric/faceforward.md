@@ -1,0 +1,1 @@
+If dot(Nref, I) < 0 return N, otherwise return -N.

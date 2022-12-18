@@ -1,0 +1,1 @@
+Returns the length of vector x, i.e., sqrt( x_0^2 + x_1^2 + …​ ).

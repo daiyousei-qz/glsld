@@ -1,0 +1,1 @@
+Returns the natural logarithm of x, i.e., returns the value y which satisfies the equation x = e^y. Results are undefined if x ≤ 0.

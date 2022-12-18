@@ -1,0 +1,1 @@
+Returns true if x holds a positive infinity or negative infinity. Returns false otherwise.

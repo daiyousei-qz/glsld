@@ -1,0 +1,1 @@
+Returns the base 2 logarithm of x, i.e., returns the value y which satisfies the equation x = 2^y. Results are undefined if x ≤ 0.

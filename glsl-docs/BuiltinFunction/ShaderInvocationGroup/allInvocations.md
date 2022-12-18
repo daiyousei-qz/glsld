@@ -1,0 +1,1 @@
+Returns true if and only if value is true for all active invocations in the group.

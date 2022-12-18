@@ -1,0 +1,1 @@
+Returns the dot product of x and y, i.e., x_0 · y_0 + x_1 · y_1 + …​
