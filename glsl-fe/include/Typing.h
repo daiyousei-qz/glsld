@@ -126,6 +126,10 @@ namespace glsld
         {
             return !IsError() && !IsStruct();
         }
+        auto IsComposite() const -> bool
+        {
+            return IsArray() || IsStruct();
+        }
         auto IsVoid() const -> bool
         {
             return std::holds_alternative<VoidTypeDesc>(descPayload);
@@ -200,6 +204,7 @@ namespace glsld
 
         auto IsConvertibleTo(const TypeDesc* to) const -> bool;
 
+        // Test if this type has better conversion to `lhsTo` than `rhsTo`
         auto HasBetterConversion(const TypeDesc* lhsTo, const TypeDesc* rhsTo) const -> bool;
 
     private:

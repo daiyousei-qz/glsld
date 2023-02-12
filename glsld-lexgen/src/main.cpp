@@ -49,6 +49,8 @@ auto CreateLexingAutomata() -> NfaAutomata
         builder.AddTokenRegex(static_cast<int>(TokenKlass::Identifier), regexIdentifier);
     }
 
+    // TODO: Currently, keywords are identified by post-processing identifier. This could help simplify the lexer state
+    // machine by a lot. Should we move it here?
     // Keywords
     // for (auto [klass, keyword] : GetAllKeywords()) {
     //     builder.AddTokenRegex(static_cast<int>(klass), RegexTextSeq{keyword});

@@ -19,47 +19,6 @@ namespace glsld
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
 
-    // A view pointer into a declaration, including an index of declarator.
-    // For declaration without declarators, that index should always be zero.
-    class DeclView
-    {
-    public:
-        DeclView() = default;
-        DeclView(AstDecl* decl) : decl(decl)
-        {
-        }
-        DeclView(AstDecl* decl, size_t index) : decl(decl), index(index)
-        {
-        }
-
-        auto IsValid() const -> bool
-        {
-            return decl != nullptr;
-        }
-
-        auto GetDecl() const -> AstDecl*
-        {
-            return decl;
-        }
-        auto GetIndex() const -> size_t
-        {
-            return index;
-        }
-
-        operator bool() const
-        {
-            return IsValid();
-        }
-        auto operator==(const DeclView&) const -> bool = default;
-
-    private:
-        // Referenced declaration AST.
-        AstDecl* decl = nullptr;
-
-        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
-        size_t index = 0;
-    };
-
     template <typename AstType>
     class AstPayload
     {

@@ -8,6 +8,11 @@
 
 namespace glsld
 {
+    // The `TypeChecker` go through the entire Ast and resolve semantic information, including:
+    // 1. Type check the program
+    // 2. Compute the def-use relations
+    // 3. Evaluate constant expressions
+    // The computed information is filled into the respective payload that's attached to each Ast node
     class TypeChecker
     {
     public:

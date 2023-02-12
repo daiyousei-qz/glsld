@@ -244,8 +244,16 @@ namespace glsld
 
     auto TypeDesc::IsSameWith(const TypeDesc* other) const -> bool
     {
-        // FIXME: compare for composite type
-        return this == other;
+        if (this == other) {
+            return true;
+        }
+        else if (IsArray() && other->IsArray()) {
+            // NOTE different modules could instantiate array types that's essentially the same
+            return GetArrayDesc()->elementType->IsSameWith(other->GetArrayDesc()->elementType);
+        }
+        else {
+            return false;
+        }
     }
 
     auto TypeDesc::IsConvertibleTo(const TypeDesc* to) const -> bool

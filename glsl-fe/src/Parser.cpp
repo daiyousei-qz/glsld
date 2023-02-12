@@ -538,21 +538,21 @@ namespace glsld
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
 
-        // empty parameter list
+        // Empty parameter list
         if (TryConsumeToken(TokenKlass::RParen)) {
             return {};
         }
 
-        // TODO: needed? spec doesn't include this grammar.
+        // TODO: Needed? spec doesn't include this grammar.
         if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
             ConsumeToken();
             ConsumeToken();
             return {};
         }
 
-        // parse parameters
+        // Parse parameters
         std::vector<AstParamDecl*> result;
-        while (PeekToken().klass != TokenKlass::Eof) {
+        while (!TryTestToken(TokenKlass::Eof)) {
             auto beginTokIndex = GetTokenIndex();
 
             auto type = ParseQualType();

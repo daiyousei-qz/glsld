@@ -69,6 +69,9 @@ namespace glsld
         template <AstNodeTagValue TagValue>
         using AstTypeOf = typename AstTypeLookupHelper<TagValue>::Type;
 
+        // Utilities to tell information about the tag value
+        //
+
         template <AstNodeTagValue TagValue>
         inline constexpr bool IsValidAstNodeTagValue = TagValue > AstNodeTagMin&& TagValue < AstNodeTagMax;
 
@@ -98,6 +101,9 @@ namespace glsld
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
+
+        // Utilities to find parent type of an Ast type
+        //
 
         template <AstNodeTagValue TagValue>
         inline constexpr AstNodeTagValue PrevAstNodeTagValue = static_cast<AstNodeTagValue>(TagValue - 1);
@@ -140,25 +146,7 @@ namespace glsld
 #undef DECL_AST_TYPE
     };
 
-    inline auto AstNodeTagToString(AstNodeTag tag) -> std::string_view
-    {
-        switch (tag) {
-        case AstNodeTag::Invalid:
-            return "Invalid";
-
-#define DECL_AST_BEGIN_BASE(TYPE)
-#define DECL_AST_END_BASE(TYPE)
-#define DECL_AST_TYPE(TYPE)                                                                                            \
-    case AstNodeTag::TYPE:                                                                                             \
-        return #TYPE;
-#include "GlslAst.inc"
-#undef DECL_AST_BEGIN_BASE
-#undef DECL_AST_END_BASE
-#undef DECL_AST_TYPE
-        default:
-            GLSLD_UNREACHABLE();
-        }
-    };
+    auto AstNodeTagToString(AstNodeTag tag) -> std::string_view;
 
     template <typename AstType>
     struct AstNodeTrait
@@ -283,6 +271,48 @@ namespace glsld
 
         // A range of ids that identifies syntax tokens that form this Ast node
         SyntaxTokenRange range = {};
+    };
+
+    // An observing pointer into a declaration, including an index of declarator.
+    // For declaration without declarators, that index should always be zero.
+    class DeclView
+    {
+    public:
+        DeclView() = default;
+        DeclView(AstDecl* decl) : decl(decl)
+        {
+        }
+        DeclView(AstDecl* decl, size_t index) : decl(decl), index(index)
+        {
+        }
+
+        auto IsValid() const -> bool
+        {
+            return decl != nullptr;
+        }
+
+        auto GetDecl() const -> AstDecl*
+        {
+            return decl;
+        }
+        auto GetIndex() const -> size_t
+        {
+            return index;
+        }
+
+        operator bool() const
+        {
+            return IsValid();
+        }
+
+        auto operator==(const DeclView&) const -> bool = default;
+
+    private:
+        // Referenced declaration AST.
+        AstDecl* decl = nullptr;
+
+        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
+        size_t index = 0;
     };
 
     template <typename VisitorType>
