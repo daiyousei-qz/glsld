@@ -1,6 +1,6 @@
 #pragma once
 #include "Common.h"
-#include "AstBase.h"
+#include "AstImpl.h"
 #include "Semantic.h"
 
 #include <array>
@@ -13,11 +13,11 @@
 
 namespace glsld
 {
-    class MSVC_EMPTY_BASES AstExpr : public AstNodeBase, public AstPayload<AstExpr>
+    class AstExpr : public AstImpl<AstExpr>
     {
     };
 
-    class MSVC_EMPTY_BASES AstErrorExpr final : public AstExpr, public AstPayload<AstErrorExpr>
+    class AstErrorExpr final : public AstImpl<AstErrorExpr>
     {
     public:
         AstErrorExpr()
@@ -33,11 +33,9 @@ namespace glsld
         {
             return "";
         }
-
-    private:
     };
 
-    class MSVC_EMPTY_BASES AstConstantExpr final : public AstExpr, public AstPayload<AstConstantExpr>
+    class AstConstantExpr final : public AstImpl<AstConstantExpr>
     {
     public:
         AstConstantExpr(SyntaxToken tok) : valueToken(tok)
@@ -64,7 +62,7 @@ namespace glsld
         SyntaxToken valueToken;
     };
 
-    class MSVC_EMPTY_BASES AstNameAccessExpr final : public AstExpr, public AstPayload<AstNameAccessExpr>
+    class AstNameAccessExpr final : public AstImpl<AstNameAccessExpr>
     {
     public:
         AstNameAccessExpr(AstExpr* accessChain, SyntaxToken accessName)
@@ -102,7 +100,7 @@ namespace glsld
         SyntaxToken accessName;
     };
 
-    class MSVC_EMPTY_BASES AstUnaryExpr final : public AstExpr, public AstPayload<AstUnaryExpr>
+    class AstUnaryExpr final : public AstImpl<AstUnaryExpr>
     {
     public:
         AstUnaryExpr(UnaryOp op, AstExpr* operand) : op(op), operand(operand)
@@ -133,7 +131,7 @@ namespace glsld
         UnaryOp op;
         AstExpr* operand;
     };
-    class MSVC_EMPTY_BASES AstBinaryExpr final : public AstExpr, public AstPayload<AstBinaryExpr>
+    class AstBinaryExpr final : public AstImpl<AstBinaryExpr>
     {
     public:
         AstBinaryExpr(BinaryOp op, AstExpr* lhs, AstExpr* rhs) : op(op), lhs(lhs), rhs(rhs)
@@ -170,7 +168,7 @@ namespace glsld
         AstExpr* lhs;
         AstExpr* rhs;
     };
-    class MSVC_EMPTY_BASES AstSelectExpr final : public AstExpr, public AstPayload<AstSelectExpr>
+    class AstSelectExpr final : public AstImpl<AstSelectExpr>
     {
     public:
         AstSelectExpr(AstExpr* predicate, AstExpr* ifBranch, AstExpr* elseBranch)
@@ -210,7 +208,7 @@ namespace glsld
         AstExpr* elseBranch;
     };
 
-    class MSVC_EMPTY_BASES AstInvokeExpr final : public AstExpr, public AstPayload<AstInvokeExpr>
+    class AstInvokeExpr final : public AstImpl<AstInvokeExpr>
     {
     public:
         AstInvokeExpr(AstExpr* invokedExpr, std::vector<AstExpr*> args)
@@ -246,7 +244,7 @@ namespace glsld
         std::vector<AstExpr*> args;
     };
 
-    class MSVC_EMPTY_BASES AstIndexAccessExpr final : public AstExpr, public AstPayload<AstIndexAccessExpr>
+    class AstIndexAccessExpr final : public AstImpl<AstIndexAccessExpr>
     {
     public:
         AstIndexAccessExpr(AstExpr* invokedExpr, AstArraySpec* arraySpec)

@@ -53,18 +53,12 @@ namespace glsld
                 klass = ParseRegularToken();
             }
 
-            if (klass == TokenKlass::Comment) {
-                lexContext.AddCommentToken(TextRange{tokBegin, GetCurrentTextPosition()}, tokenBuffer);
-            }
-            else {
-                lexContext.AddToken(klass, TextRange{tokBegin, GetCurrentTextPosition()}, tokenBuffer);
-            }
-
+            lexContext.AddToken(klass, TextRange{tokBegin, GetCurrentTextPosition()}, tokenBuffer);
             return true;
         }
 
         auto eofPosition = TextPosition{.line = static_cast<int>(lineIndex), .character = 0};
-        lexContext.AddEof(TextRange{eofPosition, eofPosition});
+        lexContext.AddToken(TokenKlass::Eof, TextRange{eofPosition, eofPosition}, "");
         return false;
     }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "SyntaxToken.h"
-#include "AstBase.h"
+#include "AstImpl.h"
 #include "AstExpr.h"
 #include "AstStmt.h"
 
@@ -8,11 +8,11 @@
 
 namespace glsld
 {
-    class MSVC_EMPTY_BASES AstDecl : public AstNodeBase, public AstPayload<AstDecl>
+    class AstDecl : public AstImpl<AstDecl>
     {
     };
 
-    class MSVC_EMPTY_BASES AstEmptyDecl : public AstDecl, public AstPayload<AstEmptyDecl>
+    class AstEmptyDecl : public AstImpl<AstEmptyDecl>
     {
     public:
         template <AstVisitorT Visitor>
@@ -38,7 +38,7 @@ namespace glsld
         AstNodeBase* init = nullptr;
     };
 
-    class MSVC_EMPTY_BASES AstStructMemberDecl : public AstDecl, public AstPayload<AstStructMemberDecl>
+    class AstStructMemberDecl : public AstImpl<AstStructMemberDecl>
     {
     public:
         AstStructMemberDecl(AstQualType* type) : type(type)
@@ -79,7 +79,7 @@ namespace glsld
         std::vector<VariableDeclarator> decls;
     };
 
-    class MSVC_EMPTY_BASES AstStructDecl : public AstDecl, public AstPayload<AstStructDecl>
+    class AstStructDecl : public AstImpl<AstStructDecl>
     {
     public:
         AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstStructMemberDecl*> members)
@@ -120,7 +120,7 @@ namespace glsld
     };
 
     // declares variables
-    class MSVC_EMPTY_BASES AstVariableDecl : public AstDecl, public AstPayload<AstVariableDecl>
+    class AstVariableDecl : public AstImpl<AstVariableDecl>
     {
     public:
         AstVariableDecl(AstQualType* type) : type(type)
@@ -162,7 +162,7 @@ namespace glsld
     };
 
     // declares a parameter
-    class MSVC_EMPTY_BASES AstParamDecl : public AstDecl, public AstPayload<AstParamDecl>
+    class AstParamDecl : public AstImpl<AstParamDecl>
     {
     public:
         AstParamDecl(AstQualType* type, std::optional<VariableDeclarator> declarator)
@@ -207,7 +207,7 @@ namespace glsld
     };
 
     // declares a function
-    class MSVC_EMPTY_BASES AstFunctionDecl : public AstDecl, public AstPayload<AstFunctionDecl>
+    class AstFunctionDecl : public AstImpl<AstFunctionDecl>
     {
     public:
         AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params)
@@ -265,7 +265,7 @@ namespace glsld
         AstStmt* body;
     };
 
-    class MSVC_EMPTY_BASES AstInterfaceBlockDecl : public AstDecl, public AstPayload<AstInterfaceBlockDecl>
+    class AstInterfaceBlockDecl : public AstImpl<AstInterfaceBlockDecl>
     {
     public:
         AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok,

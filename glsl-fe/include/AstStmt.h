@@ -1,16 +1,16 @@
 #pragma once
-#include "AstBase.h"
+#include "AstImpl.h"
 #include "AstMisc.h"
 #include "Semantic.h"
 #include <array>
 
 namespace glsld
 {
-    class MSVC_EMPTY_BASES AstStmt : public AstNodeBase, public AstPayload<AstStmt>
+    class AstStmt : public AstImpl<AstStmt>
     {
     };
 
-    class MSVC_EMPTY_BASES AstErrorStmt final : public AstStmt, public AstPayload<AstErrorStmt>
+    class AstErrorStmt final : public AstImpl<AstErrorStmt>
     {
     public:
         template <AstVisitorT Visitor>
@@ -24,7 +24,7 @@ namespace glsld
         }
     };
 
-    class MSVC_EMPTY_BASES AstCompoundStmt final : public AstStmt, public AstPayload<AstCompoundStmt>
+    class AstCompoundStmt final : public AstImpl<AstCompoundStmt>
     {
     public:
         AstCompoundStmt(std::vector<AstStmt*> children) : children(std::move(children))
@@ -47,7 +47,7 @@ namespace glsld
     private:
         std::vector<AstStmt*> children;
     };
-    class MSVC_EMPTY_BASES AstExprStmt final : public AstStmt, public AstPayload<AstExprStmt>
+    class AstExprStmt final : public AstImpl<AstExprStmt>
     {
     public:
         AstExprStmt(AstExpr* expr) : expr(expr)
@@ -69,7 +69,7 @@ namespace glsld
         AstExpr* expr;
     };
 
-    class MSVC_EMPTY_BASES AstDeclStmt final : public AstStmt, public AstPayload<AstDeclStmt>
+    class AstDeclStmt final : public AstImpl<AstDeclStmt>
     {
     public:
         AstDeclStmt(AstDecl* decl) : decl(decl)
@@ -90,7 +90,7 @@ namespace glsld
     private:
         AstDecl* decl;
     };
-    class MSVC_EMPTY_BASES AstForStmt final : public AstStmt, public AstPayload<AstForStmt>
+    class AstForStmt final : public AstImpl<AstForStmt>
     {
     public:
         AstForStmt(AstStmt* initClause, AstExpr* condExpr, AstExpr* iterationExpr, AstStmt* loopBody)
@@ -135,7 +135,7 @@ namespace glsld
         AstExpr* iterationExpr;
         AstStmt* loopBody;
     };
-    class MSVC_EMPTY_BASES AstDoWhileStmt final : public AstStmt, public AstPayload<AstDoWhileStmt>
+    class AstDoWhileStmt final : public AstImpl<AstDoWhileStmt>
     {
     public:
         AstDoWhileStmt(AstExpr* predicate, AstStmt* loopBody) : predicate(predicate), loopBody(loopBody)
@@ -167,7 +167,7 @@ namespace glsld
         AstExpr* predicate;
         AstStmt* loopBody;
     };
-    class MSVC_EMPTY_BASES AstWhileStmt final : public AstStmt, public AstPayload<AstWhileStmt>
+    class AstWhileStmt final : public AstImpl<AstWhileStmt>
     {
     public:
         AstWhileStmt(AstExpr* predicate, AstStmt* loopBody) : predicate(predicate), loopBody(loopBody)
@@ -199,7 +199,7 @@ namespace glsld
         AstExpr* predicate;
         AstStmt* loopBody;
     };
-    class MSVC_EMPTY_BASES AstIfStmt final : public AstStmt, public AstPayload<AstIfStmt>
+    class AstIfStmt final : public AstImpl<AstIfStmt>
     {
     public:
         AstIfStmt(AstExpr* predicate, AstStmt* ifBranch) : predicate(predicate), ifBranch(ifBranch), elseBranch(nullptr)
@@ -243,7 +243,7 @@ namespace glsld
         AstStmt* ifBranch;
         AstStmt* elseBranch;
     };
-    class MSVC_EMPTY_BASES AstLabelStmt final : public AstStmt, public AstPayload<AstLabelStmt>
+    class AstLabelStmt final : public AstImpl<AstLabelStmt>
     {
     public:
         AstLabelStmt(AstExpr* caseExpr) : caseExpr(caseExpr)
@@ -270,7 +270,7 @@ namespace glsld
         // FIXME: case label/default label
         AstExpr* caseExpr;
     };
-    class MSVC_EMPTY_BASES AstSwitchStmt final : public AstStmt, public AstPayload<AstSwitchStmt>
+    class AstSwitchStmt final : public AstImpl<AstSwitchStmt>
     {
     public:
         AstSwitchStmt(AstExpr* expr, AstStmt* child) : expr(expr), child(child)
@@ -293,7 +293,7 @@ namespace glsld
         AstExpr* expr;
         AstStmt* child;
     };
-    class AstJumpStmt final : public AstStmt, public AstPayload<AstJumpStmt>
+    class AstJumpStmt final : public AstImpl<AstJumpStmt>
     {
     public:
         AstJumpStmt(JumpType type) : type(type)
@@ -314,7 +314,7 @@ namespace glsld
     private:
         JumpType type;
     };
-    class MSVC_EMPTY_BASES AstReturnStmt final : public AstStmt, public AstPayload<AstReturnStmt>
+    class AstReturnStmt final : public AstImpl<AstReturnStmt>
     {
     public:
         AstReturnStmt() : returnValue(nullptr)

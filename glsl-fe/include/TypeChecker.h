@@ -151,10 +151,12 @@ namespace glsld
             }
         }
 
+        // Resolve identifier
+        //
         // The following type of expression could be invoked:
         // 1. `func()` where `func` is a function name
         // 2. `type()` where `type` is a type specifier
-        // 3. `expr.length` where `expr` has array/vector type
+        // 3. `expr.length()` where `expr` has array/vector type
         auto ResolveInvokeExpr(AstInvokeExpr& expr) -> void
         {
             if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
@@ -201,6 +203,8 @@ namespace glsld
                 // Case 2: `Type[...]()`
                 invokedExpr->GetInvokedExpr()->As<AstNameAccessExpr>()->SetAccessType(NameAccessType::Constructor);
             }
+
+            // Case 3: `expr.length()`
         }
 
         auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) -> AstFunctionDecl*

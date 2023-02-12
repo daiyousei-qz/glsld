@@ -8,13 +8,6 @@
 
 namespace glsld
 {
-    struct TokenInfo
-    {
-        TokenKlass klass;
-        TextPosition begin;
-        TextPosition end;
-    };
-
     class Tokenizer
     {
     public:

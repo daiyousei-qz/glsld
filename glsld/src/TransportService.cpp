@@ -2,6 +2,29 @@
 
 namespace glsld
 {
+    static auto ReadLine(std::string& buf, FILE* inputFile) -> bool
+    {
+        // FIXME: do not use std::cin
+        buf.clear();
+
+        while (true) {
+            int ch = std::cin.get();
+            if (std::cin.eof()) {
+                return false;
+            }
+            else {
+                buf.push_back(ch);
+                if (ch == '\n') {
+                    return true;
+                }
+            }
+
+            if (buf.size() > 10 * 1024 * 1024) {
+                return false;
+            }
+        }
+    }
+
     auto TransportService::PullMessage() -> bool
     {
         lineBuffer.clear();
@@ -11,7 +34,7 @@ namespace glsld
         // Although LSP requires "\r\n" as end-line, we only use "\n" as the delimitor for simplicity.
         size_t payloadLength = 0;
         while (true) {
-            if (!ReadLine(lineBuffer)) {
+            if (!ReadLine(lineBuffer, inFile)) {
                 return false;
             }
 
@@ -66,29 +89,6 @@ namespace glsld
         fwrite(header.data(), sizeof(char), header.size(), outFile);
         fwrite(payload.Data(), sizeof(char), payload.Size(), outFile);
         fflush(outFile);
-    }
-
-    auto TransportService::ReadLine(std::string& buf) -> bool
-    {
-        // FIXME: do not use std::cin
-        buf.clear();
-
-        while (true) {
-            int ch = std::cin.get();
-            if (std::cin.eof()) {
-                return false;
-            }
-            else {
-                buf.push_back(ch);
-                if (ch == '\n') {
-                    return true;
-                }
-            }
-
-            if (buf.size() > 10 * 1024 * 1024) {
-                return false;
-            }
-        }
     }
 
 } // namespace glsld

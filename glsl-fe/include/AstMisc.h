@@ -1,5 +1,5 @@
 #pragma once
-#include "AstBase.h"
+#include "AstImpl.h"
 #include <algorithm>
 
 namespace glsld
@@ -37,6 +37,7 @@ namespace glsld
         std::vector<AstExpr*> sizes;
     };
 
+    // A layout item encodes "identifier" or "identifier=expr" in the layout qualifier
     struct LayoutItem
     {
         SyntaxToken idToken;
@@ -47,7 +48,7 @@ namespace glsld
     {
     public:
         AstTypeQualifierSeq(QualifierGroup quals, std::vector<LayoutItem> layoutQuals)
-            : quals(quals), layoutQuals(layoutQuals)
+            : quals(quals), layoutQuals(std::move(layoutQuals))
         {
         }
 

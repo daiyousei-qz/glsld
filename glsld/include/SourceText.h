@@ -112,55 +112,55 @@ namespace glsld
     {
         // Reconstruct qualfiers
         if (type.GetQualifiers()) {
-            auto quals = type.GetQualifiers()->GetQualfierGroup();
+            const auto quals = type.GetQualifiers()->GetQualfierGroup();
             // Precision Qualifier
-            if (quals.GetHighp()) {
+            if (quals.qHighp) {
                 buffer += "highp ";
             }
-            if (quals.GetMediump()) {
+            if (quals.qMediump) {
                 buffer += "mediump ";
             }
-            if (quals.GetLowp()) {
+            if (quals.qLowp) {
                 buffer += "lowp ";
             }
 
             // Storage/Parameter qualifiers
-            if (quals.GetConst()) {
+            if (quals.qConst) {
                 buffer += "const ";
             }
-            if (quals.GetIn()) {
+            if (quals.qIn) {
                 buffer += "in ";
             }
-            if (quals.GetOut()) {
+            if (quals.qOut) {
                 buffer += "out ";
             }
-            if (quals.GetInout()) {
+            if (quals.qInout) {
                 buffer += "inout ";
             }
-            if (quals.GetAttribute()) {
+            if (quals.qAttribute) {
                 buffer += "attribute ";
             }
-            if (quals.GetUniform()) {
+            if (quals.qUniform) {
                 buffer += "uniform ";
             }
-            if (quals.GetVarying()) {
+            if (quals.qVarying) {
                 buffer += "varying ";
             }
-            if (quals.GetBuffer()) {
+            if (quals.qBuffer) {
                 buffer += "buffer ";
             }
-            if (quals.GetShared()) {
+            if (quals.qShared) {
                 buffer += "shared ";
             }
 
             // Auxiliary storage qualifiers
-            if (quals.GetCentroid()) {
+            if (quals.qCentroid) {
                 buffer += "centroid ";
             }
-            if (quals.GetSample()) {
+            if (quals.qSample) {
                 buffer += "sample ";
             }
-            if (quals.GetPatch()) {
+            if (quals.qPatch) {
                 buffer += "patch ";
             }
 

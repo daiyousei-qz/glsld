@@ -63,12 +63,12 @@ namespace glsld
     };
     struct VectorTypeDesc
     {
-        ScalarTypeDesc scalar;
+        ScalarType scalarType;
         int vectorSize;
     };
     struct MatrixTypeDesc
     {
-        ScalarTypeDesc scalar;
+        ScalarType scalarType;
         int dimRow;
         int dimCol;
     };

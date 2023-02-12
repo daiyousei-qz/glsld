@@ -6,12 +6,6 @@
 
 namespace glsld
 {
-    struct DiagnosticLocation
-    {
-        int line;
-        int column;
-    };
-
     struct DiagnosticMessage
     {
         SyntaxTokenRange range;
@@ -21,15 +15,13 @@ namespace glsld
     class DiagnosticContext
     {
     public:
-        void ReportError(DiagnosticLocation range, std::string message)
+        void ReportError(SyntaxTokenRange range, std::string message)
         {
             // TODO: implement this
-            fmt::print("[ERROR@{}:{}] {}\n", range.line + 1, range.column + 1, message);
         }
-        void ReportWarning(DiagnosticLocation range, std::string message)
+        void ReportWarning(SyntaxTokenRange range, std::string message)
         {
             // TODO: implement this
-            fmt::print("[WARNING@{}:{}] {}\n", range.line + 1, range.column + 1, message);
         }
 
     private:

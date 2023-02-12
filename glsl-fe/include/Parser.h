@@ -15,6 +15,19 @@
 namespace glsld
 {
     // FIXME: update RECOVERY info
+    // A parser function is named in `ParseXXX`. It should consume a sequence of tokens and returns a AST node
+    // or a list of them. The parser functions in two parsing states:
+    // - Parsing state: Parser is seeing well-formed program.
+    // - Recovery state: Parser is recovering from a erroneous program.
+    // When a parser is called from Parsing, it could either finish successfully, exiting with Parsing, or
+    // fail gracefully, exiting with Recovery.
+    // When a parser is called from Recovery, it should do nothing and return with Recovery. A parser shouldn't
+    // exit Recovery state by itself. The caller is responsible of that.
+    //
+    // EXPECT: The expected next token. Parser triggers undefined behavior if the next token doesn't match.
+    // PARSE: Grammar rules that is going to be parsed.
+    // ACCEPT: Additional grammar rules to be accepted.
+    // RECOVERY: The next token to be expected if this parser entered recovery mode
     class Parser
     {
     public:
@@ -33,38 +46,41 @@ namespace glsld
             }
         }
 
+    private:
 #pragma region Parsing Misc
 
         //
-        // These are not parsers, but boilerplate functions
+        // These are not registered parsers, but boilerplate functions
         //
 
-        // In parsing mode, consume a ';' if available. Otherwise we issue an error and return, whici is used to
-        // infer a required ';'.
-        //
-        // In recovery mode, we do nothing and leave the ';' for recovery.
+        // Parse a ';' if available. Otherwise, we issue an error and return, which effectively infers
+        // the required ';'
         //
         // PARSE: ';'
         //
         // ACCEPT: null
-        auto ParsePermissiveSemicolon() -> void;
+        auto ParsePermissiveSemicolonHelper() -> void;
 
+        // Parse a closing ')' with the assumption that a balanced '(' has been parsed.
+        //
         // PARSE: ')'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingParen() -> void;
+        auto ParseClosingParenHelper() -> void;
 
+        // Parse a closing ']' with the assumption that a balanced '[' has been parsed.
+        //
         // PARSE: ']'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingBracket() -> void;
+        auto ParseClosingBracketHelper() -> void;
 
         // Try to parse an identifier token as a symbol name if available, otherwise returns an error token
         //
         // PARSE: 'ID'
         //
         // ACCEPT: null
-        auto ParseDeclId() -> SyntaxToken;
+        auto ParseDeclIdHelper() -> SyntaxToken;
 
         // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter revery mode and return error
         // expr.
@@ -74,28 +90,34 @@ namespace glsld
         // ACCEPT: null
         //
         // RECOVERY: ?
-        auto ParseParenWrappedExprOrError() -> AstExpr*;
+        auto ParseParenWrappedExprOrErrorHelper() -> AstExpr*;
 
 #pragma endregion
 
 #pragma region Parsing QualType
 
+        // Parse a layout specifier and save layout items into the parameter vector.
+        //
         // EXPECT: 'K_layout'
+        //
         // PARSE: layout_qual
-        //        layout_qual := 'layout' '(' ')'
-        //        layout_qual := 'layout' '(' layout_spec [',' layout_spec]... ')'
-        //        layout_spec := 'ID'
-        //        layout_spec := 'ID' '=' assignment_expr
+        //      - layout_qual := 'layout' '(' ')'
+        //      - layout_qual := 'layout' '(' layout_spec [',' layout_spec]... ')'
+        //      - layout_spec := 'ID'
+        //      - layout_spec := 'ID' '=' assignment_expr
         // ACCEPT: 'K_layout' '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseLayoutQualifier() -> std::vector<LayoutItem>;
+        auto ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void;
 
         // Try to parse a sequence of qualifiers
-        // PARSE: qual_seq
-        //      - qual_seq := ['qual_keyword']...
         //
-        // FIXME: layout qual
+        // PARSE: qual_seq
+        //      - qual_seq := [qualifier]...
+        //      - qualifier := layout_qual
+        //      - qualifier := 'K_???'
+        //
+        // RECOVERY: ^'EOF' or ^';'
         auto ParseTypeQualifiers() -> AstTypeQualifierSeq*;
 
         // EXPECT: '{'
@@ -106,6 +128,7 @@ namespace glsld
         // ACCEPT: '{' ??? '}'
         //
         // RECOVERY: ^'EOF' or ^';'
+        // FIXME: member_decl???
         auto ParseStructBody() -> std::vector<AstStructMemberDecl*>;
 
         // EXPECT: K_struct
@@ -117,6 +140,7 @@ namespace glsld
         auto ParseStructDefinition() -> AstStructDecl*;
 
         // EXPECT: '['
+        //
         // PARSE: array_spec
         //      - array_spec := ('[' [expr] ']')...
         //
@@ -132,7 +156,7 @@ namespace glsld
         auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // PARSE: qualified_type_spec
-        //        qualified_type_spec := [qual_seq] type_spec
+        //      - qualified_type_spec := [qual_seq] type_spec
         auto ParseQualType() -> AstQualType*;
 
 #pragma endregion
@@ -267,7 +291,7 @@ namespace glsld
         // Parse a comma expression.
         //
         // PARSE: expr
-        //        expr := assignment_expr [',' assignment_expr]...
+        //      - expr := assignment_expr [',' assignment_expr]...
         //
         // RECOVERY: ^';' or ^'}' or ^'EOF'
         auto ParseCommaExpr() -> AstExpr*;
@@ -302,7 +326,7 @@ namespace glsld
         // Parse an unary expression.
         //
         // PARSE: unary_expr
-        //        unary_expr := ['unary_op']... postfix_expr
+        //      - unary_expr := ['unary_op']... postfix_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseUnaryExpr() -> AstExpr*;
@@ -334,7 +358,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePrimaryExpr() -> AstExpr*;
 
-        // Parse an expression wrapped in parenthesis.
+        // Parse an expression wrapped in parentheses pair.
         //
         // EXPECT: '('
         //
@@ -358,37 +382,7 @@ namespace glsld
         // ACCEPT: '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseFunctionArgumentList() -> std::vector<AstExpr*>
-        {
-            TRACE_PARSER();
-            ConsumeTokenAssert(TokenKlass::LParen);
-
-            if (TryConsumeToken(TokenKlass::RParen)) {
-                return {};
-            }
-
-            if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
-                ConsumeToken();
-                ConsumeToken();
-                return {};
-            }
-
-            std::vector<AstExpr*> result;
-            while (!Eof()) {
-                auto arg = ParseAssignmentExpr();
-                if (InRecoveryMode()) {
-                    break;
-                }
-
-                result.push_back(arg);
-                if (!TryConsumeToken(TokenKlass::Comma)) {
-                    break;
-                }
-            }
-
-            ParseClosingParen();
-            return result;
-        }
+        auto ParseFunctionArgumentList() -> std::vector<AstExpr*>;
 
 #pragma endregion
 
@@ -477,6 +471,8 @@ namespace glsld
         // RECOVERY: ?
         auto ParseSwitchStmt() -> AstStmt*;
 
+        // Parse jump statement.
+        //
         // EXPECT: 'K_break' or 'K_continue' or 'K_discard' or 'K_return'
         //
         // PARSE: jump_stmt
@@ -507,26 +503,51 @@ namespace glsld
         enum class RecoveryMode
         {
             // Assuming a non-zero depth of paren, skip until we see
-            // 1) ')' that ends the leading '('
-            // 1) ';' in this scope
-            // 2) '}' that ends this scope (N/A in the global scope)
+            // 1. ')' that ends the leading '('
+            // 2. ';' in this scope
+            // 3. '}' that ends this scope (N/A in the global scope)
+            // 4. 'EOF'
             Paren,
 
             // Assuming a non-zero depth of bracket, skip until we see
-            // 1) ']' that ends the leading '['
-            // 1) ';' in this scope
-            // 2) '}' that ends this scope (N/A in the global scope)
+            // 1. ']' that ends the leading '['
+            // 2. ';' in this scope
+            // 3. '}' that ends this scope (N/A in the global scope)
+            // 4. 'EOF'
             Bracket,
 
             // Skip until we see
-            // 1) '}' that ends the leading '{', aka. end of this scope.
+            // 1. '}' that ends the leading '{'
+            // 2. 'EOF'
             Brace,
 
             // Skip until we see
-            // 1) ';' in this scope
-            // 2) '}' that ends this scope (N/A in the global scope)
+            // 1. ';' in this scope
+            // 2. '}' that ends this scope (N/A in the global scope)
+            // 3. 'EOF'
             Semi,
         };
+
+        auto InParsingMode() -> bool
+        {
+            return state == ParsingState::Parsing;
+        }
+
+        auto InRecoveryMode() -> bool
+        {
+            return state == ParsingState::Recovery;
+        }
+
+        auto EnterRecoveryMode() -> void
+        {
+            state = ParsingState::Recovery;
+        }
+
+        auto ExitRecoveryMode() -> void
+        {
+            GLSLD_ASSERT(state == ParsingState::Recovery);
+            state = ParsingState::Parsing;
+        }
 
         // FIXME: implement correctly (initializer could also use braces, NOTE ';' in initializer isn't ending a
         // statement)
@@ -577,7 +598,7 @@ namespace glsld
                 }
             };
 
-            while (PeekToken().klass != TokenKlass::Eof) {
+            while (!Eof()) {
                 switch (PeekToken().klass) {
                 case TokenKlass::RParen:
                     if (parenDepth == 0) {
@@ -623,63 +644,6 @@ namespace glsld
             }
         }
 
-        auto Eof() -> bool
-        {
-            return TryTestToken(TokenKlass::Eof);
-        }
-
-        auto InParsingMode() -> bool
-        {
-            return state == ParsingState::Parsing;
-        }
-
-        auto InRecoveryMode() -> bool
-        {
-            return state == ParsingState::Recovery;
-        }
-
-        auto EnterRecoveryMode() -> void
-        {
-            state = ParsingState::Recovery;
-        }
-
-        auto ExitRecoveryMode() -> void
-        {
-            GLSLD_ASSERT(state == ParsingState::Recovery);
-            state = ParsingState::Parsing;
-        }
-
-        auto TryTestToken(TokenKlass klass, int lookahead = 0) -> bool
-        {
-            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
-            if (tok.klass == klass) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, int lookahead = 0) -> bool
-        {
-            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
-            if (tok.klass == klass1 || tok.klass == klass2) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, TokenKlass klass3, int lookahead = 0) -> bool
-        {
-            const auto& tok = lookahead == 0 ? PeekToken() : PeekToken(lookahead);
-            if (tok.klass == klass1 || tok.klass == klass2 || tok.klass == klass3) {
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-
         auto PeekToken() -> const SyntaxToken&
         {
             return currentTok;
@@ -699,6 +663,42 @@ namespace glsld
         auto RestoreTokenIndex(size_t index) -> void
         {
             currentTok = lexContext.GetToken(index);
+        }
+
+        auto TryTestToken(TokenKlass klass) -> bool
+        {
+            return PeekToken().klass == klass;
+        }
+
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2) -> bool
+        {
+            return PeekToken().klass == klass1 || PeekToken().klass == klass2;
+        }
+
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, TokenKlass klass3) -> bool
+        {
+            return PeekToken().klass == klass1 || PeekToken().klass == klass2 || PeekToken().klass == klass3;
+        }
+
+        auto TryTestToken(TokenKlass klass, int lookahead) -> bool
+        {
+            const auto& tok = PeekToken(lookahead);
+            return tok.klass == klass;
+        }
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, int lookahead) -> bool
+        {
+            const auto& tok = PeekToken(lookahead);
+            return tok.klass == klass1 || tok.klass == klass2;
+        }
+        auto TryTestToken(TokenKlass klass1, TokenKlass klass2, TokenKlass klass3, int lookahead) -> bool
+        {
+            const auto& tok = PeekToken(lookahead);
+            return tok.klass == klass1 || tok.klass == klass2 || tok.klass == klass3;
+        }
+
+        auto Eof() -> bool
+        {
+            return TryTestToken(TokenKlass::Eof);
         }
 
         auto ConsumeToken() -> void
@@ -739,15 +739,9 @@ namespace glsld
             }
         }
 
-        auto ConsumeTokenAssert(TokenKlass klass) -> void
-        {
-            GLSLD_ASSERT(PeekToken().klass == klass);
-            ConsumeToken();
-        }
-
         auto TryConsumeToken(TokenKlass klass) -> bool
         {
-            if (PeekToken().klass == klass) {
+            if (TryTestToken(klass)) {
                 ConsumeToken();
                 return true;
             }
@@ -778,20 +772,18 @@ namespace glsld
 
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
-            // FIXME: report error
-            // auto synRange = lexContext->GetSyntaxRange(tokIndex);
-            // auto beginLoc = lexContext->LookupSyntaxLocation(synRange.begin);
-            // diagContext->ReportError(DiagnosticLocation{beginLoc.line, beginLoc.column}, std::move(message));
+            // FIXME: range of error?
+            diagContext.ReportError(SyntaxTokenRange{tokIndex}, std::move(message));
         }
         auto ReportError(std::string message) -> void
         {
-            // ReportError(GetTokenIndex(), std::move(message));
+            ReportError(GetTokenIndex(), std::move(message));
         }
 
     private:
         enum class ParsingState
         {
-            // Parser is parsing
+            // Parser is currently parsing
             Parsing,
 
             // Parser just recovered from an error and need restart parsing at some point

@@ -5,7 +5,7 @@ namespace glsld
 
 #pragma region Parsing Misc
 
-    auto Parser::ParsePermissiveSemicolon() -> void
+    auto Parser::ParsePermissiveSemicolonHelper() -> void
     {
         if (InParsingMode()) {
             if (!TryConsumeToken(TokenKlass::Semicolon)) {
@@ -15,7 +15,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseClosingParen() -> void
+    auto Parser::ParseClosingParenHelper() -> void
     {
         if (TryConsumeToken(TokenKlass::RParen)) {
             if (InRecoveryMode()) {
@@ -33,7 +33,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseClosingBracket() -> void
+    auto Parser::ParseClosingBracketHelper() -> void
     {
         if (TryConsumeToken(TokenKlass::RBracket)) {
             if (InRecoveryMode()) {
@@ -51,7 +51,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseDeclId() -> SyntaxToken
+    auto Parser::ParseDeclIdHelper() -> SyntaxToken
     {
         if (PeekToken().IsIdentifier()) {
             auto result = PeekToken();
@@ -64,7 +64,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseParenWrappedExprOrError() -> AstExpr*
+    auto Parser::ParseParenWrappedExprOrErrorHelper() -> AstExpr*
     {
         if (TryTestToken(TokenKlass::LParen)) {
             return ParseParenWrappedExpr();
@@ -78,7 +78,7 @@ namespace glsld
 #pragma endregion
 
 #pragma region Parsing QualType
-    auto Parser::ParseLayoutQualifier() -> std::vector<LayoutItem>
+    auto Parser::ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void
     {
         TRACE_PARSER();
 
@@ -87,33 +87,32 @@ namespace glsld
         auto beginTokIndex = GetTokenIndex();
         ConsumeToken();
 
-        std::vector<LayoutItem> result;
         if (!TryConsumeToken(TokenKlass::LParen)) {
-            return result;
+            EnterRecoveryMode();
+            return;
         }
 
         while (!Eof()) {
-            auto idToken = ParseDeclId();
+            auto idToken = ParseDeclIdHelper();
 
             AstExpr* value = nullptr;
             if (TryConsumeToken(TokenKlass::Assign)) {
                 value = ParseExprNoComma();
             }
 
-            result.push_back(LayoutItem{idToken, value});
+            items.push_back(LayoutItem{idToken, value});
 
             if (!TryConsumeToken(TokenKlass::Comma)) {
                 break;
             }
 
+            // We'll continue parsing regardless if a ',' has been consumed
             if (InRecoveryMode()) {
                 ExitRecoveryMode();
             }
-            // We'll continue parsing regardless if a ',' has been consumed
         }
 
-        ParseClosingParen();
-        return result;
+        ParseClosingParenHelper();
     }
 
     auto Parser::ParseTypeQualifiers() -> AstTypeQualifierSeq*
@@ -130,13 +129,13 @@ namespace glsld
             switch (PeekToken().klass) {
                 // precision qualifier
             case TokenKlass::K_highp:
-                qualifiers.SetHighp();
+                qualifiers.qHighp = true;
                 break;
             case TokenKlass::K_mediump:
-                qualifiers.SetMediump();
+                qualifiers.qMediump = true;
                 break;
             case TokenKlass::K_lowp:
-                qualifiers.SetLowp();
+                qualifiers.qLowp = true;
                 break;
                 // invariance qual?
             case TokenKlass::K_invariant:
@@ -176,29 +175,29 @@ namespace glsld
                 qualifiers.qInout = true;
                 break;
             case TokenKlass::K_attribute:
-                qualifiers.SetAttribute();
+                qualifiers.qAttribute = true;
                 break;
             case TokenKlass::K_uniform:
-                qualifiers.SetUniform();
+                qualifiers.qUniform = true;
                 break;
             case TokenKlass::K_varying:
-                qualifiers.SetVarying();
+                qualifiers.qVarying = true;
                 break;
             case TokenKlass::K_buffer:
-                qualifiers.SetBuffer();
+                qualifiers.qBuffer = true;
                 break;
             case TokenKlass::K_shared:
-                qualifiers.SetShared();
+                qualifiers.qShared = true;
                 break;
                 // auxiliary storage qual
             case TokenKlass::K_centroid:
-                qualifiers.SetCentroid();
+                qualifiers.qCentroid = true;
                 break;
             case TokenKlass::K_sample:
-                qualifiers.SetSample();
+                qualifiers.qSample = true;
                 break;
             case TokenKlass::K_patch:
-                qualifiers.SetPatch();
+                qualifiers.qPatch = true;
                 break;
                 // Interpolation qual
             case TokenKlass::K_smooth:
@@ -221,12 +220,12 @@ namespace glsld
 
             // Handle layout qualifier
             if (TryTestToken(TokenKlass::K_layout)) {
-                std::ranges::copy(ParseLayoutQualifier(), std::back_inserter(layoutQuals));
+                ParseLayoutQualifier(layoutQuals);
                 inQualSeq = true;
             }
         }
 
-        // TODO: return nullptr if not set
+        // TODO: return nullptr if no qualifier is parsed
         return CreateAstNode<AstTypeQualifierSeq>(beginTokIndex, qualifiers, std::move(layoutQuals));
     }
 
@@ -234,28 +233,30 @@ namespace glsld
     {
         TRACE_PARSER();
 
-        ConsumeTokenAssert(TokenKlass::LBrace);
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
+        ConsumeToken();
 
         if (TryConsumeToken(TokenKlass::RBrace)) {
-            // empty struct body
+            // Empty struct body
             return {};
         }
 
         std::vector<AstStructMemberDecl*> result;
         while (!Eof()) {
-            // Parse empty decl
-            // FIXME: report error?
+            // Fast path. Parse an empty decl
             if (TryConsumeToken(TokenKlass::Semicolon)) {
+                // TODO: report warning
                 continue;
             }
 
+            // Parse a member decl
             auto beginTokIndex = GetTokenIndex();
             auto typeResult    = ParseQualType();
             auto declarators   = ParseDeclaratorList();
 
             if (!InRecoveryMode()) {
                 result.push_back(CreateAstNode<AstStructMemberDecl>(beginTokIndex, typeResult, std::move(declarators)));
-                ParsePermissiveSemicolon();
+                ParsePermissiveSemicolonHelper();
             }
             else {
                 // Try to resume if we see a ';'
@@ -287,8 +288,9 @@ namespace glsld
     {
         TRACE_PARSER();
 
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_struct));
         auto beginTokIndex = GetTokenIndex();
-        ConsumeTokenAssert(TokenKlass::K_struct);
+        ConsumeToken();
 
         // Parse the declared struct type name
         std::optional<SyntaxToken> declTok = std::nullopt;
@@ -302,10 +304,11 @@ namespace glsld
             auto structBodyResult = ParseStructBody();
             return CreateAstNode<AstStructDecl>(beginTokIndex, declTok, structBodyResult);
         }
-
-        // FIXME: could we do better on recovery?
-        EnterRecoveryMode();
-        return nullptr;
+        else {
+            // FIXME: could we do better on recovery?
+            EnterRecoveryMode();
+            return nullptr;
+        }
     }
 
     auto Parser::ParseArraySpec() -> AstArraySpec*
@@ -318,7 +321,7 @@ namespace glsld
         std::vector<AstExpr*> sizes;
         while (TryConsumeToken(TokenKlass::LBracket)) {
 
-            // Parse unsized specifier
+            // Parse empty/unsized specifier
             if (TryConsumeToken(TokenKlass::RBracket)) {
                 sizes.push_back(nullptr);
                 continue;
@@ -327,7 +330,7 @@ namespace glsld
             // TODO: expr? assignment_expr?
             sizes.push_back(ParseExpr());
 
-            ParseClosingBracket();
+            ParseClosingBracketHelper();
             if (InRecoveryMode()) {
                 break;
             }
@@ -340,15 +343,17 @@ namespace glsld
     {
         TRACE_PARSER();
 
+        // The range of AstQualType should be at the start of AstTypeQualifierSeq
         auto beginTokIndex = quals ? quals->GetRange().startTokenIndex : GetTokenIndex();
 
         if (TryTestToken(TokenKlass::K_struct)) {
-            auto structDefinitionResult = ParseStructDefinition();
-            AstArraySpec* arraySpec     = nullptr;
+            // Parse struct definition
+            auto structDefinition   = ParseStructDefinition();
+            AstArraySpec* arraySpec = nullptr;
             if (TryTestToken(TokenKlass::LBracket)) {
                 arraySpec = ParseArraySpec();
             }
-            return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinitionResult, arraySpec);
+            return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinition, arraySpec);
         }
         else if (TryTestToken(TokenKlass::Identifier) || GetBuiltinType(PeekToken()).has_value()) {
             auto tok = PeekToken();
@@ -359,10 +364,11 @@ namespace glsld
             }
             return CreateAstNode<AstQualType>(beginTokIndex, quals, tok, arraySpec);
         }
-
-        // FIXME: how to handle error
-        EnterRecoveryMode();
-        return nullptr;
+        else {
+            // FIXME: how to handle error
+            EnterRecoveryMode();
+            return nullptr;
+        }
     }
 
     auto Parser::ParseQualType() -> AstQualType*
@@ -436,18 +442,19 @@ namespace glsld
                 // type/variable decl
                 return ParseTypeOrVariableDecl(beginTokIndex, type);
             }
-            else if (type->GetStructDecl()) {
-                // If type is a struct definition, we assume this is a type decl with missing ';' for better diagnostic
-
-                // This would always fail. We are just trying to infer the ';'
-                ParsePermissiveSemicolon();
-
-                return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
-            }
             else {
-                // unknown decl
-                ReportError("unknown decl");
-                EnterRecoveryMode();
+                if (type->GetStructDecl()) {
+                    // If type is a struct definition, we assume this is a type decl with missing ';' for better
+                    // diagnostic This would always fail. We are just trying to infer the ';'
+                    ParsePermissiveSemicolonHelper();
+                }
+                else {
+                    // Otherwise, it's an unknown decl
+                    ReportError("unknown decl");
+                    EnterRecoveryMode();
+                }
+
+                // In all cases, we'll return an empty decl with parsed type
                 return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
             }
         }
@@ -494,7 +501,7 @@ namespace glsld
         VariableDeclarator result;
 
         // Parse declaration identifier
-        result.declTok = ParseDeclId();
+        result.declTok = ParseDeclIdHelper();
 
         // Parse array specifier
         if (TryTestToken(TokenKlass::LBracket)) {
@@ -528,7 +535,8 @@ namespace glsld
     {
         TRACE_PARSER();
 
-        ConsumeTokenAssert(TokenKlass::LParen);
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
+        ConsumeToken();
 
         // empty parameter list
         if (TryConsumeToken(TokenKlass::RParen)) {
@@ -569,7 +577,7 @@ namespace glsld
             }
         }
 
-        ParseClosingParen();
+        ParseClosingParenHelper();
         return std::move(result);
     }
 
@@ -578,7 +586,7 @@ namespace glsld
         TRACE_PARSER();
 
         // Parse function name
-        auto declTok = ParseDeclId();
+        auto declTok = ParseDeclIdHelper();
 
         // Parse function parameter list
         auto params = ParseFunctionParamList();
@@ -618,7 +626,7 @@ namespace glsld
         auto declarators = ParseDeclaratorList();
 
         // Parse ';'
-        ParsePermissiveSemicolon();
+        ParsePermissiveSemicolonHelper();
 
         return CreateAstNode<AstVariableDecl>(beginTokIndex, variableType, declarators);
     }
@@ -629,7 +637,7 @@ namespace glsld
 
         // Parse interface block name
         GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier, TokenKlass::LBrace));
-        auto declTok = ParseDeclId();
+        auto declTok = ParseDeclIdHelper();
 
         // Parse interface block body
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
@@ -645,7 +653,7 @@ namespace glsld
         }
 
         // Parse ';'
-        ParsePermissiveSemicolon();
+        ParsePermissiveSemicolonHelper();
 
         return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, quals, declTok, blockBody, declarator);
     }
@@ -949,7 +957,7 @@ namespace glsld
             {
                 // Member access or .length() call
                 ConsumeToken();
-                auto accessName = ParseDeclId();
+                auto accessName = ParseDeclIdHelper();
                 if (accessName.text.Equals("length") && TryTestToken(TokenKlass::LParen) &&
                     TryTestToken(TokenKlass::RParen, 1)) {
                     ConsumeToken();
@@ -1017,17 +1025,52 @@ namespace glsld
     {
         TRACE_PARSER();
 
-        ConsumeTokenAssert(TokenKlass::LParen);
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
+        ConsumeToken();
 
         if (TryConsumeToken(TokenKlass::RParen)) {
             return CreateErrorExpr();
         }
 
         auto result = ParseExpr();
-        ParseClosingParen();
+        ParseClosingParenHelper();
 
         return result;
     };
+
+    auto Parser::ParseFunctionArgumentList() -> std::vector<AstExpr*>
+    {
+        TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
+        ConsumeToken();
+
+        if (TryConsumeToken(TokenKlass::RParen)) {
+            return {};
+        }
+
+        if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
+            ConsumeToken();
+            ConsumeToken();
+            return {};
+        }
+
+        std::vector<AstExpr*> result;
+        while (!Eof()) {
+            auto arg = ParseAssignmentExpr();
+            if (InRecoveryMode()) {
+                break;
+            }
+
+            result.push_back(arg);
+            if (!TryConsumeToken(TokenKlass::Comma)) {
+                break;
+            }
+        }
+
+        ParseClosingParenHelper();
+        return result;
+    }
 
 #pragma endregion
 
@@ -1094,7 +1137,7 @@ namespace glsld
 
         // Parse '{'
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
-        ConsumeTokenAssert(TokenKlass::LBrace);
+        ConsumeToken();
 
         // Parse child statements
         std::vector<AstStmt*> children;
@@ -1124,10 +1167,10 @@ namespace glsld
 
         // Parse 'K_if'
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_if));
-        ConsumeTokenAssert(TokenKlass::K_if);
+        ConsumeToken();
 
         // Parse predicate expression
-        AstExpr* predicateExpr = ParseParenWrappedExprOrError();
+        AstExpr* predicateExpr = ParseParenWrappedExprOrErrorHelper();
 
         if (InRecoveryMode()) {
             return CreateAstNode<AstIfStmt>(beginTokIndex, predicateExpr, CreateErrorStmt());
@@ -1193,7 +1236,7 @@ namespace glsld
         }
 
         // FIXME: is the recovery correct?
-        ParseClosingParen();
+        ParseClosingParenHelper();
         if (InRecoveryMode()) {
             return CreateAstNode<AstForStmt>(beginTokIndex, initClause, condExpr, iterationExpr, CreateErrorStmt());
         }
@@ -1223,10 +1266,10 @@ namespace glsld
         }
 
         // Parse predicate expr
-        AstExpr* precidateExpr = ParseParenWrappedExprOrError();
+        AstExpr* precidateExpr = ParseParenWrappedExprOrErrorHelper();
 
         // Parse ';'
-        ParsePermissiveSemicolon();
+        ParsePermissiveSemicolonHelper();
 
         return CreateAstNode<AstDoWhileStmt>(beginTokIndex, precidateExpr, loopBodyStmt);
     }
@@ -1242,7 +1285,7 @@ namespace glsld
         ConsumeToken();
 
         // Parse predicate expr
-        AstExpr* predicateExpr = ParseParenWrappedExprOrError();
+        AstExpr* predicateExpr = ParseParenWrappedExprOrErrorHelper();
 
         if (InRecoveryMode()) {
             return CreateAstNode<AstWhileStmt>(beginTokIndex, predicateExpr, CreateErrorStmt());
@@ -1289,7 +1332,7 @@ namespace glsld
         ConsumeToken();
 
         // Parse switched expr
-        AstExpr* switchedExpr = ParseParenWrappedExprOrError();
+        AstExpr* switchedExpr = ParseParenWrappedExprOrErrorHelper();
 
         // Parse switch body
         AstStmt* switchBody = nullptr;
@@ -1310,15 +1353,15 @@ namespace glsld
         switch (PeekToken().klass) {
         case TokenKlass::K_break:
             ConsumeToken();
-            ParsePermissiveSemicolon();
+            ParsePermissiveSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Break);
         case TokenKlass::K_continue:
             ConsumeToken();
-            ParsePermissiveSemicolon();
+            ParsePermissiveSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Continue);
         case TokenKlass::K_discard:
             ConsumeToken();
-            ParsePermissiveSemicolon();
+            ParsePermissiveSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Discard);
         case TokenKlass::K_return:
             ConsumeToken();
@@ -1328,7 +1371,7 @@ namespace glsld
             else {
                 auto returnedExpr = ParseExprNoComma();
 
-                ParsePermissiveSemicolon();
+                ParsePermissiveSemicolonHelper();
                 return CreateAstNode<AstReturnStmt>(beginTokIndex, returnedExpr);
             }
         default:
@@ -1346,7 +1389,7 @@ namespace glsld
         auto exprResult = ParseExpr();
 
         // Parse ';'
-        ParsePermissiveSemicolon();
+        ParsePermissiveSemicolonHelper();
 
         return CreateAstNode<AstExprStmt>(beginTokIndex, exprResult);
     }

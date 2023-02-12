@@ -16,9 +16,12 @@ DONE!
 - Go to Declaration
 - Go to Definition
 
+DONE!
 
 ### Phase 3
 - Bulit-in
+
+DONE!
 
 ### Should have LSP Feature
 - Go to Declaration
@@ -58,14 +61,16 @@ DONE!
 - `Hover on QualType` FIXED
 - `Go to definition should link to the decl token` FIXED
 - `Need a better tokenizer` FIXED
-- `Should support builtin function documentation`
 - `sin(1.)?` FIXED
 - `Test\310.inheritMemory.frag?` FIXED
 - `Test\450.geom?` FIXED
 - `Test2\glsl.autosampledtextures.frag` FIXED
-- `Test2\400.geom` Inlay hint disappear during scrolling
-- Random crash
+- Hover with "invariant/flat" FIXED
 - Go to definition shouldn't work with default library function!!!! FIXED
 - Hover on struct member is incorrect FIXED
-- Hover with "invariant/flat" FIXED
+- `Should support builtin function documentation`
+- `Test2\400.geom` Inlay hint disappear during scrolling
+- `Test2\410.geom` assert failure
+- `Test2\310.frag` Semantic tokens doesn't work
+- Random crash
 - Avoid provide completion if last token is a type

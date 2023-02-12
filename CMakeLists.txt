@@ -1,34 +1,17 @@
 cmake_minimum_required(VERSION 3.18)
 
-# OS and Compiler Config
+# Load vcpkg
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    add_compile_definitions(GLSLD_OS_WIN)
-    set(GLSLD_OS_WIN 1)
     set(GLSLD_VCPKG_TRIPLET "x64-windows-static")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    add_compile_definitions(GLSLD_OS_LINUX)
-    set(GLSLD_OS_LINUX 1)
     set(GLSLD_VCPKG_TRIPLET "x64-linux")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    add_compile_definitions(GLSLD_OS_DARWIN)
-    set(GLSLD_OS_DARWIN 1)
-
     # FIXME: test for x86?
     set(GLSLD_VCPKG_TRIPLET "arm64-osx")
+else()
+    message(FATAL_ERROR "Failed to infer vcpkg triplet")
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    add_compile_definitions(GLSLD_COMPILER_MSVC)
-    set(GLSLD_COMPILER_MSVC 1)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    add_compile_definitions(GLSLD_COMPILER_GCC)
-    set(GLSLD_COMPILER_GCC 1)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
-    add_compile_definitions(GLSLD_COMPILER_CLANG)
-    set(GLSLD_COMPILER_CLANG 1)
-endif()
-
-# Load vcpkg
 set(VCPKG_TARGET_TRIPLET ${GLSLD_VCPKG_TRIPLET} CACHE STRING "" FORCE)
 
 if(NOT CMAKE_TOOLCHAIN_FILE)
@@ -39,9 +22,38 @@ endif()
 # NOTE it is important to have project declaration to come after vcpkg config
 project(glsld CXX)
 
+# OS and Compiler Config
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    add_compile_definitions(GLSLD_OS_WIN)
+    set(GLSLD_OS_WIN 1)
+    message(STATUS "[OS] Windows")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
+    add_compile_definitions(GLSLD_OS_LINUX)
+    set(GLSLD_OS_LINUX 1)
+    message(STATUS "[OS] Linux")
+elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
+    add_compile_definitions(GLSLD_OS_DARWIN)
+    set(GLSLD_OS_DARWIN 1)
+    message(STATUS "[OS] Darwin")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_compile_definitions(GLSLD_COMPILER_MSVC)
+    set(GLSLD_COMPILER_MSVC 1)
+    message(STATUS "[Compiler] MSVC")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_definitions(GLSLD_COMPILER_GCC)
+    set(GLSLD_COMPILER_GCC 1)
+    message(STATUS "[Compiler] Gcc")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
+    add_compile_definitions(GLSLD_COMPILER_CLANG)
+    set(GLSLD_COMPILER_CLANG 1)
+    message(STATUS "[Compiler] Clang")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 
-if(MSVC)
+if(GLSLD_COMPILER_MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_options(-permissive-)
 endif()

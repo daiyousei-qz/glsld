@@ -2,6 +2,7 @@
 #include "Semantic.h"
 #include "Typing.h"
 #include "ConstValue.h"
+#include "AstBase.h"
 
 #include <map>
 
@@ -18,7 +19,8 @@ namespace glsld
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
 
-    // A view into a declaration
+    // A view pointer into a declaration, including an index of declarator.
+    // For declaration without declarators, that index should always be zero.
     class DeclView
     {
     public:
@@ -102,7 +104,7 @@ namespace glsld
 
     private:
         // Resolved descriptor of this type
-        const TypeDesc* resolvedType = nullptr;
+        const TypeDesc* resolvedType = GetErrorTypeDesc();
 
         // Resolved declaration of this type
         AstDecl* resolvedStructDecl = nullptr;
@@ -112,7 +114,7 @@ namespace glsld
     class AstPayload<AstStructDecl>
     {
     public:
-        auto GetTypeDesc() -> const TypeDesc*
+        auto GetTypeDesc() const -> const TypeDesc*
         {
             return typeDesc;
         }

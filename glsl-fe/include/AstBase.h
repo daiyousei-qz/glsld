@@ -1,6 +1,5 @@
 #pragma once
 #include "SyntaxToken.h"
-#include "AstPayload.h"
 #include "Semantic.h"
 
 #include <vector>
@@ -8,18 +7,24 @@
 
 namespace glsld
 {
-#if defined(_MSC_VER)
-#define MSVC_EMPTY_BASES __declspec(empty_bases)
-#else
-#define MSVC_EMPTY_BASES
-#endif
-
     class TypeDesc;
+
+// Forward declaration of all Ast types
+#define DECL_AST_BEGIN_BASE(TYPE) class TYPE;
+#define DECL_AST_END_BASE(TYPE)
+#define DECL_AST_TYPE(TYPE) class TYPE;
+#include "GlslAst.inc"
+#undef DECL_AST_BEGIN_BASE
+#undef DECL_AST_END_BASE
+#undef DECL_AST_TYPE
 
     namespace detail
     {
-        enum
+        enum AstNodeTagValue
         {
+            InvalidAstNodeTagValue = 0,
+            AstNodeTagMin          = 0,
+
 #define DECL_AST_BEGIN_BASE(TYPE) AstTagBeginBase_##TYPE,
 #define DECL_AST_END_BASE(TYPE) AstTagEndBase_##TYPE,
 #define DECL_AST_TYPE(TYPE) AstTagType_##TYPE,
@@ -27,12 +32,104 @@ namespace glsld
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
+
+            AstNodeTagMax,
         };
+
+        // Maps AstNodeTagValue to actual Ast type
+        template <AstNodeTagValue TagValue>
+        struct AstTypeLookupHelper
+        {
+            using Type = void;
+        };
+
+#define DECL_AST_BEGIN_BASE(TYPE)                                                                                      \
+    template <>                                                                                                        \
+    struct AstTypeLookupHelper<AstTagBeginBase_##TYPE>                                                                 \
+    {                                                                                                                  \
+        using Type = TYPE;                                                                                             \
+    };
+#define DECL_AST_END_BASE(TYPE)                                                                                        \
+    template <>                                                                                                        \
+    struct AstTypeLookupHelper<AstTagEndBase_##TYPE>                                                                   \
+    {                                                                                                                  \
+        using Type = TYPE;                                                                                             \
+    };
+#define DECL_AST_TYPE(TYPE)                                                                                            \
+    template <>                                                                                                        \
+    struct AstTypeLookupHelper<AstTagType_##TYPE>                                                                      \
+    {                                                                                                                  \
+        using Type = TYPE;                                                                                             \
+    };
+#include "GlslAst.inc"
+#undef DECL_AST_BEGIN_BASE
+#undef DECL_AST_END_BASE
+#undef DECL_AST_TYPE
+
+        template <AstNodeTagValue TagValue>
+        using AstTypeOf = typename AstTypeLookupHelper<TagValue>::Type;
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr bool IsValidAstNodeTagValue = TagValue > AstNodeTagMin&& TagValue < AstNodeTagMax;
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr bool IsBeginBaseAstNodeTagValue = false;
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr bool IsEndBaseAstNodeTagValue = false;
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr bool IsLeafAstNodeTagValue = false;
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr bool IsBaseAstNodeTagValue =
+            IsBeginBaseAstNodeTagValue<TagValue> || IsEndBaseAstNodeTagValue<TagValue>;
+
+#define DECL_AST_BEGIN_BASE(TYPE)                                                                                      \
+    template <>                                                                                                        \
+    inline constexpr bool IsBeginBaseAstNodeTagValue<AstTagBeginBase_##TYPE> = true;
+#define DECL_AST_END_BASE(TYPE)                                                                                        \
+    template <>                                                                                                        \
+    inline constexpr bool IsEndBaseAstNodeTagValue<AstTagEndBase_##TYPE> = true;
+#define DECL_AST_TYPE(TYPE)                                                                                            \
+    template <>                                                                                                        \
+    inline constexpr bool IsLeafAstNodeTagValue<AstTagType_##TYPE> = true;
+#include "GlslAst.inc"
+#undef DECL_AST_BEGIN_BASE
+#undef DECL_AST_END_BASE
+#undef DECL_AST_TYPE
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr AstNodeTagValue PrevAstNodeTagValue = static_cast<AstNodeTagValue>(TagValue - 1);
+
+        template <AstNodeTagValue TagValue>
+        inline constexpr AstNodeTagValue ParentAstNodeTagValue = InvalidAstNodeTagValue;
+
+#define DECL_AST_BEGIN_BASE(TYPE)                                                                                      \
+    template <>                                                                                                        \
+    inline constexpr AstNodeTagValue ParentAstNodeTagValue<AstTagBeginBase_##TYPE> =                                   \
+        IsBeginBaseAstNodeTagValue<PrevAstNodeTagValue<AstTagBeginBase_##TYPE>>                                        \
+            ? PrevAstNodeTagValue<AstTagBeginBase_##TYPE>                                                              \
+            : ParentAstNodeTagValue<PrevAstNodeTagValue<AstTagBeginBase_##TYPE>>;
+#define DECL_AST_END_BASE(TYPE)                                                                                        \
+    template <>                                                                                                        \
+    inline constexpr AstNodeTagValue ParentAstNodeTagValue<AstTagEndBase_##TYPE> =                                     \
+        ParentAstNodeTagValue<AstTagBeginBase_##TYPE>;
+#define DECL_AST_TYPE(TYPE)                                                                                            \
+    template <>                                                                                                        \
+    inline constexpr AstNodeTagValue ParentAstNodeTagValue<AstTagType_##TYPE> =                                        \
+        IsBeginBaseAstNodeTagValue<PrevAstNodeTagValue<AstTagType_##TYPE>>                                             \
+            ? PrevAstNodeTagValue<AstTagType_##TYPE>                                                                   \
+            : ParentAstNodeTagValue<PrevAstNodeTagValue<AstTagType_##TYPE>>;
+#include "GlslAst.inc"
+#undef DECL_AST_BEGIN_BASE
+#undef DECL_AST_END_BASE
+#undef DECL_AST_TYPE
     } // namespace detail
 
     enum class AstNodeTag
     {
-        Invalid,
+        Invalid = detail::InvalidAstNodeTagValue,
 
 #define DECL_AST_BEGIN_BASE(TYPE)
 #define DECL_AST_END_BASE(TYPE)
@@ -48,6 +145,7 @@ namespace glsld
         switch (tag) {
         case AstNodeTag::Invalid:
             return "Invalid";
+
 #define DECL_AST_BEGIN_BASE(TYPE)
 #define DECL_AST_END_BASE(TYPE)
 #define DECL_AST_TYPE(TYPE)                                                                                            \
@@ -62,32 +160,25 @@ namespace glsld
         }
     };
 
-// Forward declaration of all Ast types
-#define DECL_AST_BEGIN_BASE(TYPE) class TYPE;
-#define DECL_AST_END_BASE(TYPE)
-#define DECL_AST_TYPE(TYPE) class TYPE;
-#include "GlslAst.inc"
-#undef DECL_AST_BEGIN_BASE
-#undef DECL_AST_END_BASE
-#undef DECL_AST_TYPE
-
     template <typename AstType>
     struct AstNodeTrait
     {
-        // FIXME: static_assert(false);
+        static_assert(AlwaysFalse<AstType>);
 
         // If AstType is a type for a leaf node
         static constexpr bool isLeafNode = false;
         // The tag for the AstType if it's a leaf node, otherwise it's Invalid
         static constexpr AstNodeTag tag = AstNodeTag::Invalid;
 
-        // any valid tag in range [tagBegin, tagEnd] is or derives AstType
+        // Any valid tag in range [tagBegin, tagEnd] is or derives AstType
         static constexpr int tagBegin = 0;
         static constexpr int tagEnd   = 0;
+
+        using NodeType   = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
+        using ParentType = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::InvalidAstNodeTagValue>>;
     };
 
-#define DECL_AST_BEGIN_BASE(TYPE)
-#define DECL_AST_END_BASE(TYPE)                                                                                        \
+#define DECL_AST_BEGIN_BASE(TYPE)                                                                                      \
     template <>                                                                                                        \
     struct AstNodeTrait<TYPE>                                                                                          \
     {                                                                                                                  \
@@ -95,21 +186,27 @@ namespace glsld
         static constexpr AstNodeTag tag  = AstNodeTag::Invalid;                                                        \
         static constexpr int tagBegin    = detail::AstTagBeginBase_##TYPE;                                             \
         static constexpr int tagEnd      = detail::AstTagEndBase_##TYPE;                                               \
+        using NodeType                   = TYPE;                                                                       \
+        using ParentType = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::AstTagBeginBase_##TYPE>>;           \
     };
-#define DECL_AST_TYPE(TYPE)                                                                                            \
-    template <>                                                                                                        \
-    struct AstNodeTrait<TYPE>                                                                                          \
-    {                                                                                                                  \
-        static constexpr bool isLeafNode = true;                                                                       \
-        static constexpr AstNodeTag tag  = AstNodeTag::TYPE;                                                           \
-        static constexpr int tagBegin    = static_cast<int>(AstNodeTag::TYPE) - 1;                                     \
-        static constexpr int tagEnd      = static_cast<int>(AstNodeTag::TYPE) + 1;                                     \
+#define DECL_AST_END_BASE(TYPE)
+#define DECL_AST_TYPE(TYPE)                                                                                             \
+    template <>                                                                                                         \
+    struct AstNodeTrait<TYPE>                                                                                           \
+    {                                                                                                                   \
+        static constexpr bool isLeafNode = true;                                                                        \
+        static constexpr AstNodeTag tag  = AstNodeTag::TYPE;                                                            \
+        static constexpr int tagBegin    = static_cast<int>(AstNodeTag::TYPE);                                          \
+        static constexpr int tagEnd      = static_cast<int>(AstNodeTag::TYPE);                                          \
+        using NodeType                   = TYPE;                                                                        \
+        using ParentType                 = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::AstTagType_##TYPE>>; \
     };
 #include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
 
+    // The base class of all Ast type
     class AstNodeBase
     {
     public:
@@ -146,19 +243,14 @@ namespace glsld
         }
 
         template <typename AstType>
-        inline auto Is() const -> bool
+        auto Is() const -> bool
         {
-            if constexpr (AstNodeTrait<AstType>::isLeafNode) {
-                return GetTag() == AstNodeTrait<AstType>::tag;
-            }
-            else {
-                int tagValue = static_cast<int>(GetTag());
-                return tagValue > AstNodeTrait<AstType>::tagBegin && tagValue < AstNodeTrait<AstType>::tagEnd;
-            }
+            int tagValue = static_cast<int>(GetTag());
+            return tagValue >= AstNodeTrait<AstType>::tagBegin && tagValue <= AstNodeTrait<AstType>::tagEnd;
         }
 
         template <typename AstType>
-        inline auto As() -> AstType*
+        auto As() -> AstType*
         {
             return Is<AstType>() ? static_cast<AstType*>(this) : nullptr;
         }
@@ -167,7 +259,8 @@ namespace glsld
 
         // Invoke expression `f(*this, args...)` where `this` is dispatched into the real type.
         //
-        // This is defined at Ast.h because of definition issue
+        // This is defined at Ast.h because of inheritance relation is unknown until the real
+        // class is defined.
         template <typename F, typename... Args>
         inline auto DispatchInvoke(F&& f, Args&&... args);
 
@@ -192,7 +285,9 @@ namespace glsld
         SyntaxTokenRange range = {};
     };
 
-    // FIXME: is there a way to add constraint for this?
     template <typename VisitorType>
-    concept AstVisitorT = true;
+    concept AstVisitorT = requires(VisitorType visitor, AstNodeBase& astNode) {
+                              visitor.Traverse(astNode);
+                              visitor.Traverse(&astNode);
+                          };
 } // namespace glsld

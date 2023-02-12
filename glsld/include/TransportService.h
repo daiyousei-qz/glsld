@@ -21,6 +21,7 @@
 
 namespace glsld
 {
+    // This class handles json-rpc transport via standard file interface
     class TransportService
     {
     public:
@@ -35,8 +36,6 @@ namespace glsld
         auto PushMessage(StringView payload) -> void;
 
     private:
-        auto ReadLine(std::string& buf) -> bool;
-
         FILE* inFile;
         FILE* outFile;
         LanguageServerCallback* server;
