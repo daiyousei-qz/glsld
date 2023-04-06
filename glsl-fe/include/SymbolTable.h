@@ -29,19 +29,26 @@ namespace glsld
             levels.pop_back();
         }
 
+        // Add a function declaration to the symbol table
+        // This requires the SymbolTable to be in the global scope since glsl does not support nested functions
         auto AddFunction(AstFunctionDecl& decl) -> void;
 
+        // Add a struct declaration to the symbol table
         auto AddStructDecl(AstStructDecl& decl) -> void;
 
+        // Add an interface block declaration to the symbol table, aka. UBO, SSBO, etc.
         auto AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void;
 
+        // Add a variable declaration to the symbol table
         auto AddVariableDecl(AstVariableDecl& decl) -> void;
 
+        // Add a parameter declaration to the symbol table
         auto AddParamDecl(AstParamDecl& decl) -> void;
 
-        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) const
-            -> AstFunctionDecl*;
+        // Find a function declaration by name and argument types
+        auto FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const -> AstFunctionDecl*;
 
+        // Find a declaration by name
         auto FindSymbol(const std::string& name) const -> DeclView;
 
     private:
@@ -68,7 +75,7 @@ namespace glsld
 
         struct FunctionEntry
         {
-            std::vector<const TypeDesc*> paramTypes;
+            std::vector<const Type*> paramTypes;
             AstFunctionDecl* decl;
         };
 

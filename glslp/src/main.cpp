@@ -45,7 +45,10 @@ namespace glsld
         //     }
         // }
 
-        auto result = glsld::Compile(StringView{*inputData});
+        CompilerObject compiler;
+        compiler.AddIncludePath("E:/Project/glsld/.vscode/");
+        compiler.Compile(*inputData);
+
         fmt::print("succussfully parsed input file\n");
     }
 } // namespace glsld

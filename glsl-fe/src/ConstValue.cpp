@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    template <BuiltinType... DispatchingTypes>
+    template <GlslBuiltinType... DispatchingTypes>
     struct ConstOpDispatcher
     {
         template <typename F>
@@ -21,14 +21,14 @@ namespace glsld
         }
     };
 
-    template <BuiltinType FirstType, BuiltinType... RestTypes>
+    template <GlslBuiltinType FirstType, GlslBuiltinType... RestTypes>
     struct ConstOpDispatcher<FirstType, RestTypes...>
     {
         template <typename F>
         auto DispatchUnaryOp(const ConstValue& operand) -> ConstValue
         {
             if (operand.GetValueType() == FirstType) {
-                return ConstValue::FromValue<FirstType>(F{}(operand.GetCValue<FirstType>()));
+                return ConstValue::FromValue<FirstType>(F{}(operand.GetCppValue<FirstType>()));
             }
             else {
                 return ConstOpDispatcher<RestTypes...>{}.template DispatchUnaryOp<F>(operand);
@@ -40,7 +40,8 @@ namespace glsld
         {
             GLSLD_ASSERT(lhs.GetValueType() == rhs.GetValueType());
             if (lhs.GetValueType() == FirstType) {
-                return ConstValue::FromValue<FirstType>(F{}(lhs.GetCValue<FirstType>(), rhs.GetCValue<FirstType>()));
+                return ConstValue::FromValue<FirstType>(
+                    F{}(lhs.GetCppValue<FirstType>(), rhs.GetCppValue<FirstType>()));
             }
             else {
                 return ConstOpDispatcher<RestTypes...>{}.template DispatchBinaryOp<F>(lhs, rhs);
@@ -48,13 +49,13 @@ namespace glsld
         }
     };
 
-    using ArithmeticScalarDispatcher =
-        ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_uint, BuiltinType::Ty_float, BuiltinType::Ty_double>;
+    using ArithmeticScalarDispatcher = ConstOpDispatcher<GlslBuiltinType::Ty_int, GlslBuiltinType::Ty_uint,
+                                                         GlslBuiltinType::Ty_float, GlslBuiltinType::Ty_double>;
     using NegatableScalarDispatcher =
-        ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_float, BuiltinType::Ty_double>;
-    using IntegralScalarDispatcher = ConstOpDispatcher<BuiltinType::Ty_int, BuiltinType::Ty_uint>;
-    using FloatScalarDispatcher    = ConstOpDispatcher<BuiltinType::Ty_float, BuiltinType::Ty_double>;
-    using BoolScalarDispatcher     = ConstOpDispatcher<BuiltinType::Ty_bool>;
+        ConstOpDispatcher<GlslBuiltinType::Ty_int, GlslBuiltinType::Ty_float, GlslBuiltinType::Ty_double>;
+    using IntegralScalarDispatcher = ConstOpDispatcher<GlslBuiltinType::Ty_int, GlslBuiltinType::Ty_uint>;
+    using FloatScalarDispatcher    = ConstOpDispatcher<GlslBuiltinType::Ty_float, GlslBuiltinType::Ty_double>;
+    using BoolScalarDispatcher     = ConstOpDispatcher<GlslBuiltinType::Ty_bool>;
 
     using UniversalDispatcher  = ArithmeticScalarDispatcher;
     using ArithmeticDispatcher = ArithmeticScalarDispatcher;
@@ -157,7 +158,7 @@ namespace glsld
         -> ConstValue
     {
         // Predicate must be bool
-        if (predicate.GetValueType() != BuiltinType::Ty_bool) {
+        if (predicate.GetValueType() != GlslBuiltinType::Ty_bool) {
             return ConstValue{};
         }
 

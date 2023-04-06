@@ -3,7 +3,7 @@
 
 namespace glsld
 {
-    auto ComputeDeclaration(const CompileResult& compileResult, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(const CompilerObject& compileResult, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
         auto declTokenResult = FindDeclToken(compileResult, FromLspPosition(position));

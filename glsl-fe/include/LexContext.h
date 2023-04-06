@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <unordered_set>
 #include <ranges>
@@ -15,6 +16,14 @@ namespace glsld
     public:
         LexContext()
         {
+            InitializeKeywordLookup();
+        }
+
+        ~LexContext()
+        {
+            for (StringView s : atomTable) {
+                delete[] s.Data();
+            }
         }
 
         LexContext(const LexContext&)                    = delete;
@@ -23,111 +32,53 @@ namespace glsld
         LexContext(LexContext&&)                    = default;
         auto operator=(LexContext&&) -> LexContext& = default;
 
-        auto AddToken(TokenKlass klass, TextRange range, const std::string& lexText) -> void
+        // If the context is finalized, no more tokens/macros can be added
+        auto IsFinalized() const noexcept -> bool
         {
-            GLSLD_ASSERT(tokens.empty() || tokens.back().klass != TokenKlass::Eof);
-
-            LexString tokText;
-            if (auto it = atomTable.find(lexText); it != atomTable.end()) {
-                tokText = LexString{it->c_str()};
-            }
-            else {
-                tokText = LexString{atomTable.insert(std::string{lexText}).first->c_str()};
+            if (!tokens.empty() && tokens.back().klass == TokenKlass::Eof) {
+                return true;
             }
 
-            auto& tokenContainer = klass != TokenKlass::Comment ? tokens : commentTokens;
-            tokens.push_back(SyntaxTokenInfo{
-                .file  = 0,
-                .klass = klass,
-                .text  = tokText,
-                .range = range,
-            });
+            return false;
         }
 
+        // Add a new token to the context
+        auto AddToken(TokenKlass klass, TextRange range, LexString lexText) -> void;
+
+        // Get a syntax token by index
+        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
+
+        // Get a syntax token by index or EOF if the index is out of range
+        auto GetTokenOrEof(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
+
+        // Get a view of all tokens
         auto GetAllTokenView() const
         {
             return std::views::iota(SyntaxTokenIndex{0}, static_cast<SyntaxTokenIndex>(tokens.size())) |
                    std::views::transform([this](SyntaxTokenIndex index) { return GetToken(index); });
         }
 
+        // Get a view of all tokens in the range
         auto GetRangedTokenView(SyntaxTokenRange range) const
         {
             return std::views::iota(range.startTokenIndex, range.endTokenIndex) |
                    std::views::transform([this](SyntaxTokenIndex index) { return GetToken(index); });
         }
 
-        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
-        {
-            GLSLD_ASSERT(tokIndex < tokens.size());
-            return SyntaxToken{
-                .index = tokIndex,
-                .klass = tokens[tokIndex].klass,
-                .text  = tokens[tokIndex].text,
-            };
-        }
-
-        auto GetTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken
-        {
-            if (tokIndex >= tokens.size()) {
-                return GetToken(tokens.size() - 1);
-            }
-            else {
-                return GetToken(tokIndex);
-            }
-        }
-
-        // Find last token that comes before the position or contains the position
+        // Find the last token that comes before the position or contains the position
         // 1. " ... | Tokan A |  ^  | Token B | ..."
         // 2. " ... | Tokan^ A | | Token B | ..."
         // Both token A should be returned
-        auto FindTokenByPosition(TextPosition position) const -> SyntaxToken
-        {
-            auto it = std::ranges::lower_bound(tokens, position, {},
-                                               [](const SyntaxTokenInfo& tok) { return tok.range.start; });
-            if (it != tokens.end() && it != tokens.begin()) {
-                SyntaxTokenIndex index = std::distance(tokens.begin(), it) - 1;
-                return SyntaxToken{
-                    .index = index,
-                    .klass = tokens[index].klass,
-                    .text  = tokens[index].text,
-                };
-            }
-            else {
-                return SyntaxToken{};
-            }
-        }
+        auto FindTokenByTextPosition(TextPosition position) const -> SyntaxToken;
 
-        auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange
-        {
-            GLSLD_ASSERT(tokIndex < tokens.size());
-            return tokens[tokIndex].range;
-        }
-        auto LookupTextRange(SyntaxToken token) const -> TextRange
-        {
-            if (token.IsValid()) {
-                GLSLD_ASSERT(token.index < tokens.size());
-                return tokens[token.index].range;
-            }
-            else {
-                return TextRange{};
-            }
-        }
-        auto LookupTextRange(SyntaxTokenRange range) const -> TextRange
-        {
-            GLSLD_ASSERT(range.endTokenIndex < tokens.size());
-            if (range.endTokenIndex > range.startTokenIndex) {
-                return TextRange{
-                    tokens[range.startTokenIndex].range.start,
-                    tokens[range.endTokenIndex - 1].range.end,
-                };
-            }
-            else {
-                return TextRange{
-                    tokens[range.startTokenIndex].range.start,
-                    tokens[range.startTokenIndex].range.start,
-                };
-            }
-        }
+        // Compute the text range of the token with the given index
+        auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange;
+
+        // Compute the text range of the token
+        auto LookupTextRange(SyntaxToken token) const -> TextRange;
+
+        // Compute the text range of all tokens in the range
+        auto LookupTextRange(SyntaxTokenRange range) const -> TextRange;
 
         auto LookupFirstTextPosition(SyntaxTokenRange range) const -> TextPosition
         {
@@ -138,11 +89,38 @@ namespace glsld
             return tokens[range.endTokenIndex].range.end;
         }
 
-    private:
-        // FIXME: optimize memory layout
-        std::unordered_set<std::string> atomTable;
+        // Get the LexString of the given text in the atom table.
+        auto GetLexString(StringView text) -> LexString
+        {
+            LexString atom;
+            if (auto it = atomTable.find(text); it != atomTable.end()) {
+                atom = LexString{it->Data()};
+            }
+            else {
+                char* data = new char[text.Size() + 1];
+                std::ranges::copy(text.StdStrView(), data);
+                data[text.Size()] = '\0';
 
-        std::vector<SyntaxTokenInfo> tokens;
-        std::vector<SyntaxTokenInfo> commentTokens;
+                atom = LexString{atomTable.insert(StringView(data, text.Size() + 1)).first->Data()};
+            }
+
+            return atom;
+        }
+
+    private:
+        auto InitializeKeywordLookup() -> void;
+        auto FixKeywordTokenKlass(TokenKlass klass, LexString text) const noexcept -> TokenKlass;
+
+        // This StringView actually owns the string data, so we need to delete it when the context is destroyed
+        // FIXME: optimize memory layout
+        std::unordered_set<StringView> atomTable;
+
+        // Lookup table for keywords. This is needed because our tokenizer only recognizes identifiers.
+        // We need to fix up the token kind for keywords during token registration.
+        std::unordered_map<LexString, TokenKlass> keywordLookup;
+
+        // The token stream that is lexed from the source text, including from included files and macro expansion.
+        std::vector<RawSyntaxToken> tokens;
+        std::vector<RawSyntaxToken> commentTokens;
     };
 } // namespace glsld

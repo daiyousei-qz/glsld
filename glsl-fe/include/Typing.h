@@ -6,7 +6,7 @@
 
 namespace glsld
 {
-    class TypeDesc;
+    class Type;
 
     enum class ScalarType
     {
@@ -27,19 +27,20 @@ namespace glsld
         Float16,
     };
 
-    enum class BuiltinType
+    // An enum of all builtin types in glsl language
+    enum class GlslBuiltinType
     {
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, ...) Ty_##GLSL_TYPE,
 #include "GlslType.inc"
 #undef DECL_BUILTIN_TYPE
     };
 
-    inline auto GetBuiltinType(const SyntaxToken& tok) -> std::optional<BuiltinType>
+    inline auto GetGlslBuiltinType(const SyntaxToken& tok) -> std::optional<GlslBuiltinType>
     {
         switch (tok.klass) {
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, ...)                                                                              \
     case TokenKlass::K_##GLSL_TYPE:                                                                                    \
-        return BuiltinType::Ty_##GLSL_TYPE;
+        return GlslBuiltinType::Ty_##GLSL_TYPE;
 #include "GlslType.inc"
 #undef DECL_BUILTIN_TYPE
         default:
@@ -89,7 +90,7 @@ namespace glsld
 
     struct ArrayTypeDesc
     {
-        const TypeDesc* elementType;
+        const Type* elementType;
 
         // NOTE dim size of 0 means unsized/error-sized dimension
         std::vector<size_t> dimSizes;
@@ -101,111 +102,114 @@ namespace glsld
         // FIXME: what should be in a struct type desc?
         AstDecl* decl;
         std::string name;
-        std::vector<std::pair<std::string, const TypeDesc*>> members;
+        std::vector<std::pair<std::string, const Type*>> members;
     };
+
     struct FunctionTypeDesc
     {
     };
 
-    class TypeDesc
+    // Type is a wrapper of type descriptor
+    // For types except arrays and structs, we have globally unique type instances
+    // For array and struct typs, the type instances are managed by AstContext
+    class Type
     {
     public:
         // Do we need function type?
         using DescPayloadType = std::variant<ErrorTypeDesc, VoidTypeDesc, ScalarTypeDesc, VectorTypeDesc,
                                              MatrixTypeDesc, SamplerTypeDesc, ArrayTypeDesc, StructTypeDesc>;
 
-        TypeDesc(std::string name, DescPayloadType payload) : debugName(std::move(name)), descPayload(payload)
+        Type(std::string name, DescPayloadType payload) : debugName(std::move(name)), descPayload(payload)
         {
         }
 
-        auto IsError() const -> bool
+        auto IsError() const noexcept -> bool
         {
             return std::holds_alternative<ErrorTypeDesc>(descPayload);
         }
-        auto IsBuiltin() const -> bool
+        auto IsBuiltin() const noexcept -> bool
         {
             return !IsError() && !IsStruct();
         }
-        auto IsComposite() const -> bool
+        auto IsComposite() const noexcept -> bool
         {
             return IsArray() || IsStruct();
         }
-        auto IsVoid() const -> bool
+        auto IsVoid() const noexcept -> bool
         {
             return std::holds_alternative<VoidTypeDesc>(descPayload);
         }
-        auto IsScalar() const -> bool
+        auto IsScalar() const noexcept -> bool
         {
             return std::holds_alternative<ScalarTypeDesc>(descPayload);
         }
-        auto IsVector() const -> bool
+        auto IsVector() const noexcept -> bool
         {
             return std::holds_alternative<VectorTypeDesc>(descPayload);
         }
-        auto IsMatrix() const -> bool
+        auto IsMatrix() const noexcept -> bool
         {
             return std::holds_alternative<MatrixTypeDesc>(descPayload);
         }
-        auto IsSampler() const -> bool
+        auto IsSampler() const noexcept -> bool
         {
             return std::holds_alternative<SamplerTypeDesc>(descPayload);
         }
-        auto IsArray() const -> bool
+        auto IsArray() const noexcept -> bool
         {
             return std::holds_alternative<ArrayTypeDesc>(descPayload);
         }
-        auto IsStruct() const -> bool
+        auto IsStruct() const noexcept -> bool
         {
             return std::holds_alternative<StructTypeDesc>(descPayload);
         }
-        // auto IsFunction() const -> bool
-        // {
-        //     return std::holds_alternative<FunctionTypeDesc>(descPayload);
-        // }
 
-        auto GetDebugName() const -> const std::string&
+        auto GetDebugName() const noexcept -> const std::string&
         {
             return debugName;
         }
 
-        auto GetScalarDesc() const -> const ScalarTypeDesc*
+        auto GetScalarDesc() const noexcept -> const ScalarTypeDesc*
         {
             return std::get_if<ScalarTypeDesc>(&descPayload);
         }
-        auto GetVectorDesc() const -> const VectorTypeDesc*
+        auto GetVectorDesc() const noexcept -> const VectorTypeDesc*
         {
             return std::get_if<VectorTypeDesc>(&descPayload);
         }
-        auto GetMatrixDesc() const -> const MatrixTypeDesc*
+        auto GetMatrixDesc() const noexcept -> const MatrixTypeDesc*
         {
             return std::get_if<MatrixTypeDesc>(&descPayload);
         }
-        auto GetSamplerDesc() const -> const SamplerTypeDesc*
+        auto GetSamplerDesc() const noexcept -> const SamplerTypeDesc*
         {
             return std::get_if<SamplerTypeDesc>(&descPayload);
         }
-        auto GetArrayDesc() const -> const ArrayTypeDesc*
+        auto GetArrayDesc() const noexcept -> const ArrayTypeDesc*
         {
             return std::get_if<ArrayTypeDesc>(&descPayload);
         }
-        auto GetStructDesc() const -> const StructTypeDesc*
+        auto GetStructDesc() const noexcept -> const StructTypeDesc*
         {
             return std::get_if<StructTypeDesc>(&descPayload);
         }
 
-        auto IsIntegralScalarType() const -> bool
+        auto IsIntegralScalarType() const noexcept -> bool
         {
-            return IsSameWith(BuiltinType::Ty_int) || IsSameWith(BuiltinType::Ty_uint);
+            return IsSameWith(GlslBuiltinType::Ty_int) || IsSameWith(GlslBuiltinType::Ty_uint);
         }
 
-        auto IsSameWith(BuiltinType type) const -> bool;
+        // Returns true if this type is the same with the given builtin type
+        auto IsSameWith(GlslBuiltinType type) const -> bool;
 
-        auto IsSameWith(const TypeDesc* other) const -> bool;
+        // Returns true if this type is the same with the given type
+        auto IsSameWith(const Type* other) const -> bool;
 
-        auto IsConvertibleTo(const TypeDesc* to) const -> bool;
+        // Returns true if this type is convertible to the given type
+        auto IsConvertibleTo(const Type* to) const -> bool;
 
-        // Test if this type has better conversion to `lhsTo` than `rhsTo`
-        auto HasBetterConversion(const TypeDesc* lhsTo, const TypeDesc* rhsTo) const -> bool;
+        // Returns true if conversion from this type to `lhsTo` is better than that to `rhsTo`
+        auto HasBetterConversion(const Type* lhsTo, const Type* rhsTo) const -> bool;
 
     private:
         // FIXME: is this for debug only?
@@ -214,7 +218,7 @@ namespace glsld
         DescPayloadType descPayload;
     };
 
-    inline auto TypeDescToString(const TypeDesc* desc) -> std::string
+    inline auto TypeDescToString(const Type* desc) -> std::string
     {
         if (desc && !desc->GetDebugName().empty()) {
             return std::string{desc->GetDebugName()};
@@ -224,7 +228,13 @@ namespace glsld
         }
     }
 
-    auto GetErrorTypeDesc() -> const TypeDesc*;
-    auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*;
-    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const TypeDesc*;
+    // Get a globally unique type instance for error type
+    auto GetErrorTypeDesc() -> const Type*;
+
+    // Get a globally unique type instance for the particular builtin type
+    auto GetBuiltinTypeDesc(GlslBuiltinType type) -> const Type*;
+
+    // Get a globally unique type instance for the particular vector type, if any
+    // NOTE if the vector type doesn't exist in glsl language, returns nullptr
+    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const Type*;
 } // namespace glsld

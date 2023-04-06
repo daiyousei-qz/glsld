@@ -1,6 +1,7 @@
 #pragma once
-#include "ranges"
-#include "string_view"
+#include <concepts>
+#include <ranges>
+#include <string_view>
 
 #include "fmt/format.h"
 
@@ -32,8 +33,15 @@ namespace glsld
         {
         }
 
-        template <typename It, typename End>
+        template <std::contiguous_iterator It, std::sized_sentinel_for<It> End>
+            requires std::is_same_v<std::iter_value_t<It>, char> && (!std::is_convertible_v<End, size_t>)
         constexpr StringView(It first, End last) : data(first, last)
+        {
+        }
+
+        template <std::ranges::contiguous_range R>
+            requires std::is_same_v<std::ranges::range_value_t<R>, char>
+        constexpr StringView(R&& r) : data(std::ranges::data(r), std::ranges::size(r))
         {
         }
 
@@ -187,6 +195,11 @@ namespace glsld
             return data.end();
         }
 
+        constexpr explicit operator std::string() const noexcept
+        {
+            return std::string{data};
+        }
+
         constexpr auto operator[](size_t index) const noexcept -> const char&
         {
             return data[index];
@@ -206,6 +219,11 @@ namespace glsld
     private:
         std::string_view data;
     };
+
+    inline auto operator+=(std::string& lhs, StringView rhs) -> std::string&
+    {
+        return lhs += rhs.StdStrView();
+    }
 
 } // namespace glsld
 

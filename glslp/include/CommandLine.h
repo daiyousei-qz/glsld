@@ -1,4 +1,5 @@
 #pragma once
+#include <charconv>
 #include <string_view>
 #include <functional>
 #include <unordered_map>
@@ -450,6 +451,32 @@ namespace cl
                 });
             }
             else if constexpr (std::is_integral_v<T>) {
+                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
+                    if (argValue) {
+                        T tmp;
+                        auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->size(), tmp);
+                        if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->size()) {
+                            value = tmp;
+                        }
+                        else {
+                            detail::ExitOnBadValue(GetName(), "int", *argValue);
+                        }
+                    }
+                });
+            }
+            else if constexpr (std::is_floating_point_v<T>) {
+                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
+                    if (argValue) {
+                        T tmp;
+                        auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->size(), tmp);
+                        if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->size()) {
+                            value = tmp;
+                        }
+                        else {
+                            detail::ExitOnBadValue(GetName(), "float", *argValue);
+                        }
+                    }
+                });
             }
             else if constexpr (std::is_same_v<T, std::string>) {
                 SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {

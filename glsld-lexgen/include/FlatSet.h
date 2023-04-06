@@ -39,14 +39,10 @@ public:
 
     constexpr auto Insert(const T& x) -> void
     {
-        // auto it = std::ranges::lower_bound(data_, x);
-        // if (it == data_.end() || *it != x) {
-        //     data_.insert(it, x);
-        // }
-        // TODO: this is a workaround
-        auto i_lb = std::lower_bound(Data(), Data() + Size(), x) - Data();
-        data_.push_back(x);
-        std::rotate(Data() + i_lb, Data() + Size() - 1, Data() + Size());
+        auto it = std::ranges::lower_bound(data_, x);
+        if (it == data_.end() || *it != x) {
+            data_.insert(it, x);
+        }
     }
 
     constexpr auto Erase(const T& x) -> void

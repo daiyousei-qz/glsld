@@ -1,7 +1,17 @@
 #include "Parser.h"
+#include "Compiler.h"
 
 namespace glsld
 {
+    auto Parser::DoParse() -> void
+    {
+        GLSLD_ASSERT(compilerObject.GetLexContext().IsFinalized());
+        TRACE_PARSER();
+
+        while (!Eof()) {
+            compilerObject.GetAstContext().AddGlobalDecl(ParseDeclAndTryRecover());
+        }
+    }
 
 #pragma region Parsing Misc
 
@@ -355,7 +365,7 @@ namespace glsld
             }
             return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinition, arraySpec);
         }
-        else if (TryTestToken(TokenKlass::Identifier) || GetBuiltinType(PeekToken()).has_value()) {
+        else if (TryTestToken(TokenKlass::Identifier) || GetGlslBuiltinType(PeekToken()).has_value()) {
             auto tok = PeekToken();
             ConsumeToken();
             AstArraySpec* arraySpec = nullptr;
@@ -926,7 +936,7 @@ namespace glsld
 
         // Parse primary_expr or constructor call
         AstExpr* result = nullptr;
-        if (GetBuiltinType(PeekToken())) {
+        if (GetGlslBuiltinType(PeekToken())) {
             auto tok = PeekToken();
             ConsumeToken();
             result = CreateAstNode<AstNameAccessExpr>(beginTokIndex, tok);

@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -30,8 +31,8 @@ namespace glsld
                 return;
             }
 
-            if (!lhs->GetDeducedType()->IsSameWith(BuiltinType::Ty_vec3) &&
-                !lhs->GetDeducedType()->IsSameWith(BuiltinType::Ty_vec4)) {
+            if (!lhs->GetDeducedType()->IsSameWith(GlslBuiltinType::Ty_vec3) &&
+                !lhs->GetDeducedType()->IsSameWith(GlslBuiltinType::Ty_vec4)) {
                 // FIXME: any other acceptable type? Like dvec3?
                 return;
             }
@@ -49,7 +50,7 @@ namespace glsld
         std::vector<lsp::ColorInformation> result;
     };
 
-    auto ComputeDocumentColor(const CompileResult& compileResult) -> std::vector<lsp::ColorInformation>
+    auto ComputeDocumentColor(const CompilerObject& compileResult) -> std::vector<lsp::ColorInformation>
     {
         // return {lsp::ColorInformation{
         //     .range = {.start = {.line = 0, .character = 0}, .end{.line = 0, .character = 4}},

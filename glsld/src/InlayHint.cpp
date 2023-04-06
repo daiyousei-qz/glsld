@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -64,7 +65,7 @@ namespace glsld
         std::vector<lsp::InlayHint> result;
     };
 
-    auto ComputeInlayHint(const CompileResult& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>
+    auto ComputeInlayHint(const CompilerObject& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
         return InlayHintVisitor{compileResult}.Execute(FromLspRange(range));
     }

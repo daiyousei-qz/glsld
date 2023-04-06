@@ -15,7 +15,6 @@ namespace glsld
             threadPool.reset(numWorker);
         }
 
-        // FIXME: use a thread pool
         template <typename F, typename... Args>
         auto ScheduleTask(F&& f, Args&&... args) -> void
         {

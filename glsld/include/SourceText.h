@@ -203,7 +203,7 @@ namespace glsld
             }
         }
 
-        // FIXME: reconstruct from TypeDesc
+        // FIXME: reconstruct from Type
         if (auto structDecl = type.GetStructDecl()) {
             buffer += "struct ";
             if (structDecl->GetDeclToken()) {

@@ -1,5 +1,11 @@
 A WIP language server for GLSL.
 
+## Roadmap
+This work is still in a very early development state, but the language server is already working in limited capacity. Planned improvements are:
+- Support preprocessor. Currently, all preprocessors are ignored as if they are comments. Need work to properly support them.
+- Support constant evaluation of constant expressions.
+- Support documentations.
+
 ## How to Build
 
 GLSLD uses vcpkg to manage its dependencies. You'll need vcpkg to build.

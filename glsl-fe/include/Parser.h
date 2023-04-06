@@ -1,15 +1,15 @@
 #pragma once
+#include "Compiler.h"
 #include "DiagnosticContext.h"
 #include "LexContext.h"
 #include "AstContext.h"
 #include "Tokenizer.h"
 #include "Typing.h"
-#include "ParserTrace.h"
+#include "CompilerTrace.h"
 #include "AstVisitor.h"
 
 #include <memory>
 #include <optional>
-#include <string_view>
 #include <vector>
 
 namespace glsld
@@ -31,20 +31,15 @@ namespace glsld
     class Parser
     {
     public:
-        Parser(const LexContext& lexCtx, AstContext& astCtx, DiagnosticContext& diagCtx, int moduleId)
-            : lexContext(lexCtx), astContext(astCtx), diagContext(diagCtx), moduleId(moduleId)
+        Parser(CompilerObject& compilerObject) : compilerObject(compilerObject)
         {
             RestoreTokenIndex(0);
         }
 
-        auto DoParse() -> void
-        {
-            TRACE_PARSER();
-
-            while (!Eof()) {
-                astContext.AddGlobalDecl(ParseDeclAndTryRecover());
-            }
-        }
+        // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
+        // This function should be called only once. After this function returns, this tokenizer object should no longer
+        // be used.
+        auto DoParse() -> void;
 
     private:
 #pragma region Parsing Misc
@@ -651,7 +646,7 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) -> SyntaxToken
         {
-            return lexContext.GetToken(currentTok.index + lookahead);
+            return compilerObject.GetLexContext().GetToken(currentTok.index + lookahead);
         }
 
         auto GetTokenIndex() -> SyntaxTokenIndex
@@ -662,7 +657,7 @@ namespace glsld
         // FIXME: need to restore brace depth tracker
         auto RestoreTokenIndex(size_t index) -> void
         {
-            currentTok = lexContext.GetToken(index);
+            currentTok = compilerObject.GetLexContext().GetToken(index);
         }
 
         auto TryTestToken(TokenKlass klass) -> bool
@@ -753,27 +748,29 @@ namespace glsld
         auto CreateErrorExpr() -> AstErrorExpr*
         {
             auto tokIndex = GetTokenIndex();
-            return astContext.CreateAstNode<AstErrorExpr>(moduleId, SyntaxTokenRange{tokIndex, tokIndex});
+            return compilerObject.GetAstContext().CreateAstNode<AstErrorExpr>(compilerObject.GetId(),
+                                                                              SyntaxTokenRange{tokIndex, tokIndex});
         }
 
         auto CreateErrorStmt() -> AstErrorStmt*
         {
             auto tokIndex = GetTokenIndex();
-            return astContext.CreateAstNode<AstErrorStmt>(moduleId, SyntaxTokenRange{tokIndex, tokIndex});
+            return compilerObject.GetAstContext().CreateAstNode<AstErrorStmt>(compilerObject.GetId(),
+                                                                              SyntaxTokenRange{tokIndex, tokIndex});
         }
 
         template <typename T, typename... Args>
             requires std::is_base_of_v<AstNodeBase, T>
         auto CreateAstNode(SyntaxTokenIndex beginTokIndex, Args&&... args) -> T*
         {
-            return astContext.CreateAstNode<T>(moduleId, SyntaxTokenRange{beginTokIndex, GetTokenIndex()},
-                                               std::forward<Args>(args)...);
+            return compilerObject.GetAstContext().CreateAstNode<T>(
+                compilerObject.GetId(), SyntaxTokenRange{beginTokIndex, GetTokenIndex()}, std::forward<Args>(args)...);
         }
 
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
             // FIXME: range of error?
-            diagContext.ReportError(SyntaxTokenRange{tokIndex}, std::move(message));
+            compilerObject.GetDiagnosticContext().ReportError(SyntaxTokenRange{tokIndex}, std::move(message));
         }
         auto ReportError(std::string message) -> void
         {
@@ -790,10 +787,7 @@ namespace glsld
             Recovery,
         };
 
-        int moduleId;
-        const LexContext& lexContext;
-        AstContext& astContext;
-        DiagnosticContext& diagContext;
+        CompilerObject& compilerObject;
 
         ParsingState state = ParsingState::Parsing;
 

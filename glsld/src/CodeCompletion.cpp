@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "ModuleVisitor.h"
 
 // FIXME: Currently, this is implemented as:
 //        - all library decl
@@ -234,9 +235,10 @@ namespace glsld
         static const auto cachedCompletionItems = []() {
             std::vector<lsp::CompletionItem> result;
 
+            // FIXME: Implement this
             // Builtins
-            result = GenericCompletionCollector{GetDefaultLibraryModule()->GetCompileResult()}.Execute(
-                CompletionType::AllowExpr, TextPosition{}, true);
+            // result = GenericCompletionCollector{GetDefaultLibraryModule()->GetCompileResult()}.Execute(
+            //     CompletionType::AllowExpr, TextPosition{}, true);
             // Keywords
             for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
                 result.push_back(lsp::CompletionItem{
@@ -318,9 +320,9 @@ namespace glsld
         return cachedCompletionItems[n];
     }
 
-    auto FindAccessChainExpr(const CompileResult& compileResult, TextPosition editPosition) -> AstNameAccessExpr*
+    auto FindAccessChainExpr(const CompilerObject& compileResult, TextPosition editPosition) -> AstNameAccessExpr*
     {
-        auto lastToken = compileResult.GetLexContext().FindTokenByPosition(editPosition);
+        auto lastToken = compileResult.GetLexContext().FindTokenByTextPosition(editPosition);
         if (lastToken.klass == TokenKlass::Dot) {
             return AccessChainExprFinder{compileResult}.Execute(lastToken);
         }
@@ -328,7 +330,7 @@ namespace glsld
         return nullptr;
     }
 
-    auto ComputeCompletion(const CompileResult& compileResult, lsp::Position lspPosition)
+    auto ComputeCompletion(const CompilerObject& compileResult, lsp::Position lspPosition)
         -> std::vector<lsp::CompletionItem>
     {
         auto editPosition = FromLspPosition(lspPosition);

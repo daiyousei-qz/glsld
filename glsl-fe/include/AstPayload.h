@@ -8,7 +8,7 @@
 
 namespace glsld
 {
-    class TypeDesc;
+    class Type;
 
 // Forward declaration of all Ast types
 #define DECL_AST_BEGIN_BASE(TYPE) class TYPE;
@@ -33,11 +33,11 @@ namespace glsld
     class AstPayload<AstQualType>
     {
     public:
-        auto GetResolvedType() const -> const TypeDesc*
+        auto GetResolvedType() const -> const Type*
         {
             return resolvedType;
         }
-        auto SetResolvedType(const TypeDesc* type) -> void
+        auto SetResolvedType(const Type* type) -> void
         {
             this->resolvedType = type;
         }
@@ -54,7 +54,7 @@ namespace glsld
         auto DumpPayloadData() const -> std::string
         {
             if (resolvedType && !resolvedType->GetDebugName().empty()) {
-                return fmt::format("TypeDesc: {}", resolvedType->GetDebugName());
+                return fmt::format("Type: {}", resolvedType->GetDebugName());
             }
             else {
                 return fmt::format("{}", static_cast<const void*>(resolvedType));
@@ -63,7 +63,7 @@ namespace glsld
 
     private:
         // Resolved descriptor of this type
-        const TypeDesc* resolvedType = GetErrorTypeDesc();
+        const Type* resolvedType = GetErrorTypeDesc();
 
         // Resolved declaration of this type
         AstDecl* resolvedStructDecl = nullptr;
@@ -73,11 +73,11 @@ namespace glsld
     class AstPayload<AstStructDecl>
     {
     public:
-        auto GetTypeDesc() const -> const TypeDesc*
+        auto GetTypeDesc() const -> const Type*
         {
             return typeDesc;
         }
-        auto SetTypeDesc(const TypeDesc* typeDesc) -> void
+        auto SetTypeDesc(const Type* typeDesc) -> void
         {
             this->typeDesc = typeDesc;
         }
@@ -101,7 +101,7 @@ namespace glsld
         auto DumpPayloadData() const -> std::string
         {
             if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return fmt::format("TypeDesc={}", typeDesc->GetDebugName());
+                return fmt::format("Type={}", typeDesc->GetDebugName());
             }
             else {
                 return fmt::format("{}", static_cast<const void*>(typeDesc));
@@ -110,7 +110,7 @@ namespace glsld
 
     private:
         // Struct type that this decl introduces
-        const TypeDesc* typeDesc = nullptr;
+        const Type* typeDesc = nullptr;
 
         std::map<std::string, DeclView> memberLookup;
     };
@@ -119,11 +119,11 @@ namespace glsld
     class AstPayload<AstInterfaceBlockDecl>
     {
     public:
-        auto GetTypeDesc() -> const TypeDesc*
+        auto GetTypeDesc() -> const Type*
         {
             return typeDesc;
         }
-        auto SetTypeDesc(const TypeDesc* typeDesc) -> void
+        auto SetTypeDesc(const Type* typeDesc) -> void
         {
             this->typeDesc = typeDesc;
         }
@@ -146,12 +146,12 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            return fmt::format("TypeDesc={}", TypeDescToString(typeDesc));
+            return fmt::format("Type={}", TypeDescToString(typeDesc));
         }
 
     private:
         // Struct type that this decl introduces
-        const TypeDesc* typeDesc = nullptr;
+        const Type* typeDesc = nullptr;
 
         std::map<std::string, DeclView> memberLookup;
     };
@@ -187,20 +187,20 @@ namespace glsld
             constValue = new ConstValue(value);
         }
 
-        auto GetDeducedType() const -> const TypeDesc*
+        auto GetDeducedType() const -> const Type*
         {
             return deducedType;
         }
-        auto SetDeducedType(const TypeDesc* deducedType) -> void
+        auto SetDeducedType(const Type* deducedType) -> void
         {
             this->deducedType = deducedType;
         }
 
-        auto GetContextualType() const -> const TypeDesc*
+        auto GetContextualType() const -> const Type*
         {
             return contextualType;
         }
-        auto SetContextualType(const TypeDesc* contextualType) -> void
+        auto SetContextualType(const Type* contextualType) -> void
         {
             this->contextualType = contextualType;
         }
@@ -215,11 +215,12 @@ namespace glsld
         // Constant folded value
         const ConstValue* constValue = nullptr;
 
-        // Type of the evaluated expression
-        const TypeDesc* deducedType = GetErrorTypeDesc();
+        // Type of the evaluated expression.
+        const Type* deducedType = GetErrorTypeDesc();
 
-        // Type of the context where the expression is used
-        const TypeDesc* contextualType = GetErrorTypeDesc();
+        // Type of the context where the expression is used.
+        // NOTE our AST is not a DAG but strictly a tree since we have to keep track of the source location.
+        const Type* contextualType = GetErrorTypeDesc();
     };
 
     template <>

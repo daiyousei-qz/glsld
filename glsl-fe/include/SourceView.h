@@ -5,8 +5,7 @@
 
 namespace glsld
 {
-    // A position into a text document.
-    // NOTE both line and character are zero-based.
+    // A position in a text document expressed as (zero-based) line and character offset.
     struct TextPosition
     {
         int line      = 0;
@@ -16,6 +15,7 @@ namespace glsld
         auto operator<=>(const TextPosition&) const -> std::strong_ordering = default;
     };
 
+    // A range in a text document expressed as (zero-based) start and end positions.
     struct TextRange
     {
         // Inclusive start position
@@ -32,14 +32,7 @@ namespace glsld
 
         auto Contains(TextPosition position) const -> bool
         {
-            if (position.line < start.line || (position.line == start.line && position.character < start.character)) {
-                return false;
-            }
-            if (position.line > end.line || (position.line == end.line && position.character >= end.character)) {
-                return false;
-            }
-
-            return true;
+            return start <= position && position < end;
         }
 
         auto Overlaps(TextRange range) const -> bool

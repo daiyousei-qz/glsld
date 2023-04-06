@@ -1,5 +1,5 @@
 #include "LanguageService.h"
-#include "AstVisitor.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -77,7 +77,7 @@ namespace glsld
         };
     }
 
-    auto CollectLexSemanticTokens(const CompileResult& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectLexSemanticTokens(const CompilerObject& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
         const auto& lexContext = compileResult.GetLexContext();
@@ -85,7 +85,7 @@ namespace glsld
             std::optional<SemanticTokenType> type;
 
             if (IsKeywordToken(tok.klass)) {
-                if (!GetBuiltinType(tok)) {
+                if (!GetGlslBuiltinType(tok)) {
                     // Type keyword would be handled by traversing Ast
                     type = SemanticTokenType::Keyword;
                 }
@@ -100,22 +100,23 @@ namespace glsld
         }
     }
 
-    auto CollectAstSemanticTokens(const CompileResult& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectAstSemanticTokens(const CompilerObject& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
         struct AstSemanticTokenCollector : public AstVisitor<AstSemanticTokenCollector>
         {
-            const CompileResult& compileResult;
+            const CompilerObject& compileResult;
             std::vector<SemanticTokenInfo>& tokenBuffer;
 
-            AstSemanticTokenCollector(const CompileResult& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
+            AstSemanticTokenCollector(const CompilerObject& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
                 : compileResult(compiler), tokenBuffer(tokenBuffer)
             {
             }
 
             auto VisitAstQualType(AstQualType& type) -> void
             {
-                if (type.GetTypeNameTok().klass == TokenKlass::Identifier || GetBuiltinType(type.GetTypeNameTok())) {
+                if (type.GetTypeNameTok().klass == TokenKlass::Identifier ||
+                    GetGlslBuiltinType(type.GetTypeNameTok())) {
                     tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), type.GetTypeNameTok(),
                                                                   SemanticTokenType::Type));
                 }
@@ -210,7 +211,7 @@ namespace glsld
         AstSemanticTokenCollector{compileResult, tokenBuffer}.TraverseAst(compileResult.GetAstContext());
     }
 
-    auto ComputeSemanticTokens(const CompileResult& compileResult) -> lsp::SemanticTokens
+    auto ComputeSemanticTokens(const CompilerObject& compileResult) -> lsp::SemanticTokens
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
         CollectLexSemanticTokens(compileResult, tokenBuffer);
@@ -249,8 +250,8 @@ namespace glsld
         return result;
     }
 
-    auto ComputeSemanticTokensDelta(CompiledDependency& compiler) -> lsp::SemanticTokensDelta
-    {
-        GLSLD_NO_IMPL();
-    }
+    // auto ComputeSemanticTokensDelta(CompiledPreamble& compiler) -> lsp::SemanticTokensDelta
+    // {
+    //     GLSLD_NO_IMPL();
+    // }
 } // namespace glsld

@@ -237,12 +237,12 @@ namespace glsld
         return false;
     }
 
-    auto TypeDesc::IsSameWith(BuiltinType type) const -> bool
+    auto Type::IsSameWith(GlslBuiltinType type) const -> bool
     {
         return this == GetBuiltinTypeDesc(type);
     }
 
-    auto TypeDesc::IsSameWith(const TypeDesc* other) const -> bool
+    auto Type::IsSameWith(const Type* other) const -> bool
     {
         if (this == other) {
             return true;
@@ -256,7 +256,7 @@ namespace glsld
         }
     }
 
-    auto TypeDesc::IsConvertibleTo(const TypeDesc* to) const -> bool
+    auto Type::IsConvertibleTo(const Type* to) const -> bool
     {
         // Exact match
         if (this->IsSameWith(to)) {
@@ -283,7 +283,7 @@ namespace glsld
         return false;
     }
 
-    auto TypeDesc::HasBetterConversion(const TypeDesc* lhsTo, const TypeDesc* rhsTo) const -> bool
+    auto Type::HasBetterConversion(const Type* lhsTo, const Type* rhsTo) const -> bool
     {
         // Error never has a better conversion to anything
         if (IsError()) {
@@ -308,19 +308,19 @@ namespace glsld
         }
     }
 
-    auto GetErrorTypeDesc() -> const TypeDesc*
+    auto GetErrorTypeDesc() -> const Type*
     {
-        static TypeDesc typeDesc{"<error>", ErrorTypeDesc{}};
+        static Type typeDesc{"<error>", ErrorTypeDesc{}};
         return &typeDesc;
     }
 
-    auto GetBuiltinTypeDesc(BuiltinType type) -> const TypeDesc*
+    auto GetBuiltinTypeDesc(GlslBuiltinType type) -> const Type*
     {
         switch (type) {
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, DESC_PAYLOAD_TYPE, ...)                                                 \
-    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
+    case GlslBuiltinType::Ty_##GLSL_TYPE:                                                                              \
     {                                                                                                                  \
-        static TypeDesc typeDesc{#GLSL_TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                          \
+        static Type typeDesc{#GLSL_TYPE, DESC_PAYLOAD_TYPE{__VA_ARGS__}};                                              \
         return &typeDesc;                                                                                              \
     }
 #include "GlslType.inc"
@@ -330,57 +330,57 @@ namespace glsld
         GLSLD_UNREACHABLE();
     }
 
-    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const TypeDesc*
+    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const Type*
     {
         switch (type) {
         case ScalarType::Bool:
             switch (dim) {
             case 2:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec2);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_bvec2);
             case 3:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec3);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_bvec3);
             case 4:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_bvec4);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_bvec4);
             }
             break;
         case ScalarType::Int:
             switch (dim) {
             case 2:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec2);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_ivec2);
             case 3:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec3);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_ivec3);
             case 4:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_ivec4);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_ivec4);
             }
             break;
         case ScalarType::Uint:
             switch (dim) {
             case 2:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec2);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_uvec2);
             case 3:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec3);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_uvec3);
             case 4:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_uvec4);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_uvec4);
             }
             break;
         case ScalarType::Float:
             switch (dim) {
             case 2:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_vec2);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_vec2);
             case 3:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_vec3);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_vec3);
             case 4:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_vec4);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_vec4);
             }
             break;
         case ScalarType::Double:
             switch (dim) {
             case 2:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec2);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_dvec2);
             case 3:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec3);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_dvec3);
             case 4:
-                return GetBuiltinTypeDesc(BuiltinType::Ty_dvec4);
+                return GetBuiltinTypeDesc(GlslBuiltinType::Ty_dvec4);
             }
             break;
 

@@ -152,6 +152,77 @@ namespace glsld
     class Mat
     {
     public:
+        Mat() = default;
+        Mat(std::array<T, M * N> data) : data(data)
+        {
+        }
+
+        auto operator+() const noexcept -> Mat
+        {
+            return Mat{data};
+        }
+        auto operator-() const noexcept -> Mat
+        {
+            return Mat{-data};
+        }
+
+        auto operator+=(const Mat& other) noexcept -> Mat&
+        {
+            data += other.data;
+        }
+        auto operator-=(const Mat& other) noexcept -> Mat&
+        {
+            data -= other.data;
+        }
+        auto operator*=(const Mat& other) noexcept -> Mat&
+        {
+            data *= other.data;
+        }
+        auto operator/=(const Mat& other) noexcept -> Mat&
+        {
+            data /= other.data;
+        }
+        auto operator%=(const Mat& other) noexcept -> Mat&
+            requires(std::is_integral_v<T>)
+        {
+            data %= other.data;
+        }
+
+        auto operator+(const Mat& other) const noexcept -> Mat
+        {
+            Mat result = *this;
+            result += other;
+            return result;
+        }
+        auto operator-(const Mat& other) const noexcept -> Mat
+        {
+            Mat result = *this;
+            result -= other;
+            return result;
+        }
+        auto operator*(const Mat& other) const noexcept -> Mat
+        {
+            Mat result = *this;
+            result *= other;
+            return result;
+        }
+        auto operator/(const Mat& other) const noexcept -> Mat
+        {
+            Mat result = *this;
+            result /= other;
+            return result;
+        }
+        auto operator%(const Mat& other) const noexcept -> Mat
+            requires(std::is_integral_v<T>)
+        {
+            Mat result = *this;
+            result %= other;
+            return result;
+        }
+
+        auto operator==(const Mat& other) const noexcept -> bool                  = default;
+        auto operator<=>(const Mat& other) const noexcept -> std::strong_ordering = delete;
+
     private:
         std::array<T, M * N> data;
     };
@@ -171,6 +242,13 @@ namespace glsld
     using Vec2u = Vec<uint32_t, 2>;
     using Vec3u = Vec<uint32_t, 3>;
     using Vec4u = Vec<uint32_t, 4>;
+
+    using Mat2f = Mat<float, 2, 2>;
+    using Mat3f = Mat<float, 3, 3>;
+    using Mat4f = Mat<float, 4, 4>;
+    using Mat2d = Mat<double, 2, 2>;
+    using Mat3d = Mat<double, 3, 3>;
+    using Mat4d = Mat<double, 4, 4>;
 } // namespace glsld
 
 template <typename T, size_t N>
@@ -187,5 +265,22 @@ struct fmt::formatter<glsld::Vec<T, N>>
     auto format(const glsld::Vec<T, N>& v, FormatContext& ctx) const -> decltype(ctx.out())
     {
         return fmt::formatter<std::string_view>{}.format("vec", ctx);
+    }
+};
+
+template <typename T, size_t M, size_t N>
+struct fmt::formatter<glsld::Mat<T, M, N>>
+{
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin())
+    {
+        return fmt::formatter<std::string_view>{}.parse(ctx);
+    }
+
+    // Formats the point p using the parsed format specification (presentation)
+    // stored in this formatter.
+    template <typename FormatContext>
+    auto format(const glsld::Mat<T, M, N>& m, FormatContext& ctx) const -> decltype(ctx.out())
+    {
+        return fmt::formatter<std::string_view>{}.format("mat", ctx);
     }
 };

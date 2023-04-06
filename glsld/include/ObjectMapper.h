@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 
 #include <optional>
+
 namespace glsld::lsp
 {
     using JsonObject = nlohmann::json;

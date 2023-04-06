@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -66,7 +67,7 @@ namespace glsld
         std::vector<lsp::DocumentSymbol> result;
     };
 
-    auto ComputeDocumentSymbol(const CompileResult& compileResult) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(const CompilerObject& compileResult) -> std::vector<lsp::DocumentSymbol>
     {
         return DocumentSymbolCollector{compileResult}.Execute();
     }

@@ -7,7 +7,7 @@
 
 namespace glsld
 {
-    class TypeDesc;
+    class Type;
 
 // Forward declaration of all Ast types
 #define DECL_AST_BEGIN_BASE(TYPE) class TYPE;
@@ -36,7 +36,7 @@ namespace glsld
             AstNodeTagMax,
         };
 
-        // Maps AstNodeTagValue to actual Ast type
+        // Maps AstNodeTagValue to actual Ast type. Invalid tag will be mapped to void.
         template <AstNodeTagValue TagValue>
         struct AstTypeLookupHelper
         {
@@ -155,12 +155,13 @@ namespace glsld
 
         // If AstType is a type for a leaf node
         static constexpr bool isLeafNode = false;
+
         // The tag for the AstType if it's a leaf node, otherwise it's Invalid
         static constexpr AstNodeTag tag = AstNodeTag::Invalid;
 
         // Any valid tag in range [tagBegin, tagEnd] is or derives AstType
-        static constexpr int tagBegin = 0;
-        static constexpr int tagEnd   = 0;
+        static constexpr int tagBegin = detail::InvalidAstNodeTagValue;
+        static constexpr int tagEnd   = detail::InvalidAstNodeTagValue;
 
         using NodeType   = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
         using ParentType = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::InvalidAstNodeTagValue>>;
@@ -210,22 +211,22 @@ namespace glsld
         }
 #endif
 
-        auto GetTag() const -> AstNodeTag
+        auto GetTag() const noexcept -> AstNodeTag
         {
             return tag;
         }
 
-        auto GetModuleId() const -> int
+        auto GetModuleId() const noexcept -> int
         {
             return moduleId;
         }
 
         // Number of tokens that this Ast node covers
-        auto GetNumToken() const -> uint32_t
+        auto GetNumToken() const noexcept -> uint32_t
         {
             return range.endTokenIndex - range.startTokenIndex;
         }
-        auto GetRange() const -> SyntaxTokenRange
+        auto GetRange() const noexcept -> SyntaxTokenRange
         {
             return range;
         }
@@ -250,7 +251,7 @@ namespace glsld
         // This is defined at Ast.h because of inheritance relation is unknown until the real
         // class is defined.
         template <typename F, typename... Args>
-        inline auto DispatchInvoke(F&& f, Args&&... args);
+        auto DispatchInvoke(F&& f, Args&&... args);
 
     private:
         friend class AstContext;

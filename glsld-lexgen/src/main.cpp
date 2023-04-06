@@ -49,17 +49,17 @@ auto CreateLexingAutomata() -> NfaAutomata
         builder.AddTokenRegex(static_cast<int>(TokenKlass::Identifier), regexIdentifier);
     }
 
-    // TODO: Currently, keywords are identified by post-processing identifier. This could help simplify the lexer state
-    // machine by a lot. Should we move it here?
-    // Keywords
-    // for (auto [klass, keyword] : GetAllKeywords()) {
-    //     builder.AddTokenRegex(static_cast<int>(klass), RegexTextSeq{keyword});
-    // }
+    // Special Characters
+    builder.AddTokenRegex(static_cast<int>(TokenKlass::Hash), RegexTextSeq{"#"});
+    builder.AddTokenRegex(static_cast<int>(TokenKlass::HashHash), RegexTextSeq{"##"});
 
     // Punctuations
     for (auto [klass, punct] : GetAllPunctuations()) {
         builder.AddTokenRegex(static_cast<int>(klass), RegexTextSeq{punct});
     }
+
+    // NOTE keywords are identified by post-processing identifier. This could help simplify the lexer state
+    // machine by a lot.
 
     return builder.Build();
 }
@@ -67,28 +67,41 @@ auto CreateLexingAutomata() -> NfaAutomata
 // FIXME: this is based on switch table. Bad for branch prediction?
 auto GenerateLexSource(const NfaAutomata& automata) -> void
 {
-    fmt::print("#include <string_view>\n\n");
+    fmt::print("#pragma once\n");
     fmt::print("// clang-format off\n");
+    fmt::print("#include <optional>\n");
+    fmt::print("#include <vector>\n");
+    fmt::print("#include \"SyntaxToken.h\"\n");
+    fmt::print("#include \"SourceView.h\"\n\n");
 
-    fmt::print("struct TokenizeResult {{\n");
-    fmt::print("    int acceptedKlass;\n");
-    fmt::print("    int numAcceptedChar;\n");
-    fmt::print("}};\n");
+    fmt::print("namespace glsld::detail {{\n");
+    fmt::print("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");
 
-    fmt::print("auto Tokenize(std::string_view remainingSource) -> TokenizeResult {{\n");
-    fmt::print("    int index = 0;\n");
-    fmt::print("    int numAcceptedChar = 0;\n");
-    fmt::print("    int acceptedKlass = -1;\n");
+    fmt::print("TokenKlass acceptedKlass;\n");
+    fmt::print("size_t acceptedSize;\n");
+    fmt::print("SourceScanner acceptedCheckpoint;\n");
+    fmt::print("char ch;\n");
 
     for (int i = 0; i < automata.NumState(); ++i) {
         auto state = automata[i];
 
         fmt::print("LexState_{}:\n", i);
-
         if (state->GetAcceptId() != -1) {
             fmt::print("// Accepting as {}\n", TokenKlassToString(static_cast<TokenKlass>(state->GetAcceptId())));
-            fmt::print("numAcceptedChar = index;\n");
-            fmt::print("acceptedKlass = {};\n", state->GetAcceptId());
+            fmt::print("acceptedCheckpoint = srcView.Clone();\n");
+            fmt::print("acceptedKlass = static_cast<TokenKlass>({});\n", state->GetAcceptId());
+            fmt::print("acceptedSize = buffer.size();\n\n");
+        }
+
+        fmt::print("ch = srcView.ConsumeChar();\n");
+        fmt::print("buffer.push_back(ch);\n\n");
+
+        if (i == 0) {
+            GLSLD_REQUIRE(state->GetAcceptId() == -1);
+            fmt::print("// Initialize error token as a fallback\n");
+            fmt::print("acceptedCheckpoint = srcView.Clone();\n");
+            fmt::print("acceptedKlass = TokenKlass::Error;\n");
+            fmt::print("acceptedSize = buffer.size();\n\n");
         }
 
         auto outgoingTransitions = state->GetTransition();
@@ -96,12 +109,9 @@ auto GenerateLexSource(const NfaAutomata& automata) -> void
             fmt::print("goto FinishToken;\n");
         }
         else {
-            fmt::print("if (index == remainingSource.size()) {{\n");
-            fmt::print("    goto FinishToken;\n");
-            fmt::print("}}\n");
-
-            fmt::print("switch(remainingSource[index++]) {{\n");
+            fmt::print("switch(ch) {{\n");
             for (auto transition : automata[i]->GetTransition()) {
+                GLSLD_REQUIRE(transition.second->GetIndex() != 0);
                 fmt::print("    case '{}': goto LexState_{};\n", static_cast<char>(transition.first),
                            transition.second->GetIndex());
             }
@@ -112,8 +122,11 @@ auto GenerateLexSource(const NfaAutomata& automata) -> void
     }
 
     fmt::print("FinishToken:\n");
-    fmt::print("return {{acceptedKlass, numAcceptedChar}};\n");
+    fmt::print("srcView.Restore(acceptedCheckpoint);\n");
+    fmt::print("buffer.resize(acceptedSize);\n");
+    fmt::print("return acceptedKlass;\n");
 
+    fmt::print("}}\n");
     fmt::print("}}\n");
     fmt::print("// clang-format on\n");
 }

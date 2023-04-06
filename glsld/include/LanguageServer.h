@@ -8,8 +8,6 @@
 #include "ThreadingService.h"
 
 #include <memory>
-#include <thread>
-#include <chrono>
 
 namespace glsld
 {
@@ -61,10 +59,6 @@ namespace glsld
         auto DoHandleBadClientMessage(std::string_view messageText) -> void override
         {
             // FIXME: log this?
-        }
-
-        auto DoHandleServerRequest(int requestId, lsp::JsonObject params) -> void override
-        {
         }
 
         auto DoHandleServerResponse(int requestId, lsp::JsonObject result, bool isError) -> void override

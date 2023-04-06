@@ -1,8 +1,8 @@
 #pragma once
-
 #include "Compiler.h"
 #include "SourceText.h"
 #include "SyntaxToken.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -27,13 +27,13 @@ namespace glsld
         DeclTokenType accessType;
     };
 
-    static auto FindDeclToken(const CompileResult& compileResult, TextPosition position)
+    static auto FindDeclToken(const CompilerObject& compileResult, TextPosition position)
         -> std::optional<DeclTokenLookupResult>
     {
         class DeclTokenVisitor : public ModuleVisitor<DeclTokenVisitor>
         {
         public:
-            DeclTokenVisitor(const CompileResult& compiler, TextPosition position)
+            DeclTokenVisitor(const CompilerObject& compiler, TextPosition position)
                 : ModuleVisitor<DeclTokenVisitor>(compiler), position(position)
             {
             }

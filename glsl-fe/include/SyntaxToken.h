@@ -1,8 +1,12 @@
 #pragma once
 
 #include "Common.h"
-#include "SourceInfo.h"
+#include "SourceView.h"
+#include "SourceContext.h"
+
+#include <functional>
 #include <string>
+#include <vector>
 
 namespace glsld
 {
@@ -10,7 +14,16 @@ namespace glsld
     {
         Error,
         Eof,
+        // Line and block comments
         Comment,
+        // #
+        Hash,
+        // ##
+        HashHash,
+        // <xxx>
+        AngleString,
+        // "xxx"
+        QuotedString,
         IntegerConstant,
         FloatConstant,
         Identifier,
@@ -33,6 +46,16 @@ namespace glsld
             return "Error";
         case TokenKlass::Eof:
             return "Eof";
+        case TokenKlass::Comment:
+            return "Comment";
+        case TokenKlass::Hash:
+            return "#";
+        case TokenKlass::HashHash:
+            return "##";
+        case TokenKlass::AngleString:
+            return "AngleString";
+        case TokenKlass::QuotedString:
+            return "QuotedString";
         case TokenKlass::IntegerConstant:
             return "IntegerConstant";
         case TokenKlass::FloatConstant:
@@ -51,11 +74,10 @@ namespace glsld
         return STRINGIZE(PUNCT_NAME);
 #include "GlslPunctuation.inc"
 #undef DECL_PUNCT
-        default:
-            GLSLD_UNREACHABLE();
         }
 
 #undef STRINGIZE
+        GLSLD_UNREACHABLE();
     }
 
     inline auto GetAllKeywords() -> ArrayView<std::pair<TokenKlass, std::string_view>>
@@ -94,6 +116,11 @@ namespace glsld
         }
     }
 
+    inline auto IsIdentifierLikeToken(TokenKlass klass) -> bool
+    {
+        return klass == TokenKlass::Identifier || IsKeywordToken(klass);
+    }
+
     class LexString
     {
     public:
@@ -102,38 +129,50 @@ namespace glsld
         {
         }
 
-        auto Get() const -> const char*
+        auto Get() const noexcept -> const char*
         {
             return ptr;
         }
 
-        auto Equals(const char* other) const -> bool
+        auto Equals(const char* other) const noexcept -> bool
         {
             return ptr ? strcmp(ptr, other) == 0 : false;
         }
 
-        auto Str() const -> std::string
+        auto Str() const noexcept -> std::string
         {
             return ptr ? ptr : "";
         }
-        auto StrView() const -> std::string_view
+        auto StrView() const noexcept -> StringView
         {
             return ptr ? ptr : "";
         }
 
-        operator const char*()
+        operator const char*() noexcept
         {
             return ptr;
-        }
-        auto operator==(const LexString& other) -> bool
-        {
-            return ptr == other.ptr;
         }
 
     private:
         // A pointer of C-style string that's hosted by the LexContext
         const char* ptr = nullptr;
     };
+
+    inline auto operator==(const LexString& lhs, const char* rhs) noexcept -> bool
+    {
+        return lhs.Equals(rhs);
+    }
+    inline auto operator==(const char* lhs, const LexString& rhs) noexcept -> bool
+    {
+        return rhs.Equals(lhs);
+    }
+
+    // NOTE we assume two LexString are managed by the same LexContext.
+    // It is illegal to compare two LexString from different contexts.
+    inline auto operator==(const LexString& lhs, const LexString& rhs) noexcept -> bool
+    {
+        return lhs.Get() == rhs.Get();
+    }
 
     using SyntaxTokenIndex                              = uint32_t;
     inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
@@ -154,6 +193,8 @@ namespace glsld
         }
     };
 
+    // A syntax token that is part of the source token stream.
+    // It is pointing to a raw token which is managed by the LexContext.
     struct SyntaxToken
     {
         SyntaxTokenIndex index = InvalidTokenIndex;
@@ -178,12 +219,50 @@ namespace glsld
         }
     };
 
-    struct SyntaxTokenInfo
+    struct RawSyntaxToken final
     {
-        int file;
+        // File id of which the token is from
+        FileID file;
+
+        // The token class
         TokenKlass klass;
+
+        // The token text
         LexString text;
+
+        // The token range in the source file
+        TextRange range;
+    };
+
+    struct PPTokenData final
+    {
+        // The kind of the token. Note in preprocessing stage, all keywords are treated as identifiers.
+        TokenKlass klass;
+
+        // If the token is the first token of a line, this flag is set to true.
+        // NOTE if the last line is terminated by a line continuation, this flag is always set to false.
+        bool isFirstTokenOfLine;
+
+        // If the token has leading whitespace that's separating it from the previous token, this flag is set to true.
+        bool hasLeadingWhitespace;
+
+        // The text of the token.
+        LexString text;
+
+        // The spelling range of the token in the source.
         TextRange range;
     };
 
 } // namespace glsld
+
+namespace std
+{
+    template <>
+    struct hash<glsld::LexString>
+    {
+        [[nodiscard]] auto operator()(const glsld::LexString& key) const noexcept -> size_t
+        {
+            return hash<glsld::StringView>{}(key.StrView());
+        }
+    };
+} // namespace std

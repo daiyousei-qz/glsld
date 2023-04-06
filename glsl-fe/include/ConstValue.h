@@ -10,12 +10,12 @@
 
 namespace glsld
 {
-    template <BuiltinType Type>
+    template <GlslBuiltinType Type>
     struct ConstValueTraits;
 
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
     template <>                                                                                                        \
-    struct ConstValueTraits<BuiltinType::Ty_##GLSL_TYPE>                                                               \
+    struct ConstValueTraits<GlslBuiltinType::Ty_##GLSL_TYPE>                                                           \
     {                                                                                                                  \
         using CPPType = CPP_TYPE;                                                                                      \
     };
@@ -34,7 +34,7 @@ namespace glsld
     public:
         ConstValue() = default;
 
-        template <BuiltinType Type>
+        template <GlslBuiltinType Type>
         static ConstValue FromValue(typename ConstValueTraits<Type>::CPPType value)
             requires(!std::is_void_v<typename ConstValueTraits<Type>::CPPType>)
         {
@@ -45,7 +45,7 @@ namespace glsld
                 GLSLD_UNREACHABLE();
             }
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
-    else if constexpr (Type == BuiltinType::Ty_##GLSL_TYPE)                                                            \
+    else if constexpr (Type == GlslBuiltinType::Ty_##GLSL_TYPE)                                                        \
     {                                                                                                                  \
         result.val_##GLSL_TYPE = value;                                                                                \
     }
@@ -60,49 +60,49 @@ namespace glsld
 
         auto IsErrorValue() const -> bool
         {
-            return valueType == BuiltinType::Ty_void;
+            return valueType == GlslBuiltinType::Ty_void;
         }
         auto HasBoolValue() const -> bool
         {
-            return valueType == BuiltinType::Ty_bool;
+            return valueType == GlslBuiltinType::Ty_bool;
         }
         auto HasIntValue() const -> bool
         {
-            return valueType == BuiltinType::Ty_int;
+            return valueType == GlslBuiltinType::Ty_int;
         }
         auto HasUintValue() const -> bool
         {
-            return valueType == BuiltinType::Ty_uint;
+            return valueType == GlslBuiltinType::Ty_uint;
         }
-        auto GetValueType() const -> BuiltinType
+        auto GetValueType() const -> GlslBuiltinType
         {
             return valueType;
         }
 
         auto GetBoolValue() const -> bool
         {
-            GLSLD_ASSERT(valueType == BuiltinType::Ty_bool);
+            GLSLD_ASSERT(valueType == GlslBuiltinType::Ty_bool);
             return val_bool;
         }
         auto GetIntValue() const -> int32_t
         {
-            GLSLD_ASSERT(valueType == BuiltinType::Ty_int);
+            GLSLD_ASSERT(valueType == GlslBuiltinType::Ty_int);
             return val_int;
         }
         auto GetUIntValue() const -> uint32_t
         {
-            GLSLD_ASSERT(valueType == BuiltinType::Ty_uint);
+            GLSLD_ASSERT(valueType == GlslBuiltinType::Ty_uint);
             return val_uint;
         }
 
-        template <BuiltinType Type>
-        auto GetCValue() const
+        template <GlslBuiltinType Type>
+        auto GetCppValue() const
         {
             if constexpr (false) {
                 GLSLD_UNREACHABLE();
             }
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
-    else if constexpr (Type == BuiltinType::Ty_##GLSL_TYPE)                                                            \
+    else if constexpr (Type == GlslBuiltinType::Ty_##GLSL_TYPE)                                                        \
     {                                                                                                                  \
         return val_##GLSL_TYPE;                                                                                        \
     }
@@ -117,7 +117,7 @@ namespace glsld
         {
             switch (valueType) {
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
-    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
+    case GlslBuiltinType::Ty_##GLSL_TYPE:                                                                              \
         if constexpr (std::is_void_v<CPP_TYPE>) {                                                                      \
             return "<error>";                                                                                          \
         }                                                                                                              \
@@ -131,16 +131,16 @@ namespace glsld
             GLSLD_UNREACHABLE();
         }
 
-        auto GetTypeDesc() const -> const TypeDesc*
+        auto GetTypeDesc() const -> const Type*
         {
             switch (valueType) {
 #define DECL_BUILTIN_TYPE(GLSL_TYPE, CPP_TYPE, ...)                                                                    \
-    case BuiltinType::Ty_##GLSL_TYPE:                                                                                  \
+    case GlslBuiltinType::Ty_##GLSL_TYPE:                                                                              \
         if constexpr (std::is_void_v<CPP_TYPE>) {                                                                      \
             return GetErrorTypeDesc();                                                                                 \
         }                                                                                                              \
         else {                                                                                                         \
-            return GetBuiltinTypeDesc(BuiltinType::Ty_##GLSL_TYPE);                                                    \
+            return GetBuiltinTypeDesc(GlslBuiltinType::Ty_##GLSL_TYPE);                                                \
         }
 #include "GlslType.inc"
 #undef DECL_BUILTIN_TYPE
@@ -151,7 +151,7 @@ namespace glsld
 
     private:
         // We use void type as error
-        BuiltinType valueType = BuiltinType::Ty_void;
+        GlslBuiltinType valueType = GlslBuiltinType::Ty_void;
 
         union
         {

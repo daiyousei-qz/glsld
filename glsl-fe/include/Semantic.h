@@ -1,42 +1,11 @@
 #pragma once
 #include "Common.h"
+#include <algorithm>
 #include <string_view>
 #include <array>
 
 namespace glsld
 {
-    enum class ShaderStage
-    {
-        Unknown,
-        Vertex,
-        Fragment,
-        Geometry,
-        TessControl,
-        TessEvaluation,
-        Compute,
-    };
-    inline auto ShaderStageToString(ShaderStage stage) -> std::string_view
-    {
-        switch (stage) {
-        case ShaderStage::Unknown:
-            return "Unknown";
-        case ShaderStage::Vertex:
-            return "Vertex";
-        case ShaderStage::Fragment:
-            return "Fragment";
-        case ShaderStage::Geometry:
-            return "Geometry";
-        case ShaderStage::TessControl:
-            return "TessControl";
-        case ShaderStage::TessEvaluation:
-            return "TessEvaluation";
-        case ShaderStage::Compute:
-            return "Compute";
-        }
-
-        GLSLD_UNREACHABLE();
-    }
-
     enum class UnaryOp
     {
         Identity,
@@ -198,6 +167,21 @@ namespace glsld
         Uniform,
         Buffer,
     };
+    inline auto InterfaceBlockTypeToString(InterfaceBlockType type) -> std::string_view
+    {
+        switch (type) {
+        case InterfaceBlockType::In:
+            return "In";
+        case InterfaceBlockType::Out:
+            return "Out";
+        case InterfaceBlockType::Uniform:
+            return "Uniform";
+        case InterfaceBlockType::Buffer:
+            return "Buffer";
+        }
+
+        GLSLD_UNREACHABLE();
+    }
 
     enum class NameAccessType
     {
@@ -237,7 +221,7 @@ namespace glsld
 
         auto IsValid() const noexcept -> bool
         {
-            return xs[0] > 3;
+            return std::ranges::all_of(xs, [](uint8_t x) { return x <= 3; });
         }
 
     private:

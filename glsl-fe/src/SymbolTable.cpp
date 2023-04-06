@@ -13,7 +13,7 @@ namespace glsld
         // deduplicate?
         auto name = decl.GetName().text.Str();
         if (!name.empty()) {
-            std::vector<const TypeDesc*> paramTypes;
+            std::vector<const Type*> paramTypes;
             for (auto paramDecl : decl.GetParams()) {
                 paramTypes.push_back(paramDecl->GetType()->GetResolvedType());
             }
@@ -64,7 +64,7 @@ namespace glsld
         }
     }
 
-    auto SymbolTable::FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) const
+    auto SymbolTable::FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const
         -> AstFunctionDecl*
     {
         // FIXME: impl correct resolution

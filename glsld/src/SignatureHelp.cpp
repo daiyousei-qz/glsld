@@ -1,5 +1,6 @@
 #include "LanguageService.h"
 #include "StandardDocumentation.h"
+#include "ModuleVisitor.h"
 
 namespace glsld
 {
@@ -40,7 +41,7 @@ namespace glsld
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(const CompileResult& compileResult, lsp::Position position)
+    auto ComputeSignatureHelp(const CompilerObject& compileResult, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>
     {
         SignatureHelpVisitor visitor{compileResult.GetLexContext(), FromLspPosition(position)};

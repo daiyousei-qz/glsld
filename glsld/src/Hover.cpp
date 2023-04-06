@@ -67,17 +67,17 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto CreateHoverContent(DeclTokenType type, std::string_view name, bool unknown = true)
+    static auto CreateHoverContent(DeclTokenType type, StringView name, bool unknown = true)
     {
         return HoverContent{
             .type    = type,
-            .name    = std::string{name},
+            .name    = name.Str(),
             .code    = "",
             .unknown = unknown,
         };
     }
 
-    static auto GetHoverContent(DeclView declView, std::string_view hoverId) -> std::optional<HoverContent>
+    static auto GetHoverContent(DeclView declView, StringView hoverId) -> std::optional<HoverContent>
     {
         if (!declView.IsValid()) {
             return std::nullopt;
@@ -91,7 +91,7 @@ namespace glsld
             ReconstructSourceText(buffer, *funcDecl);
             return HoverContent{
                 .type          = DeclTokenType::Function,
-                .name          = std::string{hoverId},
+                .name          = hoverId.Str(),
                 .documentation = QueryFunctionDocumentation(hoverId).Str(),
                 .code          = std::move(buffer),
             };
@@ -100,7 +100,7 @@ namespace glsld
             ReconstructSourceText(buffer, *paramDecl);
             return HoverContent{
                 .type = DeclTokenType::Parameter,
-                .name = std::string{hoverId},
+                .name = hoverId.Str(),
                 .code = std::move(buffer),
             };
         }
@@ -140,7 +140,7 @@ namespace glsld
         return std::nullopt;
     }
 
-    auto ComputeHover(const CompileResult& compileResult, lsp::Position position) -> std::optional<lsp::Hover>
+    auto ComputeHover(const CompilerObject& compileResult, lsp::Position position) -> std::optional<lsp::Hover>
     {
         auto declTokenResult = FindDeclToken(compileResult, FromLspPosition(position));
         if (declTokenResult) {

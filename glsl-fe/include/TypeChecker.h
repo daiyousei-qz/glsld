@@ -1,4 +1,7 @@
 #pragma once
+#include "Compiler.h"
+#include "AstContext.h"
+#include "TypeContext.h"
 #include "AstVisitor.h"
 #include "SymbolTable.h"
 #include "Typing.h"
@@ -16,7 +19,11 @@ namespace glsld
     class TypeChecker
     {
     public:
-        auto TypeCheck(AstContext& ast, const SymbolTable* externalSymbolTable) -> SymbolTable;
+        TypeChecker(CompilerObject& compilerObject) : compilerObject(compilerObject)
+        {
+        }
+
+        auto TypeCheck(const SymbolTable* externalSymbolTable) -> SymbolTable;
 
     private:
         //
@@ -25,10 +32,10 @@ namespace glsld
 
         auto ResolveType(AstQualType& type) -> void
         {
-            const TypeDesc* resolvedType = GetErrorTypeDesc();
+            const Type* resolvedType = GetErrorTypeDesc();
 
             // Resolve element type
-            if (auto builtinType = GetBuiltinType(type.GetTypeNameTok())) {
+            if (auto builtinType = GetGlslBuiltinType(type.GetTypeNameTok())) {
                 resolvedType = GetBuiltinTypeDesc(*builtinType);
             }
             else if (type.GetStructDecl()) {
@@ -45,7 +52,7 @@ namespace glsld
             }
 
             // Resolve array type if any
-            resolvedType = astContext->GetArrayType(resolvedType, type.GetArraySpec());
+            resolvedType = compilerObject.GetTypeContext().GetArrayType(resolvedType, type.GetArraySpec());
 
             type.SetResolvedType(resolvedType);
         }
@@ -100,7 +107,7 @@ namespace glsld
         //
         // Type Eval
         //
-        auto GetDeclType(DeclView declView) -> const TypeDesc*
+        auto GetDeclType(DeclView declView) -> const Type*
         {
             if (!declView.IsValid()) {
                 return GetErrorTypeDesc();
@@ -118,14 +125,16 @@ namespace glsld
             }
             else if (auto memberDecl = decl->As<AstStructMemberDecl>()) {
                 if (declView.GetIndex() < memberDecl->GetDeclarators().size()) {
-                    return astContext->GetArrayType(memberDecl->GetType()->GetResolvedType(),
-                                                    memberDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+                    return compilerObject.GetTypeContext().GetArrayType(
+                        memberDecl->GetType()->GetResolvedType(),
+                        memberDecl->GetDeclarators()[declView.GetIndex()].arraySize);
                 }
             }
             else if (auto varDecl = decl->As<AstVariableDecl>()) {
                 if (declView.GetIndex() < varDecl->GetDeclarators().size()) {
-                    return astContext->GetArrayType(varDecl->GetType()->GetResolvedType(),
-                                                    varDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+                    return compilerObject.GetTypeContext().GetArrayType(
+                        varDecl->GetType()->GetResolvedType(),
+                        varDecl->GetDeclarators()[declView.GetIndex()].arraySize);
                 }
             }
             else if (auto paramDecl = decl->As<AstParamDecl>()) {
@@ -149,10 +158,10 @@ namespace glsld
                          expr.GetAccessChain()->GetDeducedType()->IsVector());
             auto swizzleName = expr.GetAccessName().text.StrView();
 
-            if (swizzleName.size() <= 4) {
+            if (swizzleName.Size() <= 4) {
                 // FIXME: set correct scalar type
                 expr.SetAccessType(NameAccessType::Swizzle);
-                expr.SetDeducedType(GetVectorTypeDesc(ScalarType::Float, swizzleName.size()));
+                expr.SetDeducedType(GetVectorTypeDesc(ScalarType::Float, swizzleName.Size()));
             }
         }
 
@@ -167,7 +176,7 @@ namespace glsld
             if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
                 // Case 1: `ID()`
                 auto accessName = invokedExpr->GetAccessName().text.Str();
-                std::vector<const TypeDesc*> argTypes;
+                std::vector<const Type*> argTypes;
                 for (auto argExpr : expr.GetArguments()) {
                     argTypes.push_back(argExpr->GetDeducedType());
                 }
@@ -175,7 +184,7 @@ namespace glsld
                 switch (invokedExpr->GetAccessType()) {
                 case NameAccessType::Constructor:
                 {
-                    if (auto builtinType = GetBuiltinType(invokedExpr->GetAccessName())) {
+                    if (auto builtinType = GetGlslBuiltinType(invokedExpr->GetAccessName())) {
                         // Builtin types
                     }
                     else {
@@ -212,7 +221,7 @@ namespace glsld
             // Case 3: `expr.length()`
         }
 
-        auto FindFunction(const std::string& name, const std::vector<const TypeDesc*>& argTypes) -> AstFunctionDecl*
+        auto FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) -> AstFunctionDecl*
         {
             if (auto funcDecl = symbolTable.FindFunction(name, argTypes)) {
                 return funcDecl;
@@ -227,7 +236,8 @@ namespace glsld
             return symbolTable.FindSymbol(name);
         }
 
-        AstContext* astContext                 = nullptr;
+        CompilerObject& compilerObject;
+
         const SymbolTable* externalSymbolTable = nullptr;
 
         AstFunctionDecl* currentFunction = nullptr;

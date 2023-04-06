@@ -15,13 +15,13 @@ namespace glsld
     class DiagnosticContext
     {
     public:
-        void ReportError(SyntaxTokenRange range, std::string message)
+        auto ReportError(SyntaxTokenRange range, std::string message) -> void
         {
-            // TODO: implement this
+            errorStream.push_back({range, std::move(message)});
         }
-        void ReportWarning(SyntaxTokenRange range, std::string message)
+        auto ReportWarning(SyntaxTokenRange range, std::string message) -> void
         {
-            // TODO: implement this
+            errorStream.push_back({range, std::move(message)});
         }
 
     private:

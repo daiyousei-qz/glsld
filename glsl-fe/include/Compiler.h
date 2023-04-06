@@ -1,171 +1,182 @@
 #pragma once
-
-#include "DiagnosticContext.h"
-#include "LexContext.h"
-#include "AstContext.h"
-#include "Parser.h"
-#include "TypeChecker.h"
-#include "AstPrinter.h"
-#include "SourceInfo.h"
+#include "Common.h"
+#include "FileSystemProvider.h"
 
 #include <memory>
 #include <string>
+#include <vector>
+#include <filesystem>
 
 namespace glsld
 {
-    class CompiledDependency;
+    class SourceContext;
+    class DiagnosticContext;
+    class LexContext;
+    class PreprocessContext;
+    class AstContext;
+    class TypeContext;
+    class SymbolTable;
 
-    class CompileResult
+    struct CompilerConfig
+    {
+        // Whether the compiler should skip tokens in the preamble.
+        // The user preamble is defined as all tokens before any non-comment valid tokens in the main file.
+        bool skipUserPreamble = false;
+
+        // The maximum number of nested include levels.
+        int maxIncludeDepth = 16;
+
+        // The include paths to search for included files.
+        std::vector<std::filesystem::path> includePaths;
+    };
+
+    class CompiledPreamble
     {
     public:
-        CompileResult(StringView sourceText, std::shared_ptr<CompiledDependency> module = nullptr);
+        CompiledPreamble();
+        ~CompiledPreamble();
 
-        CompileResult(const CompileResult&)                    = delete;
-        auto operator=(const CompileResult&) -> CompileResult& = delete;
+        auto GetLexContext() const noexcept -> const LexContext&
+        {
+            return *lexContext;
+        }
 
-        CompileResult(CompileResult&&);
-        auto operator=(CompileResult&&) -> CompileResult&;
+        auto GetPreprocessContext() const noexcept -> const PreprocessContext&
+        {
+            return *ppContext;
+        }
+
+        auto GetAstContext() const noexcept -> const AstContext&
+        {
+            return *astContext;
+        }
+        auto GetTypeContext() const noexcept -> const TypeContext&
+        {
+            return *typeContext;
+        }
+
+    private:
+        friend class CompilerObject;
+
+        int moduleId;
+
+        std::unique_ptr<const LexContext> lexContext;
+        std::unique_ptr<const PreprocessContext> ppContext;
+        std::unique_ptr<const AstContext> astContext;
+        std::unique_ptr<const TypeContext> typeContext;
+        std::unique_ptr<const SymbolTable> symbolTable;
+    };
+
+    class CompilerObject final
+    {
+    public:
+        CompilerObject();
+        ~CompilerObject();
+
+        // A CompilerObject is move only
+        CompilerObject(const CompilerObject&)                    = delete;
+        auto operator=(const CompilerObject&) -> CompilerObject& = delete;
+        CompilerObject(CompilerObject&&)                         = default;
+        auto operator=(CompilerObject&&) -> CompilerObject&      = default;
+
+        auto IsCompiled() const -> bool
+        {
+            return compiled;
+        }
 
         auto GetId() const -> int
         {
             return moduleId;
         }
 
-        auto IsValid() const -> bool
+        auto GetConfig() const noexcept -> const CompilerConfig&
         {
-            return moduleId >= 0;
+            return config;
         }
 
-        auto HasDependency() const -> bool
+        auto GetFileSystemProvider() noexcept -> FileSystemProvider&
         {
-            return !dependentModules.empty();
+            return DefaultFileSystemProvider::GetInstance();
         }
 
-        auto GetDiagnosticContext() const -> const DiagnosticContext&
+        auto GetSourceContext() const noexcept -> const SourceContext&
+        {
+            return *sourceContext;
+        }
+        auto GetSourceContext() noexcept -> SourceContext&
+        {
+            return *sourceContext;
+        }
+
+        auto GetDiagnosticContext() const noexcept -> const DiagnosticContext&
         {
             return *diagContext;
         }
-        auto GetLexContext() const -> const LexContext&
+        auto GetDiagnosticContext() noexcept -> DiagnosticContext&
+        {
+            return *diagContext;
+        }
+
+        auto GetLexContext() const noexcept -> const LexContext&
         {
             return *lexContext;
         }
-        auto GetAstContext() const -> const AstContext&
+        auto GetLexContext() noexcept -> LexContext&
+        {
+            return *lexContext;
+        }
+
+        auto GetPreprocessContext() const noexcept -> const PreprocessContext&
+        {
+            return *ppContext;
+        }
+        auto GetPreprocessContext() noexcept -> PreprocessContext&
+        {
+            return *ppContext;
+        }
+
+        auto GetAstContext() const noexcept -> const AstContext&
         {
             return *astContext;
         }
-        auto GetSymbolTable() const -> const SymbolTable&
+        auto GetAstContext() noexcept -> AstContext&
         {
-            return symbolTable;
+            return *astContext;
         }
 
+        auto GetTypeContext() const noexcept -> const TypeContext&
+        {
+            return *typeContext;
+        }
+        auto GetTypeContext() noexcept -> TypeContext&
+        {
+            return *typeContext;
+        }
+
+        auto Initialize() -> void;
+
+        auto AddIncludePath(const std::filesystem::path& path) -> void
+        {
+            config.includePaths.push_back(path);
+        }
+
+        auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
+
+        auto Compile(StringView sourceText) -> void;
+
     private:
-        friend auto Compile(StringView, std::shared_ptr<CompiledDependency>) -> std::unique_ptr<CompileResult>;
+        bool compiled = false;
+        int moduleId  = -1;
 
-        int moduleId = -1;
+        CompilerConfig config;
 
+        std::unique_ptr<SourceContext> sourceContext;
         std::unique_ptr<DiagnosticContext> diagContext;
         std::unique_ptr<LexContext> lexContext;
+        std::unique_ptr<PreprocessContext> ppContext;
         std::unique_ptr<AstContext> astContext;
-
-        SymbolTable symbolTable;
-
-        std::vector<std::shared_ptr<CompiledDependency>> dependentModules;
-    };
-
-    class CompiledDependency : public std::enable_shared_from_this<CompiledDependency>
-    {
-    public:
-        CompiledDependency(std::unique_ptr<CompileResult> data) : compileResult(std::move(*data))
-        {
-            GLSLD_ASSERT(!this->compileResult.HasDependency());
-        }
-
-        auto GetId() const -> int
-        {
-            return compileResult.GetId();
-        }
-
-        auto GetCompileResult() const -> const CompileResult&
-        {
-            return compileResult;
-        }
-        auto GetDiagnosticContext() const -> const DiagnosticContext&
-        {
-            return compileResult.GetDiagnosticContext();
-        }
-        auto GetLexContext() const -> const LexContext&
-        {
-            return compileResult.GetLexContext();
-        }
-        auto GetAstContext() const -> const AstContext&
-        {
-            return compileResult.GetAstContext();
-        }
-        auto GetSymbolTable() const -> const SymbolTable&
-        {
-            return compileResult.GetSymbolTable();
-        }
-
-    private:
-        CompileResult compileResult;
-    };
-
-    auto Compile(StringView sourceText, std::shared_ptr<CompiledDependency> module = nullptr)
-        -> std::unique_ptr<CompileResult>;
-
-    template <typename Derived>
-    class ModuleVisitor : public AstVisitor<Derived>
-    {
-    public:
-        ModuleVisitor(const CompileResult& compileResult) : data(&compileResult)
-        {
-        }
-
-        auto Traverse() -> void
-        {
-            AstVisitor<Derived>::TraverseAst(data->GetAstContext());
-        }
-
-        using AstVisitor<Derived>::Traverse;
-
-    protected:
-        auto GetLexContext() const -> const LexContext&
-        {
-            return data->GetLexContext();
-        }
-        auto GetAstContext() const -> const AstContext&
-        {
-            return data->GetAstContext();
-        }
-
-        auto NodeContainPosition(const AstNodeBase& node, TextPosition position) const -> bool
-        {
-            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
-            return nodeRange.Contains(position);
-        }
-
-        auto EnterIfContainsPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
-        {
-            if (NodeContainPosition(node, position)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-        auto EnterIfOverlapRange(const AstNodeBase& node, TextRange range) const -> AstVisitPolicy
-        {
-            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
-            if (nodeRange.Overlaps(range)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-
-    private:
-        const CompileResult* data;
+        std::unique_ptr<TypeContext> typeContext;
+        std::unique_ptr<SymbolTable> symbolTable;
     };
 
 } // namespace glsld

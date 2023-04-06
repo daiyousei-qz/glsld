@@ -31,8 +31,11 @@ namespace glsld
             payloadBuffer.reserve(4096);
         }
 
+        // Pull a message from the input stream
+        // Returns true if a message is successfully pulled
         auto PullMessage() -> bool;
 
+        // Push a message to the output stream
         auto PushMessage(StringView payload) -> void;
 
     private:

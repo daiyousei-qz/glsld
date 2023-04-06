@@ -1,67 +1,62 @@
 #pragma once
 #include "Common.h"
-#include "LexContext.h"
 #include "SyntaxToken.h"
-
-#include <unordered_map>
-#include <vector>
+#include "SourceView.h"
+#include "SourceScanner.h"
+#include "Preprocessor.h"
 
 namespace glsld
 {
-    class Tokenizer
+    // A tokenizer is responsible for lexing a source file and registering tokens into the LexContext.
+    // In existance of preprocessor directives, the tokenizer will create PreprocessorHandler objects
+    // to process them.
+    // NOTE the tokenization process could be recursive and new instances of Tokenizer could be created when "#include"
+    // is encountered.
+    class Tokenizer final
     {
     public:
-        Tokenizer(LexContext& lexContext, StringView source)
-            : lexContext(lexContext), srcBegin(source.Data()), srcEnd(source.Data() + source.Size()),
-              lineCursor(source.Data())
-        {
-            // Load first line and calibrate line index to be zero-based
-            LoadLine();
-            lineIndex = 0;
-        }
+        Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, StringView sourceText);
 
-        auto DoTokenize() -> void
-        {
-            while (NextToken()) {
-            }
-        }
+        // Tokenize the source file and register tokens into the LexContext.
+        // This function should be called only once. After this function returns, this tokenizer object should no longer
+        // be used.
+        auto DoTokenize() -> void;
 
     private:
-        auto Eof() -> bool
+        auto GetCurrentPPToken() const noexcept -> const PPTokenData&
         {
-            return lineCursor == srcEnd && lineBuffer.empty();
+            return currentToken;
         }
 
-        auto NextToken() -> bool;
+        // Loads the next token into variable `currentToken`.
+        // Returns true if the token loaded is the first token in a new line.
+        auto LoadNextPPToken() -> void;
 
-        auto GetCurrentTextPosition() -> TextPosition;
+        auto HandlePreprocessor(const PPTokenData& directiveToken, ArrayView<PPTokenData> restTokens) -> void;
+        auto HandleRegularToken(const PPTokenData& token) -> void;
+        auto HandleEofToken() -> void;
 
+        // Assuming we are seeing "//", parse the line comment and return the token klass.
         auto ParseLineComment() -> TokenKlass;
 
+        // Assuming we are seeing "/*", parse the block comment and return the token klass.
         auto ParseBlockComment() -> TokenKlass;
 
-        auto ParseRegularToken() -> TokenKlass;
+        // Assuming we are seeing "\"", parse the quoted string and return the token klass.
+        auto ParseQuotedString() -> TokenKlass;
 
-        auto PeekChar() -> char;
+        // Assuming we are seeing "<", parse the header name and return the token klass.
+        auto ParseAngleString() -> TokenKlass;
 
-        auto PeekChar(size_t lookahead) -> char;
+        CompilerObject& compilerObject;
 
-        auto SkipWhitespace() -> void;
+        Preprocessor& preprocessor;
 
-        auto LoadLine() -> void;
+        SourceScanner srcView;
 
-        LexContext& lexContext;
+        // Current PP token that's lexed.
+        PPTokenData currentToken;
 
-        const char* srcBegin;
-        const char* srcEnd;
-        const char* lineCursor;
-
-        bool freshLine     = true;
-        size_t lineIndex   = 0;
-        size_t bufferIndex = 0;
-        std::vector<char> lineBuffer;
-        std::vector<size_t> lineBreakBuffer;
-
-        std::string tokenBuffer;
+        std::vector<char> tokenTextBuffer;
     };
 } // namespace glsld
