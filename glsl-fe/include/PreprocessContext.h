@@ -8,8 +8,7 @@ namespace glsld
     class MacroDefinition final
     {
     public:
-        static auto CreateObjectLikeMacro(PPTokenData defToken, std::vector<PPTokenData> expansionTokens)
-            -> MacroDefinition
+        static auto CreateObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> MacroDefinition
         {
             return MacroDefinition{
                 false,
@@ -19,8 +18,8 @@ namespace glsld
             };
         }
 
-        static auto CreateFunctionLikeMacro(PPTokenData defToken, std::vector<PPTokenData> paramTokens,
-                                            std::vector<PPTokenData> expansionTokens) -> MacroDefinition
+        static auto CreateFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,
+                                            std::vector<PPToken> expansionTokens) -> MacroDefinition
         {
             return MacroDefinition{
                 true,
@@ -30,9 +29,9 @@ namespace glsld
             };
         }
 
-        auto IsDisabled() const noexcept -> bool
+        auto IsEnabled() const noexcept -> bool
         {
-            return isDisabled;
+            return !isDisabled;
         }
 
         auto IsFunctionLike() const noexcept -> bool
@@ -40,17 +39,17 @@ namespace glsld
             return isFunctionLike;
         }
 
-        auto GetDefToken() const noexcept -> const PPTokenData&
+        auto GetDefToken() const noexcept -> const PPToken&
         {
             return defToken;
         }
 
-        auto GetParamTokens() const noexcept -> ArrayView<PPTokenData>
+        auto GetParamTokens() const noexcept -> ArrayView<PPToken>
         {
             return paramTokens;
         }
 
-        auto GetExpansionTokens() const noexcept -> ArrayView<PPTokenData>
+        auto GetExpansionTokens() const noexcept -> ArrayView<PPToken>
         {
             return expansionTokens;
         }
@@ -68,14 +67,15 @@ namespace glsld
         }
 
     private:
-        MacroDefinition(bool isFunctionLike, PPTokenData defToken, std::vector<PPTokenData> paramTokens,
-                        std::vector<PPTokenData> expansionTokens)
+        MacroDefinition(bool isFunctionLike, PPToken defToken, std::vector<PPToken> paramTokens,
+                        std::vector<PPToken> expansionTokens)
             : isFunctionLike(isFunctionLike), defToken(defToken), paramTokens(std::move(paramTokens)),
               expansionTokens(std::move(expansionTokens))
         {
         }
 
-        //
+        // This is mutable during the compilation process. We may need to disable a macro temporarily
+        // when it is currently being expanded to avoid infinite recursion.
         bool isDisabled = false;
 
         // If the macro is function-like. This is only valid if `isUndef` is false.
@@ -83,17 +83,19 @@ namespace glsld
 
         // The token of the macro name
         // e.g. `#define FOO` -> `FOO`
-        PPTokenData defToken;
+        PPToken defToken;
 
         // The tokens of the macro parameters
         // e.g. `#define FOO(a, b)` -> `a` and `b`
-        std::vector<PPTokenData> paramTokens;
+        std::vector<PPToken> paramTokens;
 
         // The tokens of the macro expansion
         // e.g. `#define FOO(a, b) a + b` -> `a + b`
-        std::vector<PPTokenData> expansionTokens;
+        std::vector<PPToken> expansionTokens;
     };
 
+    // This class maintains the global states shared across different preprocessor instances.
+    // NOTE a new instance of Preprocessor could be created for each included source file.
     class PreprocessContext final
     {
     public:
@@ -112,26 +114,26 @@ namespace glsld
             includeDepth -= 1;
         }
 
-        auto DefineObjectLikeMacro(PPTokenData defToken, std::vector<PPTokenData> expansionTokens) -> void
+        auto DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void
         {
             macroLookup.insert(std::make_pair(
                 defToken.text, MacroDefinition::CreateObjectLikeMacro(defToken, std::move(expansionTokens))));
         }
 
-        auto DefineFunctionLikeMacro(PPTokenData defToken, std::vector<PPTokenData> paramTokens,
-                                     std::vector<PPTokenData> expansionTokens) -> void
+        auto DefineFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,
+                                     std::vector<PPToken> expansionTokens) -> void
         {
             macroLookup.insert(
                 std::make_pair(defToken.text, MacroDefinition::CreateFunctionLikeMacro(defToken, std::move(paramTokens),
                                                                                        std::move(expansionTokens))));
         }
 
-        auto UndefineMacro(LexString macroName) -> void
+        auto UndefineMacro(AtomString macroName) -> void
         {
             macroLookup.erase(macroName);
         }
 
-        auto FindMacroDefinition(LexString macroName) const -> const MacroDefinition*
+        auto FindMacroDefinition(AtomString macroName) const -> const MacroDefinition*
         {
             auto it = macroLookup.find(macroName);
             if (it != macroLookup.end()) {
@@ -140,11 +142,11 @@ namespace glsld
             return nullptr;
         }
 
-        auto FindEnabledMacroDefinition(LexString macroName) -> MacroDefinition*
+        auto FindEnabledMacroDefinition(AtomString macroName) -> MacroDefinition*
         {
             auto it = macroLookup.find(macroName);
             if (it != macroLookup.end()) {
-                if (!it->second.IsDisabled()) {
+                if (it->second.IsEnabled()) {
                     return &it->second;
                 }
             }
@@ -154,7 +156,7 @@ namespace glsld
     private:
         int includeDepth = 0;
 
-        std::unordered_map<LexString, MacroDefinition> macroLookup;
+        std::unordered_map<AtomString, MacroDefinition> macroLookup;
     };
 
 } // namespace glsld

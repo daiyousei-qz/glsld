@@ -3,7 +3,7 @@
 #include <optional>
 #include <vector>
 #include "SyntaxToken.h"
-#include "SourceView.h"
+#include "SourceInfo.h"
 
 namespace glsld::detail {
 auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {

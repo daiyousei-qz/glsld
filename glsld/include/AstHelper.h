@@ -27,7 +27,7 @@ namespace glsld
         DeclTokenType accessType;
     };
 
-    static auto FindDeclToken(const CompilerObject& compileResult, TextPosition position)
+    static auto FindDeclToken(const CompilerObject& compilerObject, TextPosition position)
         -> std::optional<DeclTokenLookupResult>
     {
         class DeclTokenVisitor : public ModuleVisitor<DeclTokenVisitor>
@@ -169,6 +169,6 @@ namespace glsld
             TextPosition position;
         };
 
-        return DeclTokenVisitor{compileResult, position}.Execute();
+        return DeclTokenVisitor{compilerObject, position}.Execute();
     }
 } // namespace glsld

@@ -70,7 +70,7 @@ namespace glsld
             }
         }
 
-        auto EvalUnaryType(UnaryOp op, const Type* operand) -> const Type*
+        auto DeduceUnaryExprType(UnaryOp op, const Type* operand) -> const Type*
         {
             switch (op) {
             case UnaryOp::Identity:
@@ -115,7 +115,7 @@ namespace glsld
             GLSLD_UNREACHABLE();
         }
 
-        auto EvalBinaryType(BinaryOp op, const Type* lhs, const Type* rhs) -> const Type*
+        auto DeduceBinaryExprType(BinaryOp op, const Type* lhs, const Type* rhs) -> const Type*
         {
             // FIXME: implement this
             if (lhs->IsSameWith(rhs)) {
@@ -236,15 +236,19 @@ namespace glsld
         int compoundStmtDepth = 0;
     };
 
-    auto TypeChecker::TypeCheck(const SymbolTable* externalSymbolTable) -> SymbolTable
+    auto TypeChecker::TypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>
     {
         this->externalSymbolTable = externalSymbolTable;
+        symbolTableStack.push_back(std::make_unique<SymbolTable>());
         TypeCheckVisitor{*this}.TraverseAst(compilerObject.GetAstContext());
 
         this->currentFunction     = nullptr;
         this->externalSymbolTable = nullptr;
 
-        return std::move(symbolTable);
+        GLSLD_ASSERT(symbolTableStack.size() == 1);
+        auto result = std::move(symbolTableStack.back());
+        symbolTableStack.clear();
+        return result;
     }
 
     auto TypeChecker::InFunctionScope() -> bool
@@ -262,7 +266,7 @@ namespace glsld
             }
         }
 
-        symbolTable.AddStructDecl(decl);
+        GetSymbolTable().AddStructDecl(decl);
     }
 
     auto TypeChecker::DeclareInterfaceBlock(AstInterfaceBlockDecl& decl) -> void
@@ -276,18 +280,18 @@ namespace glsld
             }
         }
 
-        symbolTable.AddInterfaceBlockDecl(decl);
+        GetSymbolTable().AddInterfaceBlockDecl(decl);
     }
 
     auto TypeChecker::DeclareVariable(AstVariableDecl& decl) -> void
     {
         // NOTE this could have 0 declarator. Then nothing is added.
-        symbolTable.AddVariableDecl(decl);
+        GetSymbolTable().AddVariableDecl(decl);
     }
 
     auto TypeChecker::DeclareParameter(AstParamDecl& decl) -> void
     {
-        symbolTable.AddParamDecl(decl);
+        GetSymbolTable().AddParamDecl(decl);
     }
 
     // NOTE this is before children nodes are visited
@@ -296,7 +300,7 @@ namespace glsld
         GLSLD_ASSERT(!InFunctionScope());
 
         currentFunction = &decl;
-        symbolTable.PushScope();
+        PushScope();
     }
 
     auto TypeChecker::ExitFunctionScope(AstFunctionDecl& decl) -> void
@@ -304,21 +308,22 @@ namespace glsld
         GLSLD_ASSERT(InFunctionScope());
 
         currentFunction = nullptr;
-        symbolTable.PopScope();
+        PopScope();
 
-        symbolTable.AddFunction(decl);
+        // Since recursion is not allowed, we can add the function to the symbol table here
+        GetSymbolTable().AddFunction(decl);
     }
 
     auto TypeChecker::EnterBlockScope() -> void
     {
         GLSLD_ASSERT(InFunctionScope());
-        symbolTable.PushScope();
+        PushScope();
     }
 
     auto TypeChecker::ExitBlockScope() -> void
     {
         GLSLD_ASSERT(InFunctionScope());
-        symbolTable.PopScope();
+        PopScope();
     }
 
     auto TypeChecker::PreprocessInvokeExpr(AstInvokeExpr& expr) -> void
@@ -330,7 +335,7 @@ namespace glsld
                 func->SetAccessType(NameAccessType::Constructor);
             }
             else {
-                auto symbol = symbolTable.FindSymbol(func->GetAccessName().text.Str());
+                auto symbol = FindSymbol(func->GetAccessName().text.Str());
                 if (symbol &&
                     (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
                     // FIXME: could interface block being constructor?
@@ -487,15 +492,15 @@ namespace glsld
     auto TypeChecker::CheckUnaryExpr(AstUnaryExpr& expr) -> void
     {
         expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
-        expr.SetDeducedType(EvalUnaryType(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
+        expr.SetDeducedType(DeduceUnaryExprType(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckBinaryExpr(AstBinaryExpr& expr) -> void
     {
         expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
                                             expr.GetRightOperandExpr()->GetConstValue()));
-        expr.SetDeducedType(EvalBinaryType(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
-                                           expr.GetRightOperandExpr()->GetDeducedType()));
+        expr.SetDeducedType(DeduceBinaryExprType(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
+                                                 expr.GetRightOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckSelectExpr(AstSelectExpr& expr) -> void

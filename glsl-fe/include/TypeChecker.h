@@ -23,7 +23,7 @@ namespace glsld
         {
         }
 
-        auto TypeCheck(const SymbolTable* externalSymbolTable) -> SymbolTable;
+        auto TypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>;
 
     private:
         //
@@ -189,7 +189,7 @@ namespace glsld
                     }
                     else {
                         // User-defined types
-                        auto symbol = symbolTable.FindSymbol(accessName);
+                        auto symbol = FindSymbol(accessName);
                         if (symbol &&
                             (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
                             invokedExpr->SetAccessedDecl(symbol);
@@ -221,9 +221,28 @@ namespace glsld
             // Case 3: `expr.length()`
         }
 
+        auto GetSymbolTable() -> SymbolTable&
+        {
+            GLSLD_ASSERT(!symbolTableStack.empty());
+            return *symbolTableStack.back();
+        }
+
+        auto PushScope() -> void
+        {
+            symbolTableStack.push_back(std::make_unique<SymbolTable>(&GetSymbolTable()));
+        }
+
+        auto PopScope() -> void
+        {
+            symbolTableStack.pop_back();
+        }
+
         auto FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) -> AstFunctionDecl*
         {
-            if (auto funcDecl = symbolTable.FindFunction(name, argTypes)) {
+            // FIXME: what about overload resolution between external and internal functions?
+
+            // NOTE we directly search in the global scope symbol table since functions cannot be declared locally
+            if (auto funcDecl = symbolTableStack[0]->FindFunction(name, argTypes)) {
                 return funcDecl;
             }
             else {
@@ -233,7 +252,7 @@ namespace glsld
 
         auto FindSymbol(const std::string& name) -> DeclView
         {
-            return symbolTable.FindSymbol(name);
+            return GetSymbolTable().FindSymbol(name);
         }
 
         CompilerObject& compilerObject;
@@ -241,6 +260,6 @@ namespace glsld
         const SymbolTable* externalSymbolTable = nullptr;
 
         AstFunctionDecl* currentFunction = nullptr;
-        SymbolTable symbolTable;
+        std::vector<std::unique_ptr<SymbolTable>> symbolTableStack;
     };
 } // namespace glsld

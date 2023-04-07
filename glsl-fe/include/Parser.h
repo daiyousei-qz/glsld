@@ -549,7 +549,7 @@ namespace glsld
         auto RecoverFromError(RecoveryMode mode) -> void
         {
             // FIXME: is this a parser?
-            TRACE_PARSER();
+            GLSLD_TRACE_PARSER();
 
             auto desiredToken = static_cast<TokenKlass>(mode);
 
@@ -699,7 +699,7 @@ namespace glsld
         auto ConsumeToken() -> void
         {
             if (!Eof()) {
-                TRACE_TOKEN_CONSUMED(PeekToken());
+                GLSLD_TRACE_TOKEN_CONSUMED(PeekToken());
 
                 switch (PeekToken().klass) {
                 case TokenKlass::LParen:

@@ -10,7 +10,6 @@
 #include "StringView.h"
 
 #define GLSLD_DEBUG 1
-#define GLSLD_DEBUG_COMPILER 1
 
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 #define GLSLD_REQUIRE(EXPR) assert(EXPR)

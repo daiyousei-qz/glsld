@@ -1,5 +1,5 @@
 #pragma once
-#include "SourceView.h"
+#include "SourceInfo.h"
 
 namespace glsld
 {

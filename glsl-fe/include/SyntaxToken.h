@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Common.h"
-#include "SourceView.h"
+#include "AtomTable.h"
+#include "SourceInfo.h"
 #include "SourceContext.h"
 
 #include <functional>
@@ -121,59 +122,6 @@ namespace glsld
         return klass == TokenKlass::Identifier || IsKeywordToken(klass);
     }
 
-    class LexString
-    {
-    public:
-        LexString() = default;
-        explicit LexString(const char* p) : ptr(p)
-        {
-        }
-
-        auto Get() const noexcept -> const char*
-        {
-            return ptr;
-        }
-
-        auto Equals(const char* other) const noexcept -> bool
-        {
-            return ptr ? strcmp(ptr, other) == 0 : false;
-        }
-
-        auto Str() const noexcept -> std::string
-        {
-            return ptr ? ptr : "";
-        }
-        auto StrView() const noexcept -> StringView
-        {
-            return ptr ? ptr : "";
-        }
-
-        operator const char*() noexcept
-        {
-            return ptr;
-        }
-
-    private:
-        // A pointer of C-style string that's hosted by the LexContext
-        const char* ptr = nullptr;
-    };
-
-    inline auto operator==(const LexString& lhs, const char* rhs) noexcept -> bool
-    {
-        return lhs.Equals(rhs);
-    }
-    inline auto operator==(const char* lhs, const LexString& rhs) noexcept -> bool
-    {
-        return rhs.Equals(lhs);
-    }
-
-    // NOTE we assume two LexString are managed by the same LexContext.
-    // It is illegal to compare two LexString from different contexts.
-    inline auto operator==(const LexString& lhs, const LexString& rhs) noexcept -> bool
-    {
-        return lhs.Get() == rhs.Get();
-    }
-
     using SyntaxTokenIndex                              = uint32_t;
     inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
 
@@ -199,7 +147,7 @@ namespace glsld
     {
         SyntaxTokenIndex index = InvalidTokenIndex;
         TokenKlass klass       = TokenKlass::Error;
-        LexString text         = {};
+        AtomString text        = {};
 
         auto IsValid() const -> bool
         {
@@ -228,13 +176,13 @@ namespace glsld
         TokenKlass klass;
 
         // The token text
-        LexString text;
+        AtomString text;
 
         // The token range in the source file
         TextRange range;
     };
 
-    struct PPTokenData final
+    struct PPToken final
     {
         // The kind of the token. Note in preprocessing stage, all keywords are treated as identifiers.
         TokenKlass klass;
@@ -247,7 +195,7 @@ namespace glsld
         bool hasLeadingWhitespace;
 
         // The text of the token.
-        LexString text;
+        AtomString text;
 
         // The spelling range of the token in the source.
         TextRange range;
@@ -258,11 +206,11 @@ namespace glsld
 namespace std
 {
     template <>
-    struct hash<glsld::LexString>
+    struct hash<glsld::AtomString>
     {
-        [[nodiscard]] auto operator()(const glsld::LexString& key) const noexcept -> size_t
+        [[nodiscard]] auto operator()(const glsld::AtomString& key) const noexcept -> size_t
         {
-            return hash<glsld::StringView>{}(key.StrView());
+            return hash<const char*>{}(key.Get());
         }
     };
 } // namespace std

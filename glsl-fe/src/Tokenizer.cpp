@@ -11,72 +11,72 @@ namespace glsld
     Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, StringView sourceText)
         : compilerObject(compilerObject), preprocessor(preprocessor)
     {
-        srcView = SourceScanner{sourceText.Data(), sourceText.Data() + sourceText.Size()};
+        srcScanner = SourceScanner{sourceText.Data(), sourceText.Data() + sourceText.Size()};
     }
 
     auto Tokenizer::DoTokenize() -> void
     {
         GLSLD_ASSERT(preprocessor.GetState() == PreprocessorState::Default);
         while (true) {
-            LoadNextPPToken();
+            PPToken token = LexPPToken();
+
             if (preprocessor.InActiveRegion()) {
-                TracePPTokenLexed(GetCurrentPPToken());
-                preprocessor.IssueToken(GetCurrentPPToken());
+                GLSLD_TRACE_TOKEN_LEXED(token);
+                preprocessor.IssueToken(token);
             }
             else {
                 // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
-                if (GetCurrentPPToken().klass == TokenKlass::Hash && GetCurrentPPToken().isFirstTokenOfLine) {
-                    TracePPTokenLexed(GetCurrentPPToken());
-                    preprocessor.IssueToken(GetCurrentPPToken());
+                if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+                    GLSLD_TRACE_TOKEN_LEXED(token);
+                    preprocessor.IssueToken(token);
                 }
             }
 
-            if (GetCurrentPPToken().klass == TokenKlass::Eof) {
+            if (token.klass == TokenKlass::Eof) {
                 break;
             }
         }
     }
 
-    auto Tokenizer::LoadNextPPToken() -> void
+    auto Tokenizer::LexPPToken() -> PPToken
     {
         bool skippedWhitespace = false;
-        bool skippedNewLine    = srcView.CursorAtBegin();
-        srcView.SkipWhitespace(skippedWhitespace, skippedNewLine);
+        bool skippedNewLine    = srcScanner.CursorAtBegin();
+        srcScanner.SkipWhitespace(skippedWhitespace, skippedNewLine);
 
-        if (srcView.CursorAtEnd()) {
+        if (srcScanner.CursorAtEnd()) {
             // NOTE we always regard an EOF in a new line
-            currentToken = PPTokenData{.klass                = TokenKlass::Eof,
-                                       .isFirstTokenOfLine   = true,
-                                       .hasLeadingWhitespace = skippedWhitespace,
-                                       .text                 = {},
-                                       .range                = {}};
-            return;
+            return PPToken{.klass                = TokenKlass::Eof,
+                           .isFirstTokenOfLine   = true,
+                           .hasLeadingWhitespace = true,
+                           .text                 = {},
+                           .range                = {srcScanner.GetTextPosition(), srcScanner.GetTextPosition()}};
         }
 
         tokenTextBuffer.clear();
         TokenKlass klass      = TokenKlass::Error;
-        TextPosition beginPos = srcView.GetTextPosition();
+        TextPosition beginPos = srcScanner.GetTextPosition();
 
-        if (srcView.PeekChar() == '/' && srcView.PeekChar(1) == '/') {
+        if (srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '/') {
             klass = ParseLineComment();
         }
-        else if (srcView.PeekChar() == '/' && srcView.PeekChar(1) == '*') {
+        else if (srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '*') {
             klass = ParseBlockComment();
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcView.PeekChar() == '"') {
+        else if (preprocessor.ShouldLexHeaderName() && srcScanner.PeekChar() == '"') {
             klass = ParseQuotedString();
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcView.PeekChar() == '<') {
+        else if (preprocessor.ShouldLexHeaderName() && srcScanner.PeekChar() == '<') {
             // klass = ParseAngleString();
         }
         else {
-            klass = detail::Tokenize(srcView, tokenTextBuffer);
+            klass = detail::Tokenize(srcScanner, tokenTextBuffer);
         }
 
-        LexString text      = compilerObject.GetLexContext().GetLexString(StringView{tokenTextBuffer});
-        TextPosition endPos = srcView.GetTextPosition();
+        AtomString text     = compilerObject.GetLexContext().GetLexString(StringView{tokenTextBuffer});
+        TextPosition endPos = srcScanner.GetTextPosition();
 
-        currentToken = PPTokenData{
+        return PPToken{
             .klass                = klass,
             .isFirstTokenOfLine   = skippedNewLine,
             .hasLeadingWhitespace = skippedWhitespace,
@@ -87,16 +87,16 @@ namespace glsld
 
     auto Tokenizer::ParseLineComment() -> TokenKlass
     {
-        GLSLD_ASSERT(srcView.PeekChar() == '/' && srcView.PeekChar(1) == '/');
+        GLSLD_ASSERT(srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '/');
 
         // Consume "//"
-        srcView.SkipChar(2);
+        srcScanner.SkipChar(2);
 
-        while (!srcView.CursorAtEnd()) {
-            auto ch = srcView.PeekChar();
+        while (!srcScanner.CursorAtEnd()) {
+            auto ch = srcScanner.PeekChar();
 
             if (ch != '\n') {
-                srcView.ConsumeChar();
+                srcScanner.ConsumeChar();
             }
             else {
                 break;
@@ -108,20 +108,20 @@ namespace glsld
 
     auto Tokenizer::ParseBlockComment() -> TokenKlass
     {
-        GLSLD_ASSERT(srcView.PeekChar() == '/' && srcView.PeekChar(1) == '*');
+        GLSLD_ASSERT(srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '*');
 
         // Consume "/*"
-        srcView.SkipChar(2);
+        srcScanner.SkipChar(2);
 
-        while (!srcView.CursorAtEnd()) {
-            auto ch = srcView.PeekChar();
+        while (!srcScanner.CursorAtEnd()) {
+            auto ch = srcScanner.PeekChar();
 
-            if (ch != '*' || srcView.PeekChar(1) != '/') {
-                srcView.ConsumeChar();
+            if (ch != '*' || srcScanner.PeekChar(1) != '/') {
+                srcScanner.ConsumeChar();
             }
             else {
                 // Consume "*/"
-                srcView.SkipChar(2);
+                srcScanner.SkipChar(2);
                 return TokenKlass::Comment;
             }
         }
@@ -133,27 +133,35 @@ namespace glsld
     {
         // FIXME: a quoted string shouldn't contain a newline
 
-        GLSLD_ASSERT(srcView.PeekChar() == '"');
+        GLSLD_ASSERT(srcScanner.PeekChar() == '"');
 
         // Consume '"'
-        srcView.SkipChar(1);
+        srcScanner.SkipChar(1);
         tokenTextBuffer.push_back('"');
 
-        while (!srcView.CursorAtEnd()) {
-            auto ch = srcView.PeekChar();
+        while (!srcScanner.CursorAtEnd()) {
+            auto ch = srcScanner.PeekChar();
             tokenTextBuffer.push_back(ch);
 
             if (ch != '"') {
-                srcView.ConsumeChar();
+                srcScanner.ConsumeChar();
             }
             else {
                 // Consume '"'
-                srcView.SkipChar(1);
+                srcScanner.SkipChar(1);
                 return TokenKlass::QuotedString;
             }
         }
 
         return TokenKlass::Error;
+    }
+
+    auto Tokenizer::ParseAngleString() -> TokenKlass
+    {
+        GLSLD_ASSERT(srcScanner.PeekChar() == '<');
+
+        // FIXME: a quoted string shouldn't contain a newline
+        GLSLD_NO_IMPL();
     }
 
 } // namespace glsld

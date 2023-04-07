@@ -41,11 +41,11 @@ namespace glsld
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(const CompilerObject& compileResult, lsp::Position position)
+    auto ComputeSignatureHelp(const CompilerObject& compilerObject, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>
     {
-        SignatureHelpVisitor visitor{compileResult.GetLexContext(), FromLspPosition(position)};
-        visitor.TraverseAst(compileResult.GetAstContext());
+        SignatureHelpVisitor visitor{compilerObject.GetLexContext(), FromLspPosition(position)};
+        visitor.TraverseAst(compilerObject.GetAstContext());
         auto expr = visitor.Export();
 
         if (expr) {
@@ -56,7 +56,7 @@ namespace glsld
                 std::vector<lsp::SignatureInformation> result;
 
                 // For function in the default library
-                for (auto funcDecl : GetDefaultLibraryModule()->GetAstContext().functionDecls) {
+                for (auto funcDecl : GetStandardLibraryModule()->GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         std::string label;
@@ -71,7 +71,7 @@ namespace glsld
                 }
 
                 // For function in this module
-                for (auto funcDecl : compileResult.GetAstContext().functionDecls) {
+                for (auto funcDecl : compilerObject.GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         std::string label;

@@ -3,6 +3,7 @@
 
 namespace glsld
 {
+    // FIXME: Support struct member
     class DocumentSymbolCollector : public ModuleVisitor<DocumentSymbolCollector>
     {
     public:
@@ -53,8 +54,8 @@ namespace glsld
     private:
         auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> void
         {
-            if (token.IsIdentifier()) {
-                auto tokRange = ToLspRange(this->GetLexContext().LookupTextRange(token));
+            if (token.IsIdentifier() && GetLexContext().LookupFile(token.index) == 0) {
+                auto tokRange = ToLspRange(GetLexContext().LookupTextRange(token));
                 result.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),
                     .kind           = kind,
@@ -67,9 +68,9 @@ namespace glsld
         std::vector<lsp::DocumentSymbol> result;
     };
 
-    auto ComputeDocumentSymbol(const CompilerObject& compileResult) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>
     {
-        return DocumentSymbolCollector{compileResult}.Execute();
+        return DocumentSymbolCollector{compilerObject}.Execute();
     }
 
 } // namespace glsld

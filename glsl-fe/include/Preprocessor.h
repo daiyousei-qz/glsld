@@ -43,11 +43,12 @@ namespace glsld
     // The preprocessor acts as a state machine which accepts PP tokens from the Tokenizer and
     // transforms them according to the current state. The fully preproccessed tokens are then
     // converted to RawSyntaxTokens and registered to the LexContext.
+    //
     class Preprocessor final
     {
     public:
         Preprocessor(CompilerObject& compilerObject, FileID fileId)
-            : compilerObject(compilerObject),
+            : compilerObject(compilerObject), fileId(fileId), state(PreprocessorState::Default),
               macroExpansionProcessor(compilerObject.GetPreprocessContext(), ExpandToLexContextCallback{*this})
         {
         }
@@ -74,7 +75,8 @@ namespace glsld
             return state == PreprocessorState::ExpectIncludeDirectiveTail;
         }
 
-        auto IssueToken(const PPTokenData& token) -> void
+        // Issue a PP token to the preprocessor. The token will be processed according to the current state.
+        auto IssueToken(const PPToken& token) -> void
         {
             if (token.klass == TokenKlass::Comment) {
                 // FIXME: Handle comments.
@@ -86,134 +88,38 @@ namespace glsld
         }
 
     private:
-        auto DispatchTokenToHandler(const PPTokenData& token) -> void
-        {
-            GLSLD_ASSERT(token.klass != TokenKlass::Comment);
-            switch (state) {
-            case PreprocessorState::Default:
-                HandleDefaultState(token);
-                break;
-
-            case PreprocessorState::Inactive:
-                HandleInactiveState(token);
-                break;
-
-            case PreprocessorState::ExpectDirective:
-                HandleExpectDirectiveState(token);
-                break;
-
-            case PreprocessorState::ExpectDefaultDirectiveTail:
-            case PreprocessorState::ExpectIncludeDirectiveTail:
-                HandleExpectDirectiveTailState(token);
-                break;
-            }
-        }
-
+        // Possible transitions:
+        // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive)
+        // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive)
+        // - ExpectDirective -> Default (Empty directive parsed)
+        // - ExpectDirective -> Inactive (Current PP directive cannot exit the inactive region)
+        // - ExpectDirective -> ExpectDefaultDirectiveTail (A PP directive parsed, expect following tokens)
+        // - ExpectDirective -> ExpectIncludeDirectiveTail (A #include directive parsed, expect following tokens)
+        // - ExpectDefaultDirectiveTail -> Default (A PP directive handled)
+        // - ExpectIncludeDirectiveTail -> Default (A #include directive handled)
+        // - ExpectDefaultDirectiveTail -> Inactive (A PP directive handled, entering an inactive region)
         auto TransitionTo(PreprocessorState newState) -> void
         {
-            // TODO: Validate the transition.
             state = newState;
         }
 
-        auto RedirectIncomingToken(PreprocessorState newState, const PPTokenData& token) -> void
+        //
+        auto RedirectIncomingToken(PreprocessorState newState, const PPToken& token) -> void
         {
             TransitionTo(newState);
             DispatchTokenToHandler(token);
         }
 
-        auto HandleDefaultState(const PPTokenData& token) -> void
-        {
-            if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                state = PreprocessorState::ExpectDirective;
-            }
-            else if (token.klass == TokenKlass::Eof) {
-                macroExpansionProcessor.Finalize();
-                if (compilerObject.GetPreprocessContext().GetIncludeDepth() == 0) {
-                    // We are done with the main file. Insert an EOF token.
-                    compilerObject.GetLexContext().AddToken(token.klass, token.range, token.text);
-                }
-            }
-            else {
-                macroExpansionProcessor.Feed(token);
-            }
-        }
+        // Dispatch the token to the appropriate handler based on the current state.
+        // The handler (AcceptOnXXXState) will then update the state and act accordingly.
+        auto DispatchTokenToHandler(const PPToken& token) -> void;
 
-        auto HandleInactiveState(const PPTokenData& token) -> void
-        {
-            if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                TransitionTo(PreprocessorState::ExpectDirective);
-            }
-            else if (token.klass == TokenKlass::Eof) {
-                // FIXME: Unterminated inactive region. Report error.
-            }
-            else {
-                // Ignore all other tokens since we are in an inactive region.
-            }
-        }
+        auto AcceptOnDefaultState(const PPToken& token) -> void;
+        auto AcceptOnInactiveState(const PPToken& token) -> void;
+        auto AcceptOnExpectDirectiveState(const PPToken& token) -> void;
+        auto AcceptOnExpectDirectiveTailState(const PPToken& token) -> void;
 
-        auto HandleExpectDirectiveState(const PPTokenData& token) -> void
-        {
-            if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
-                // Empty directive.
-                if (conditionalStack.empty() || conditionalStack.back().active) {
-                    RedirectIncomingToken(PreprocessorState::Default, token);
-                }
-                else {
-                    RedirectIncomingToken(PreprocessorState::Inactive, token);
-                }
-            }
-            else if (token.klass == TokenKlass::Identifier) {
-                // A PP directive parsed.
-                directiveToken = token;
-                if (conditionalStack.empty() || conditionalStack.back().active) {
-                    if (directiveToken->text == "include") {
-                        TransitionTo(PreprocessorState::ExpectIncludeDirectiveTail);
-                    }
-                    else {
-                        TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
-                    }
-                }
-                else {
-                    if (directiveToken->text == "elif" || directiveToken->text == "else" ||
-                        directiveToken->text == "endif") {
-                        // These directives may change the state of the conditional stack.
-                        TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
-                    }
-                    else {
-                        // Other directives are not skipped in inactive regions.
-                        TransitionTo(PreprocessorState::Inactive);
-                        directiveToken = std::nullopt;
-                    }
-                }
-            }
-            else {
-                // A bad directive.
-                TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
-            }
-        }
-
-        auto HandleExpectDirectiveTailState(const PPTokenData& token) -> void
-        {
-            if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
-                // Finish processing the directive.
-                HandleDirective(*directiveToken, directiveArgBuffer);
-                directiveToken = std::nullopt;
-                directiveArgBuffer.clear();
-
-                // Redirect the token to the default state.
-                if (conditionalStack.empty() || conditionalStack.back().active) {
-                    RedirectIncomingToken(PreprocessorState::Default, token);
-                }
-                else {
-                    RedirectIncomingToken(PreprocessorState::Inactive, token);
-                }
-            }
-            else {
-                directiveArgBuffer.push_back(token);
-            }
-        }
-
-        auto HandleDirective(const PPTokenData& directiveToken, ArrayView<PPTokenData> restTokens) -> void;
+        auto HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void;
         auto HandleIncludeDirective(PPTokenScanner& scanner) -> void;
         auto HandleDefineDirective(PPTokenScanner& scanner) -> void;
         auto HandleUndefDirective(PPTokenScanner& scanner) -> void;
@@ -225,7 +131,9 @@ namespace glsld
 
         CompilerObject& compilerObject;
 
-        PreprocessorState state = PreprocessorState::Default;
+        FileID fileId;
+
+        PreprocessorState state;
 
         struct ExpandToLexContextCallback
         {
@@ -233,10 +141,10 @@ namespace glsld
             {
             }
 
-            auto OnYieldToken(const PPTokenData& token) -> void
+            auto OnYieldToken(const PPToken& token) -> void
             {
-                TraceLexTokenIssued(token);
-                pp.compilerObject.GetLexContext().AddToken(token.klass, token.range, token.text);
+                GLSLD_TRACE_TOKEN_ISSUED(token);
+                pp.compilerObject.GetLexContext().AddToken(pp.fileId, token);
             }
 
             Preprocessor& pp;
@@ -244,9 +152,13 @@ namespace glsld
 
         MacroExpansionProcessor<ExpandToLexContextCallback> macroExpansionProcessor;
 
-        std::optional<PPTokenData> directiveToken;
-        std::vector<PPTokenData> directiveArgBuffer;
+        // The current PP directive token being processed.
+        std::optional<PPToken> directiveToken;
 
+        // This buffer stores the tokens following the PP directive.
+        std::vector<PPToken> directiveArgBuffer;
+
+        // This stack stores all information about the conditional directives.
         std::vector<PPConditionalInfo> conditionalStack;
     };
 

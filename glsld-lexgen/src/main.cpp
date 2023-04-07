@@ -72,7 +72,7 @@ auto GenerateLexSource(const NfaAutomata& automata) -> void
     fmt::print("#include <optional>\n");
     fmt::print("#include <vector>\n");
     fmt::print("#include \"SyntaxToken.h\"\n");
-    fmt::print("#include \"SourceView.h\"\n\n");
+    fmt::print("#include \"SourceInfo.h\"\n\n");
 
     fmt::print("namespace glsld::detail {{\n");
     fmt::print("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");

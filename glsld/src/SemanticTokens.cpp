@@ -77,10 +77,10 @@ namespace glsld
         };
     }
 
-    auto CollectLexSemanticTokens(const CompilerObject& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectLexSemanticTokens(const CompilerObject& compilerObject, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
-        const auto& lexContext = compileResult.GetLexContext();
+        const auto& lexContext = compilerObject.GetLexContext();
         for (const auto& tok : lexContext.GetAllTokenView()) {
             std::optional<SemanticTokenType> type;
 
@@ -100,16 +100,16 @@ namespace glsld
         }
     }
 
-    auto CollectAstSemanticTokens(const CompilerObject& compileResult, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectAstSemanticTokens(const CompilerObject& compilerObject, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
         struct AstSemanticTokenCollector : public AstVisitor<AstSemanticTokenCollector>
         {
-            const CompilerObject& compileResult;
+            const CompilerObject& compilerObject;
             std::vector<SemanticTokenInfo>& tokenBuffer;
 
             AstSemanticTokenCollector(const CompilerObject& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
-                : compileResult(compiler), tokenBuffer(tokenBuffer)
+                : compilerObject(compiler), tokenBuffer(tokenBuffer)
             {
             }
 
@@ -117,8 +117,7 @@ namespace glsld
             {
                 if (type.GetTypeNameTok().klass == TokenKlass::Identifier ||
                     GetGlslBuiltinType(type.GetTypeNameTok())) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), type.GetTypeNameTok(),
-                                                                  SemanticTokenType::Type));
+                    TryAddSementicToken(type.GetTypeNameTok(), SemanticTokenType::Type);
                 }
             }
 
@@ -126,59 +125,52 @@ namespace glsld
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), declarator.declTok,
-                                                                      SemanticTokenType::Variable,
-                                                                      SemanticTokenModifier::Declaration));
+                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable,
+                                            SemanticTokenModifier::Declaration);
                     }
                 }
             }
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken() && !decl.GetDeclToken()->IsError()) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), *decl.GetDeclToken(),
-                                                                  SemanticTokenType::Type,
-                                                                  SemanticTokenModifier::Declaration));
+                    TryAddSementicToken(*decl.GetDeclToken(), SemanticTokenType::Struct,
+                                        SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
                 if (decl.GetDeclToken().IsIdentifier()) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), decl.GetDeclToken(),
-                                                                  SemanticTokenType::Type,
-                                                                  SemanticTokenModifier::Declaration));
+                    TryAddSementicToken(decl.GetDeclToken(), SemanticTokenType::Type,
+                                        SemanticTokenModifier::Declaration);
                 }
 
                 // Interface block decl
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                    tokenBuffer.push_back(
-                        CreateSemanticTokenInfo(compileResult.GetLexContext(), decl.GetDeclarator()->declTok,
-                                                SemanticTokenType::Variable, SemanticTokenModifier::Declaration));
+                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Variable,
+                                        SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
                 if (decl.GetName().IsIdentifier()) {
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), decl.GetName(),
-                                                                  SemanticTokenType::Function,
-                                                                  SemanticTokenModifier::Declaration));
+                    TryAddSementicToken(decl.GetName(), SemanticTokenType::Function,
+                                        SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                    tokenBuffer.push_back(
-                        CreateSemanticTokenInfo(compileResult.GetLexContext(), decl.GetDeclarator()->declTok,
-                                                SemanticTokenType::Parameter, SemanticTokenModifier::Declaration));
+                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter,
+                                        SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
             {
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.IsIdentifier()) {
-                        tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), declarator.declTok,
-                                                                      SemanticTokenType::Variable,
-                                                                      SemanticTokenModifier::Declaration));
+                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable,
+                                            SemanticTokenModifier::Declaration);
                     }
                 }
             }
@@ -187,18 +179,15 @@ namespace glsld
             {
                 switch (expr.GetAccessType()) {
                 case NameAccessType::Function:
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), expr.GetAccessName(),
-                                                                  SemanticTokenType::Function));
+                    TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Function);
                     break;
                 case NameAccessType::Constructor:
-                    tokenBuffer.push_back(CreateSemanticTokenInfo(compileResult.GetLexContext(), expr.GetAccessName(),
-                                                                  SemanticTokenType::Type));
+                    TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Type);
                     break;
                 case NameAccessType::Variable:
                 case NameAccessType::Swizzle:
                     if (expr.GetAccessName().klass == TokenKlass::Identifier) {
-                        tokenBuffer.push_back(CreateSemanticTokenInfo(
-                            compileResult.GetLexContext(), expr.GetAccessName(), SemanticTokenType::Variable));
+                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable);
                     }
                     break;
                 case NameAccessType::Unknown:
@@ -206,16 +195,25 @@ namespace glsld
                     GLSLD_UNREACHABLE();
                 }
             }
+
+            auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
+                                     SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
+            {
+                if (compilerObject.GetLexContext().LookupFile(token.index) == 0) {
+                    tokenBuffer.push_back(
+                        CreateSemanticTokenInfo(compilerObject.GetLexContext(), token, type, modifier));
+                }
+            }
         };
 
-        AstSemanticTokenCollector{compileResult, tokenBuffer}.TraverseAst(compileResult.GetAstContext());
+        AstSemanticTokenCollector{compilerObject, tokenBuffer}.TraverseAst(compilerObject.GetAstContext());
     }
 
-    auto ComputeSemanticTokens(const CompilerObject& compileResult) -> lsp::SemanticTokens
+    auto ComputeSemanticTokens(const CompilerObject& compilerObject) -> lsp::SemanticTokens
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
-        CollectLexSemanticTokens(compileResult, tokenBuffer);
-        CollectAstSemanticTokens(compileResult, tokenBuffer);
+        CollectLexSemanticTokens(compilerObject, tokenBuffer);
+        CollectAstSemanticTokens(compilerObject, tokenBuffer);
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
             return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
         });

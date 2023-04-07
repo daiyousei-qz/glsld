@@ -235,10 +235,9 @@ namespace glsld
         static const auto cachedCompletionItems = []() {
             std::vector<lsp::CompletionItem> result;
 
-            // FIXME: Implement this
             // Builtins
-            // result = GenericCompletionCollector{GetDefaultLibraryModule()->GetCompileResult()}.Execute(
-            //     CompletionType::AllowExpr, TextPosition{}, true);
+            result = GenericCompletionCollector{*GetStandardLibraryModule()}.Execute(CompletionType::AllowExpr,
+                                                                                     TextPosition{}, true);
             // Keywords
             for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
                 result.push_back(lsp::CompletionItem{
@@ -320,28 +319,33 @@ namespace glsld
         return cachedCompletionItems[n];
     }
 
-    auto FindAccessChainExpr(const CompilerObject& compileResult, TextPosition editPosition) -> AstNameAccessExpr*
+    auto FindAccessChainExpr(const CompilerObject& compilerObject, TextPosition editPosition) -> AstNameAccessExpr*
     {
-        auto lastToken = compileResult.GetLexContext().FindTokenByTextPosition(editPosition);
+        auto lastToken = compilerObject.GetLexContext().FindTokenByTextPosition(editPosition);
         if (lastToken.klass == TokenKlass::Dot) {
-            return AccessChainExprFinder{compileResult}.Execute(lastToken);
+            return AccessChainExprFinder{compilerObject}.Execute(lastToken);
+        }
+        else if (lastToken.klass == TokenKlass::Identifier && lastToken.index > 0) {
+            if (compilerObject.GetLexContext().GetToken(lastToken.index - 1).klass == TokenKlass::Dot) {
+                return AccessChainExprFinder{compilerObject}.Execute(lastToken);
+            }
         }
 
         return nullptr;
     }
 
-    auto ComputeCompletion(const CompilerObject& compileResult, lsp::Position lspPosition)
+    auto ComputeCompletion(const CompilerObject& compilerObject, lsp::Position lspPosition)
         -> std::vector<lsp::CompletionItem>
     {
         auto editPosition = FromLspPosition(lspPosition);
 
         AstNameAccessExpr* nameAccessExpr = nullptr;
         CompletionType completionType     = CompletionType::None;
-        if ((nameAccessExpr = FindAccessChainExpr(compileResult, editPosition))) {
+        if ((nameAccessExpr = FindAccessChainExpr(compilerObject, editPosition))) {
             completionType = CompletionType::AccessChain;
         }
         else {
-            completionType = CompletionTypeDecider{compileResult}.Execute(editPosition);
+            completionType = CompletionTypeDecider{compilerObject}.Execute(editPosition);
         }
 
         std::vector<lsp::CompletionItem> result;
@@ -388,7 +392,7 @@ namespace glsld
                                      }
                                  });
 
-            std::ranges::copy(GenericCompletionCollector{compileResult}.Execute(completionType, editPosition, false),
+            std::ranges::copy(GenericCompletionCollector{compilerObject}.Execute(completionType, editPosition, false),
                               std::back_inserter(result));
         }
 

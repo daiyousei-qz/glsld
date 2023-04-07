@@ -1,10 +1,14 @@
 #pragma once
 #include "Common.h"
 #include "SyntaxToken.h"
+
+#include <chrono>
 #include <fmt/format.h>
 
 namespace glsld
 {
+#define GLSLD_DEBUG_COMPILER 1
+
 #if defined(GLSLD_DEBUG_COMPILER)
 
     enum class CompilerTraceSource
@@ -12,6 +16,7 @@ namespace glsld
         Lexer,
         Preprocessor,
         Parser,
+        Compiler,
     };
 
     template <typename... Ts>
@@ -28,19 +33,22 @@ namespace glsld
         case CompilerTraceSource::Parser:
             fmt::print(stderr, "[Parser] ");
             break;
+        case CompilerTraceSource::Compiler:
+            fmt::print(stderr, "[Compiler] ");
+            break;
         }
 
         fmt::print(stderr, fmt, std::forward<Ts>(args)...);
         fmt::print(stderr, "\n");
     }
 
-    inline auto TracePPTokenLexed(const PPTokenData& tok) -> void
+    inline auto TracePPTokenLexed(const PPToken& tok) -> void
     {
         EmitTraceMessage(CompilerTraceSource::Lexer, "Lexed token [{}]'{}'", TokenKlassToString(tok.klass),
                          tok.text.StrView());
     }
 
-    inline auto TraceLexTokenIssued(const PPTokenData& tok) -> void
+    inline auto TraceLexTokenIssued(const PPToken& tok) -> void
     {
         EmitTraceMessage(CompilerTraceSource::Preprocessor, "Issued token [{}]'{}'", TokenKlassToString(tok.klass),
                          tok.text.StrView());
@@ -62,47 +70,71 @@ namespace glsld
                          tok.text.StrView());
     }
 
-    inline auto TraceParserEnter(StringView name, std::initializer_list<TokenKlass> expect) -> void
-    {
-        EmitTraceMessage(CompilerTraceSource::Parser, "Entering parser {}", name);
-    }
-
-    inline auto TraceParserExit(StringView name) -> void
-    {
-        EmitTraceMessage(CompilerTraceSource::Parser, "Exiting parser {}", name);
-    }
-
     class ParserTrace
     {
     public:
         ParserTrace(StringView name, std::initializer_list<TokenKlass> expect) : name(name)
         {
-            TraceParserEnter(name, expect);
+            EmitTraceMessage(CompilerTraceSource::Parser, "Entering parser {}", name);
         }
         ~ParserTrace()
         {
-            TraceParserExit(name);
+            EmitTraceMessage(CompilerTraceSource::Parser, "Exiting parser {}", name);
         }
 
     private:
         StringView name;
     };
 
-#define TRACE_TOKEN_CONSUMED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
-#define TRACE_TOKEN_SKIPPED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
-#define TRACE_PARSER(...)                                                                                              \
-    ::glsld::ParserTrace glsld__parserTraceInstance                                                                    \
+    class CompileTimeTrace
+    {
+    public:
+        CompileTimeTrace(StringView name) : name(name), t0(std::chrono::steady_clock::now())
+        {
+        }
+        ~CompileTimeTrace()
+        {
+            auto t1       = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
+            EmitTraceMessage(CompilerTraceSource::Compiler, "Compile time of {}: {}ms", name, duration.count());
+        }
+
+    private:
+        using TimePoint = std::chrono::time_point<std::chrono::steady_clock>;
+        StringView name;
+        TimePoint t0;
+    };
+
+#define GLSLD_TRACE_OBJECT_NAME_AUX(NAME, LINE) glsld__##NAME##LINE
+#define GLSLD_TRACE_OBJECT_NAME(NAME) GLSLD_TRACE_OBJECT_NAME_AUX(NAME, __LINE__)
+
+#define GLSLD_TRACE_TOKEN_LEXED(TOKEN) ::glsld::TracePPTokenLexed(TOKEN)
+#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN) ::glsld::TraceLexTokenIssued(TOKEN)
+#define GLSLD_TRACE_ENTER_INCLUDE_FILE(PATH) ::glsld::TraceEnterIncludeFile(PATH)
+#define GLSLD_TRACE_EXIT_INCLUDE_FILE(PATH) ::glsld::TraceExitIncludeFile(PATH)
+#define GLSLD_TRACE_TOKEN_CONSUMED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
+#define GLSLD_TRACE_TOKEN_SKIPPED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
+#define GLSLD_TRACE_PARSER(...)                                                                                        \
+    ::glsld::ParserTrace GLSLD_TRACE_OBJECT_NAME(parserTraceObject)                                                    \
     {                                                                                                                  \
         __func__,                                                                                                      \
         {                                                                                                              \
             __VA_ARGS__                                                                                                \
         }                                                                                                              \
     }
-#define TRACE_PARSE_CONTEXT()
+#define GLSLD_TRACE_COMPILE_TIME(NAME)                                                                                 \
+    ::glsld::CompileTimeTrace GLSLD_TRACE_OBJECT_NAME(compileTimeTraceObject)                                          \
+    {                                                                                                                  \
+        NAME                                                                                                           \
+    }
 #else
-#define TRACE_TOKEN_CONSUMED(TOKEN)
-#define TRACE_TOKEN_SKIPPED(TOKEN)
-#define TRACE_PARSER(...)
-#define TRACE_PARSE_CONTEXT()
+#define GLSLD_TRACE_TOKEN_LEXED(TOKEN)
+#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN)
+#define GLSLD_TRACE_ENTER_INCLUDE_FILE(PATH)
+#define GLSLD_TRACE_EXIT_INCLUDE_FILE(PATH)
+#define GLSLD_TRACE_TOKEN_CONSUMED(TOKEN)
+#define GLSLD_TRACE_TOKEN_SKIPPED(TOKEN)
+#define GLSLD_TRACE_PARSER(...)
+#define GLSLD_TRACE_COMPILE_TIME(NAME)
 #endif
 } // namespace glsld

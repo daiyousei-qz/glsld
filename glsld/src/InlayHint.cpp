@@ -65,9 +65,9 @@ namespace glsld
         std::vector<lsp::InlayHint> result;
     };
 
-    auto ComputeInlayHint(const CompilerObject& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>
+    auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
-        return InlayHintVisitor{compileResult}.Execute(FromLspRange(range));
+        return InlayHintVisitor{compilerObject}.Execute(FromLspRange(range));
     }
 
 } // namespace glsld

@@ -19,6 +19,8 @@ namespace glsld
 
     struct CompilerConfig
     {
+        bool noStdLib = false;
+
         // Whether the compiler should skip tokens in the preamble.
         // The user preamble is defined as all tokens before any non-comment valid tokens in the main file.
         bool skipUserPreamble = false;
@@ -53,6 +55,10 @@ namespace glsld
         auto GetTypeContext() const noexcept -> const TypeContext&
         {
             return *typeContext;
+        }
+        auto GetSymbolTable() const noexcept -> const SymbolTable&
+        {
+            return *symbolTable;
         }
 
     private:
@@ -157,18 +163,21 @@ namespace glsld
 
         auto AddIncludePath(const std::filesystem::path& path) -> void
         {
+            // FIXME: Check if path is valid
             config.includePaths.push_back(path);
         }
 
         auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
 
-        auto Compile(StringView sourceText) -> void;
+        auto Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble = nullptr) -> void;
 
     private:
         bool compiled = false;
         int moduleId  = -1;
 
         CompilerConfig config;
+
+        std::shared_ptr<CompiledPreamble> preamble;
 
         std::unique_ptr<SourceContext> sourceContext;
         std::unique_ptr<DiagnosticContext> diagContext;
@@ -178,5 +187,7 @@ namespace glsld
         std::unique_ptr<TypeContext> typeContext;
         std::unique_ptr<SymbolTable> symbolTable;
     };
+
+    auto GetStandardLibraryModule() -> std::shared_ptr<CompiledPreamble>;
 
 } // namespace glsld

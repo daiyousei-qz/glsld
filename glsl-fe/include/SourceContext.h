@@ -3,10 +3,22 @@
 #include "StringView.h"
 #include "FileSystemProvider.h"
 
-#include <vector>
+#include <unordered_map>
 
 namespace glsld
 {
+    using FileID = int;
+
+    class SourceFileEntry
+    {
+    private:
+        FileID id;
+
+        std::string path;
+
+        const FileEntry* openedFileEntry;
+    };
+
     // This class manages views of all source files in a translation unit
     class SourceContext final
     {
@@ -28,17 +40,16 @@ namespace glsld
         auto operator=(const SourceContext&) -> SourceContext& = delete;
         auto operator=(SourceContext&&) -> SourceContext&      = delete;
 
-        auto GetSourceView(StringView headerName) -> std::optional<StringView>
+        //
+        auto GetSourceView(const std::string& headerPath) -> std::optional<StringView>
         {
-            auto uriStr = headerName.Str();
-
-            if (auto it = openedFileEntries.find(uriStr); it != openedFileEntries.end()) {
+            if (auto it = openedFileEntries.find(headerPath); it != openedFileEntries.end()) {
                 return StringView{it->second->GetData(), it->second->GetSize()};
             }
             else {
-                auto fileEntry = fileSystemProvider.Open(headerName);
+                auto fileEntry = fileSystemProvider.Open(headerPath);
                 if (fileEntry) {
-                    openedFileEntries.emplace(uriStr, fileEntry);
+                    openedFileEntries.emplace(headerPath, fileEntry);
                     return StringView{fileEntry->GetData(), fileEntry->GetSize()};
                 }
                 else {

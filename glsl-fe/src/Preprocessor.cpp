@@ -11,7 +11,7 @@ namespace glsld
     {
     public:
         PPTokenScanner() = default;
-        PPTokenScanner(const PPTokenData* tokBegin, const PPTokenData* tokEnd)
+        PPTokenScanner(const PPToken* tokBegin, const PPToken* tokEnd)
             : tokBegin(tokBegin), tokEnd(tokEnd), tokCursor(tokBegin)
         {
         }
@@ -26,12 +26,12 @@ namespace glsld
             return tokCursor == tokEnd;
         }
 
-        auto PeekToken() const noexcept -> const PPTokenData&
+        auto PeekToken() const noexcept -> const PPToken&
         {
             return *tokCursor;
         }
 
-        auto TryConsumeToken(TokenKlass klass) -> std::optional<PPTokenData>
+        auto TryConsumeToken(TokenKlass klass) -> std::optional<PPToken>
         {
             if (!CursorAtEnd() && tokCursor->klass == klass) {
                 return ConsumeToken();
@@ -40,7 +40,7 @@ namespace glsld
             return std::nullopt;
         }
 
-        auto TryConsumeToken(TokenKlass klass1, TokenKlass klass2) -> std::optional<PPTokenData>
+        auto TryConsumeToken(TokenKlass klass1, TokenKlass klass2) -> std::optional<PPToken>
         {
             if (!CursorAtEnd() && (tokCursor->klass == klass1 || tokCursor->klass == klass2)) {
                 return ConsumeToken();
@@ -49,18 +49,133 @@ namespace glsld
             return std::nullopt;
         }
 
-        auto ConsumeToken() -> PPTokenData
+        auto ConsumeToken() -> PPToken
         {
             return *tokCursor++;
         }
 
     private:
-        const PPTokenData* tokBegin  = nullptr;
-        const PPTokenData* tokEnd    = nullptr;
-        const PPTokenData* tokCursor = nullptr;
+        const PPToken* tokBegin  = nullptr;
+        const PPToken* tokEnd    = nullptr;
+        const PPToken* tokCursor = nullptr;
     };
 
-    auto Preprocessor::HandleDirective(const PPTokenData& directiveToken, ArrayView<PPTokenData> restTokens) -> void
+    auto Preprocessor::DispatchTokenToHandler(const PPToken& token) -> void
+    {
+        GLSLD_ASSERT(token.klass != TokenKlass::Comment);
+        switch (state) {
+        case PreprocessorState::Default:
+            AcceptOnDefaultState(token);
+            break;
+
+        case PreprocessorState::Inactive:
+            AcceptOnInactiveState(token);
+            break;
+
+        case PreprocessorState::ExpectDirective:
+            AcceptOnExpectDirectiveState(token);
+            break;
+
+        case PreprocessorState::ExpectDefaultDirectiveTail:
+        case PreprocessorState::ExpectIncludeDirectiveTail:
+            AcceptOnExpectDirectiveTailState(token);
+            break;
+        }
+    }
+
+    auto Preprocessor::AcceptOnDefaultState(const PPToken& token) -> void
+    {
+        if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+            state = PreprocessorState::ExpectDirective;
+        }
+        else if (token.klass == TokenKlass::Eof) {
+            macroExpansionProcessor.Finalize();
+            if (compilerObject.GetPreprocessContext().GetIncludeDepth() == 0) {
+                // We are done with the main file. Insert an EOF token.
+                compilerObject.GetLexContext().AddToken(fileId, token);
+            }
+        }
+        else {
+            macroExpansionProcessor.Feed(token);
+        }
+    }
+
+    auto Preprocessor::AcceptOnInactiveState(const PPToken& token) -> void
+    {
+        if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+            TransitionTo(PreprocessorState::ExpectDirective);
+        }
+        else if (token.klass == TokenKlass::Eof) {
+            // FIXME: Unterminated inactive region. Report error.
+        }
+        else {
+            // Ignore all other tokens since we are in an inactive region.
+        }
+    }
+
+    auto Preprocessor::AcceptOnExpectDirectiveState(const PPToken& token) -> void
+    {
+        if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
+            // Empty directive.
+            if (conditionalStack.empty() || conditionalStack.back().active) {
+                RedirectIncomingToken(PreprocessorState::Default, token);
+            }
+            else {
+                RedirectIncomingToken(PreprocessorState::Inactive, token);
+            }
+        }
+        else if (token.klass == TokenKlass::Identifier) {
+            // A PP directive parsed.
+            directiveToken = token;
+            if (conditionalStack.empty() || conditionalStack.back().active) {
+                if (directiveToken->text == "include") {
+                    TransitionTo(PreprocessorState::ExpectIncludeDirectiveTail);
+                }
+                else {
+                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                }
+            }
+            else {
+                if (directiveToken->text == "elif" || directiveToken->text == "else" ||
+                    directiveToken->text == "endif") {
+                    // These directives may change the state of the conditional stack.
+                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                }
+                else {
+                    // Other directives are not skipped in inactive regions.
+                    TransitionTo(PreprocessorState::Inactive);
+                    directiveToken = std::nullopt;
+                }
+            }
+        }
+        else {
+            // A bad directive.
+            TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+        }
+    }
+
+    auto Preprocessor::AcceptOnExpectDirectiveTailState(const PPToken& token) -> void
+    {
+        if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
+            // Finish processing the directive.
+            HandleDirective(*directiveToken, directiveArgBuffer);
+            directiveToken = std::nullopt;
+            directiveArgBuffer.clear();
+
+            // Redirect the token to the default state.
+            if (conditionalStack.empty() || conditionalStack.back().active) {
+                RedirectIncomingToken(PreprocessorState::Default, token);
+            }
+            else {
+                RedirectIncomingToken(PreprocessorState::Inactive, token);
+            }
+        }
+        else {
+            directiveArgBuffer.push_back(token);
+        }
+    }
+
+    auto Preprocessor::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
         PPTokenScanner scanner{restTokens.data(), restTokens.data() + restTokens.size()};
         if (directiveToken.text == "include") {
@@ -121,12 +236,12 @@ namespace glsld
 
             if (sourceText) {
                 // We create a new preprocessor and lexer to process the included file.
-                TraceEnterIncludeFile(headerName);
+                GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
                 compilerObject.GetPreprocessContext().EnterIncludeFile();
                 Preprocessor nextPP{compilerObject, 1};
                 Tokenizer{compilerObject, nextPP, *sourceText}.DoTokenize();
                 compilerObject.GetPreprocessContext().ExitIncludeFile();
-                TraceExitIncludeFile(headerName);
+                GLSLD_TRACE_EXIT_INCLUDE_FILE(headerName);
             }
             else {
                 // FIXME: report error, cannot find the header file
@@ -140,7 +255,7 @@ namespace glsld
     auto Preprocessor::HandleDefineDirective(PPTokenScanner& scanner) -> void
     {
         // Parse the macro name
-        PPTokenData macroName;
+        PPToken macroName;
         if (auto tok = scanner.TryConsumeToken(TokenKlass::Identifier); tok) {
             macroName = *tok;
         }
@@ -157,7 +272,7 @@ namespace glsld
 
         // Parse the macro parameters, if any
         bool isFunctionLike = false;
-        std::vector<PPTokenData> paramTokens;
+        std::vector<PPToken> paramTokens;
         if (scanner.PeekToken().klass == TokenKlass::LParen && !scanner.PeekToken().hasLeadingWhitespace) {
             isFunctionLike = true;
             scanner.ConsumeToken();
@@ -195,7 +310,7 @@ namespace glsld
         }
 
         // Parse the macro body
-        std::vector<PPTokenData> expansionTokens;
+        std::vector<PPToken> expansionTokens;
         while (!scanner.CursorAtEnd()) {
             expansionTokens.push_back(scanner.ConsumeToken());
         }
@@ -213,7 +328,7 @@ namespace glsld
     auto Preprocessor::HandleUndefDirective(PPTokenScanner& scanner) -> void
     {
         // Parse the macro name
-        PPTokenData macroName;
+        PPToken macroName;
         if (auto tok = scanner.TryConsumeToken(TokenKlass::Identifier); tok) {
             macroName = *tok;
         }
@@ -238,7 +353,7 @@ namespace glsld
     auto Preprocessor::HandleIfdefDirective(PPTokenScanner& scanner, bool isNDef) -> void
     {
         // Parse the macro name
-        PPTokenData macroName;
+        PPToken macroName;
         if (auto tok = scanner.TryConsumeToken(TokenKlass::Identifier); tok) {
             macroName = *tok;
         }

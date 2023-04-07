@@ -75,11 +75,11 @@ namespace glsld
     public:
         auto GetTypeDesc() const -> const Type*
         {
-            return typeDesc;
+            return definedType;
         }
         auto SetTypeDesc(const Type* typeDesc) -> void
         {
-            this->typeDesc = typeDesc;
+            this->definedType = typeDesc;
         }
 
         auto FindMemberDecl(const std::string& name) -> DeclView
@@ -100,19 +100,20 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            if (typeDesc && !typeDesc->GetDebugName().empty()) {
-                return fmt::format("Type={}", typeDesc->GetDebugName());
+            if (definedType && !definedType->GetDebugName().empty()) {
+                return fmt::format("Type={}", definedType->GetDebugName());
             }
             else {
-                return fmt::format("{}", static_cast<const void*>(typeDesc));
+                return fmt::format("{}", static_cast<const void*>(definedType));
             }
         }
 
     private:
         // Struct type that this decl introduces
-        const Type* typeDesc = nullptr;
+        const Type* definedType = nullptr;
 
-        std::map<std::string, DeclView> memberLookup;
+        // Lookup table for member declarations. Mapping from member name to declaration.
+        std::unordered_map<std::string, DeclView> memberLookup;
     };
 
     template <>
@@ -121,11 +122,11 @@ namespace glsld
     public:
         auto GetTypeDesc() -> const Type*
         {
-            return typeDesc;
+            return definedType;
         }
         auto SetTypeDesc(const Type* typeDesc) -> void
         {
-            this->typeDesc = typeDesc;
+            this->definedType = typeDesc;
         }
 
         auto FindMemberDecl(const std::string& name) -> DeclView
@@ -146,14 +147,15 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            return fmt::format("Type={}", TypeDescToString(typeDesc));
+            return fmt::format("Type={}", TypeDescToString(definedType));
         }
 
     private:
         // Struct type that this decl introduces
-        const Type* typeDesc = nullptr;
+        const Type* definedType = nullptr;
 
-        std::map<std::string, DeclView> memberLookup;
+        // Lookup table for member declarations. Mapping from member name to declaration.
+        std::unordered_map<std::string, DeclView> memberLookup;
     };
 
     template <>

@@ -10,18 +10,12 @@
 
 namespace glsld
 {
-    using FileID = int;
 
     class FileEntry
     {
     public:
-        FileEntry(FileID id, const char* data, size_t size) : id(id), data(data), size(size)
+        FileEntry(const char* data, size_t size) : data(data), size(size)
         {
-        }
-
-        auto GetID() const -> FileID
-        {
-            return id;
         }
 
         auto GetData() const -> const char*
@@ -35,8 +29,6 @@ namespace glsld
         }
 
     private:
-        FileID id;
-
         const char* data;
 
         size_t size;

@@ -2,16 +2,66 @@
 
 namespace glsld
 {
-    auto LexContext::AddToken(TokenKlass klass, TextRange range, LexString text) -> void
+    namespace
+    {
+        auto GetLanguageAtomTable() -> const AtomTable&
+        {
+            static AtomTable languageAtomTable = []() {
+                AtomTable result;
+
+#define DECL_KEYWORD(KEYWORD) result.GetAtom(#KEYWORD);
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+
+                return result;
+            }();
+
+            return languageAtomTable;
+        }
+
+        // Our lexer doesn't know about GLSL keywords and treats them as identifiers.
+        // So we have to fix the token class before adding it to the LexContext.
+        auto FixKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass
+        {
+            static std::unordered_map<AtomString, TokenKlass> keywordLookup = []() {
+                std::unordered_map<AtomString, TokenKlass> result;
+
+#define DECL_KEYWORD(KEYWORD) result[GetLanguageAtomTable().GetAtom(#KEYWORD)] = TokenKlass::K_##KEYWORD;
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+
+                return result;
+            }();
+
+            if (klass == TokenKlass::Identifier) {
+                if (auto it = keywordLookup.find(text); it != keywordLookup.end()) {
+                    return it->second;
+                }
+            }
+
+            return klass;
+        }
+
+    } // namespace
+
+    LexContext::LexContext()
+    {
+        atomTable.Import(GetLanguageAtomTable());
+    }
+    LexContext::~LexContext()
+    {
+    }
+
+    auto LexContext::AddToken(FileID fileID, const PPToken& token) -> void
     {
         GLSLD_ASSERT(tokens.empty() || tokens.back().klass != TokenKlass::Eof);
 
-        if (klass != TokenKlass::Comment) {
+        if (token.klass != TokenKlass::Comment) {
             tokens.push_back(RawSyntaxToken{
-                .file  = 0,
-                .klass = FixKeywordTokenKlass(klass, text),
-                .text  = text,
-                .range = range,
+                .file  = fileID,
+                .klass = FixKeywordTokenKlass(token.klass, token.text),
+                .text  = token.text,
+                .range = token.range,
             });
         }
     }
@@ -85,23 +135,5 @@ namespace glsld
                 tokens[range.startTokenIndex].range.start,
             };
         }
-    }
-
-    auto LexContext::InitializeKeywordLookup() -> void
-    {
-#define DECL_KEYWORD(KEYWORD) keywordLookup[GetLexString(#KEYWORD)] = TokenKlass::K_##KEYWORD;
-#include "GlslKeywords.inc"
-#undef DECL_KEYWORD
-    }
-
-    auto LexContext::FixKeywordTokenKlass(TokenKlass klass, LexString text) const noexcept -> TokenKlass
-    {
-        if (klass == TokenKlass::Identifier) {
-            if (auto it = keywordLookup.find(text); it != keywordLookup.end()) {
-                return it->second;
-            }
-        }
-
-        return klass;
     }
 } // namespace glsld

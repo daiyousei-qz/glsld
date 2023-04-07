@@ -1,7 +1,7 @@
 #pragma once
 #include "Common.h"
 #include "SyntaxToken.h"
-#include "SourceView.h"
+#include "SourceInfo.h"
 #include "SourceScanner.h"
 #include "Preprocessor.h"
 
@@ -23,18 +23,8 @@ namespace glsld
         auto DoTokenize() -> void;
 
     private:
-        auto GetCurrentPPToken() const noexcept -> const PPTokenData&
-        {
-            return currentToken;
-        }
-
-        // Loads the next token into variable `currentToken`.
-        // Returns true if the token loaded is the first token in a new line.
-        auto LoadNextPPToken() -> void;
-
-        auto HandlePreprocessor(const PPTokenData& directiveToken, ArrayView<PPTokenData> restTokens) -> void;
-        auto HandleRegularToken(const PPTokenData& token) -> void;
-        auto HandleEofToken() -> void;
+        // Lex the next PP token from the scanner.
+        auto LexPPToken() -> PPToken;
 
         // Assuming we are seeing "//", parse the line comment and return the token klass.
         auto ParseLineComment() -> TokenKlass;
@@ -52,10 +42,7 @@ namespace glsld
 
         Preprocessor& preprocessor;
 
-        SourceScanner srcView;
-
-        // Current PP token that's lexed.
-        PPTokenData currentToken;
+        SourceScanner srcScanner;
 
         std::vector<char> tokenTextBuffer;
     };

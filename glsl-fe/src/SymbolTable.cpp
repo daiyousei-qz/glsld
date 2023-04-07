@@ -4,8 +4,7 @@ namespace glsld
 {
     auto SymbolTable::AddFunction(AstFunctionDecl& decl) -> void
     {
-        GLSLD_ASSERT(levels.size() == 1);
-
+        GLSLD_ASSERT(parent == nullptr);
         if (decl.GetName().klass != TokenKlass::Identifier) {
             return;
         }
@@ -150,13 +149,14 @@ namespace glsld
 
     auto SymbolTable::FindSymbol(const std::string& name) const -> DeclView
     {
-        GLSLD_ASSERT(!levels.empty());
-        for (const auto& level : levels | std::views::reverse) {
-            if (auto it = level.declLookup.find(name); it != level.declLookup.end()) {
-                return it->second;
-            }
+        if (auto it = declLookup.find(name); it != declLookup.end()) {
+            return it->second;
         }
-
-        return DeclView{};
+        else if (parent) {
+            return parent->FindSymbol(name);
+        }
+        else {
+            return DeclView{};
+        }
     }
 } // namespace glsld

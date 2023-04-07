@@ -6,7 +6,7 @@ namespace glsld
     auto Parser::DoParse() -> void
     {
         GLSLD_ASSERT(compilerObject.GetLexContext().IsFinalized());
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         while (!Eof()) {
             compilerObject.GetAstContext().AddGlobalDecl(ParseDeclAndTryRecover());
@@ -90,7 +90,7 @@ namespace glsld
 #pragma region Parsing QualType
     auto Parser::ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_layout));
 
@@ -127,7 +127,7 @@ namespace glsld
 
     auto Parser::ParseTypeQualifiers() -> AstTypeQualifierSeq*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
         QualifierGroup qualifiers;
@@ -241,7 +241,7 @@ namespace glsld
 
     auto Parser::ParseStructBody() -> std::vector<AstStructMemberDecl*>
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
         ConsumeToken();
@@ -296,7 +296,7 @@ namespace glsld
 
     auto Parser::ParseStructDefinition() -> AstStructDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_struct));
         auto beginTokIndex = GetTokenIndex();
@@ -323,7 +323,7 @@ namespace glsld
 
     auto Parser::ParseArraySpec() -> AstArraySpec*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(PeekToken().klass == TokenKlass::LBracket);
         auto beginTokIndex = GetTokenIndex();
@@ -351,7 +351,7 @@ namespace glsld
 
     auto Parser::ParseType(AstTypeQualifierSeq* quals) -> AstQualType*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         // The range of AstQualType should be at the start of AstTypeQualifierSeq
         auto beginTokIndex = quals ? quals->GetRange().startTokenIndex : GetTokenIndex();
@@ -383,7 +383,7 @@ namespace glsld
 
     auto Parser::ParseQualType() -> AstQualType*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto qualifiers = ParseTypeQualifiers();
         return ParseType(qualifiers);
@@ -395,7 +395,7 @@ namespace glsld
 
     auto Parser::ParseDeclaration() -> AstDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -504,7 +504,7 @@ namespace glsld
 
     auto Parser::ParseDeclarator() -> VariableDeclarator
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
 
@@ -527,7 +527,7 @@ namespace glsld
 
     auto Parser::ParseDeclaratorList() -> std::vector<VariableDeclarator>
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         std::vector<VariableDeclarator> result;
         while (TryTestToken(TokenKlass::Identifier)) {
@@ -543,7 +543,7 @@ namespace glsld
 
     auto Parser::ParseFunctionParamList() -> std::vector<AstParamDecl*>
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
@@ -593,7 +593,7 @@ namespace glsld
 
     auto Parser::ParseFunctionDecl(size_t beginTokIndex, AstQualType* returnType) -> AstDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         // Parse function name
         auto declTok = ParseDeclIdHelper();
@@ -623,7 +623,7 @@ namespace glsld
 
     auto Parser::ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier));
 
@@ -643,7 +643,7 @@ namespace glsld
 
     auto Parser::ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         // Parse interface block name
         GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier, TokenKlass::LBrace));
@@ -670,7 +670,7 @@ namespace glsld
 
     auto Parser::ParsePrecisionDecl() -> AstDecl*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_NO_IMPL();
     }
@@ -807,7 +807,7 @@ namespace glsld
 
     auto Parser::ParseCommaExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
         auto lhsResult     = ParseAssignmentExpr();
@@ -823,7 +823,7 @@ namespace glsld
 
     auto Parser::ParseAssignmentExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
         auto lhsResult     = ParseUnaryExpr();
@@ -846,7 +846,7 @@ namespace glsld
 
     auto Parser::ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto predicateOrExprResult = ParseBinaryExpr(beginTokIndex, firstTerm, 0);
 
@@ -874,7 +874,7 @@ namespace glsld
 
     auto Parser::ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto lhs = firstTerm;
         while (true) {
@@ -913,7 +913,7 @@ namespace glsld
 
     auto Parser::ParseUnaryExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto unaryOp = GetPrefixUnaryOpDesc(PeekToken().klass);
         if (unaryOp) {
@@ -930,7 +930,7 @@ namespace glsld
 
     auto Parser::ParsePostfixExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1004,7 +1004,7 @@ namespace glsld
 
     auto Parser::ParsePrimaryExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1033,7 +1033,7 @@ namespace glsld
 
     auto Parser::ParseParenWrappedExpr() -> AstExpr*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
@@ -1050,7 +1050,7 @@ namespace glsld
 
     auto Parser::ParseFunctionArgumentList() -> std::vector<AstExpr*>
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
@@ -1088,7 +1088,7 @@ namespace glsld
 
     auto Parser::ParseStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
@@ -1141,7 +1141,7 @@ namespace glsld
 
     auto Parser::ParseCompoundStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1171,7 +1171,7 @@ namespace glsld
 
     auto Parser::ParseSelectionStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1203,7 +1203,7 @@ namespace glsld
 
     auto Parser::ParseForStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1258,7 +1258,7 @@ namespace glsld
 
     auto Parser::ParseDoWhileStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1286,7 +1286,7 @@ namespace glsld
 
     auto Parser::ParseWhileStmt() -> AstStmt*
     {
-        TRACE_PARSER(TokenKlass::K_while);
+        GLSLD_TRACE_PARSER(TokenKlass::K_while);
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1308,7 +1308,7 @@ namespace glsld
 
     auto Parser::ParseLabelStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
         auto beginTokIndex = GetTokenIndex();
 
         AstExpr* caseExpr = nullptr;
@@ -1333,7 +1333,7 @@ namespace glsld
 
     auto Parser::ParseSwitchStmt() -> AstStmt*
     {
-        TRACE_PARSER(TokenKlass::K_switch);
+        GLSLD_TRACE_PARSER(TokenKlass::K_switch);
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1357,7 +1357,7 @@ namespace glsld
 
     auto Parser::ParseJumpStmt() -> AstStmt*
     {
-        TRACE_PARSER(TokenKlass::K_break, TokenKlass::K_continue, TokenKlass::K_discard, TokenKlass::K_return);
+        GLSLD_TRACE_PARSER(TokenKlass::K_break, TokenKlass::K_continue, TokenKlass::K_discard, TokenKlass::K_return);
 
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
@@ -1391,7 +1391,7 @@ namespace glsld
 
     auto Parser::ParseExprStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1406,7 +1406,7 @@ namespace glsld
 
     auto Parser::ParseDeclOrExprStmt() -> AstStmt*
     {
-        TRACE_PARSER();
+        GLSLD_TRACE_PARSER();
 
         // FIXME: infer expression statement more aggressively
         auto beginTokIndex = GetTokenIndex();

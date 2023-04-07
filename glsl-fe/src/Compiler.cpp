@@ -54,31 +54,36 @@ namespace glsld
         return std::move(result);
     }
 
-    auto CompilerObject::Compile(StringView sourceText) -> void
+    auto CompilerObject::Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble) -> void
     {
         // Initialize context for compilation
-        moduleId      = GetNextCompileId();
-        sourceContext = std::make_unique<SourceContext>(GetFileSystemProvider());
-        diagContext   = std::make_unique<DiagnosticContext>();
-        lexContext    = std::make_unique<LexContext>();
-        ppContext     = std::make_unique<PreprocessContext>();
-        astContext    = std::make_unique<AstContext>();
-        typeContext   = std::make_unique<TypeContext>();
+        this->moduleId      = GetNextCompileId();
+        this->preamble      = std::move(preamble);
+        this->sourceContext = std::make_unique<SourceContext>(GetFileSystemProvider());
+        this->diagContext   = std::make_unique<DiagnosticContext>();
+        this->lexContext    = std::make_unique<LexContext>();
+        this->ppContext     = std::make_unique<PreprocessContext>();
+        this->astContext    = std::make_unique<AstContext>();
+        this->typeContext   = std::make_unique<TypeContext>();
 
         // Lexing
         {
+            GLSLD_TRACE_COMPILE_TIME("Lexing");
             Preprocessor pp{*this, 0};
             Tokenizer{*this, pp, sourceText}.DoTokenize();
         }
 
         // Parsing
         {
+            GLSLD_TRACE_COMPILE_TIME("Parsing");
             Parser{*this}.DoParse();
         }
 
         // Type checking
         {
-            TypeChecker{*this}.TypeCheck(nullptr);
+            GLSLD_TRACE_COMPILE_TIME("TypeChecking");
+            this->symbolTable =
+                TypeChecker{*this}.TypeCheck(this->preamble ? this->preamble->symbolTable.get() : nullptr);
         }
 
 #if defined(GLSLD_DEBUG)

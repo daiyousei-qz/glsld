@@ -5,7 +5,7 @@
 namespace glsld
 {
     // array sizes
-    class MSVC_EMPTY_BASES AstArraySpec : public AstNodeBase, public AstPayload<AstArraySpec>
+    class AstArraySpec : public AstImpl<AstArraySpec>
     {
     public:
         AstArraySpec()
@@ -44,7 +44,7 @@ namespace glsld
         AstExpr* value;
     };
 
-    class MSVC_EMPTY_BASES AstTypeQualifierSeq : public AstNodeBase, public AstPayload<AstTypeQualifierSeq>
+    class AstTypeQualifierSeq : public AstImpl<AstTypeQualifierSeq>
     {
     public:
         AstTypeQualifierSeq(QualifierGroup quals, std::vector<LayoutItem> layoutQuals)
@@ -77,7 +77,7 @@ namespace glsld
         std::vector<LayoutItem> layoutQuals;
     };
 
-    class MSVC_EMPTY_BASES AstQualType : public AstNodeBase, public AstPayload<AstQualType>
+    class AstQualType : public AstImpl<AstQualType>
     {
     public:
         AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName, AstArraySpec* arraySpec)
@@ -133,41 +133,41 @@ namespace glsld
         AstStructDecl* structDecl = nullptr;
     };
 
-    class MSVC_EMPTY_BASES AstDeclarator : public AstNodeBase, public AstPayload<AstDeclarator>
-    {
-    public:
-        auto GetDeclToken() -> SyntaxToken
-        {
-            return declTok;
-        }
-        auto GetArraySpec() -> AstArraySpec*
-        {
-            return arraySpec;
-        }
-        auto GetInitializer() -> AstExpr*
-        {
-            return initializer;
-        }
+    // class AstDeclarator : public AstImpl<AstDeclarator>
+    // {
+    // public:
+    //     auto GetDeclToken() -> SyntaxToken
+    //     {
+    //         return declTok;
+    //     }
+    //     auto GetArraySpec() -> AstArraySpec*
+    //     {
+    //         return arraySpec;
+    //     }
+    //     auto GetInitializer() -> AstExpr*
+    //     {
+    //         return initializer;
+    //     }
 
-        template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) -> void
-        {
-            visitor.Traverse(arraySpec);
-            visitor.Traverse(initializer);
-        }
+    //     template <AstVisitorT Visitor>
+    //     auto Traverse(Visitor& visitor) -> void
+    //     {
+    //         visitor.Traverse(arraySpec);
+    //         visitor.Traverse(initializer);
+    //     }
 
-        auto DumpNodeData() const -> std::string
-        {
-            return fmt::format("DeclToken: {}", declTok.text.StrView());
-        }
+    //     auto DumpNodeData() const -> std::string
+    //     {
+    //         return fmt::format("DeclToken: {}", declTok.text.StrView());
+    //     }
 
-    private:
-        SyntaxToken declTok;
-        AstArraySpec* arraySpec;
-        AstExpr* initializer;
-    };
+    // private:
+    //     SyntaxToken declTok;
+    //     AstArraySpec* arraySpec;
+    //     AstExpr* initializer;
+    // };
 
-    class MSVC_EMPTY_BASES AstInitializerList final : public AstNodeBase, public AstPayload<AstInitializerList>
+    class AstInitializerList final : public AstImpl<AstInitializerList>
     {
     public:
         AstInitializerList(std::vector<AstNodeBase*> items) : items(items)

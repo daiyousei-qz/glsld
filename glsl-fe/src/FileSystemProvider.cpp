@@ -28,8 +28,7 @@ namespace glsld
 
         file.close();
 
-        static std::atomic<int> lastFileID = 0;
-        return new FileEntry{++lastFileID, data, size};
+        return new FileEntry{data, size};
     }
     auto DefaultFileSystemProvider::Close(const FileEntry* fileEntry) -> void
     {

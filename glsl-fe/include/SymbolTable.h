@@ -14,19 +14,9 @@ namespace glsld
     public:
         SymbolTable()
         {
-            PushScope();
         }
-
-        auto PushScope() -> void
+        SymbolTable(const SymbolTable* parent) : parent(parent)
         {
-            levels.push_back(SymbolTableLevel{});
-        }
-
-        auto PopScope() -> void
-        {
-            // global scope cannot be popped
-            GLSLD_ASSERT(levels.size() > 1);
-            levels.pop_back();
         }
 
         // Add a function declaration to the symbol table
@@ -55,15 +45,13 @@ namespace glsld
         // FIXME: avoid allocation
         auto TryAddSymbol(SyntaxToken declToken, AstDecl& decl) -> bool
         {
-            GLSLD_ASSERT(!levels.empty());
-
             // FIXME: avoid string allocation
             auto name = declToken.text.Str();
             if (name.empty()) {
                 return false;
             }
 
-            auto& entry = levels.back().declLookup[std::move(name)];
+            auto& entry = declLookup[std::move(name)];
             if (!entry.IsValid()) {
                 entry = DeclView{&decl};
                 return true;
@@ -79,12 +67,9 @@ namespace glsld
             AstFunctionDecl* decl;
         };
 
-        struct SymbolTableLevel
-        {
-            std::unordered_map<std::string, DeclView> declLookup;
-        };
+        const SymbolTable* parent = nullptr;
 
         std::unordered_multimap<std::string, FunctionEntry> funcDeclLookup;
-        std::vector<SymbolTableLevel> levels;
+        std::unordered_map<std::string, DeclView> declLookup;
     };
 } // namespace glsld

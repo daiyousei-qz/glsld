@@ -9,29 +9,27 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(const CompilerObject& compileResult) -> std::vector<lsp::DocumentSymbol>;
+    auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>;
 
     auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(const CompilerObject& compileResult) -> lsp::SemanticTokens;
-    auto ComputeSemanticTokensDelta(const CompilerObject& compileResult) -> lsp::SemanticTokensDelta;
+    auto ComputeSemanticTokens(const CompilerObject& compilerObject) -> lsp::SemanticTokens;
+    auto ComputeSemanticTokensDelta(const CompilerObject& compilerObject) -> lsp::SemanticTokensDelta;
 
-    auto ComputeCompletion(const CompilerObject& compileResult, lsp::Position position)
+    auto ComputeCompletion(const CompilerObject& compilerObject, lsp::Position position)
         -> std::vector<lsp::CompletionItem>;
 
-    auto ComputeSignatureHelp(const CompilerObject& compileResult, lsp::Position position)
+    auto ComputeSignatureHelp(const CompilerObject& compilerObject, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>;
 
-    auto ComputeHover(const CompilerObject& compileResult, lsp::Position position) -> std::optional<lsp::Hover>;
+    auto ComputeHover(const CompilerObject& compilerObject, lsp::Position position) -> std::optional<lsp::Hover>;
 
     // we assume single source file for now
-    auto ComputeDeclaration(const CompilerObject& compileResult, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>;
 
-    auto ComputeInlayHint(const CompilerObject& compileResult, lsp::Range range) -> std::vector<lsp::InlayHint>;
+    auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>;
 
-    auto ComputeDocumentColor(const CompilerObject& compileResult) -> std::vector<lsp::ColorInformation>;
-
-    auto GetDefaultLibraryModule() -> std::shared_ptr<CompiledPreamble>;
+    auto ComputeDocumentColor(const CompilerObject& compilerObject) -> std::vector<lsp::ColorInformation>;
 
     class IntellisenseProvider
     {
@@ -43,10 +41,9 @@ namespace glsld
 
         auto Setup()
         {
-            // compileResult = Compile(sourceString, GetDefaultLibraryModule());
             compilerObject = std::make_unique<CompilerObject>();
             compilerObject->AddIncludePath("e:/Project/glsld/.vscode/");
-            compilerObject->Compile(sourceString);
+            compilerObject->Compile(sourceString, GetStandardLibraryModule());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

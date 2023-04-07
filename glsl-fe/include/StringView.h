@@ -178,19 +178,19 @@ namespace glsld
             return data.data();
         }
 
-        [[nodiscard]] constexpr auto begin() noexcept
+        [[nodiscard]] constexpr auto begin() noexcept -> Iterator
         {
             return data.begin();
         }
-        [[nodiscard]] constexpr auto begin() const noexcept
+        [[nodiscard]] constexpr auto begin() const noexcept -> ConstIterator
         {
             return data.begin();
         }
-        [[nodiscard]] constexpr auto end() noexcept
+        [[nodiscard]] constexpr auto end() noexcept -> Iterator
         {
             return data.end();
         }
-        [[nodiscard]] constexpr auto end() const noexcept
+        [[nodiscard]] constexpr auto end() const noexcept -> ConstIterator
         {
             return data.end();
         }

@@ -14,23 +14,13 @@ namespace glsld
     class LexContext
     {
     public:
-        LexContext()
-        {
-            InitializeKeywordLookup();
-        }
-
-        ~LexContext()
-        {
-            for (StringView s : atomTable) {
-                delete[] s.Data();
-            }
-        }
+        LexContext();
+        ~LexContext();
 
         LexContext(const LexContext&)                    = delete;
         auto operator=(const LexContext&) -> LexContext& = delete;
-
-        LexContext(LexContext&&)                    = default;
-        auto operator=(LexContext&&) -> LexContext& = default;
+        LexContext(LexContext&&)                         = delete;
+        auto operator=(LexContext&&) -> LexContext&      = delete;
 
         // If the context is finalized, no more tokens/macros can be added
         auto IsFinalized() const noexcept -> bool
@@ -42,8 +32,8 @@ namespace glsld
             return false;
         }
 
-        // Add a new token to the context
-        auto AddToken(TokenKlass klass, TextRange range, LexString lexText) -> void;
+        // Add a new token to the token stream of this translation unit.
+        auto AddToken(FileID fileID, const PPToken& token) -> void;
 
         // Get a syntax token by index
         auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
@@ -71,6 +61,12 @@ namespace glsld
         // Both token A should be returned
         auto FindTokenByTextPosition(TextPosition position) const -> SyntaxToken;
 
+        auto LookupFile(SyntaxTokenIndex tokIndex) const -> FileID
+        {
+            GLSLD_ASSERT(tokIndex < tokens.size());
+            return tokens[tokIndex].file;
+        }
+
         // Compute the text range of the token with the given index
         auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange;
 
@@ -89,35 +85,14 @@ namespace glsld
             return tokens[range.endTokenIndex].range.end;
         }
 
-        // Get the LexString of the given text in the atom table.
-        auto GetLexString(StringView text) -> LexString
+        // Get the AtomString of the given text in the atom table.
+        auto GetLexString(StringView text) -> AtomString
         {
-            LexString atom;
-            if (auto it = atomTable.find(text); it != atomTable.end()) {
-                atom = LexString{it->Data()};
-            }
-            else {
-                char* data = new char[text.Size() + 1];
-                std::ranges::copy(text.StdStrView(), data);
-                data[text.Size()] = '\0';
-
-                atom = LexString{atomTable.insert(StringView(data, text.Size() + 1)).first->Data()};
-            }
-
-            return atom;
+            return atomTable.GetAtom(text);
         }
 
     private:
-        auto InitializeKeywordLookup() -> void;
-        auto FixKeywordTokenKlass(TokenKlass klass, LexString text) const noexcept -> TokenKlass;
-
-        // This StringView actually owns the string data, so we need to delete it when the context is destroyed
-        // FIXME: optimize memory layout
-        std::unordered_set<StringView> atomTable;
-
-        // Lookup table for keywords. This is needed because our tokenizer only recognizes identifiers.
-        // We need to fix up the token kind for keywords during token registration.
-        std::unordered_map<LexString, TokenKlass> keywordLookup;
+        AtomTable atomTable;
 
         // The token stream that is lexed from the source text, including from included files and macro expansion.
         std::vector<RawSyntaxToken> tokens;
