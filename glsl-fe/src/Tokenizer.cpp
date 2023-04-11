@@ -8,8 +8,9 @@
 
 namespace glsld
 {
-    Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, StringView sourceText)
-        : compilerObject(compilerObject), preprocessor(preprocessor)
+    Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile,
+                         StringView sourceText)
+        : compilerObject(compilerObject), preprocessor(preprocessor), sourceFile(sourceFile)
     {
         srcScanner = SourceScanner{sourceText.Data(), sourceText.Data() + sourceText.Size()};
     }
@@ -46,11 +47,14 @@ namespace glsld
 
         if (srcScanner.CursorAtEnd()) {
             // NOTE we always regard an EOF in a new line
-            return PPToken{.klass                = TokenKlass::Eof,
-                           .isFirstTokenOfLine   = true,
-                           .hasLeadingWhitespace = true,
-                           .text                 = {},
-                           .range                = {srcScanner.GetTextPosition(), srcScanner.GetTextPosition()}};
+            return PPToken{
+                .klass                = TokenKlass::Eof,
+                .spelledFile          = sourceFile,
+                .spelledRange         = TextRange{srcScanner.GetTextPosition()},
+                .text                 = {},
+                .isFirstTokenOfLine   = true,
+                .hasLeadingWhitespace = true,
+            };
         }
 
         tokenTextBuffer.clear();
@@ -78,10 +82,11 @@ namespace glsld
 
         return PPToken{
             .klass                = klass,
+            .spelledFile          = sourceFile,
+            .spelledRange         = TextRange{beginPos, endPos},
+            .text                 = text,
             .isFirstTokenOfLine   = skippedNewLine,
             .hasLeadingWhitespace = skippedWhitespace,
-            .text                 = text,
-            .range                = TextRange{beginPos, endPos},
         };
     }
 

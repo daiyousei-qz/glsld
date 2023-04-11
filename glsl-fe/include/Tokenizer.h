@@ -15,7 +15,7 @@ namespace glsld
     class Tokenizer final
     {
     public:
-        Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, StringView sourceText);
+        Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile, StringView sourceText);
 
         // Tokenize the source file and register tokens into the LexContext.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
@@ -41,6 +41,8 @@ namespace glsld
         CompilerObject& compilerObject;
 
         Preprocessor& preprocessor;
+
+        FileID sourceFile;
 
         SourceScanner srcScanner;
 

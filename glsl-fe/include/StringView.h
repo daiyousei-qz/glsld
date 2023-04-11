@@ -195,6 +195,11 @@ namespace glsld
             return data.end();
         }
 
+        auto GetHashCode() const noexcept -> size_t
+        {
+            return std::hash<std::string_view>{}(data);
+        }
+
         constexpr explicit operator std::string() const noexcept
         {
             return std::string{data};
@@ -226,23 +231,6 @@ namespace glsld
     }
 
 } // namespace glsld
-
-namespace std
-{
-    template <>
-    struct hash<glsld::StringView>
-    {
-        [[nodiscard]] auto operator()(const glsld::StringView& key) const noexcept -> size_t
-        {
-            return hash<std::string_view>{}(key.StdStrView());
-        }
-    };
-
-    // template <>
-    // inline constexpr bool ranges::enable_borrowed_range<glsld::StringView> = true;
-    // template <>
-    // inline constexpr bool ranges::enable_view<glsld::StringView> = true;
-} // namespace std
 
 template <>
 struct fmt::formatter<glsld::StringView>

@@ -54,8 +54,9 @@ namespace glsld
     private:
         auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> void
         {
-            if (token.IsIdentifier() && GetLexContext().LookupFile(token.index) == 0) {
-                auto tokRange = ToLspRange(GetLexContext().LookupTextRange(token));
+            if (token.IsIdentifier() &&
+                GetLexContext().LookupSpelledFile(token) == GetSourceContext().GetMainFile()->GetID()) {
+                auto tokRange = ToLspRange(GetLexContext().LookupSpelledTextRange(token));
                 result.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),
                     .kind           = kind,

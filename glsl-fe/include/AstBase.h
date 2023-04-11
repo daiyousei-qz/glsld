@@ -226,7 +226,7 @@ namespace glsld
         {
             return range.endTokenIndex - range.startTokenIndex;
         }
-        auto GetRange() const noexcept -> SyntaxTokenRange
+        auto GetSyntaxRange() const noexcept -> AstSyntaxRange
         {
             return range;
         }
@@ -257,7 +257,7 @@ namespace glsld
         friend class AstContext;
 
         // This should be correctly called by AstContext during the construction of the node
-        auto Initialize(AstNodeTag tag, int moduleId, SyntaxTokenRange range) -> void
+        auto Initialize(AstNodeTag tag, int moduleId, AstSyntaxRange range) -> void
         {
             this->tag      = tag;
             this->moduleId = moduleId;
@@ -271,7 +271,7 @@ namespace glsld
         int moduleId = -1;
 
         // A range of ids that identifies syntax tokens that form this Ast node
-        SyntaxTokenRange range = {};
+        AstSyntaxRange range = {};
     };
 
     // An observing pointer into a declaration, including an index of declarator.

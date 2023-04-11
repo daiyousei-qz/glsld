@@ -1,18 +1,16 @@
 #pragma once
+#include "PPCallback.h"
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
-#include "Compiler.h"
 #include "SourceText.h"
-
-#include <mutex>
-#include <condition_variable>
+#include "IntellisenseProvider.h"
 
 namespace glsld
 {
     auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>;
 
     auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(const CompilerObject& compilerObject) -> lsp::SemanticTokens;
+    auto ComputeSemanticTokens(const IntellisenseProvider& provider) -> lsp::SemanticTokens;
     auto ComputeSemanticTokensDelta(const CompilerObject& compilerObject) -> lsp::SemanticTokensDelta;
 
     auto ComputeCompletion(const CompilerObject& compilerObject, lsp::Position position)
@@ -30,69 +28,6 @@ namespace glsld
     auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>;
 
     auto ComputeDocumentColor(const CompilerObject& compilerObject) -> std::vector<lsp::ColorInformation>;
-
-    class IntellisenseProvider
-    {
-    public:
-        IntellisenseProvider(int version, std::string sourceString)
-            : version(version), sourceString(std::move(sourceString))
-        {
-        }
-
-        auto Setup()
-        {
-            compilerObject = std::make_unique<CompilerObject>();
-            compilerObject->AddIncludePath("e:/Project/glsld/.vscode/");
-            compilerObject->Compile(sourceString, GetStandardLibraryModule());
-
-            std::unique_lock<std::mutex> lock{mu};
-            available = true;
-            cv.notify_all();
-        }
-
-        auto WaitAvailable() -> bool
-        {
-            using namespace std::literals;
-            std::unique_lock<std::mutex> lock{mu};
-            if (available || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
-                return available;
-            }
-
-            return false;
-        }
-
-        auto StealBuffer() -> std::string
-        {
-            std::unique_lock<std::mutex> lock{mu};
-            if (available) {
-                // After compilation finishes, the sourceString buffer is no longer needed
-                return std::move(sourceString);
-            }
-            else {
-                return sourceString;
-            }
-        }
-
-        auto GetSourceString() const -> const std::string&
-        {
-            return sourceString;
-        }
-
-        auto GetCompilerObject() const -> const CompilerObject&
-        {
-            GLSLD_ASSERT(available);
-            return *compilerObject;
-        }
-
-    private:
-        int version;
-        std::string sourceString;
-        std::unique_ptr<CompilerObject> compilerObject;
-
-        std::atomic<bool> available = false;
-        std::mutex mu;
-        std::condition_variable cv;
-    };
 
     class LanguageService
     {
@@ -219,7 +154,7 @@ namespace glsld
             if (provider != nullptr) {
                 ScheduleTask([this, requestId, provider = std::move(provider)] {
                     if (provider->WaitAvailable()) {
-                        lsp::SemanticTokens result = ComputeSemanticTokens(provider->GetCompilerObject());
+                        lsp::SemanticTokens result = ComputeSemanticTokens(*provider);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });

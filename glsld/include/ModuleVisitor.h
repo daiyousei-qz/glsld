@@ -11,11 +11,13 @@ namespace glsld
     {
     public:
         ModuleVisitor(const CompilerObject& compilerObject)
-            : lexContext(compilerObject.GetLexContext()), astContext(compilerObject.GetAstContext())
+            : sourceContext(compilerObject.GetSourceContext()), lexContext(compilerObject.GetLexContext()),
+              astContext(compilerObject.GetAstContext())
         {
         }
         ModuleVisitor(const CompiledPreamble& compiledPreamble)
-            : lexContext(compiledPreamble.GetLexContext()), astContext(compiledPreamble.GetAstContext())
+            : sourceContext(compiledPreamble.GetSourceContext()), lexContext(compiledPreamble.GetLexContext()),
+              astContext(compiledPreamble.GetAstContext())
         {
         }
 
@@ -27,6 +29,11 @@ namespace glsld
         using AstVisitor<Derived>::Traverse;
 
     protected:
+        auto GetSourceContext() const -> const SourceContext&
+        {
+            return sourceContext;
+        }
+
         auto GetLexContext() const -> const LexContext&
         {
             return lexContext;
@@ -38,7 +45,7 @@ namespace glsld
 
         auto NodeContainPosition(const AstNodeBase& node, TextPosition position) const -> bool
         {
-            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
+            TextRange nodeRange = GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
             return nodeRange.Contains(position);
         }
 
@@ -53,7 +60,7 @@ namespace glsld
         }
         auto EnterIfOverlapRange(const AstNodeBase& node, TextRange range) const -> AstVisitPolicy
         {
-            TextRange nodeRange = this->GetLexContext().LookupTextRange(node.GetRange());
+            TextRange nodeRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
             if (nodeRange.Overlaps(range)) {
                 return AstVisitPolicy::Traverse;
             }
@@ -63,6 +70,7 @@ namespace glsld
         }
 
     private:
+        const SourceContext& sourceContext;
         const LexContext& lexContext;
         const AstContext& astContext;
     };

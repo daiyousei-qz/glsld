@@ -13,6 +13,7 @@ namespace glsld
         Keyword   = 5,
         Comment   = 6,
         Number    = 7,
+        Macro     = 8,
     };
 
     enum class SemanticTokenModifier
@@ -44,6 +45,7 @@ namespace glsld
                     "keyword",
                     "comment",
                     "number",
+                    "macro",
                 },
             .tokenModifiers =
                 {
@@ -67,7 +69,7 @@ namespace glsld
         // FIXME: how to handle multi-line token
         //            a\
         //            b
-        auto tokRange = lexContext.LookupTextRange(token);
+        auto tokRange = lexContext.LookupSpelledTextRange(token);
         return SemanticTokenInfo{
             .line      = tokRange.start.line,
             .character = tokRange.start.character,
@@ -77,12 +79,37 @@ namespace glsld
         };
     }
 
+    auto CollectPreprocessSemanticTokens(const PPInfoCache& ppInfoCache, std::vector<SemanticTokenInfo>& tokenBuffer)
+        -> void
+    {
+        for (const auto& ppToken : ppInfoCache.GetMacroUses()) {
+            tokenBuffer.push_back(SemanticTokenInfo{
+                .line      = ppToken.spelledRange.start.line,
+                .character = ppToken.spelledRange.start.character,
+                .length    = ppToken.spelledRange.end.character - ppToken.spelledRange.start.character,
+                .type      = SemanticTokenType::Macro,
+                .modifier  = SemanticTokenModifier::None,
+            });
+        }
+    }
+
     auto CollectLexSemanticTokens(const CompilerObject& compilerObject, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
         const auto& lexContext = compilerObject.GetLexContext();
         for (const auto& tok : lexContext.GetAllTokenView()) {
             std::optional<SemanticTokenType> type;
+
+            // Only collect tokens from the main file.
+            if (lexContext.LookupSpelledFile(tok) != compilerObject.GetSourceContext().GetMainFile()->GetID()) {
+                continue;
+            }
+
+            // Only collect tokens that have a valid range.
+            auto textRange = lexContext.LookupSpelledTextRange(tok);
+            if (textRange.IsEmpty()) {
+                continue;
+            }
 
             if (IsKeywordToken(tok.klass)) {
                 if (!GetGlslBuiltinType(tok)) {
@@ -199,7 +226,8 @@ namespace glsld
             auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
-                if (compilerObject.GetLexContext().LookupFile(token.index) == 0) {
+                if (compilerObject.GetLexContext().LookupSpelledFile(token) ==
+                    compilerObject.GetSourceContext().GetMainFile()->GetID()) {
                     tokenBuffer.push_back(
                         CreateSemanticTokenInfo(compilerObject.GetLexContext(), token, type, modifier));
                 }
@@ -209,11 +237,12 @@ namespace glsld
         AstSemanticTokenCollector{compilerObject, tokenBuffer}.TraverseAst(compilerObject.GetAstContext());
     }
 
-    auto ComputeSemanticTokens(const CompilerObject& compilerObject) -> lsp::SemanticTokens
+    auto ComputeSemanticTokens(const IntellisenseProvider& provider) -> lsp::SemanticTokens
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
-        CollectLexSemanticTokens(compilerObject, tokenBuffer);
-        CollectAstSemanticTokens(compilerObject, tokenBuffer);
+        CollectPreprocessSemanticTokens(provider.GetPPInfoCache(), tokenBuffer);
+        CollectLexSemanticTokens(provider.GetCompilerObject(), tokenBuffer);
+        CollectAstSemanticTokens(provider.GetCompilerObject(), tokenBuffer);
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
             return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
         });

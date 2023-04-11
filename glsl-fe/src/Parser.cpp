@@ -5,7 +5,6 @@ namespace glsld
 {
     auto Parser::DoParse() -> void
     {
-        GLSLD_ASSERT(compilerObject.GetLexContext().IsFinalized());
         GLSLD_TRACE_PARSER();
 
         while (!Eof()) {
@@ -354,7 +353,7 @@ namespace glsld
         GLSLD_TRACE_PARSER();
 
         // The range of AstQualType should be at the start of AstTypeQualifierSeq
-        auto beginTokIndex = quals ? quals->GetRange().startTokenIndex : GetTokenIndex();
+        auto beginTokIndex = quals ? quals->GetSyntaxRange().startTokenIndex : GetTokenIndex();
 
         if (TryTestToken(TokenKlass::K_struct)) {
             // Parse struct definition

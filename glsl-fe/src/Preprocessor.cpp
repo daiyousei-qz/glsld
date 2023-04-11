@@ -92,7 +92,7 @@ namespace glsld
             macroExpansionProcessor.Finalize();
             if (compilerObject.GetPreprocessContext().GetIncludeDepth() == 0) {
                 // We are done with the main file. Insert an EOF token.
-                compilerObject.GetLexContext().AddToken(fileId, token);
+                compilerObject.GetLexContext().AddToken(token, token.spelledRange);
             }
         }
         else {
@@ -213,8 +213,10 @@ namespace glsld
 
     auto Preprocessor::HandleIncludeDirective(PPTokenScanner& scanner) -> void
     {
-        if (compilerObject.GetPreprocessContext().GetIncludeDepth() >= 16) {
+        const auto& compilerConfig = compilerObject.GetConfig();
+        if (compilerObject.GetPreprocessContext().GetIncludeDepth() >= compilerConfig.maxIncludeDepth) {
             // FIXME: report error, too many nested include files
+            return;
         }
 
         if (auto headerNameToken = scanner.TryConsumeToken(TokenKlass::QuotedString, TokenKlass::AngleString)) {
@@ -222,24 +224,38 @@ namespace glsld
                 // FIXME: report warning, extra tokens after the header file name
             }
 
-            std::optional<StringView> sourceText;
+            // Run PP callback event if any
+            if (callback) {
+                callback->OnIncludeDirective(*headerNameToken);
+            }
 
-            const auto& compilerConfig = compilerObject.GetConfig();
-            StringView headerName      = headerNameToken->text.StrView().Drop(1).DropBack(1);
+            // Search for the header file in the include paths and load the source text.
+            StringView headerName                  = headerNameToken->text.StrView().Drop(1).DropBack(1);
+            const SourceFileEntry* sourceFileEntry = nullptr;
             for (const auto& includePath : compilerConfig.includePaths) {
-                auto headerPath = includePath / headerName.StdStrView();
-                sourceText      = compilerObject.GetSourceContext().GetSourceView(headerPath.string());
-                if (sourceText) {
+                sourceFileEntry = compilerObject.GetSourceContext().OpenFromFile(includePath / headerName.StdStrView());
+                if (sourceFileEntry) {
                     break;
                 }
             }
 
-            if (sourceText) {
+            if (sourceFileEntry) {
+                GLSLD_ASSERT(sourceFileEntry->GetSourceText().has_value());
+
                 // We create a new preprocessor and lexer to process the included file.
                 GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
                 compilerObject.GetPreprocessContext().EnterIncludeFile();
-                Preprocessor nextPP{compilerObject, 1};
-                Tokenizer{compilerObject, nextPP, *sourceText}.DoTokenize();
+                if (callback) {
+                    callback->OnEnterIncludedFile();
+                }
+                Preprocessor nextPP{compilerObject, callback,
+                                    includeExpansionRange ? includeExpansionRange
+                                                          : TextRange{headerNameToken->spelledRange.start}};
+                Tokenizer{compilerObject, nextPP, sourceFileEntry->GetID(), *sourceFileEntry->GetSourceText()}
+                    .DoTokenize();
+                if (callback) {
+                    callback->OnExitIncludedFile();
+                }
                 compilerObject.GetPreprocessContext().ExitIncludeFile();
                 GLSLD_TRACE_EXIT_INCLUDE_FILE(headerName);
             }
@@ -315,6 +331,11 @@ namespace glsld
             expansionTokens.push_back(scanner.ConsumeToken());
         }
 
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnDefineDirective(macroName, paramTokens);
+        }
+
         // Register the macro
         if (isFunctionLike) {
             compilerObject.GetPreprocessContext().DefineFunctionLikeMacro(macroName, std::move(paramTokens),
@@ -339,6 +360,11 @@ namespace glsld
 
         if (!scanner.CursorAtEnd()) {
             // FIXME: report warning, expected no more tokens after the macro name.
+        }
+
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnUndefDirective(macroName);
         }
 
         // Undefine the macro

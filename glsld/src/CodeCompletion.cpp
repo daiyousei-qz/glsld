@@ -97,7 +97,8 @@ namespace glsld
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            if (node.GetRange().startTokenIndex <= dotToken.index && node.GetRange().endTokenIndex > dotToken.index) {
+            if (node.GetSyntaxRange().startTokenIndex <= dotToken.index &&
+                node.GetSyntaxRange().endTokenIndex > dotToken.index) {
                 return AstVisitPolicy::Traverse;
             }
             else {

@@ -48,10 +48,11 @@ namespace glsld
                          tok.text.StrView());
     }
 
-    inline auto TraceLexTokenIssued(const PPToken& tok) -> void
+    inline auto TraceLexTokenIssued(const PPToken& tok, const TextRange& expandedRange) -> void
     {
-        EmitTraceMessage(CompilerTraceSource::Preprocessor, "Issued token [{}]'{}'", TokenKlassToString(tok.klass),
-                         tok.text.StrView());
+        EmitTraceMessage(CompilerTraceSource::Preprocessor, "Issued token [{}]'{}' @ ({},{}~{},{})",
+                         TokenKlassToString(tok.klass), tok.text.StrView(), expandedRange.start.line,
+                         expandedRange.start.character, expandedRange.end.line, expandedRange.end.character);
     }
 
     inline auto TraceEnterIncludeFile(StringView path) -> void
@@ -109,7 +110,7 @@ namespace glsld
 #define GLSLD_TRACE_OBJECT_NAME(NAME) GLSLD_TRACE_OBJECT_NAME_AUX(NAME, __LINE__)
 
 #define GLSLD_TRACE_TOKEN_LEXED(TOKEN) ::glsld::TracePPTokenLexed(TOKEN)
-#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN) ::glsld::TraceLexTokenIssued(TOKEN)
+#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN, EXPANDED_RANGE) ::glsld::TraceLexTokenIssued(TOKEN, EXPANDED_RANGE)
 #define GLSLD_TRACE_ENTER_INCLUDE_FILE(PATH) ::glsld::TraceEnterIncludeFile(PATH)
 #define GLSLD_TRACE_EXIT_INCLUDE_FILE(PATH) ::glsld::TraceExitIncludeFile(PATH)
 #define GLSLD_TRACE_TOKEN_CONSUMED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
@@ -129,7 +130,7 @@ namespace glsld
     }
 #else
 #define GLSLD_TRACE_TOKEN_LEXED(TOKEN)
-#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN)
+#define GLSLD_TRACE_TOKEN_ISSUED(TOKEN, EXPANDED_RANGE)
 #define GLSLD_TRACE_ENTER_INCLUDE_FILE(PATH)
 #define GLSLD_TRACE_EXIT_INCLUDE_FILE(PATH)
 #define GLSLD_TRACE_TOKEN_CONSUMED(TOKEN)

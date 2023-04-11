@@ -54,7 +54,7 @@ namespace glsld
                     return AstVisitPolicy::Leave;
                 }
 
-                TextRange range = this->GetLexContext().LookupTextRange(node.GetRange());
+                TextRange range = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
                 if (range.Contains(position)) {
                     return AstVisitPolicy::Traverse;
                 }
@@ -151,7 +151,7 @@ namespace glsld
             auto TryDeclToken(const SyntaxToken& token, DeclView declView, DeclTokenType type) -> void
             {
                 if (token.IsIdentifier()) {
-                    auto tokRange = this->GetLexContext().LookupTextRange(token);
+                    auto tokRange = this->GetLexContext().LookupExpandedTextRange(token);
                     if (tokRange.Contains(position)) {
                         GLSLD_ASSERT(!result);
                         result = DeclTokenLookupResult{

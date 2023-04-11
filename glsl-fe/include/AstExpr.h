@@ -9,8 +9,6 @@
 #include <string>
 #include <iterator>
 
-#include <fmt/format.h>
-
 namespace glsld
 {
     class AstExpr : public AstImpl<AstExpr>
@@ -58,7 +56,6 @@ namespace glsld
         }
 
     private:
-        // FIXME: we don't need SyntaxToken::range here
         SyntaxToken valueToken;
     };
 

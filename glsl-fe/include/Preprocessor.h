@@ -1,4 +1,5 @@
 #pragma once
+#include "PPCallback.h"
 #include "SyntaxToken.h"
 #include "Compiler.h"
 #include "LexContext.h"
@@ -47,9 +48,11 @@ namespace glsld
     class Preprocessor final
     {
     public:
-        Preprocessor(CompilerObject& compilerObject, FileID fileId)
-            : compilerObject(compilerObject), fileId(fileId), state(PreprocessorState::Default),
-              macroExpansionProcessor(compilerObject.GetPreprocessContext(), ExpandToLexContextCallback{*this})
+        Preprocessor(CompilerObject& compilerObject, PPCallback* callback,
+                     std::optional<TextRange> includeExpansionRange)
+            : compilerObject(compilerObject), callback(callback), state(PreprocessorState::Default),
+              macroExpansionProcessor(compilerObject.GetPreprocessContext(), ExpandToLexContextCallback{*this}),
+              includeExpansionRange(includeExpansionRange), directiveToken(), directiveArgBuffer(), conditionalStack()
         {
         }
 
@@ -129,13 +132,7 @@ namespace glsld
         auto HandleElifDirective(PPTokenScanner& scanner) -> void;
         auto HandleEndifDirective(PPTokenScanner& scanner) -> void;
 
-        CompilerObject& compilerObject;
-
-        FileID fileId;
-
-        PreprocessorState state;
-
-        struct ExpandToLexContextCallback
+        struct ExpandToLexContextCallback final : public EmptyMacroExpansionCallback
         {
             ExpandToLexContextCallback(Preprocessor& pp) : pp(pp)
             {
@@ -143,14 +140,59 @@ namespace glsld
 
             auto OnYieldToken(const PPToken& token) -> void
             {
-                GLSLD_TRACE_TOKEN_ISSUED(token);
-                pp.compilerObject.GetLexContext().AddToken(pp.fileId, token);
+                const TextRange* expandedRange = nullptr;
+                if (pp.includeExpansionRange) {
+                    expandedRange = &*pp.includeExpansionRange;
+                }
+                else if (expansionDepth > 0) {
+                    expandedRange = &firstExpansionRange;
+                }
+                else {
+                    expandedRange = &token.spelledRange;
+                }
+
+                GLSLD_TRACE_TOKEN_ISSUED(token, *expandedRange);
+                pp.compilerObject.GetLexContext().AddToken(token, *expandedRange);
+            }
+
+            auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
+            {
+                expansionDepth += 1;
+                if (expansionDepth == 1) {
+                    firstExpansionRange = TextRange{macroUse.spelledRange.start};
+                }
+
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(macroUse);
+                }
+            }
+
+            auto OnExitMacroExpansion(const PPToken& macroUse) -> void
+            {
+                expansionDepth -= 1;
             }
 
             Preprocessor& pp;
+            int expansionDepth = 0;
+            TextRange firstExpansionRange;
         };
 
+        // The compiler object that of the current compilation.
+        CompilerObject& compilerObject;
+
+        // The callback interface for the preprocessor.
+        PPCallback* callback;
+
+        // The current state of the preprocessor.
+        PreprocessorState state;
+
+        // The macro expansion processor.
         MacroExpansionProcessor<ExpandToLexContextCallback> macroExpansionProcessor;
+
+        // The token expansion range in the main file.
+        // - If we are at an included file, this is the expanded range of all tokens.
+        // - If we are at the main file, this should always be std::nullopt.
+        std::optional<TextRange> includeExpansionRange;
 
         // The current PP directive token being processed.
         std::optional<PPToken> directiveToken;

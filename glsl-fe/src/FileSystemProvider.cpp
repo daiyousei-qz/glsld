@@ -10,9 +10,9 @@ namespace glsld
         return instance;
     }
 
-    auto DefaultFileSystemProvider::Open(StringView uri) -> const FileEntry*
+    auto DefaultFileSystemProvider::Open(StringView path) -> const FileRef*
     {
-        std::ifstream file{uri.Str(), std::ios::binary | std::ios::ate};
+        std::ifstream file{path.Str(), std::ios::binary | std::ios::ate};
 
         if (!file.is_open()) {
             return nullptr;
@@ -28,9 +28,9 @@ namespace glsld
 
         file.close();
 
-        return new FileEntry{data, size};
+        return new DefaultFileRef{data, size};
     }
-    auto DefaultFileSystemProvider::Close(const FileEntry* fileEntry) -> void
+    auto DefaultFileSystemProvider::Close(const FileRef* fileEntry) -> void
     {
         delete[] fileEntry->GetData();
         delete fileEntry;

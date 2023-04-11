@@ -33,6 +33,11 @@ namespace glsld
             return ptr ? ptr : "";
         }
 
+        auto GetHashCode() const noexcept -> size_t
+        {
+            return std::hash<const char*>{}(ptr);
+        }
+
         operator const char*() noexcept
         {
             return ptr;
@@ -52,12 +57,13 @@ namespace glsld
         return rhs.Equals(lhs);
     }
 
-    // NOTE we assume two AtomString are managed by the same AtomTable.
-    // It is illegal to compare two AtomString from different contexts.
+    // NOTE this is only valid if both args are registered in the same AtomTable, either directly or indirectly.
+    // Otherwise, the comparison always returns false even if the two strings are equal.
     inline auto operator==(const AtomString& lhs, const AtomString& rhs) noexcept -> bool
     {
         return lhs.Get() == rhs.Get();
     }
+
     class AtomTable
     {
     public:
@@ -146,12 +152,10 @@ namespace glsld
 
         auto AllocateBufferPage() -> BufferPage
         {
-            constexpr size_t PageSize = 4096;
-
-            char* data = new char[PageSize];
+            char* data = new char[BufferPageSize];
             return BufferPage{
                 .bufferBegin  = data,
-                .bufferEnd    = data + PageSize,
+                .bufferEnd    = data + BufferPageSize,
                 .bufferCursor = data,
             };
         }

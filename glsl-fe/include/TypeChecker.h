@@ -23,7 +23,7 @@ namespace glsld
         {
         }
 
-        auto TypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>;
+        auto DoTypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>;
 
     private:
         //

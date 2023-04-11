@@ -47,7 +47,8 @@ namespace glsld
 
         CompilerObject compiler;
         compiler.AddIncludePath("E:/Project/glsld/.vscode/");
-        compiler.Compile(*inputData);
+        // compiler.Compile(*inputData, GetStandardLibraryModule(), nullptr);
+        compiler.Compile(*inputData, nullptr, nullptr);
 
         fmt::print("succussfully parsed input file\n");
     }

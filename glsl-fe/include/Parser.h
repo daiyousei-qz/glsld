@@ -749,14 +749,14 @@ namespace glsld
         {
             auto tokIndex = GetTokenIndex();
             return compilerObject.GetAstContext().CreateAstNode<AstErrorExpr>(compilerObject.GetId(),
-                                                                              SyntaxTokenRange{tokIndex, tokIndex});
+                                                                              AstSyntaxRange{tokIndex, tokIndex});
         }
 
         auto CreateErrorStmt() -> AstErrorStmt*
         {
             auto tokIndex = GetTokenIndex();
             return compilerObject.GetAstContext().CreateAstNode<AstErrorStmt>(compilerObject.GetId(),
-                                                                              SyntaxTokenRange{tokIndex, tokIndex});
+                                                                              AstSyntaxRange{tokIndex, tokIndex});
         }
 
         template <typename T, typename... Args>
@@ -764,13 +764,13 @@ namespace glsld
         auto CreateAstNode(SyntaxTokenIndex beginTokIndex, Args&&... args) -> T*
         {
             return compilerObject.GetAstContext().CreateAstNode<T>(
-                compilerObject.GetId(), SyntaxTokenRange{beginTokIndex, GetTokenIndex()}, std::forward<Args>(args)...);
+                compilerObject.GetId(), AstSyntaxRange{beginTokIndex, GetTokenIndex()}, std::forward<Args>(args)...);
         }
 
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
             // FIXME: range of error?
-            compilerObject.GetDiagnosticContext().ReportError(SyntaxTokenRange{tokIndex}, std::move(message));
+            compilerObject.GetDiagnosticContext().ReportError(AstSyntaxRange{tokIndex}, std::move(message));
         }
         auto ReportError(std::string message) -> void
         {

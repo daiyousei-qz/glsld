@@ -14,7 +14,7 @@ namespace glsld
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            auto nodeRange = lexContext.LookupTextRange(node.GetRange());
+            auto nodeRange = lexContext.LookupExpandedTextRange(node.GetSyntaxRange());
             if (nodeRange.Contains(position)) {
                 return AstVisitPolicy::Traverse;
             }

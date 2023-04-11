@@ -236,7 +236,7 @@ namespace glsld
         int compoundStmtDepth = 0;
     };
 
-    auto TypeChecker::TypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>
+    auto TypeChecker::DoTypeCheck(const SymbolTable* externalSymbolTable) -> std::unique_ptr<SymbolTable>
     {
         this->externalSymbolTable = externalSymbolTable;
         symbolTableStack.push_back(std::make_unique<SymbolTable>());

@@ -11,8 +11,8 @@ namespace glsld
         int line      = 0;
         int character = 0;
 
-        auto operator==(const TextPosition&) const -> bool                  = default;
-        auto operator<=>(const TextPosition&) const -> std::strong_ordering = default;
+        auto operator==(const TextPosition&) const noexcept -> bool                  = default;
+        auto operator<=>(const TextPosition&) const noexcept -> std::strong_ordering = default;
     };
 
     // A range in a text document expressed as (zero-based) start and end positions.
@@ -25,17 +25,25 @@ namespace glsld
         TextPosition end;
 
         TextRange() = default;
+        explicit TextRange(TextPosition start) : start(start), end(start)
+        {
+        }
         TextRange(TextPosition start, TextPosition end) : start(start), end(end)
         {
             GLSLD_ASSERT(start <= end);
         }
 
-        auto Contains(TextPosition position) const -> bool
+        auto IsEmpty() const noexcept -> bool
+        {
+            return start == end;
+        }
+
+        auto Contains(TextPosition position) const noexcept -> bool
         {
             return start <= position && position < end;
         }
 
-        auto Overlaps(TextRange range) const -> bool
+        auto Overlaps(TextRange range) const noexcept -> bool
         {
             if (start < range.start) {
                 return Contains(range.end);
@@ -45,7 +53,7 @@ namespace glsld
             }
         }
 
-        auto operator==(const TextRange&) const -> bool                  = default;
-        auto operator<=>(const TextRange&) const -> std::strong_ordering = delete;
+        auto operator==(const TextRange&) const noexcept -> bool                  = default;
+        auto operator<=>(const TextRange&) const noexcept -> std::strong_ordering = delete;
     };
 } // namespace glsld

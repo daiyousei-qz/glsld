@@ -22,24 +22,16 @@ namespace glsld
         LexContext(LexContext&&)                         = delete;
         auto operator=(LexContext&&) -> LexContext&      = delete;
 
-        // If the context is finalized, no more tokens/macros can be added
-        auto IsFinalized() const noexcept -> bool
-        {
-            if (!tokens.empty() && tokens.back().klass == TokenKlass::Eof) {
-                return true;
-            }
-
-            return false;
-        }
-
         // Add a new token to the token stream of this translation unit.
-        auto AddToken(FileID fileID, const PPToken& token) -> void;
+        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
 
         // Get a syntax token by index
         auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
 
-        // Get a syntax token by index or EOF if the index is out of range
-        auto GetTokenOrEof(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
+        auto GetTokenCount() const noexcept -> size_t
+        {
+            return tokens.size();
+        }
 
         // Get a view of all tokens
         auto GetAllTokenView() const
@@ -49,7 +41,7 @@ namespace glsld
         }
 
         // Get a view of all tokens in the range
-        auto GetRangedTokenView(SyntaxTokenRange range) const
+        auto GetRangedTokenView(AstSyntaxRange range) const
         {
             return std::views::iota(range.startTokenIndex, range.endTokenIndex) |
                    std::views::transform([this](SyntaxTokenIndex index) { return GetToken(index); });
@@ -61,28 +53,54 @@ namespace glsld
         // Both token A should be returned
         auto FindTokenByTextPosition(TextPosition position) const -> SyntaxToken;
 
-        auto LookupFile(SyntaxTokenIndex tokIndex) const -> FileID
+        auto LookupSpelledFile(const SyntaxToken& tok) const -> FileID
+        {
+            return LookupSpelledFile(tok.index);
+        }
+
+        auto LookupSpelledFile(SyntaxTokenIndex tokIndex) const -> FileID
         {
             GLSLD_ASSERT(tokIndex < tokens.size());
-            return tokens[tokIndex].file;
+            return tokens[tokIndex].spelledFile;
         }
 
-        // Compute the text range of the token with the given index
-        auto LookupTextRange(SyntaxTokenIndex tokIndex) const -> TextRange;
-
-        // Compute the text range of the token
-        auto LookupTextRange(SyntaxToken token) const -> TextRange;
-
-        // Compute the text range of all tokens in the range
-        auto LookupTextRange(SyntaxTokenRange range) const -> TextRange;
-
-        auto LookupFirstTextPosition(SyntaxTokenRange range) const -> TextPosition
+        auto LookupSpelledTextRange(const SyntaxToken& tok) const -> const TextRange&
         {
-            return tokens[range.startTokenIndex].range.start;
+            return LookupSpelledTextRange(tok.index);
         }
-        auto LookupLastTextPosition(SyntaxTokenRange range) const -> TextPosition
+
+        auto LookupSpelledTextRange(SyntaxTokenIndex tokIndex) const -> const TextRange&
         {
-            return tokens[range.endTokenIndex].range.end;
+            GLSLD_ASSERT(tokIndex < tokens.size());
+            return tokens[tokIndex].spelledRange;
+        }
+
+        auto LookupExpandedTextRange(const SyntaxToken& tok) const -> const TextRange&
+        {
+            return LookupExpandedTextRange(tok.index);
+        }
+
+        auto LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> const TextRange&
+        {
+            GLSLD_ASSERT(tokIndex < tokens.size());
+            return tokens[tokIndex].expandedRange;
+        }
+
+        auto LookupExpandedTextRange(AstSyntaxRange range) const -> TextRange
+        {
+            GLSLD_ASSERT(range.endTokenIndex < tokens.size());
+            if (range.endTokenIndex > range.startTokenIndex) {
+                return TextRange{
+                    tokens[range.startTokenIndex].expandedRange.start,
+                    tokens[range.endTokenIndex - 1].expandedRange.end,
+                };
+            }
+            else {
+                return TextRange{
+                    tokens[range.startTokenIndex].expandedRange.start,
+                    tokens[range.startTokenIndex].expandedRange.start,
+                };
+            }
         }
 
         // Get the AtomString of the given text in the atom table.
@@ -95,7 +113,7 @@ namespace glsld
         AtomTable atomTable;
 
         // The token stream that is lexed from the source text, including from included files and macro expansion.
-        std::vector<RawSyntaxToken> tokens;
-        std::vector<RawSyntaxToken> commentTokens;
+        std::vector<RawSyntaxTokenInfo> tokens;
+        // std::vector<RawSyntaxToken> commentTokens;
     };
 } // namespace glsld

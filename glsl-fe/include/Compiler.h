@@ -9,6 +9,8 @@
 
 namespace glsld
 {
+    class PPCallback;
+
     class SourceContext;
     class DiagnosticContext;
     class LexContext;
@@ -38,6 +40,11 @@ namespace glsld
         CompiledPreamble();
         ~CompiledPreamble();
 
+        auto GetSourceContext() const noexcept -> const SourceContext&
+        {
+            return *sourceContext;
+        }
+
         auto GetLexContext() const noexcept -> const LexContext&
         {
             return *lexContext;
@@ -66,6 +73,7 @@ namespace glsld
 
         int moduleId;
 
+        std::unique_ptr<const SourceContext> sourceContext;
         std::unique_ptr<const LexContext> lexContext;
         std::unique_ptr<const PreprocessContext> ppContext;
         std::unique_ptr<const AstContext> astContext;
@@ -159,7 +167,7 @@ namespace glsld
             return *typeContext;
         }
 
-        auto Initialize() -> void;
+        auto Reset() -> void;
 
         auto AddIncludePath(const std::filesystem::path& path) -> void
         {
@@ -169,11 +177,14 @@ namespace glsld
 
         auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
 
-        auto Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble = nullptr) -> void;
+        auto Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble, PPCallback* callback) -> void;
 
     private:
-        bool compiled = false;
-        int moduleId  = -1;
+        auto InitializeCompilation(std::shared_ptr<CompiledPreamble> preamble) -> void;
+        auto FinalizeCompilation() -> void;
+
+        bool compiled;
+        int moduleId;
 
         CompilerConfig config;
 

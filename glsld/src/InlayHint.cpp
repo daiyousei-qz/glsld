@@ -40,7 +40,8 @@ namespace glsld
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
 
-                        auto locBegin       = lexContext.LookupFirstTextPosition(argExpr->GetRange());
+                        auto locBegin =
+                            lexContext.LookupExpandedTextRange(argExpr->GetSyntaxRange().startTokenIndex).start;
                         StringView hintText = "";
                         if (paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
                             hintText = paramDecl->GetDeclarator()->declTok.text.StrView();

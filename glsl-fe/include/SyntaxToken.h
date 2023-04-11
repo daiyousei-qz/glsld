@@ -122,19 +122,43 @@ namespace glsld
         return klass == TokenKlass::Identifier || IsKeywordToken(klass);
     }
 
+    struct PPToken final
+    {
+        // The kind of the token. Note in preprocessing stage, all keywords are treated as identifiers.
+        TokenKlass klass;
+
+        FileID spelledFile;
+
+        // The spelling range of the token.
+        TextRange spelledRange;
+
+        // The text of the token.
+        AtomString text;
+
+        // If the token is the first token of a line, this flag is set to true.
+        // NOTE if the last line is terminated by a line continuation, this flag is always set to false.
+        bool isFirstTokenOfLine;
+
+        // If the token has leading whitespace that's separating it from the previous token, this flag is set to true.
+        bool hasLeadingWhitespace;
+    };
+
     using SyntaxTokenIndex                              = uint32_t;
     inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
 
-    struct SyntaxTokenRange
+    struct AstSyntaxRange
     {
+        // The range that spells the first token for this AST node.
         SyntaxTokenIndex startTokenIndex = 0;
-        SyntaxTokenIndex endTokenIndex   = 0;
 
-        SyntaxTokenRange() = default;
-        SyntaxTokenRange(SyntaxTokenIndex tokIndex) : startTokenIndex(tokIndex), endTokenIndex(tokIndex + 1)
+        // The range that spells the first token after this AST node.
+        SyntaxTokenIndex endTokenIndex = 0;
+
+        AstSyntaxRange() = default;
+        AstSyntaxRange(SyntaxTokenIndex tokIndex) : startTokenIndex(tokIndex), endTokenIndex(tokIndex + 1)
         {
         }
-        SyntaxTokenRange(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex)
+        AstSyntaxRange(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex)
             : startTokenIndex(beginTokIndex), endTokenIndex(endTokIndex)
         {
             GLSLD_ASSERT(beginTokIndex <= endTokIndex);
@@ -182,35 +206,26 @@ namespace glsld
         TextRange range;
     };
 
-    struct PPToken final
+    struct RawSyntaxTokenInfo final
     {
-        // The kind of the token. Note in preprocessing stage, all keywords are treated as identifiers.
+        // The token class.
         TokenKlass klass;
 
-        // If the token is the first token of a line, this flag is set to true.
-        // NOTE if the last line is terminated by a line continuation, this flag is always set to false.
-        bool isFirstTokenOfLine;
+        // The source file id that the token is spelled.
+        FileID spelledFile;
 
-        // If the token has leading whitespace that's separating it from the previous token, this flag is set to true.
-        bool hasLeadingWhitespace;
+        // The text range in which the token is spelled. If the token isn't directly spelled, this is an empty range.
+        TextRange spelledRange;
 
-        // The text of the token.
+        // The text range in which the token expanded into the main file.
+        // - If the token is spelled in an included file, this is an empty range right before "#include".
+        // - If the token is created from a macro expansion in the main file, this is an empty range before macro name.
+        // - Otherwise, this is the same as `spelledRange`.
+        // NOTE this is always a range with regard to the main file. Also, this range may not be able to hold the text.
+        TextRange expandedRange;
+
+        // The token text after preprocessing.
         AtomString text;
-
-        // The spelling range of the token in the source.
-        TextRange range;
     };
 
 } // namespace glsld
-
-namespace std
-{
-    template <>
-    struct hash<glsld::AtomString>
-    {
-        [[nodiscard]] auto operator()(const glsld::AtomString& key) const noexcept -> size_t
-        {
-            return hash<const char*>{}(key.Get());
-        }
-    };
-} // namespace std
