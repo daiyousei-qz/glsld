@@ -6,47 +6,47 @@ namespace glsld
     auto ComputeDeclaration(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
+        const auto& lexContext = compilerObject.GetLexContext();
+
         auto declTokenResult = FindDeclToken(compilerObject, FromLspPosition(position));
         if (declTokenResult && declTokenResult->accessedDecl.IsValid()) {
-            AstDecl& decl          = *declTokenResult->accessedDecl.GetDecl();
+            AstDecl& accessedDecl  = *declTokenResult->accessedDecl.GetDecl();
             size_t declaratorIndex = declTokenResult->accessedDecl.GetIndex();
 
             // Avoid giving declaration if the accessed decl isn't in this module
-            if (decl.GetModuleId() != compilerObject.GetId()) {
+            if (accessedDecl.GetModuleId() != compilerObject.GetId()) {
                 return {};
             }
 
-            TextRange declRange;
-            if (auto funcDecl = decl.As<AstFunctionDecl>(); funcDecl) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(funcDecl->GetName());
+            std::optional<SyntaxToken> accessedDeclTok;
+            if (auto funcDecl = accessedDecl.As<AstFunctionDecl>(); funcDecl) {
+                accessedDeclTok = funcDecl->GetName();
             }
-            else if (auto paramDecl = decl.As<AstParamDecl>();
+            else if (auto paramDecl = accessedDecl.As<AstParamDecl>();
                      paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(paramDecl->GetDeclarator()->declTok);
+                accessedDeclTok = paramDecl->GetDeclarator()->declTok;
             }
-            else if (auto varDecl = decl.As<AstVariableDecl>(); varDecl) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(
-                    varDecl->GetDeclarators()[declaratorIndex].declTok);
+            else if (auto varDecl = accessedDecl.As<AstVariableDecl>(); varDecl) {
+                accessedDeclTok = varDecl->GetDeclarators()[declaratorIndex].declTok;
             }
-            else if (auto memberDecl = decl.As<AstStructMemberDecl>(); memberDecl) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(
-                    memberDecl->GetDeclarators()[declaratorIndex].declTok);
+            else if (auto memberDecl = accessedDecl.As<AstStructMemberDecl>(); memberDecl) {
+                accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].declTok;
             }
-            else if (auto structDecl = decl.As<AstStructDecl>();
+            else if (auto structDecl = accessedDecl.As<AstStructDecl>();
                      structDecl && structDecl->GetDeclToken() && structDecl->GetDeclToken()->IsIdentifier()) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(*structDecl->GetDeclToken());
+                accessedDeclTok = *structDecl->GetDeclToken();
             }
-            else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>(); blockDecl) {
-                declRange = compilerObject.GetLexContext().LookupSpelledTextRange(blockDecl->GetDeclarator()->declTok);
-            }
-            else {
-                return {};
+            else if (auto blockDecl = accessedDecl.As<AstInterfaceBlockDecl>(); blockDecl) {
+                accessedDeclTok = blockDecl->GetDeclarator()->declTok;
             }
 
-            return {lsp::Location{
-                .uri   = uri,
-                .range = ToLspRange(declRange),
-            }};
+            // FIXME: Support goto declaration in included files
+            if (accessedDeclTok && lexContext.LookupSpelledFile(*accessedDeclTok) ==
+                                       compilerObject.GetSourceContext().GetMainFile()->GetID())
+                return {lsp::Location{
+                    .uri   = uri,
+                    .range = ToLspRange(lexContext.LookupSpelledTextRange(*accessedDeclTok)),
+                }};
         }
 
         return {};

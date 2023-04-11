@@ -29,15 +29,21 @@ namespace glsld
     public:
         virtual auto OnIncludeDirective(const PPToken& headerName) -> void override
         {
-            headerNames.push_back(headerName);
+            if (includeDepth == 0) {
+                headerNames.push_back(headerName);
+            }
         }
         virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params) -> void override
         {
-            macroUses.push_back(macroName);
+            if (includeDepth == 0) {
+                macroUses.push_back(macroName);
+            }
         }
         virtual auto OnUndefDirective(const PPToken& macroName) -> void override
         {
-            macroUses.push_back(macroName);
+            if (includeDepth == 0) {
+                macroUses.push_back(macroName);
+            }
         }
 
         virtual auto OnEnterIncludedFile() -> void override

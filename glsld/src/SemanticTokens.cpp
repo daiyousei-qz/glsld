@@ -14,6 +14,7 @@ namespace glsld
         Comment   = 6,
         Number    = 7,
         Macro     = 8,
+        String    = 9,
     };
 
     enum class SemanticTokenModifier
@@ -46,6 +47,7 @@ namespace glsld
                     "comment",
                     "number",
                     "macro",
+                    "string",
                 },
             .tokenModifiers =
                 {
@@ -82,6 +84,16 @@ namespace glsld
     auto CollectPreprocessSemanticTokens(const PPInfoCache& ppInfoCache, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
+        for (const auto& ppToken : ppInfoCache.GetHeaderNames()) {
+            tokenBuffer.push_back(SemanticTokenInfo{
+                .line      = ppToken.spelledRange.start.line,
+                .character = ppToken.spelledRange.start.character,
+                .length    = ppToken.spelledRange.end.character - ppToken.spelledRange.start.character,
+                .type      = SemanticTokenType::String,
+                .modifier  = SemanticTokenModifier::None,
+            });
+        }
+
         for (const auto& ppToken : ppInfoCache.GetMacroUses()) {
             tokenBuffer.push_back(SemanticTokenInfo{
                 .line      = ppToken.spelledRange.start.line,
