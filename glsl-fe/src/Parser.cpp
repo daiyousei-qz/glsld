@@ -218,6 +218,27 @@ namespace glsld
             case TokenKlass::K_noperspective:
                 qualifiers.qNoperspective = true;
                 break;
+                // Extension: ray tracing
+            case TokenKlass::K_rayPayloadNV:
+            case TokenKlass::K_rayPayloadEXT:
+                qualifiers.qRayPayloadEXT = true;
+                break;
+            case TokenKlass::K_rayPayloadInNV:
+            case TokenKlass::K_rayPayloadInEXT:
+                qualifiers.qRayPayloadInEXT = true;
+                break;
+            case TokenKlass::K_hitAttributeNV:
+            case TokenKlass::K_hitAttributeEXT:
+                qualifiers.qHitAttributeEXT = true;
+                break;
+            case TokenKlass::K_callableDataNV:
+            case TokenKlass::K_callableDataEXT:
+                qualifiers.qCallableDataEXT = true;
+                break;
+            case TokenKlass::K_callableDataInNV:
+            case TokenKlass::K_callableDataInEXT:
+                qualifiers.qCallableDataInEXT = true;
+                break;
             default:
                 inQualSeq = false;
                 break;

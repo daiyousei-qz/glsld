@@ -249,7 +249,7 @@ switch(ch) {
 LexState_4:
 // Accepting as Dot
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(240);
+acceptedKlass = static_cast<TokenKlass>(252);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -286,7 +286,7 @@ switch(ch) {
 LexState_6:
 // Accepting as LAngle
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(252);
+acceptedKlass = static_cast<TokenKlass>(264);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -301,7 +301,7 @@ switch(ch) {
 LexState_7:
 // Accepting as RAngle
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(253);
+acceptedKlass = static_cast<TokenKlass>(265);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -316,7 +316,7 @@ switch(ch) {
 LexState_8:
 // Accepting as Plus
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(248);
+acceptedKlass = static_cast<TokenKlass>(260);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -331,7 +331,7 @@ switch(ch) {
 LexState_9:
 // Accepting as Dash
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(246);
+acceptedKlass = static_cast<TokenKlass>(258);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -346,7 +346,7 @@ switch(ch) {
 LexState_10:
 // Accepting as Assign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(243);
+acceptedKlass = static_cast<TokenKlass>(255);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -360,7 +360,7 @@ switch(ch) {
 LexState_11:
 // Accepting as Bang
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(245);
+acceptedKlass = static_cast<TokenKlass>(257);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -374,22 +374,22 @@ switch(ch) {
 LexState_12:
 // Accepting as Ampersand
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(256);
+acceptedKlass = static_cast<TokenKlass>(268);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
 buffer.push_back(ch);
 
 switch(ch) {
-    case '&': goto LexState_47;
-    case '=': goto LexState_46;
+    case '&': goto LexState_46;
+    case '=': goto LexState_47;
     default: goto FinishToken;
 }
 
 LexState_13:
 // Accepting as VerticalBar
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(254);
+acceptedKlass = static_cast<TokenKlass>(266);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -404,7 +404,7 @@ switch(ch) {
 LexState_14:
 // Accepting as Caret
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(255);
+acceptedKlass = static_cast<TokenKlass>(267);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -419,7 +419,7 @@ switch(ch) {
 LexState_15:
 // Accepting as Star
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(249);
+acceptedKlass = static_cast<TokenKlass>(261);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -433,7 +433,7 @@ switch(ch) {
 LexState_16:
 // Accepting as Slash
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(250);
+acceptedKlass = static_cast<TokenKlass>(262);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -447,7 +447,7 @@ switch(ch) {
 LexState_17:
 // Accepting as Percent
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(251);
+acceptedKlass = static_cast<TokenKlass>(263);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -461,7 +461,7 @@ switch(ch) {
 LexState_18:
 // Accepting as LParen
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(234);
+acceptedKlass = static_cast<TokenKlass>(246);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -472,7 +472,7 @@ goto FinishToken;
 LexState_19:
 // Accepting as RParen
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(235);
+acceptedKlass = static_cast<TokenKlass>(247);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -483,7 +483,7 @@ goto FinishToken;
 LexState_20:
 // Accepting as LBracket
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(236);
+acceptedKlass = static_cast<TokenKlass>(248);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -494,7 +494,7 @@ goto FinishToken;
 LexState_21:
 // Accepting as RBracket
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(237);
+acceptedKlass = static_cast<TokenKlass>(249);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -505,7 +505,7 @@ goto FinishToken;
 LexState_22:
 // Accepting as LBrace
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(238);
+acceptedKlass = static_cast<TokenKlass>(250);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -516,7 +516,7 @@ goto FinishToken;
 LexState_23:
 // Accepting as RBrace
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(239);
+acceptedKlass = static_cast<TokenKlass>(251);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -527,7 +527,7 @@ goto FinishToken;
 LexState_24:
 // Accepting as Comma
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(241);
+acceptedKlass = static_cast<TokenKlass>(253);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -538,7 +538,7 @@ goto FinishToken;
 LexState_25:
 // Accepting as Colon
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(242);
+acceptedKlass = static_cast<TokenKlass>(254);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -549,7 +549,7 @@ goto FinishToken;
 LexState_26:
 // Accepting as Semicolon
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(244);
+acceptedKlass = static_cast<TokenKlass>(256);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -560,7 +560,7 @@ goto FinishToken;
 LexState_27:
 // Accepting as Tilde
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(247);
+acceptedKlass = static_cast<TokenKlass>(259);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -571,7 +571,7 @@ goto FinishToken;
 LexState_28:
 // Accepting as Question
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(257);
+acceptedKlass = static_cast<TokenKlass>(269);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -739,7 +739,7 @@ goto FinishToken;
 LexState_36:
 // Accepting as LShift
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(213);
+acceptedKlass = static_cast<TokenKlass>(225);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -753,7 +753,7 @@ switch(ch) {
 LexState_37:
 // Accepting as LessEq
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(217);
+acceptedKlass = static_cast<TokenKlass>(229);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -764,7 +764,7 @@ goto FinishToken;
 LexState_38:
 // Accepting as RShift
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(214);
+acceptedKlass = static_cast<TokenKlass>(226);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -778,7 +778,7 @@ switch(ch) {
 LexState_39:
 // Accepting as GreaterEq
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(218);
+acceptedKlass = static_cast<TokenKlass>(230);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -789,7 +789,7 @@ goto FinishToken;
 LexState_40:
 // Accepting as Increment
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(215);
+acceptedKlass = static_cast<TokenKlass>(227);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -800,7 +800,7 @@ goto FinishToken;
 LexState_41:
 // Accepting as AddAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(226);
+acceptedKlass = static_cast<TokenKlass>(238);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -811,7 +811,7 @@ goto FinishToken;
 LexState_42:
 // Accepting as SubAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(233);
+acceptedKlass = static_cast<TokenKlass>(245);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -822,7 +822,7 @@ goto FinishToken;
 LexState_43:
 // Accepting as Decrement
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(216);
+acceptedKlass = static_cast<TokenKlass>(228);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -833,7 +833,7 @@ goto FinishToken;
 LexState_44:
 // Accepting as Equal
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(219);
+acceptedKlass = static_cast<TokenKlass>(231);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -844,7 +844,7 @@ goto FinishToken;
 LexState_45:
 // Accepting as NotEqual
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(220);
+acceptedKlass = static_cast<TokenKlass>(232);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -853,9 +853,9 @@ buffer.push_back(ch);
 goto FinishToken;
 
 LexState_46:
-// Accepting as AndAssign
+// Accepting as And
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(230);
+acceptedKlass = static_cast<TokenKlass>(233);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -864,9 +864,9 @@ buffer.push_back(ch);
 goto FinishToken;
 
 LexState_47:
-// Accepting as And
+// Accepting as AndAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(221);
+acceptedKlass = static_cast<TokenKlass>(242);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -877,7 +877,7 @@ goto FinishToken;
 LexState_48:
 // Accepting as Or
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(222);
+acceptedKlass = static_cast<TokenKlass>(234);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -888,7 +888,7 @@ goto FinishToken;
 LexState_49:
 // Accepting as OrAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(232);
+acceptedKlass = static_cast<TokenKlass>(244);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -899,7 +899,7 @@ goto FinishToken;
 LexState_50:
 // Accepting as Xor
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(223);
+acceptedKlass = static_cast<TokenKlass>(235);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -910,7 +910,7 @@ goto FinishToken;
 LexState_51:
 // Accepting as XorAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(231);
+acceptedKlass = static_cast<TokenKlass>(243);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -921,7 +921,7 @@ goto FinishToken;
 LexState_52:
 // Accepting as MulAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(224);
+acceptedKlass = static_cast<TokenKlass>(236);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -932,7 +932,7 @@ goto FinishToken;
 LexState_53:
 // Accepting as DivAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(225);
+acceptedKlass = static_cast<TokenKlass>(237);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -943,7 +943,7 @@ goto FinishToken;
 LexState_54:
 // Accepting as ModAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(227);
+acceptedKlass = static_cast<TokenKlass>(239);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -1028,7 +1028,7 @@ switch(ch) {
 LexState_60:
 // Accepting as LShiftAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(228);
+acceptedKlass = static_cast<TokenKlass>(240);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();
@@ -1039,7 +1039,7 @@ goto FinishToken;
 LexState_61:
 // Accepting as RShiftAssign
 acceptedCheckpoint = srcView.Clone();
-acceptedKlass = static_cast<TokenKlass>(229);
+acceptedKlass = static_cast<TokenKlass>(241);
 acceptedSize = buffer.size();
 
 ch = srcView.ConsumeChar();

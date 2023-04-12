@@ -200,7 +200,10 @@ namespace glsld
                 macroDefinition.Disable();
 
                 // Replay the expanded tokens.
-                for (const PPToken& token : macroDefinition.GetExpansionTokens()) {
+                for (PPToken token : macroDefinition.GetExpansionTokens()) {
+                    // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
+                    token.spelledFile  = macroUseTok.spelledFile;
+                    token.spelledRange = TextRange{macroUseTok.spelledRange.start};
                     Feed(token);
                 }
 
@@ -265,10 +268,7 @@ namespace glsld
                 for (PPToken token : macroDefinition.GetExpansionTokens()) {
                     // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
                     token.spelledFile  = macroUseTok.spelledFile;
-                    token.spelledRange = TextRange{
-                        macroUseTok.spelledRange.start,
-                        macroUseTok.spelledRange.end,
-                    };
+                    token.spelledRange = TextRange{macroUseTok.spelledRange.start};
 
                     // TODO: Handle token pasting
                     if (token.klass == TokenKlass::Identifier) {

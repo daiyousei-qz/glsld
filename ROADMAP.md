@@ -10,7 +10,8 @@
 # Known issues
 - `Should support builtin function documentation`
 - `Test2\400.geom` Inlay hint disappear during scrolling
-- `Test2\410.geom` assert failure
-- `Test2\310.frag` Semantic tokens doesn't work
+- `Test2\410.geom` block array completion
+- `Test2\310.frag` Semantic tokens doesn't work FIXED
 - Random crash
-- Avoid provide completion if last token is a type
+- Avoid provide completion if we are typing a declarator.
+- `Test/preprocessor.simple.vert` FIXED

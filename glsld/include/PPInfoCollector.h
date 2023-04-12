@@ -45,6 +45,12 @@ namespace glsld
                 macroUses.push_back(macroName);
             }
         }
+        virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
+        {
+            if (includeDepth == 0) {
+                macroUses.push_back(macroName);
+            }
+        }
 
         virtual auto OnEnterIncludedFile() -> void override
         {

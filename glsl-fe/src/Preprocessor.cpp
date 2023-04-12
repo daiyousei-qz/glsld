@@ -392,6 +392,11 @@ namespace glsld
             // FIXME: report warning, expected no more tokens after the macro name.
         }
 
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnIfDefDirective(macroName, isNDef);
+        }
+
         auto macroDef = compilerObject.GetPreprocessContext().FindMacroDefinition(macroName.text);
         bool active   = (macroDef != nullptr) != isNDef;
         conditionalStack.push_back(PPConditionalInfo{

@@ -201,6 +201,23 @@ namespace glsld
             if (quals.qWriteonly) {
                 buffer += "writeonly ";
             }
+
+            // Extension: ray tracing
+            if (quals.qRayPayloadEXT) {
+                buffer += "rayPayloadEXT ";
+            }
+            if (quals.qRayPayloadInEXT) {
+                buffer += "rayPayloadInEXT ";
+            }
+            if (quals.qHitAttributeEXT) {
+                buffer += "hitAttributeEXT ";
+            }
+            if (quals.qCallableDataEXT) {
+                buffer += "callableDataEXT ";
+            }
+            if (quals.qCallableDataInEXT) {
+                buffer += "callableDataInEXT ";
+            }
         }
 
         // FIXME: reconstruct from Type

@@ -32,7 +32,6 @@ namespace glsld
             return TextPosition{lineIndex, columnIndex};
         };
 
-        // Skip whitespace and return true if a '\n' is encountered
         auto SkipWhitespace(bool& skippedWhitespace, bool& skippedNewline) -> void
         {
             while (!CursorAtEnd()) {
@@ -41,20 +40,20 @@ namespace glsld
                 if (ch == ' ' || ch == '\t' || ch == '\r') {
                     ++columnIndex;
 
+                    skippedWhitespace = true;
                     ++srcCursor;
                 }
                 else if (ch == '\n') {
                     ++lineIndex;
                     columnIndex = 0;
 
-                    skippedNewline = true;
+                    skippedWhitespace = true;
+                    skippedNewline    = true;
                     ++srcCursor;
                 }
-                else {
+                else if (!TryConsumeLineContinuation()) {
                     break;
                 }
-
-                skippedWhitespace = true;
             }
         }
 
@@ -84,18 +83,7 @@ namespace glsld
             }
 
             // Skip line continuation
-            if (PeekChar() == '\\') {
-                if (PeekChar(1) == '\n') {
-                    srcCursor += 2;
-                    ++lineIndex;
-                    columnIndex = 0;
-                }
-                else if (PeekChar(1) == '\r' && PeekChar(2) == '\n') {
-                    srcCursor += 3;
-                    ++lineIndex;
-                    columnIndex = 0;
-                }
-            }
+            TryConsumeLineContinuation();
 
             return result;
         }
@@ -125,6 +113,27 @@ namespace glsld
         }
 
     private:
+        auto TryConsumeLineContinuation() -> bool
+        {
+            bool consumed = false;
+            while (PeekChar() == '\\') {
+                if (PeekChar(1) == '\n') {
+                    srcCursor += 2;
+                    ++lineIndex;
+                    columnIndex = 0;
+                    consumed    = true;
+                }
+                else if (PeekChar(1) == '\r' && PeekChar(2) == '\n') {
+                    srcCursor += 3;
+                    ++lineIndex;
+                    columnIndex = 0;
+                    consumed    = true;
+                }
+            }
+
+            return consumed;
+        }
+
         // The beginning of the source string
         const char* srcBegin = nullptr;
 

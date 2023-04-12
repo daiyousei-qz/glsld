@@ -228,4 +228,18 @@ DECL_KEYWORD( subpassInputMS)
 DECL_KEYWORD(isubpassInputMS)
 DECL_KEYWORD(usubpassInputMS)
 
+DECL_KEYWORD(rayPayloadNV)
+DECL_KEYWORD(rayPayloadEXT)
+DECL_KEYWORD(rayPayloadInNV)
+DECL_KEYWORD(rayPayloadInEXT)
+DECL_KEYWORD(hitAttributeNV)
+DECL_KEYWORD(hitAttributeEXT)
+DECL_KEYWORD(callableDataNV)
+DECL_KEYWORD(callableDataEXT)
+DECL_KEYWORD(callableDataInNV)
+DECL_KEYWORD(callableDataInEXT)
+
+DECL_KEYWORD(accelerationStructureNV)
+DECL_KEYWORD(accelerationStructureEXT)
+
 #endif

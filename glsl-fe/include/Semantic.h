@@ -280,6 +280,13 @@ namespace glsld
         bool qRestrict : 1  = false;
         bool qReadonly : 1  = false;
         bool qWriteonly : 1 = false;
+
+        // Extensions
+        bool qRayPayloadEXT : 1     = false;
+        bool qRayPayloadInEXT : 1   = false;
+        bool qHitAttributeEXT : 1   = false;
+        bool qCallableDataEXT : 1   = false;
+        bool qCallableDataInEXT : 1 = false;
     };
 
 } // namespace glsld
