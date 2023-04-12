@@ -64,7 +64,6 @@ auto CreateLexingAutomata() -> NfaAutomata
     return builder.Build();
 }
 
-// FIXME: this is based on switch table. Bad for branch prediction?
 auto GenerateLexSource(const NfaAutomata& automata) -> void
 {
     fmt::print("#pragma once\n");
