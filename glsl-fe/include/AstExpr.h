@@ -11,6 +11,39 @@
 
 namespace glsld
 {
+    class AstInitializer : public AstImpl<AstInitializer>
+    {
+    };
+
+    class AstInitializerList final : public AstImpl<AstInitializerList>
+    {
+    public:
+        AstInitializerList(std::vector<AstInitializer*> items) : items(items)
+        {
+        }
+
+        auto GetItems() const -> ArrayView<AstInitializer*>
+        {
+            return items;
+        }
+
+        template <AstVisitorT Visitor>
+        auto Traverse(Visitor& visitor) -> void
+        {
+            for (auto node : items) {
+                visitor.Traverse(*node);
+            }
+        }
+
+        auto DumpNodeData() const -> std::string
+        {
+            return "";
+        }
+
+    private:
+        std::vector<AstInitializer*> items;
+    };
+
     class AstExpr : public AstImpl<AstExpr>
     {
     };

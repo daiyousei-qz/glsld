@@ -27,19 +27,7 @@ namespace glsld
                 };
 
                 printDumpedData(dispatchedNode.DumpNodeData());
-
-                // FIXME: find a better solution for the following dispatch
-                if constexpr (std::is_base_of_v<AstExpr, AstType>) {
-                    printDumpedData(static_cast<const AstPayload<AstExpr>&>(dispatchedNode).DumpPayloadData());
-                }
-                else if constexpr (std::is_base_of_v<AstStmt, AstType>) {
-                    printDumpedData(static_cast<const AstPayload<AstStmt>&>(dispatchedNode).DumpPayloadData());
-                }
-                else if constexpr (std::is_base_of_v<AstDecl, AstType>) {
-                    printDumpedData(static_cast<const AstPayload<AstDecl>&>(dispatchedNode).DumpPayloadData());
-                }
-
-                printDumpedData(static_cast<const AstPayload<AstType>&>(dispatchedNode).DumpPayloadData());
+                printDumpedData(dispatchedNode.DumpPayloadData());
             });
         }
 

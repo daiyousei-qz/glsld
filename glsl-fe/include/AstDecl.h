@@ -34,8 +34,8 @@ namespace glsld
         // Array specifier
         AstArraySpec* arraySize = nullptr;
 
-        // Initializer (must be AstExpr or AstInitializerList)
-        AstNodeBase* init = nullptr;
+        // Initializer
+        AstInitializer* init = nullptr;
     };
 
     class AstStructMemberDecl : public AstImpl<AstStructMemberDecl>

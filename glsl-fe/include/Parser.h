@@ -196,14 +196,18 @@ namespace glsld
         // RECOVERY: ^'EOF'
         auto ParseDeclAndTryRecover() -> AstDecl*;
 
-        // Parse an initializer list.
+        // Parse an initializer which is either an initializer list or an assignment expression.
         //
         // PARSE: initializer
         //      - initializer := assignment_expr
-        //      - initializer := '{' initializer [',' initializer]... '}'
+        //      - initializer := initializer_list
         //
         // FIXME: recovery?
-        auto ParseInitializer() -> AstNodeBase*;
+        auto ParseInitializer() -> AstInitializer*;
+
+        // PARSE: initializer_list
+        //      - initializer_list := '{' initializer [',' initializer]... '}'
+        auto ParseInitializerList() -> AstInitializerList*;
 
         // EXPECT: 'ID'
         // PARSE: declarator
@@ -511,10 +515,16 @@ namespace glsld
             // 4. 'EOF'
             Bracket,
 
-            // Skip until we see
+            // Assuming a non-zero depth of brace, skip until we see
             // 1. '}' that ends the leading '{'
             // 2. 'EOF'
             Brace,
+
+            // Assuming a non-zero depth of brace, skip until we see
+            // 1. '}' that ends the leading '{'
+            // 2. ';' in this scope
+            // 2. 'EOF'
+            IListBrace,
 
             // Skip until we see
             // 1. ';' in this scope
@@ -546,98 +556,7 @@ namespace glsld
 
         // FIXME: implement correctly (initializer could also use braces, NOTE ';' in initializer isn't ending a
         // statement)
-        auto RecoverFromError(RecoveryMode mode) -> void
-        {
-            // FIXME: is this a parser?
-            GLSLD_TRACE_PARSER();
-
-            auto desiredToken = static_cast<TokenKlass>(mode);
-
-            size_t initParenDepth   = parenDepth;
-            size_t initBracketDepth = bracketDepth;
-            size_t initBraceDepth   = braceDepth;
-
-            if (mode == RecoveryMode::Paren) {
-                GLSLD_ASSERT(initParenDepth != 0);
-            }
-            if (mode == RecoveryMode::Bracket) {
-                GLSLD_ASSERT(initBracketDepth != 0);
-            }
-            if (mode == RecoveryMode::Brace) {
-                GLSLD_ASSERT(initBraceDepth != 0);
-            }
-
-            // We may close a pair of parenthsis without the closing delimitor
-            auto removeDepthIfUnclosed = [&]() {
-                switch (mode) {
-                case RecoveryMode::Paren:
-                    if (!TryTestToken(TokenKlass::RParen)) {
-                        GLSLD_ASSERT(initParenDepth != 0);
-                        parenDepth -= 1;
-                    }
-                    break;
-                case RecoveryMode::Bracket:
-                    if (!TryTestToken(TokenKlass::RBracket)) {
-                        GLSLD_ASSERT(initBracketDepth != 0);
-                        bracketDepth -= 1;
-                    }
-                    break;
-                case RecoveryMode::Brace:
-                    if (!TryTestToken(TokenKlass::RBrace)) {
-                        GLSLD_ASSERT(initBraceDepth != 0);
-                        braceDepth -= 1;
-                    }
-                    break;
-                default:
-                    break;
-                }
-            };
-
-            while (!Eof()) {
-                switch (PeekToken().klass) {
-                case TokenKlass::RParen:
-                    if (parenDepth == 0) {
-                        // skip an isolated ')'
-                        break;
-                    }
-                    if (mode == RecoveryMode::Paren && parenDepth == initParenDepth) {
-                        return;
-                    }
-                    break;
-                case TokenKlass::RBracket:
-                    if (bracketDepth == 0) {
-                        // skip an isolated ']'
-                        break;
-                    }
-                    if (mode == RecoveryMode::Bracket && bracketDepth == initBracketDepth) {
-                        return;
-                    }
-                    break;
-                case TokenKlass::RBrace:
-                    if (braceDepth == 0) {
-                        // skip an isolated '}'
-                        break;
-                    }
-                    if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Brace ||
-                         mode == RecoveryMode::Semi) &&
-                        braceDepth == initBraceDepth) {
-                        return removeDepthIfUnclosed();
-                    }
-                    break;
-                case TokenKlass::Semicolon:
-                    if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Semi) &&
-                        braceDepth == initBraceDepth) {
-                        return removeDepthIfUnclosed();
-                    }
-                    break;
-                default:
-                    break;
-                }
-
-                // skip token?
-                ConsumeToken();
-            }
-        }
+        auto RecoverFromError(RecoveryMode mode) -> void;
 
         auto PeekToken() -> const SyntaxToken&
         {
@@ -791,10 +710,12 @@ namespace glsld
 
         ParsingState state = ParsingState::Parsing;
 
-        size_t parenDepth      = 0;
-        size_t bracketDepth    = 0;
-        size_t braceDepth      = 0;
-        size_t scopeBraceDepth = 0;
+        bool parsingInitializerList = false;
+        size_t ilistBraceDepth      = 0;
+
+        size_t parenDepth   = 0;
+        size_t bracketDepth = 0;
+        size_t braceDepth   = 0;
 
         SyntaxToken currentTok = {};
     };

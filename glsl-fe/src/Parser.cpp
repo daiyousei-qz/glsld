@@ -503,23 +503,70 @@ namespace glsld
         return declResult;
     }
 
-    auto Parser::ParseInitializer() -> AstNodeBase*
+    auto Parser::ParseInitializer() -> AstInitializer*
     {
-        auto beginTokIndex = GetTokenIndex();
+        GLSLD_TRACE_PARSER();
 
-        if (TryConsumeToken(TokenKlass::LBrace)) {
-            // FIXME: implement this
-            RecoverFromError(RecoveryMode::Brace);
-
-            if (!TryConsumeToken(TokenKlass::RBrace)) {
-                EnterRecoveryMode();
-            }
-
-            return CreateAstNode<AstInitializerList>(beginTokIndex, std::vector<AstNodeBase*>{});
+        if (TryTestToken(TokenKlass::LBrace)) {
+            return ParseInitializerList();
         }
         else {
             return ParseExprNoComma();
         }
+    }
+
+    auto Parser::ParseInitializerList() -> AstInitializerList*
+    {
+        GLSLD_TRACE_PARSER();
+
+        bool isOutmostIlist    = !parsingInitializerList;
+        parsingInitializerList = true;
+        if (isOutmostIlist) {
+            ilistBraceDepth = braceDepth;
+        }
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
+        size_t beginTokIndex = GetTokenIndex();
+        ConsumeToken();
+
+        std::vector<AstInitializer*> initItems;
+
+        while (!Eof()) {
+            if (TryTestToken(TokenKlass::RBrace)) {
+                break;
+            }
+            else if (TryTestToken(TokenKlass::LBrace)) {
+                initItems.push_back(ParseInitializerList());
+
+                if (!TryConsumeToken(TokenKlass::Comma)) {
+                    break;
+                }
+            }
+            else {
+                initItems.push_back(ParseExprNoComma());
+
+                if (!TryConsumeToken(TokenKlass::Comma)) {
+                    break;
+                }
+            }
+        }
+
+        if (!TryConsumeToken(TokenKlass::RBrace)) {
+            EnterRecoveryMode();
+        }
+        if (InRecoveryMode()) {
+            RecoverFromError(RecoveryMode::IListBrace);
+
+            if (TryConsumeToken(TokenKlass::RBrace)) {
+                ExitRecoveryMode();
+            }
+        }
+
+        if (isOutmostIlist) {
+            parsingInitializerList = false;
+        }
+
+        return CreateAstNode<AstInitializerList>(beginTokIndex, std::move(initItems));
     }
 
     auto Parser::ParseDeclarator() -> VariableDeclarator
@@ -1472,4 +1519,102 @@ namespace glsld
     }
 
 #pragma endregion
+
+    auto Parser::RecoverFromError(RecoveryMode mode) -> void
+    {
+        // FIXME: is this a parser?
+        GLSLD_TRACE_PARSER();
+
+        auto desiredToken = static_cast<TokenKlass>(mode);
+
+        size_t initParenDepth   = parenDepth;
+        size_t initBracketDepth = bracketDepth;
+        size_t initBraceDepth   = braceDepth;
+
+        if (mode == RecoveryMode::Paren) {
+            GLSLD_ASSERT(initParenDepth > 0);
+        }
+        if (mode == RecoveryMode::Bracket) {
+            GLSLD_ASSERT(initBracketDepth > 0);
+        }
+        if (mode == RecoveryMode::Brace) {
+            GLSLD_ASSERT(initBraceDepth > 0);
+        }
+
+        // We may close a pair of parenthsis without the closing delimitor
+        auto removeDepthIfUnclosed = [&]() {
+            switch (mode) {
+            case RecoveryMode::Paren:
+                if (!TryTestToken(TokenKlass::RParen)) {
+                    GLSLD_ASSERT(initParenDepth != 0);
+                    parenDepth -= 1;
+                }
+                break;
+            case RecoveryMode::Bracket:
+                if (!TryTestToken(TokenKlass::RBracket)) {
+                    GLSLD_ASSERT(initBracketDepth != 0);
+                    bracketDepth -= 1;
+                }
+                break;
+            case RecoveryMode::Brace:
+                if (!TryTestToken(TokenKlass::RBrace)) {
+                    GLSLD_ASSERT(initBraceDepth != 0);
+                    braceDepth -= 1;
+                }
+                break;
+            default:
+                break;
+            }
+        };
+
+        while (!Eof()) {
+            switch (PeekToken().klass) {
+            case TokenKlass::RParen:
+                if (parenDepth == 0) {
+                    // skip an isolated ')'
+                    break;
+                }
+                if (mode == RecoveryMode::Paren && parenDepth == initParenDepth) {
+                    return;
+                }
+                break;
+            case TokenKlass::RBracket:
+                if (bracketDepth == 0) {
+                    // skip an isolated ']'
+                    break;
+                }
+                if (mode == RecoveryMode::Bracket && bracketDepth == initBracketDepth) {
+                    return;
+                }
+                break;
+            case TokenKlass::RBrace:
+                if (braceDepth == 0) {
+                    // skip an isolated '}'
+                    break;
+                }
+                if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Brace ||
+                     mode == RecoveryMode::IListBrace || mode == RecoveryMode::Semi) &&
+                    braceDepth == initBraceDepth) {
+                    return removeDepthIfUnclosed();
+                }
+                break;
+            case TokenKlass::Semicolon:
+                if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Semi) &&
+                    braceDepth == initBraceDepth) {
+                    return removeDepthIfUnclosed();
+                }
+                else if (mode == RecoveryMode::IListBrace) {
+                    // Force brace depth to rebalance to where the initializer list started
+                    braceDepth = ilistBraceDepth;
+                    return;
+                }
+                break;
+            default:
+                break;
+            }
+
+            // skip token?
+            ConsumeToken();
+        }
+    }
 } // namespace glsld
