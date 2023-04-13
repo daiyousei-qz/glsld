@@ -9,7 +9,7 @@ namespace glsld
     enum class UnaryOp
     {
         Identity,
-        Nagate,
+        Negate,
         BitwiseNot,
         LogicalNot,
         PrefixInc,
@@ -23,7 +23,7 @@ namespace glsld
         switch (op) {
         case UnaryOp::Identity:
             return "Identity";
-        case UnaryOp::Nagate:
+        case UnaryOp::Negate:
             return "Nagate";
         case UnaryOp::BitwiseNot:
             return "BitwiseNot";

@@ -710,6 +710,8 @@ namespace glsld
 
         ParsingState state = ParsingState::Parsing;
 
+        // If we are parsing an initializer list. This flag is used to determine the outermost brace depth of nested
+        // initializer list.
         bool parsingInitializerList = false;
         size_t ilistBraceDepth      = 0;
 

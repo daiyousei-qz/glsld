@@ -42,7 +42,12 @@ namespace glsld
 
         auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
         {
-            if (!decl.GetDeclarator()) {
+            if (decl.GetDeclarator()) {
+                // Named block
+                TryAddSymbol(decl.GetDeclarator()->declTok, lsp::SymbolKind::Variable);
+            }
+            else {
+                // Anonymous block
                 for (auto blockMember : decl.GetMembers()) {
                     for (const auto& declarator : blockMember->GetDeclarators()) {
                         TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
@@ -62,6 +67,7 @@ namespace glsld
                     .kind           = kind,
                     .range          = tokRange,
                     .selectionRange = tokRange,
+                    .children       = {},
                 });
             }
         }

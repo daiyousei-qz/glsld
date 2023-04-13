@@ -67,8 +67,8 @@ namespace glsld
                 for (auto arrayDim : arraySpec->GetSizeList()) {
                     if (arrayDim != nullptr) {
                         const auto& dimSizeValue = arrayDim->GetConstValue();
-                        if (dimSizeValue.HasIntValue()) {
-                            dimSizes.push_back(dimSizeValue.GetIntValue());
+                        if (dimSizeValue.IsScalarInt32()) {
+                            dimSizes.push_back(dimSizeValue.GetInt32Value());
                             continue;
                         }
                     }

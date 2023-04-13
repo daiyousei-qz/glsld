@@ -519,18 +519,34 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        bool isOutmostIlist    = !parsingInitializerList;
-        parsingInitializerList = true;
-        if (isOutmostIlist) {
-            ilistBraceDepth = braceDepth;
-        }
+        struct InitializerListBraceDepthTracker
+        {
+            Parser* parser_ = nullptr;
+
+            InitializerListBraceDepthTracker(Parser* parser)
+            {
+                // Only update when we are at the outermost call to ParseInitializerList
+                if (!parser->parsingInitializerList) {
+                    parser->parsingInitializerList = true;
+                    parser->ilistBraceDepth        = parser->braceDepth;
+                    parser_                        = parser;
+                }
+            }
+            ~InitializerListBraceDepthTracker()
+            {
+                if (parser_) {
+                    parser_->parsingInitializerList = false;
+                }
+            }
+        };
+
+        InitializerListBraceDepthTracker braceDepthTracker(this);
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
         size_t beginTokIndex = GetTokenIndex();
         ConsumeToken();
 
         std::vector<AstInitializer*> initItems;
-
         while (!Eof()) {
             if (TryTestToken(TokenKlass::RBrace)) {
                 break;
@@ -560,10 +576,6 @@ namespace glsld
             if (TryConsumeToken(TokenKlass::RBrace)) {
                 ExitRecoveryMode();
             }
-        }
-
-        if (isOutmostIlist) {
-            parsingInitializerList = false;
         }
 
         return CreateAstNode<AstInitializerList>(beginTokIndex, std::move(initItems));
@@ -776,7 +788,7 @@ namespace glsld
         case TokenKlass::Plus:
             return UnaryOp::Identity;
         case TokenKlass::Dash:
-            return UnaryOp::Nagate;
+            return UnaryOp::Negate;
         case TokenKlass::Tilde:
             return UnaryOp::BitwiseNot;
         case TokenKlass::Bang:

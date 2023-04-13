@@ -9,6 +9,10 @@ namespace glsld
     class AstPrinter : public AstVisitor<AstPrinter>
     {
     public:
+        AstPrinter(bool printPayload = false) : printPayload(printPayload)
+        {
+        }
+
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
             PrintIdent(true);
@@ -27,7 +31,9 @@ namespace glsld
                 };
 
                 printDumpedData(dispatchedNode.DumpNodeData());
-                printDumpedData(dispatchedNode.DumpPayloadData());
+                if (printPayload) {
+                    printDumpedData(dispatchedNode.DumpPayloadData());
+                }
             });
         }
 
@@ -66,6 +72,7 @@ namespace glsld
         }
 
         std::string buffer;
-        int depth = 0;
+        int depth         = 0;
+        bool printPayload = false;
     };
 } // namespace glsld

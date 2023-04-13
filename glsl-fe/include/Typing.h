@@ -27,6 +27,36 @@ namespace glsld
         Float16,
     };
 
+    // Excluding bool type
+    inline auto IsIntegralScalarType(ScalarType type) -> bool
+    {
+        switch (type) {
+        case ScalarType::Int:
+        case ScalarType::Uint:
+        case ScalarType::Int8:
+        case ScalarType::Int16:
+        case ScalarType::Int64:
+        case ScalarType::Uint8:
+        case ScalarType::Uint16:
+        case ScalarType::Uint64:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    inline auto IsFloatPointScalarType(ScalarType type) -> bool
+    {
+        switch (type) {
+        case ScalarType::Float:
+        case ScalarType::Double:
+        case ScalarType::Float16:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // An enum of all builtin types in glsl language
     enum class GlslBuiltinType
     {

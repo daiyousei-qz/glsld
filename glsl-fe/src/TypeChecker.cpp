@@ -5,7 +5,7 @@ namespace glsld
     namespace
     {
         // FIXME: avoid doing another traversal. We could do this during parsing
-        auto ParseIntegerLiteral(StringView literalText) -> ConstValue
+        auto ParseIntegerLiteral(StringView literalText) -> std::pair<const Type*, ConstValue>
         {
             GLSLD_ASSERT(!literalText.Empty());
             if (literalText.EndWith("u") || literalText.EndWith("U")) {
@@ -15,10 +15,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<GlslBuiltinType::Ty_uint>(value);
-                }
-                else {
-                    return ConstValue{};
+                    return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_uint), ConstValue::FromValue<uint32_t>(value)};
                 }
             }
             else {
@@ -28,15 +25,14 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<GlslBuiltinType::Ty_int>(value);
-                }
-                else {
-                    return ConstValue{};
+                    return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_int), ConstValue::FromValue<int32_t>(value)};
                 }
             }
+
+            return {GetErrorTypeDesc(), ConstValue{}};
         }
 
-        auto ParseFloatLiteral(StringView literalText) -> ConstValue
+        auto ParseFloatLiteral(StringView literalText) -> std::pair<const Type*, ConstValue>
         {
             GLSLD_ASSERT(!literalText.Empty());
             if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
@@ -46,10 +42,7 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<GlslBuiltinType::Ty_double>(value);
-                }
-                else {
-                    return ConstValue{};
+                    return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_double), ConstValue::FromValue<double>(value)};
                 }
             }
             else {
@@ -62,12 +55,11 @@ namespace glsld
                 auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
                                                    literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
                 if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<GlslBuiltinType::Ty_float>(value);
-                }
-                else {
-                    return ConstValue{};
+                    return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_float), ConstValue::FromValue<float>(value)};
                 }
             }
+
+            return {GetErrorTypeDesc(), ConstValue{}};
         }
 
         auto DeduceUnaryExprType(UnaryOp op, const Type* operand) -> const Type*
@@ -75,7 +67,7 @@ namespace glsld
             switch (op) {
             case UnaryOp::Identity:
                 return operand;
-            case UnaryOp::Nagate:
+            case UnaryOp::Negate:
                 if (operand->IsSameWith(GlslBuiltinType::Ty_int) || operand->IsSameWith(GlslBuiltinType::Ty_uint) ||
                     operand->IsSameWith(GlslBuiltinType::Ty_float) || operand->IsSameWith(GlslBuiltinType::Ty_double)) {
                     return operand;
@@ -251,9 +243,31 @@ namespace glsld
         return result;
     }
 
-    auto TypeChecker::InFunctionScope() -> bool
+    auto TypeChecker::ResolveType(AstQualType& type) -> void
     {
-        return currentFunction != nullptr;
+        const Type* resolvedType = GetErrorTypeDesc();
+
+        // Resolve element type
+        if (auto builtinType = GetGlslBuiltinType(type.GetTypeNameTok())) {
+            resolvedType = GetBuiltinTypeDesc(*builtinType);
+        }
+        else if (type.GetStructDecl()) {
+            // A struct type
+            // NOTE it is already resolved
+            resolvedType = type.GetStructDecl()->GetTypeDesc();
+        }
+        else {
+            auto symbol = FindSymbol(type.GetTypeNameTok().text.Str());
+            if (symbol && symbol.GetDecl()->Is<AstStructDecl>()) {
+                resolvedType = symbol.GetDecl()->As<AstStructDecl>()->GetTypeDesc();
+                type.SetResolvedStructDecl(symbol.GetDecl()->As<AstStructDecl>());
+            }
+        }
+
+        // Resolve array type if any
+        resolvedType = compilerObject.GetTypeContext().GetArrayType(resolvedType, type.GetArraySpec());
+
+        type.SetResolvedType(resolvedType);
     }
 
     auto TypeChecker::DeclareStruct(AstStructDecl& decl) -> void
@@ -287,6 +301,8 @@ namespace glsld
     {
         // NOTE this could have 0 declarator. Then nothing is added.
         GetSymbolTable().AddVariableDecl(decl);
+
+        // FIXME: check for initializer
     }
 
     auto TypeChecker::DeclareParameter(AstParamDecl& decl) -> void
@@ -358,22 +374,30 @@ namespace glsld
         // FIXME: handle literals with typing suffix
         switch (expr.GetToken().klass) {
         case TokenKlass::K_true:
-            expr.SetConstValue(ConstValue::FromValue<GlslBuiltinType::Ty_bool>(true));
+            expr.SetConstValue(ConstValue::FromValue<bool>(true));
+            expr.SetDeducedType(GetBuiltinTypeDesc(GlslBuiltinType::Ty_bool));
             break;
         case TokenKlass::K_false:
-            expr.SetConstValue(ConstValue::FromValue<GlslBuiltinType::Ty_bool>(false));
+            expr.SetConstValue(ConstValue::FromValue<bool>(false));
+            expr.SetDeducedType(GetBuiltinTypeDesc(GlslBuiltinType::Ty_bool));
             break;
         case TokenKlass::IntegerConstant:
-            expr.SetConstValue(ParseIntegerLiteral(expr.GetToken().text.StrView()));
+        {
+            auto [type, value] = ParseIntegerLiteral(expr.GetToken().text.StrView());
+            expr.SetDeducedType(type);
+            expr.SetConstValue(std::move(value));
             break;
+        }
         case TokenKlass::FloatConstant:
-            expr.SetConstValue(ParseFloatLiteral(expr.GetToken().text.StrView()));
+        {
+            auto [type, value] = ParseFloatLiteral(expr.GetToken().text.StrView());
+            expr.SetDeducedType(type);
+            expr.SetConstValue(std::move(value));
             break;
+        }
         default:
             GLSLD_UNREACHABLE();
         }
-
-        expr.SetDeducedType(expr.GetConstValue().GetTypeDesc());
     }
 
     auto TypeChecker::CheckNameAccessExpr(AstNameAccessExpr& expr) -> void
@@ -491,23 +515,23 @@ namespace glsld
 
     auto TypeChecker::CheckUnaryExpr(AstUnaryExpr& expr) -> void
     {
-        expr.SetConstValue(EvaluateUnaryOp(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
+        expr.SetConstValue(EvaluateUnaryConstExpr(expr.GetOperator(), expr.GetOperandExpr()->GetConstValue()));
         expr.SetDeducedType(DeduceUnaryExprType(expr.GetOperator(), expr.GetOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckBinaryExpr(AstBinaryExpr& expr) -> void
     {
-        expr.SetConstValue(EvaluateBinaryOp(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
-                                            expr.GetRightOperandExpr()->GetConstValue()));
+        expr.SetConstValue(EvaluateBinaryConstExpr(expr.GetOperator(), expr.GetLeftOperandExpr()->GetConstValue(),
+                                                   expr.GetRightOperandExpr()->GetConstValue()));
         expr.SetDeducedType(DeduceBinaryExprType(expr.GetOperator(), expr.GetLeftOperandExpr()->GetDeducedType(),
                                                  expr.GetRightOperandExpr()->GetDeducedType()));
     }
 
     auto TypeChecker::CheckSelectExpr(AstSelectExpr& expr) -> void
     {
-        expr.SetConstValue(EvaluateSelectOp(expr.GetPredicateExpr()->GetConstValue(),
-                                            expr.GetIfBranchExpr()->GetConstValue(),
-                                            expr.GetElseBranchExpr()->GetConstValue()));
+        expr.SetConstValue(EvaluateSelectConstExpr(expr.GetPredicateExpr()->GetConstValue(),
+                                                   expr.GetIfBranchExpr()->GetConstValue(),
+                                                   expr.GetElseBranchExpr()->GetConstValue()));
         expr.SetDeducedType(GetErrorTypeDesc());
     }
 
@@ -529,5 +553,46 @@ namespace glsld
                 return;
             }
         }
+    }
+
+    auto TypeChecker::GetDeclType(DeclView declView) -> const Type*
+    {
+        if (!declView.IsValid()) {
+            return GetErrorTypeDesc();
+        }
+
+        auto decl = declView.GetDecl();
+        if (decl->Is<AstEmptyDecl>()) {
+            return GetErrorTypeDesc();
+        }
+        else if (auto structDecl = decl->As<AstStructDecl>()) {
+            return structDecl->GetTypeDesc();
+        }
+        else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>()) {
+            return blockDecl->GetTypeDesc();
+        }
+        else if (auto memberDecl = decl->As<AstStructMemberDecl>()) {
+            if (declView.GetIndex() < memberDecl->GetDeclarators().size()) {
+                return compilerObject.GetTypeContext().GetArrayType(
+                    memberDecl->GetType()->GetResolvedType(),
+                    memberDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+            }
+        }
+        else if (auto varDecl = decl->As<AstVariableDecl>()) {
+            if (declView.GetIndex() < varDecl->GetDeclarators().size()) {
+                return compilerObject.GetTypeContext().GetArrayType(
+                    varDecl->GetType()->GetResolvedType(), varDecl->GetDeclarators()[declView.GetIndex()].arraySize);
+            }
+        }
+        else if (auto paramDecl = decl->As<AstParamDecl>()) {
+            // FIXME: arrayness
+            return paramDecl->GetType()->GetResolvedType();
+        }
+        else if (auto funcDecl = decl->As<AstFunctionDecl>()) {
+            // FIXME: function type?
+            return GetErrorTypeDesc();
+        }
+
+        GLSLD_UNREACHABLE();
     }
 } // namespace glsld

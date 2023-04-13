@@ -20,8 +20,13 @@ namespace glsld
             return Vec{data};
         }
         auto operator-() const noexcept -> Vec
+            requires(!std::is_same_v<T, bool>)
         {
-            return Vec{-data};
+            Vec result;
+            for (size_t i = 0; i < N; ++i) {
+                result.data[i] = -data[i];
+            }
+            return result;
         }
 
         auto operator+=(const Vec& other) noexcept -> Vec&
@@ -163,7 +168,11 @@ namespace glsld
         }
         auto operator-() const noexcept -> Mat
         {
-            return Mat{-data};
+            Mat result;
+            for (size_t i = 0; i < M * N; ++i) {
+                result.data[i] = -data[i];
+            }
+            return result;
         }
 
         auto operator+=(const Mat& other) noexcept -> Mat&
@@ -243,12 +252,31 @@ namespace glsld
     using Vec3u = Vec<uint32_t, 3>;
     using Vec4u = Vec<uint32_t, 4>;
 
-    using Mat2f = Mat<float, 2, 2>;
-    using Mat3f = Mat<float, 3, 3>;
-    using Mat4f = Mat<float, 4, 4>;
-    using Mat2d = Mat<double, 2, 2>;
-    using Mat3d = Mat<double, 3, 3>;
-    using Mat4d = Mat<double, 4, 4>;
+    using Mat2x2f = Mat<float, 2, 2>;
+    using Mat2x3f = Mat<float, 2, 3>;
+    using Mat2x4f = Mat<float, 2, 4>;
+    using Mat3x2f = Mat<float, 3, 2>;
+    using Mat3x3f = Mat<float, 3, 3>;
+    using Mat3x4f = Mat<float, 3, 4>;
+    using Mat4x2f = Mat<float, 4, 2>;
+    using Mat4x3f = Mat<float, 4, 3>;
+    using Mat4x4f = Mat<float, 4, 4>;
+    using Mat2f   = Mat<float, 2, 2>;
+    using Mat3f   = Mat<float, 3, 3>;
+    using Mat4f   = Mat<float, 4, 4>;
+
+    using Mat2x2d = Mat<double, 2, 2>;
+    using Mat2x3d = Mat<double, 2, 3>;
+    using Mat2x4d = Mat<double, 2, 4>;
+    using Mat3x2d = Mat<double, 3, 2>;
+    using Mat3x3d = Mat<double, 3, 3>;
+    using Mat3x4d = Mat<double, 3, 4>;
+    using Mat4x2d = Mat<double, 4, 2>;
+    using Mat4x3d = Mat<double, 4, 3>;
+    using Mat4x4d = Mat<double, 4, 4>;
+    using Mat2d   = Mat<double, 2, 2>;
+    using Mat3d   = Mat<double, 3, 3>;
+    using Mat4d   = Mat<double, 4, 4>;
 } // namespace glsld
 
 template <typename T, size_t N>

@@ -180,13 +180,13 @@ namespace glsld
                 return errorValue;
             }
         }
-        auto SetConstValue(const ConstValue& value) -> void
+        auto SetConstValue(ConstValue value) -> void
         {
             if (constValue) {
                 delete constValue;
             }
 
-            constValue = new ConstValue(value);
+            constValue = new ConstValue(std::move(value));
         }
 
         auto GetDeducedType() const -> const Type*

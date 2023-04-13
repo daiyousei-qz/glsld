@@ -2,6 +2,8 @@
 #include "AstBase.h"
 #include "AstPayload.h"
 
+#include <string>
+
 #if defined(_MSC_VER)
 #define GLSLD_MSVC_EMPTY_BASES __declspec(empty_bases)
 #else

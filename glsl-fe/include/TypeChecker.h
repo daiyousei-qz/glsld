@@ -30,38 +30,16 @@ namespace glsld
         // Type
         //
 
-        auto ResolveType(AstQualType& type) -> void
-        {
-            const Type* resolvedType = GetErrorTypeDesc();
-
-            // Resolve element type
-            if (auto builtinType = GetGlslBuiltinType(type.GetTypeNameTok())) {
-                resolvedType = GetBuiltinTypeDesc(*builtinType);
-            }
-            else if (type.GetStructDecl()) {
-                // A struct type
-                // NOTE it is already resolved
-                resolvedType = type.GetStructDecl()->GetTypeDesc();
-            }
-            else {
-                auto symbol = FindSymbol(type.GetTypeNameTok().text.Str());
-                if (symbol && symbol.GetDecl()->Is<AstStructDecl>()) {
-                    resolvedType = symbol.GetDecl()->As<AstStructDecl>()->GetTypeDesc();
-                    type.SetResolvedStructDecl(symbol.GetDecl()->As<AstStructDecl>());
-                }
-            }
-
-            // Resolve array type if any
-            resolvedType = compilerObject.GetTypeContext().GetArrayType(resolvedType, type.GetArraySpec());
-
-            type.SetResolvedType(resolvedType);
-        }
+        auto ResolveType(AstQualType& type) -> void;
 
         //
         // Global Decl
         //
 
-        auto InFunctionScope() -> bool;
+        auto InFunctionScope() const noexcept -> bool
+        {
+            return currentFunction != nullptr;
+        }
 
         auto DeclareStruct(AstStructDecl& decl) -> void;
 
@@ -107,47 +85,7 @@ namespace glsld
         //
         // Type Eval
         //
-        auto GetDeclType(DeclView declView) -> const Type*
-        {
-            if (!declView.IsValid()) {
-                return GetErrorTypeDesc();
-            }
-
-            auto decl = declView.GetDecl();
-            if (decl->Is<AstEmptyDecl>()) {
-                return GetErrorTypeDesc();
-            }
-            else if (auto structDecl = decl->As<AstStructDecl>()) {
-                return structDecl->GetTypeDesc();
-            }
-            else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>()) {
-                return blockDecl->GetTypeDesc();
-            }
-            else if (auto memberDecl = decl->As<AstStructMemberDecl>()) {
-                if (declView.GetIndex() < memberDecl->GetDeclarators().size()) {
-                    return compilerObject.GetTypeContext().GetArrayType(
-                        memberDecl->GetType()->GetResolvedType(),
-                        memberDecl->GetDeclarators()[declView.GetIndex()].arraySize);
-                }
-            }
-            else if (auto varDecl = decl->As<AstVariableDecl>()) {
-                if (declView.GetIndex() < varDecl->GetDeclarators().size()) {
-                    return compilerObject.GetTypeContext().GetArrayType(
-                        varDecl->GetType()->GetResolvedType(),
-                        varDecl->GetDeclarators()[declView.GetIndex()].arraySize);
-                }
-            }
-            else if (auto paramDecl = decl->As<AstParamDecl>()) {
-                // FIXME: arrayness
-                return paramDecl->GetType()->GetResolvedType();
-            }
-            else if (auto funcDecl = decl->As<AstFunctionDecl>()) {
-                // FIXME: function type?
-                return GetErrorTypeDesc();
-            }
-
-            GLSLD_UNREACHABLE();
-        }
+        auto GetDeclType(DeclView declView) -> const Type*;
 
     private:
         friend class TypeCheckVisitor;

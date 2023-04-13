@@ -717,6 +717,7 @@ namespace glsld::lsp
         //  * Children of this symbol, e.g. properties of a class.
         //  */
         // children?: DocumentSymbol[];
+        std::vector<DocumentSymbol> children;
     };
     inline auto MapJson(JsonFromObjectMapper& mapper, const DocumentSymbol& value) -> bool
     {
@@ -730,6 +731,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("selectionRange", value.selectionRange)) {
+            return false;
+        }
+        if (!mapper.Map("children", value.children)) {
             return false;
         }
         return true;

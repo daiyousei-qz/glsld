@@ -88,7 +88,7 @@ namespace glsld
         }
 
 #if defined(GLSLD_DEBUG)
-        AstPrinter printer;
+        AstPrinter printer{true};
         printer.TraverseAst(*astContext);
         fmt::print(stderr, "{}", printer.Export());
 #endif
