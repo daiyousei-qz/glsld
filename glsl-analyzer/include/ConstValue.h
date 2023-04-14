@@ -422,11 +422,13 @@ namespace glsld
         }
         auto ElemwiseShiftLeft(const ConstValue& other) const -> ConstValue
         {
-            GLSLD_NO_IMPL();
+            // FIXME: implement this
+            return ConstValue();
         }
         auto ElemwiseShiftRight(const ConstValue& other) const -> ConstValue
         {
-            GLSLD_NO_IMPL();
+            // FIXME: implement this
+            return ConstValue();
         }
 
         auto ElemwiseEquals(const ConstValue& other) const -> ConstValue

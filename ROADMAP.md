@@ -14,11 +14,14 @@
 # Known issues
 - `Should support builtin function documentation`
 - `Test2\400.geom` Inlay hint disappear during scrolling
-- `Test2\410.geom` block array completion
-- `Test2\310.frag` Semantic tokens doesn't work FIXED
 - Random crash
 - Avoid provide completion if we are typing a declarator.
-- `Test/preprocessor.simple.vert` FIXED
-- `Test/310AofA.vert` bad AST
+- `Test/310AofA.vert` bad AST, type constructor call is treated as function declaration.
+- `Test/400.vert` bad overload resolution
 - Support initializer list
 - `Test/constantUnaryConversion.comp` no Hover on TYPE_TO(bo^ol)
+- `Test/spv.int32.frag` crash
+- nonuniformEXT qualifier
+- `Test/spv.precise.tese` crash
+- `Test/spv.scalarlayout.frag` no completion
+- Completion shouldn't suggest ids that's defined later in the source file

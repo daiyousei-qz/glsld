@@ -7,6 +7,10 @@ namespace glsld
 {
     auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
     {
+        if (operand.IsError()) {
+            return ConstValue{};
+        }
+
         switch (op) {
         case UnaryOp::Identity:
             return operand.Clone();
@@ -30,6 +34,10 @@ namespace glsld
     }
     auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
     {
+        if (lhs.IsError() || rhs.IsError()) {
+            return ConstValue{};
+        }
+
         switch (op) {
         case BinaryOp::Plus:
             return lhs.ElemwisePlus(rhs);
