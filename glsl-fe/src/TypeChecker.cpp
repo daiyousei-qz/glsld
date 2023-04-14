@@ -494,6 +494,9 @@ namespace glsld
                         expr.SetAccessedDecl(accessedDecl);
                     }
                 }
+                else {
+                    GLSLD_UNREACHABLE();
+                }
             }
             else {
                 // Bad access chain
@@ -506,7 +509,7 @@ namespace glsld
             GLSLD_ASSERT(expr.GetAccessType() == NameAccessType::Variable);
             if (auto symbol = FindSymbol(std::string{accessName})) {
                 if (auto varDecl = symbol.GetDecl()->As<AstVariableDecl>()) {
-                    // Variable
+                    // Accessing a variable
 
                     expr.SetAccessedDecl(symbol);
 
@@ -515,7 +518,7 @@ namespace glsld
                         varDecl->GetType()->GetResolvedType(), declarator.arraySize));
                 }
                 else if (auto paramDecl = symbol.GetDecl()->As<AstParamDecl>()) {
-                    // Parameter
+                    // Accessing a parameter
 
                     expr.SetAccessedDecl(symbol);
 
@@ -529,13 +532,13 @@ namespace glsld
                     }
                 }
                 else if (auto blockDecl = symbol.GetDecl()->As<AstInterfaceBlockDecl>()) {
-                    // Interface block
+                    // Accessing a interface block instance
 
                     expr.SetAccessedDecl(symbol);
                     expr.SetDeducedType(blockDecl->GetInstanceType());
                 }
                 else if (auto memberDecl = symbol.GetDecl()->As<AstStructMemberDecl>()) {
-                    // Unnamed interface block member
+                    // Accessing a unnamed interface block member
 
                     expr.SetAccessedDecl(symbol);
                     // FIXME: should we really use AstStructMemberDecl? Maybe AstInterfaceBlockMemberDecl?
@@ -614,7 +617,10 @@ namespace glsld
         // FIXME: handle things like `S[2](...)`
         if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
             if (invokedExpr->GetAccessType() == NameAccessType::Function) {
-                auto funcDecl = invokedExpr->GetAccessedDecl().GetDecl()->As<AstFunctionDecl>();
+                if (invokedExpr->GetAccessedDecl()) {
+                    auto funcDecl = invokedExpr->GetAccessedDecl().GetDecl()->As<AstFunctionDecl>();
+                    expr.SetDeducedType(funcDecl->GetResolvedReturnType());
+                }
             }
             else if (invokedExpr->GetAccessType() == NameAccessType::Constructor) {
                 if (invokedExpr->GetAccessName().klass != TokenKlass::Identifier) {
@@ -670,5 +676,130 @@ namespace glsld
         }
 
         GLSLD_UNREACHABLE();
+    }
+
+    auto TypeChecker::ResolveSwizzleAccess(AstNameAccessExpr& expr) -> void
+    {
+        auto swizzleName = expr.GetAccessName().text.StrView();
+        if (swizzleName.Size() < 1 || swizzleName.Size() > 4) {
+            // FIXME: report error, bad swizzle
+            return;
+        }
+
+        expr.SetAccessType(NameAccessType::Swizzle);
+
+        const auto baseExprType = expr.GetAccessChain()->GetDeducedType();
+        int baseExprDimSize     = 0;
+        if (baseExprType->IsScalar()) {
+            baseExprDimSize = 1;
+            expr.SetDeducedType(GetVectorTypeDesc(baseExprType->GetScalarDesc()->type, swizzleName.Size()));
+        }
+        else if (baseExprType->IsVector()) {
+            baseExprDimSize = baseExprType->GetVectorDesc()->vectorSize;
+            expr.SetDeducedType(GetVectorTypeDesc(baseExprType->GetVectorDesc()->scalarType, swizzleName.Size()));
+        }
+        else {
+            GLSLD_ASSERT(false);
+        }
+
+        // -> {swizzleSet, swizzleIndex}
+        auto translateSwizzleChar = [](char ch) -> std::pair<int, int> {
+            switch (ch) {
+            case 'x':
+                return {0, 0};
+            case 'y':
+                return {0, 1};
+            case 'z':
+                return {0, 2};
+            case 'w':
+                return {0, 3};
+            case 'r':
+                return {1, 0};
+            case 'g':
+                return {1, 1};
+            case 'b':
+                return {1, 2};
+            case 'a':
+                return {1, 3};
+            case 's':
+                return {2, 0};
+            case 't':
+                return {2, 1};
+            case 'p':
+                return {2, 2};
+            case 'q':
+                return {2, 3};
+            default:
+                return {-1, 0};
+            }
+        };
+
+        int lastSwizzleSet = -1;
+        uint8_t swizzleBuffer[4];
+
+        for (int i = 0; i < swizzleName.Size(); ++i) {
+            const auto [set, index] = translateSwizzleChar(swizzleName[i]);
+            if (set == -1) {
+                // FIXME: report error, bad swizzle char
+            }
+            else if (lastSwizzleSet != -1 && set != lastSwizzleSet) {
+                // FIXME: report error, swizzle set mismatch
+            }
+            else if (index >= baseExprDimSize) {
+                // FIXME: report error, swizzle index out of range
+            }
+
+            lastSwizzleSet   = set;
+            swizzleBuffer[i] = static_cast<uint8_t>(index);
+        }
+
+        expr.SetSwizzleInfo(SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.Size()}});
+    }
+
+    auto TypeChecker::ResolveInvokeExpr(AstInvokeExpr& expr) -> void
+    {
+        if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+            // Case 1: `ID()`
+            auto accessName = invokedExpr->GetAccessName().text.Str();
+
+            switch (invokedExpr->GetAccessType()) {
+            case NameAccessType::Constructor:
+            {
+                if (auto builtinType = GetGlslBuiltinType(invokedExpr->GetAccessName())) {
+                    // Builtin types
+                }
+                else {
+                    // User-defined types
+                    auto symbol = FindSymbol(accessName);
+                    if (symbol &&
+                        (symbol.GetDecl()->Is<AstStructDecl>() || symbol.GetDecl()->Is<AstInterfaceBlockDecl>())) {
+                        invokedExpr->SetAccessedDecl(symbol);
+                    }
+                }
+
+                break;
+            }
+            case NameAccessType::Function:
+            {
+                // FIXME: Check if the identifier is shadowed by a local variable
+                // FIXME: We might need to collect all functions from the symbol table and then resolute the
+                // overload
+                std::vector<const Type*> argTypes;
+                for (auto argExpr : expr.GetArguments()) {
+                    argTypes.push_back(argExpr->GetDeducedType());
+                }
+                auto funcSymbol = FindFunction(accessName, argTypes);
+                if (funcSymbol) {
+                    // FIXME: invoked expr should have deduced type of function?
+                    invokedExpr->SetAccessedDecl(DeclView{funcSymbol});
+                }
+                break;
+            }
+            default:
+                GLSLD_UNREACHABLE();
+            }
+        }
+
+        // Case 3: `expr.length()`
     }
 } // namespace glsld

@@ -33,7 +33,6 @@ namespace glsld
     public:
         Parser(CompilerObject& compilerObject) : compilerObject(compilerObject)
         {
-            RestoreTokenIndex(0);
         }
 
         // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
@@ -533,42 +532,41 @@ namespace glsld
             Semi,
         };
 
-        auto InParsingMode() -> bool
+        auto InParsingMode() const noexcept -> bool
         {
             return state == ParsingState::Parsing;
         }
 
-        auto InRecoveryMode() -> bool
+        auto InRecoveryMode() const noexcept -> bool
         {
             return state == ParsingState::Recovery;
         }
 
-        auto EnterRecoveryMode() -> void
+        auto EnterRecoveryMode() noexcept -> void
         {
             state = ParsingState::Recovery;
         }
 
-        auto ExitRecoveryMode() -> void
+        auto ExitRecoveryMode() noexcept -> void
         {
             GLSLD_ASSERT(state == ParsingState::Recovery);
             state = ParsingState::Parsing;
         }
 
-        // FIXME: implement correctly (initializer could also use braces, NOTE ';' in initializer isn't ending a
-        // statement)
+        // Recover from a parsing error by skipping tokens until we reach a recovery point.
         auto RecoverFromError(RecoveryMode mode) -> void;
 
-        auto PeekToken() -> const SyntaxToken&
+        auto PeekToken() const noexcept -> const SyntaxToken&
         {
             return currentTok;
         }
 
-        auto PeekToken(size_t lookahead) -> SyntaxToken
+        auto PeekToken(size_t lookahead) const noexcept -> SyntaxToken
         {
             return compilerObject.GetLexContext().GetToken(currentTok.index + lookahead);
         }
 
-        auto GetTokenIndex() -> SyntaxTokenIndex
+        auto GetTokenIndex() const noexcept -> SyntaxTokenIndex
         {
             return currentTok.index;
         }

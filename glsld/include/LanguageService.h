@@ -98,6 +98,7 @@ namespace glsld
             }
 
             providerEntry = std::make_shared<IntellisenseProvider>(params.textDocument.version,
+                                                                   UnescapeHttp(params.textDocument.uri),
                                                                    std::move(params.textDocument.text));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
@@ -121,8 +122,8 @@ namespace glsld
                     sourceBuffer = std::move(change.text);
                 }
             }
-            providerEntry =
-                std::make_shared<IntellisenseProvider>(params.textDocument.version, std::move(sourceBuffer));
+            providerEntry = std::make_shared<IntellisenseProvider>(
+                params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
         }

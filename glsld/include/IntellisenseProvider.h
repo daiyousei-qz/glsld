@@ -1,25 +1,27 @@
 #pragma once
 #include "PPInfoCollector.h"
+#include "Uri.h"
 
 #include "Compiler.h"
 
 #include <mutex>
 #include <condition_variable>
+#include <filesystem>
 
 namespace glsld
 {
     class IntellisenseProvider
     {
     public:
-        IntellisenseProvider(int version, std::string sourceString)
-            : version(version), sourceString(std::move(sourceString))
+        IntellisenseProvider(int version, std::string uri, std::string sourceString)
+            : version(version), uri(std::move(uri)), sourceString(std::move(sourceString))
         {
         }
 
         auto Setup()
         {
-            compilerObject.Reset();
-            compilerObject.AddIncludePath("e:/Project/glsld/.vscode/");
+            compilerObject.AddIncludePath(
+                std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
             compilerObject.Compile(sourceString, GetStandardLibraryModule(), &ppInfoCollector);
 
             std::unique_lock<std::mutex> lock{mu};
@@ -64,6 +66,7 @@ namespace glsld
 
     private:
         int version;
+        std::string uri;
         std::string sourceString;
         CompilerObject compilerObject;
         PPInfoCollector ppInfoCollector;

@@ -34,19 +34,10 @@ namespace glsld
             fmt::print("failed to read file\n");
         }
 
-        // std::filesystem::directory_entry dir{"e:/Project/glslang/Test2"};
-        // for (const auto& entry : std::filesystem::directory_iterator{dir}) {
-        //     if (entry.is_regular_file()) {
-        //         fmt::print("[] Compiling {}\n", entry.path().string());
-
-        //         auto inputData = ReadFile(entry.path().string());
-        //         glsld::Compile(StringView{*inputData});
-        //         fmt::print("succussfully parsed input file\n\n");
-        //     }
-        // }
+        std::filesystem::path inputFilePath = intputFile.GetValue();
 
         CompilerObject compiler;
-        compiler.AddIncludePath("E:/Project/glsld/.vscode/");
+        compiler.AddIncludePath(inputFilePath.parent_path());
         // compiler.Compile(*inputData, GetStandardLibraryModule(), nullptr);
         compiler.Compile(*inputData, nullptr, nullptr);
 

@@ -6,9 +6,11 @@ void foo(float x, double y) {
 
 }
 
-void main() {
+void bar() {
+    // Error: ambiguous call
     foo(float(1.0), 1.);
 }
+
 struct S {
     float x;
 };

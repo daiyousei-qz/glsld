@@ -61,15 +61,9 @@ namespace glsld
             }
         }
 
-        struct FunctionEntry
-        {
-            std::vector<const Type*> paramTypes;
-            AstFunctionDecl* decl;
-        };
-
         const SymbolTable* parent = nullptr;
 
-        std::unordered_multimap<std::string, FunctionEntry> funcDeclLookup;
+        std::unordered_multimap<std::string, AstFunctionDecl*> funcDeclLookup;
         std::unordered_map<std::string, DeclView> declLookup;
     };
 } // namespace glsld

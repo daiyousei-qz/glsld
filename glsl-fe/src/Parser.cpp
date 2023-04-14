@@ -7,6 +7,8 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
+        RestoreTokenIndex(0);
+
         while (!Eof()) {
             compilerObject.GetAstContext().AddGlobalDecl(ParseDeclAndTryRecover());
         }

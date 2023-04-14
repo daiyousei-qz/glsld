@@ -191,21 +191,6 @@ namespace glsld
         }
     };
 
-    struct RawSyntaxToken final
-    {
-        // File id of which the token is from
-        FileID file;
-
-        // The token class
-        TokenKlass klass;
-
-        // The token text
-        AtomString text;
-
-        // The token range in the source file
-        TextRange range;
-    };
-
     struct RawSyntaxTokenInfo final
     {
         // The token class.

@@ -12,13 +12,7 @@ namespace glsld
         // deduplicate?
         auto name = decl.GetName().text.Str();
         if (!name.empty()) {
-            std::vector<const Type*> paramTypes;
-            for (auto paramDecl : decl.GetParams()) {
-                paramTypes.push_back(paramDecl->GetType()->GetResolvedType());
-            }
-
-            funcDeclLookup.insert(
-                {decl.GetName().text.Str(), FunctionEntry{.paramTypes = std::move(paramTypes), .decl = &decl}});
+            funcDeclLookup.insert({decl.GetName().text.Str(), &decl});
         }
     }
 
@@ -71,26 +65,28 @@ namespace glsld
         auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
 
         // First pass: resolve candidates and early return if exact match is found
-        std::vector<FunctionEntry> candidateList;
+        std::vector<AstFunctionDecl*> candidateList;
         for (auto it = itBegin; it != itEnd; ++it) {
-            auto funcEntry = it->second;
+            auto funcDecl = it->second;
+
+            ArrayView<const Type*> paramTypes = funcDecl->GetResolvedParamTypes();
 
             // FIXME: use proper compare, this could fail for composite type
-            if (funcEntry.paramTypes == argTypes) {
-                return funcEntry.decl;
+            if (std::ranges::equal(paramTypes, argTypes)) {
+                return funcDecl;
             }
 
-            if (funcEntry.paramTypes.size() == argTypes.size()) {
+            if (paramTypes.size() == argTypes.size()) {
                 auto convertible = true;
                 for (size_t i = 0; i < argTypes.size(); ++i) {
-                    if (!argTypes[i]->IsConvertibleTo(funcEntry.paramTypes[i])) {
+                    if (!argTypes[i]->IsConvertibleTo(paramTypes[i])) {
                         convertible = false;
                         break;
                     }
                 }
 
                 if (convertible) {
-                    candidateList.push_back(funcEntry);
+                    candidateList.push_back(funcDecl);
                 }
             }
         }
@@ -100,18 +96,20 @@ namespace glsld
         }
 
         // Second pass: select the best match with partial order
-        std::vector<FunctionEntry> currentBestList;
-        std::vector<FunctionEntry> nextBestList;
+        std::vector<AstFunctionDecl*> currentBestList;
+        std::vector<AstFunctionDecl*> nextBestList;
         for (auto candidate : candidateList) {
             auto pickedCandidate = false;
             for (auto currentBest : currentBestList) {
-                int numCandidateBetter = 0;
-                int numCurrentBetter   = 0;
+                auto candidateParamTypes   = candidate->GetResolvedParamTypes();
+                auto currentBestParamTypes = currentBest->GetResolvedParamTypes();
+                int numCandidateBetter     = 0;
+                int numCurrentBetter       = 0;
                 for (size_t i = 0; i < argTypes.size(); ++i) {
-                    if (argTypes[i]->HasBetterConversion(candidate.paramTypes[i], currentBest.paramTypes[i])) {
+                    if (argTypes[i]->HasBetterConversion(candidateParamTypes[i], currentBestParamTypes[i])) {
                         numCandidateBetter += 1;
                     }
-                    if (argTypes[i]->HasBetterConversion(currentBest.paramTypes[i], candidate.paramTypes[i])) {
+                    if (argTypes[i]->HasBetterConversion(candidateParamTypes[i], currentBestParamTypes[i])) {
                         numCurrentBetter += 1;
                     }
                 }
@@ -141,7 +139,7 @@ namespace glsld
         }
 
         if (currentBestList.size() == 1) {
-            return currentBestList[0].decl;
+            return currentBestList[0];
         }
         else {
             return nullptr;
