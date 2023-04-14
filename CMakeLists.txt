@@ -62,14 +62,14 @@ find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
 
-# GLSL FrontEnd
-file(GLOB_RECURSE GLSL_FRONTEND_HEADER_FILE glsl-fe/include/*.h)
-file(GLOB_RECURSE GLSL_FRONTEND_SOURCE_FILE glsl-fe/src/*.cpp)
+# GLSL Analyzer
+file(GLOB_RECURSE GLSL_ANALYZER_HEADER_FILE glsl-analyzer/include/*.h)
+file(GLOB_RECURSE GLSL_ANALYZER_SOURCE_FILE glsl-analyzer/src/*.cpp)
 
-add_library(glsl-fe STATIC ${GLSL_FRONTEND_HEADER_FILE} ${GLSL_FRONTEND_SOURCE_FILE})
-target_include_directories(glsl-fe PUBLIC glsl-fe/include)
+add_library(glsl-analyzer STATIC ${GLSL_ANALYZER_HEADER_FILE} ${GLSL_ANALYZER_SOURCE_FILE})
+target_include_directories(glsl-analyzer PUBLIC glsl-analyzer/include)
 
-target_link_libraries(glsl-fe PRIVATE fmt::fmt)
+target_link_libraries(glsl-analyzer PRIVATE fmt::fmt)
 
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
@@ -78,7 +78,7 @@ file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
 add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
-target_link_libraries(glsld-lexgen PRIVATE glsl-fe)
+target_link_libraries(glsld-lexgen PRIVATE glsl-analyzer)
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
 
 # GLSLD
@@ -88,20 +88,20 @@ file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
 add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
 target_include_directories(glsld PRIVATE glsld/include)
 
-target_link_libraries(glsld PRIVATE glsl-fe)
+target_link_libraries(glsld PRIVATE glsl-analyzer)
 
 target_link_libraries(glsld PRIVATE fmt::fmt)
 target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 
-# GLSL Processor
-file(GLOB_RECURSE GLSLP_HEADER_FILE glslp/include/*.h)
-file(GLOB_RECURSE GLSLP_SOURCE_FILE glslp/src/*.cpp)
+# GLSLD Wrapper
+file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
+file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
 
-add_executable(glslp ${GLSLP_HEADER_FILE} ${GLSLP_SOURCE_FILE})
-target_include_directories(glslp PRIVATE glslp/include)
+add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
+target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
 
-target_link_libraries(glslp PRIVATE glsl-fe)
+target_link_libraries(glsld-wrapper PRIVATE glsl-analyzer)
 
-target_link_libraries(glslp PRIVATE fmt::fmt)
-target_link_libraries(glslp PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(glsld-wrapper PRIVATE fmt::fmt)
+target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
