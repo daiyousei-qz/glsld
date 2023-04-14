@@ -26,9 +26,32 @@ namespace glsld
             return tokCursor == tokEnd;
         }
 
+        auto RemainingTokenCount() const noexcept -> size_t
+        {
+            return tokEnd - tokCursor;
+        }
+
         auto PeekToken() const noexcept -> const PPToken&
         {
             return *tokCursor;
+        }
+
+        auto TryTestToken(TokenKlass klass) -> bool
+        {
+            if (!CursorAtEnd() && tokCursor->klass == klass) {
+                return true;
+            }
+
+            return false;
+        }
+
+        auto TryTestToken(TokenKlass klass, size_t lookahead) -> bool
+        {
+            if (RemainingTokenCount() > lookahead && tokCursor[lookahead].klass == klass) {
+                return true;
+            }
+
+            return false;
         }
 
         auto TryConsumeToken(TokenKlass klass) -> std::optional<PPToken>

@@ -280,6 +280,7 @@ namespace glsld
         AstIndexAccessExpr(AstExpr* invokedExpr, AstArraySpec* arraySpec)
             : invokedExpr(invokedExpr), arraySpec(arraySpec)
         {
+            GLSLD_ASSERT(invokedExpr && arraySpec);
         }
 
         auto GetInvokedExpr() -> AstExpr*

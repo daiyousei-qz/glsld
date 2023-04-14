@@ -306,7 +306,13 @@ namespace glsld
 
         auto DumpNodeData() const -> std::string
         {
-            return fmt::format("DeclId: {}", declTok.text.StrView());
+            if (declarator) {
+                return fmt::format("BlockTypeName: {}; BlockName: {}", declTok.text.StrView(),
+                                   declarator->declTok.text.StrView());
+            }
+            else {
+                return fmt::format("BlockTypeName: {}", declTok.text.StrView());
+            }
         }
 
     private:

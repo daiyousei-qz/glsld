@@ -21,6 +21,7 @@ namespace glsld
             if (UseHeapBuffer()) {
                 GLSLD_ASSERT(bufferPtr != nullptr);
                 free(bufferPtr);
+                bufferPtr = nullptr;
             }
         }
 
@@ -31,22 +32,30 @@ namespace glsld
             : scalarType(other.scalarType), arraySize(other.arraySize), rowSize(other.rowSize), colSize(other.colSize),
               localBuffer()
         {
-            bufferPtr       = other.bufferPtr;
-            other.bufferPtr = nullptr;
+            bufferPtr        = other.bufferPtr;
+            other.scalarType = 0;
+            other.arraySize  = 0;
+            other.rowSize    = 0;
+            other.colSize    = 0;
+            other.bufferPtr  = nullptr;
         }
         ConstValue& operator=(ConstValue&& other) noexcept
         {
-            if (UseHeapBuffer() && bufferPtr != nullptr) {
+            if (UseHeapBuffer()) {
                 GLSLD_ASSERT(bufferPtr != nullptr);
                 free(bufferPtr);
             }
 
-            scalarType      = other.scalarType;
-            arraySize       = other.arraySize;
-            rowSize         = other.rowSize;
-            colSize         = other.colSize;
-            bufferPtr       = other.bufferPtr;
-            other.bufferPtr = nullptr;
+            scalarType       = other.scalarType;
+            arraySize        = other.arraySize;
+            rowSize          = other.rowSize;
+            colSize          = other.colSize;
+            bufferPtr        = other.bufferPtr;
+            other.scalarType = 0;
+            other.arraySize  = 0;
+            other.rowSize    = 0;
+            other.colSize    = 0;
+            other.bufferPtr  = nullptr;
             return *this;
         }
 
@@ -218,7 +227,7 @@ namespace glsld
             result.rowSize    = rowSize;
             result.colSize    = colSize;
             if (UseHeapBuffer()) {
-                result.bufferPtr = new uint8_t[arraySize * GetScalarSize()];
+                result.bufferPtr = malloc(arraySize * GetScalarSize());
                 std::memcpy(result.bufferPtr, bufferPtr, arraySize * GetScalarSize());
             }
             else {
@@ -788,9 +797,14 @@ namespace glsld
             }
         }
 
+        auto GetBufferSize() const noexcept -> size_t
+        {
+            return GetScalarSize() * arraySize;
+        }
+
         auto UseHeapBuffer() const noexcept -> bool
         {
-            return GetScalarSize() * arraySize > sizeof(localBuffer);
+            return GetBufferSize() > sizeof(localBuffer);
         }
 
         template <typename T>
@@ -806,7 +820,7 @@ namespace glsld
             GLSLD_ASSERT(GetScalarSize() == sizeof(T));
             void* buffer = nullptr;
             if (UseHeapBuffer()) {
-                bufferPtr = std::malloc(GetScalarSize() * arraySize);
+                bufferPtr = std::malloc(GetBufferSize());
                 buffer    = bufferPtr;
             }
             else {
@@ -843,8 +857,8 @@ namespace glsld
         };
     };
 
-    auto EvaluateUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue;
-    auto EvaluateBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue;
-    auto EvaluateSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
-                                 const ConstValue& elseBranchVal) -> ConstValue;
+    auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue;
+    auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue;
+    auto EvalSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
+                             const ConstValue& elseBranchVal) -> ConstValue;
 } // namespace glsld

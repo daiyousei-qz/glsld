@@ -66,6 +66,7 @@ namespace glsld
     auto SymbolTable::FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const
         -> AstFunctionDecl*
     {
+        // FIXME: Move resolution to its own function
         // FIXME: impl correct resolution
         auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
 

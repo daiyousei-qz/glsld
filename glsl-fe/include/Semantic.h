@@ -213,19 +213,24 @@ namespace glsld
     {
     public:
         SwizzleDesc() = default;
-        SwizzleDesc(uint32_t x)
+        SwizzleDesc(uint8_t x)
         {
             GLSLD_ASSERT(x <= 3);
-            xs[0] = x;
+            data[0] = x;
+        }
+        SwizzleDesc(ArrayView<uint8_t> xs)
+        {
+            GLSLD_ASSERT(xs.size() <= 4 && std::ranges::all_of(xs, [](uint8_t x) { return x <= 3; }));
+            std::ranges::copy(xs, data.begin());
         }
 
         auto IsValid() const noexcept -> bool
         {
-            return std::ranges::all_of(xs, [](uint8_t x) { return x <= 3; });
+            return std::ranges::all_of(data, [](uint8_t x) { return x <= 3; });
         }
 
     private:
-        std::array<uint8_t, 4> xs = {255, 255, 255, 255};
+        std::array<uint8_t, 4> data = {255, 255, 255, 255};
     };
 
     class QualifierGroup

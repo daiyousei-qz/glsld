@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    auto EvaluateUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
+    auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
     {
         switch (op) {
         case UnaryOp::Identity:
@@ -28,7 +28,7 @@ namespace glsld
 
         GLSLD_UNREACHABLE();
     }
-    auto EvaluateBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
+    auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
     {
         switch (op) {
         case BinaryOp::Plus:
@@ -87,8 +87,8 @@ namespace glsld
 
         GLSLD_UNREACHABLE();
     }
-    auto EvaluateSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
-                                 const ConstValue& elseBranchVal) -> ConstValue
+    auto EvalSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
+                             const ConstValue& elseBranchVal) -> ConstValue
     {
         // Predicate must be bool
         if (!predicate.IsScalarBool()) {
