@@ -70,6 +70,20 @@ namespace glsld
     };
 
     template <>
+    class AstPayload<AstDecl>
+    {
+    public:
+        auto DumpPayloadData() const -> std::string
+        {
+            return "";
+        }
+
+    private:
+        // Previous declaration of the same symbol?
+        // AstDecl* previousDecl = nullptr;
+    };
+
+    template <>
     class AstPayload<AstFunctionDecl>
     {
     public:

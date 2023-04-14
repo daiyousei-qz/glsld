@@ -127,26 +127,22 @@ namespace glsld
             this->type           = type;
             this->editPosition   = editPosition;
             this->externalModule = externalModule;
-            this->addedSymbol.clear();
 
             this->Traverse();
 
             return std::move(result);
         }
 
-        // FIXME: visit global decl, don't enter
-        auto EnterAstFunctionDecl(AstFunctionDecl& decl) -> AstVisitPolicy
+        auto EnterAstDecl(AstDecl& decl) -> AstVisitPolicy
         {
-            if (type != CompletionType::AllowExpr) {
-                return AstVisitPolicy::Leave;
-            }
-
-            // NOTE we only collect global symbols for external module
-            if (externalModule) {
+            if (externalModule || NodePrecedesPosition(decl, editPosition)) {
                 return AstVisitPolicy::Visit;
             }
+            else if (NodeContainPosition(decl, editPosition)) {
+                return AstVisitPolicy::Traverse;
+            }
             else {
-                return EnterIfContainsPosition(decl, editPosition);
+                return AstVisitPolicy::Leave;
             }
         }
 
@@ -156,9 +152,7 @@ namespace glsld
                 return;
             }
 
-            if (decl.GetName().IsIdentifier()) {
-                AddCompletionItem(decl.GetName().text.Str(), lsp::CompletionItemKind::Function);
-            }
+            TryAddCompletionItem(decl.GetName(), lsp::CompletionItemKind::Function);
         }
 
         auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
@@ -167,9 +161,9 @@ namespace glsld
                 return;
             }
 
-            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+            if (decl.GetDeclarator()) {
                 // FIXME: is this a variable?
-                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
+                TryAddCompletionItem(decl.GetDeclarator()->declTok, lsp::CompletionItemKind::Variable);
             }
         }
 
@@ -179,8 +173,8 @@ namespace glsld
                 return;
             }
 
-            if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                AddCompletionItem(decl.GetDeclarator()->declTok.text.Str(), lsp::CompletionItemKind::Variable);
+            if (decl.GetDeclarator()) {
+                TryAddCompletionItem(decl.GetDeclarator()->declTok, lsp::CompletionItemKind::Variable);
             }
         }
 
@@ -191,43 +185,40 @@ namespace glsld
             }
 
             for (const auto& declarator : decl.GetDeclarators()) {
-                if (declarator.declTok.IsIdentifier()) {
-                    AddCompletionItem(declarator.declTok.text.Str(), lsp::CompletionItemKind::Variable);
-                }
+                TryAddCompletionItem(declarator.declTok, lsp::CompletionItemKind::Variable);
             }
         }
 
         auto VisitAstStructDecl(AstStructDecl& decl) -> void
         {
-            if (decl.GetDeclToken() && decl.GetDeclToken()->IsIdentifier()) {
-                AddCompletionItem(decl.GetDeclToken()->text.Str(), lsp::CompletionItemKind::Struct);
+            if (decl.GetDeclToken()) {
+                TryAddCompletionItem(*decl.GetDeclToken(), lsp::CompletionItemKind::Struct);
             }
         }
 
     private:
-        auto AddCompletionItem(std::string label, lsp::CompletionItemKind kind) -> void
+        auto TryAddCompletionItem(const SyntaxToken& declTok, lsp::CompletionItemKind kind) -> void
         {
-            // We do deduplicate for external modules
-            if (externalModule) {
-                if (addedSymbol.find(label) != addedSymbol.end()) {
-                    return;
+            if (declTok.IsIdentifier()) {
+                if (auto it = itemIndexMap.find(declTok.text); it != itemIndexMap.end()) {
+                    result[it->second].kind = kind;
                 }
-
-                addedSymbol.insert(label);
+                else {
+                    result.push_back({lsp::CompletionItem{
+                        .label = declTok.text.Str(),
+                        .kind  = kind,
+                    }});
+                    itemIndexMap[declTok.text] = result.size() - 1;
+                }
             }
-
-            result.push_back({lsp::CompletionItem{
-                .label = label,
-                .kind  = kind,
-            }});
         }
 
         bool externalModule;
-        std::unordered_set<std::string> addedSymbol;
 
         CompletionType type;
         TextPosition editPosition;
 
+        std::unordered_map<AtomString, size_t> itemIndexMap;
         std::vector<lsp::CompletionItem> result;
     };
 
@@ -253,6 +244,7 @@ namespace glsld
         return cachedCompletionItems;
     }
 
+    // FIXME: do we really need swizzle?
     auto GetSwizzleCompletionList(size_t n) -> std::vector<lsp::CompletionItem>
     {
         static const auto cachedCompletionItems = []() {
@@ -358,13 +350,16 @@ namespace glsld
 
             auto type = nameAccessExpr->GetAccessChain()->GetDeducedType();
             if (type->IsArray() || type->IsVector()) {
-                // FIXME: swizzle?
+                // .length operator
                 result.push_back({lsp::CompletionItem{
                     .label = "length",
                     .kind  = lsp::CompletionItemKind::Method,
                 }});
             }
-            else if (auto structDesc = type->GetStructDesc()) {
+            // if (type->IsScalar() || type->IsVector() || type->IsMatrix()) {
+            //     // FIXME: swizzle?
+            // }
+            if (auto structDesc = type->GetStructDesc()) {
                 for (const auto& [memberName, memberType] : structDesc->members) {
                     result.push_back({lsp::CompletionItem{
                         .label = memberName,
@@ -376,6 +371,8 @@ namespace glsld
             // FIXME: handle other type
         }
         else if (completionType != CompletionType::None) {
+
+            // Copy the completion items from the language and standard library
             std::ranges::copy_if(GetDefaultLibraryCompletionList(), std::back_inserter(result),
                                  [completionType](const lsp::CompletionItem& item) -> bool {
                                      if (completionType == CompletionType::AllowExpr) {
@@ -393,8 +390,11 @@ namespace glsld
                                      }
                                  });
 
+            // Add the completion items from the AST
             std::ranges::copy(GenericCompletionCollector{compilerObject}.Execute(completionType, editPosition, false),
                               std::back_inserter(result));
+
+            // FIXME: add the completion items from the preprocessor, aka. macros
         }
 
         return result;

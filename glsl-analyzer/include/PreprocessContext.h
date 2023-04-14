@@ -81,6 +81,10 @@ namespace glsld
         // If the macro is function-like. This is only valid if `isUndef` is false.
         bool isFunctionLike;
 
+        // The line number of which the macro is defined in the main source file.
+        // If the macro is defined in an included file, this is the line number of the `#include` directive.
+        // int mainFileLine = 0;
+
         // The token of the macro name
         // e.g. `#define FOO` -> `FOO`
         PPToken defToken;

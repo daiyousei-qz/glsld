@@ -127,9 +127,10 @@ namespace glsld
         // The kind of the token. Note in preprocessing stage, all keywords are treated as identifiers.
         TokenKlass klass;
 
+        // The source file in which the token is spelled.
         FileID spelledFile;
 
-        // The spelling range of the token.
+        // The text range where the token is actually spelled.
         TextRange spelledRange;
 
         // The text of the token.

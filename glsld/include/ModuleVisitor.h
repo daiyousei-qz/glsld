@@ -48,10 +48,25 @@ namespace glsld
             TextRange nodeRange = GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
             return nodeRange.Contains(position);
         }
+        auto NodePrecedesPosition(const AstNodeBase& node, TextPosition position) const -> bool
+        {
+            TextRange lastTokRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange().endTokenIndex);
+            return lastTokRange.end <= position;
+        }
 
         auto EnterIfContainsPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
         {
             if (NodeContainPosition(node, position)) {
+                return AstVisitPolicy::Traverse;
+            }
+            else {
+                return AstVisitPolicy::Leave;
+            }
+        }
+        auto EnterIfPrecedesPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
+        {
+            TextRange lastTokRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange().endTokenIndex);
+            if (lastTokRange.end <= position) {
                 return AstVisitPolicy::Traverse;
             }
             else {
