@@ -7,7 +7,9 @@
 
 namespace glsld
 {
+#if defined(GLSLD_DEBUG)
 #define GLSLD_DEBUG_COMPILER 1
+#endif
 
 #if defined(GLSLD_DEBUG_COMPILER)
 

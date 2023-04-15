@@ -51,6 +51,12 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "CLANG")
     message(STATUS "[Compiler] Clang")
 endif()
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_compile_definitions(GLSLD_DEBUG)
+    set(GLSLD_DEBUG 1)
+    message(STATUS "[Build Type] Debug")
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 
 if(GLSLD_COMPILER_MSVC)

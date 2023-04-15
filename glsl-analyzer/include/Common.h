@@ -9,8 +9,6 @@
 
 #include "StringView.h"
 
-#define GLSLD_DEBUG 1
-
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 #define GLSLD_REQUIRE(EXPR) assert(EXPR)
 
@@ -24,10 +22,10 @@ namespace glsld
 
     template <typename T>
     concept Hashable = requires(T value) {
-                           {
-                               value.GetHashCode()
-                               } -> std::convertible_to<size_t>;
-                       };
+        {
+            value.GetHashCode()
+        } -> std::convertible_to<size_t>;
+    };
 
     template <typename T, size_t Extent = std::dynamic_extent>
     using ArraySpan = std::span<T, Extent>;
