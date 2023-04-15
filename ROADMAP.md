@@ -20,8 +20,4 @@
 - `Test/400.vert` bad overload resolution
 - Support initializer list
 - `Test/constantUnaryConversion.comp` no Hover on TYPE_TO(bo^ol)
-- `Test/spv.int32.frag` crash
 - nonuniformEXT qualifier
-- `Test/spv.precise.tese` crash
-- `Test/spv.scalarlayout.frag` no completion
-- Completion shouldn't suggest ids that's defined later in the source file

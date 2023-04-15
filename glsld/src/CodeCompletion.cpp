@@ -162,8 +162,16 @@ namespace glsld
             }
 
             if (decl.GetDeclarator()) {
-                // FIXME: is this a variable?
+                // For interface block with an instance name, we add that as a variable
                 TryAddCompletionItem(decl.GetDeclarator()->declTok, lsp::CompletionItemKind::Variable);
+            }
+            else {
+                // For unnamed interface block, we add the members directly
+                for (const auto& member : decl.GetMembers()) {
+                    for (const auto& declarator : member->GetDeclarators()) {
+                        TryAddCompletionItem(declarator.declTok, lsp::CompletionItemKind::Variable);
+                    }
+                }
             }
         }
 
