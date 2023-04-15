@@ -28,7 +28,9 @@ namespace glsld
     {
         if (!intputFile.HasValue()) {
             fmt::print("need a input file\n");
+            return;
         }
+
         auto inputData = ReadFile(intputFile.GetValue());
         if (!inputData) {
             fmt::print("failed to read file\n");
@@ -47,7 +49,7 @@ namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
-    cl::ParseArguments(argc, argv);
+    glsld::cl::ParseArguments(argc, argv);
     glsld::DoMain();
     return 0;
 }

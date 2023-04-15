@@ -1,4 +1,6 @@
 #pragma once
+#include "Common.h"
+
 #include <charconv>
 #include <string_view>
 #include <functional>
@@ -6,19 +8,15 @@
 #include <optional>
 #include <span>
 #include <algorithm>
-
-#include <fmt/format.h>
+#include <cassert>
 
 // LLVM-style command line parsing facility
 
-namespace cl
+namespace glsld::cl
 {
     class Option;
 
-    [[noreturn]] inline auto Unreachable() -> void
-    {
-        std::abort();
-    }
+#pragma region Option Tags
 
     enum class ValueExpected
     {
@@ -44,8 +42,8 @@ namespace cl
 
     enum class FormattingFlags
     {
-        NormalFormatting,
-        Positional,
+        NormalFormatting = 0,
+        Positional       = 1,
     };
 
     constexpr inline FormattingFlags NormalFormatting = FormattingFlags::NormalFormatting;
@@ -57,30 +55,20 @@ namespace cl
 
     struct Desc
     {
-        consteval Desc(std::string_view desc) : desc(desc)
+        constexpr Desc(StringView desc) : desc(desc)
         {
         }
 
-        std::string_view desc;
+        StringView desc;
     };
 
     struct ValueDesc
     {
-        consteval ValueDesc(std::string_view desc) : desc(desc)
+        constexpr ValueDesc(StringView desc) : desc(desc)
         {
         }
 
-        std::string_view desc;
-    };
-
-    class AliasOpt
-    {
-    public:
-        consteval AliasOpt(Option& alias) : alias(&alias)
-        {
-        }
-
-        Option* alias;
+        StringView desc;
     };
 
     template <typename T>
@@ -89,28 +77,34 @@ namespace cl
     public:
     };
 
-    using OptionValueHandler = std::function<auto(std::optional<std::string_view> argValue)->void>;
+#pragma endregion
+
+    using OptionValueParser = std::function<auto(std::optional<StringView> argValue)->void>;
 
     class Option
     {
     public:
-        auto GetName() const -> std::string_view
+        Option(StringView name) : name(name)
+        {
+        }
+
+        auto GetName() const -> StringView
         {
             return name;
         }
-        auto GetCategory() const -> std::string_view
+        auto GetCategory() const -> StringView
         {
             return category;
         }
-        auto GetDesc() const -> std::string_view
+        auto GetDesc() const -> StringView
         {
             return desc;
         }
-        auto GetValueDesc() const -> std::string_view
+        auto GetValueDesc() const -> StringView
         {
             return valueDesc;
         }
-        auto GetAlias() const -> std::string_view
+        auto GetAlias() const -> StringView
         {
             return alias;
         }
@@ -128,114 +122,74 @@ namespace cl
             return formattingFlags;
         }
 
-        auto GetHandler() const -> const OptionValueHandler&
-        {
-            return handler;
-        }
+        virtual auto ParseValue(std::optional<StringView> argValue) -> void = 0;
 
     protected:
-        auto SetOptionName(std::string_view name) -> void
-        {
-            this->name = name;
-        }
-
         auto SetValueExpected(ValueExpected valueExpected) -> void
         {
             this->valueExpected = valueExpected;
         }
 
-        auto SetOptionHidden(OptionHidden optionHidden) -> void
+        template <typename... Tags>
+        auto ApplyOptionTags(Tags... tags) -> void
         {
-            this->optionHidden = optionHidden;
+            (ApplyOptionTag(tags), ...);
         }
 
-        auto SetFormattingFlags(FormattingFlags formattingFlags) -> void
+    private:
+        auto ApplyOptionTag(FormattingFlags formattingFlags) -> void
         {
             this->formattingFlags = formattingFlags;
         }
 
-        auto SetOptionValueHandler(OptionValueHandler handler) -> void
+        auto ApplyOptionTag(OptionHidden optionHidden) -> void
         {
-            this->handler = handler;
+            this->optionHidden = optionHidden;
         }
 
-        class AttributeParser
+        auto ApplyOptionTag(ValueExpected valueExpected) -> void
         {
-        public:
-            AttributeParser(Option& option) : option(option)
-            {
-            }
-
-            template <typename... Modifiers>
-            auto Apply(Modifiers... mods) -> void
-            {
-                (Accept(mods), ...);
-            }
-
-        private:
-            auto Accept(FormattingFlags formattingFlags) -> void
-            {
-                option.SetFormattingFlags(formattingFlags);
-            }
-
-            auto Accept(OptionHidden optionHidden) -> void
-            {
-                option.SetOptionHidden(optionHidden);
-            }
-
-            auto Accept(ValueExpected valueExpected) -> void
-            {
-                option.SetValueExpected(valueExpected);
-            }
-
-            auto Accept(Desc desc) -> void
-            {
-                option.desc = desc.desc;
-            }
-
-            auto Accept(ValueDesc desc) -> void
-            {
-                option.valueDesc = desc.desc;
-            }
-
-            auto Accept(AliasOpt alias) -> void
-            {
-                option.alias = alias.alias->GetName();
-            }
-
-            Option& option;
-        };
-
-        template <typename... Attributes>
-        auto ApplyOptionAttributes(Attributes... attrs) -> void
-        {
-            AttributeParser parser(*this);
-            parser.Apply(attrs...);
+            this->valueExpected = valueExpected;
         }
 
-    private:
-        std::string_view name      = "";
-        std::string_view category  = "";
-        std::string_view desc      = "";
-        std::string_view valueDesc = "";
-        std::string_view alias     = "";
+        auto ApplyOptionTag(Desc desc) -> void
+        {
+            this->desc = desc.desc;
+        }
+
+        auto ApplyOptionTag(ValueDesc desc) -> void
+        {
+            this->valueDesc = desc.desc;
+        }
+
+        template <typename T>
+        auto ApplyOptionTag() -> void
+        {
+            static_assert(AlwaysFalse<T>, "unknown option tag");
+        }
+
+        friend class CommandLineContext;
+
+        StringView name = "";
+
+        StringView category  = "";
+        StringView desc      = "";
+        StringView valueDesc = "";
+        StringView alias     = "";
 
         OptionHidden optionHidden       = NotHidden;
         ValueExpected valueExpected     = ValueRequired;
         FormattingFlags formattingFlags = NormalFormatting;
-
-        OptionValueHandler handler;
     };
 
     namespace detail
     {
-        [[noreturn]] inline auto ExitOnUnknownOption(std::string_view optionKey) -> void
+        [[noreturn]] inline auto ExitOnUnknownOption(StringView optionKey) -> void
         {
             fmt::print("unknown option {}", optionKey);
             exit(-1);
         }
-        [[noreturn]] inline auto ExitOnBadValue(std::string_view optionKey, std::string_view typeName,
-                                                std::string_view value) -> void
+        [[noreturn]] inline auto ExitOnBadValue(StringView optionKey, StringView typeName, StringView value) -> void
         {
             fmt::print("{} is invalid for option {} with type {}", value, optionKey, typeName);
             exit(-1);
@@ -256,30 +210,31 @@ namespace cl
                 return ctx;
             }
 
-            auto Register(Option* option)
+            auto RegisterOption(Option* option)
             {
                 switch (option->GetFormattingFlags()) {
                 case FormattingFlags::NormalFormatting:
+                    assert(!option->GetName().Empty());
                     optionRegistry[option->GetName()] = option;
                     break;
                 case FormattingFlags::Positional:
                     positionalOptionRegistry.push_back(option);
                     break;
                 default:
-                    Unreachable();
+                    GLSLD_UNREACHABLE();
                 }
             }
 
+            // "-o", "--option", "output file"
             auto Parse(int argc, char* argv[]) -> void
             {
-                std::vector<std::string_view> args(argv, argv + argc);
+                std::vector<StringView> args(argv, argv + argc);
 
                 auto itArgs          = args.begin() + 1;
                 auto positionalIndex = 0;
 
-                auto fetchOptionArg =
-                    [&](const Option& option,
-                        std::optional<std::string_view> inlineValue) -> std::optional<std::string_view> {
+                auto fetchOptionArg = [&](const Option& option,
+                                          std::optional<StringView> inlineValue) -> std::optional<StringView> {
                     switch (option.GetValueExpected()) {
                     case ValueOptional:
                         return inlineValue;
@@ -287,7 +242,7 @@ namespace cl
                         if (inlineValue) {
                             return inlineValue;
                         }
-                        else if (itArgs != args.end() && !itArgs->starts_with('-')) {
+                        else if (itArgs != args.end() && !itArgs->StartWith('-')) {
                             auto argValue = *itArgs;
                             ++itArgs;
                             return argValue;
@@ -303,7 +258,7 @@ namespace cl
                         }
                         return std::nullopt;
                     default:
-                        Unreachable();
+                        GLSLD_UNREACHABLE();
                     }
                 };
 
@@ -312,33 +267,35 @@ namespace cl
                     ++itArgs;
 
                     if (arg0 == "-h" || arg0 == "-help") {
-                        PrintHelp(args[0]);
+                        PrintHelp(args[0], false);
+                    }
+                    else if (arg0 == "-help-hidden") {
+                        PrintHelp(args[0], true);
                     }
 
-                    auto parsedOption = ParseOptionArg(arg0);
+                    auto parsedOption = TryParseDashOptionArg(arg0);
                     if (parsedOption) {
+                        // Normal formatting
                         if (auto itOption = optionRegistry.find(parsedOption->optionKey);
                             itOption != optionRegistry.end()) {
 
-                            // dispatch
                             auto option   = itOption->second;
                             auto argValue = fetchOptionArg(*option, parsedOption->inlineValue);
-
-                            option->GetHandler()(argValue);
+                            option->ParseValue(argValue);
                         }
                         else {
-                            ExitOnUnknownOption(parsedOption->optionKey);
+                            // ExitOnUnknownOption(parsedOption->optionKey);
                         }
                     }
                     else {
+                        // Positional
                         if (positionalIndex < positionalOptionRegistry.size()) {
                             auto option   = positionalOptionRegistry[positionalIndex];
                             auto argValue = arg0;
 
-                            option->GetHandler()(argValue);
+                            option->ParseValue(argValue);
                         }
                         else {
-                            // positional
                             fmt::print("additional positional option");
                             exit(-1);
                         }
@@ -347,13 +304,27 @@ namespace cl
                 }
             }
 
-            auto PrintHelp(std::string_view appName) -> void
+            auto PrintHelp(StringView appName, bool showHidden) -> void
             {
-                fmt::print("{} [options] ...\n\n", appName);
+                fmt::print("{} [options...]", appName);
+                for (const Option* option : positionalOptionRegistry) {
+                    fmt::print(" <{}>", !option->GetValueDesc().Empty() ? option->GetValueDesc() : "?");
+                }
+                fmt::print("\n\n");
 
                 fmt::print("Options:\n");
+                fmt::print("  -h, -help  Print this help message.\n");
                 for (auto [optionKey, option] : optionRegistry) {
-                    fmt::print("-{}\n", optionKey);
+                    if (option->GetOptionHidden() == ReallyHidden) {
+                        // Never print help for really hidden options
+                        continue;
+                    }
+                    if (option->GetOptionHidden() == Hidden && !showHidden) {
+                        // Don't print help for hidden options if not asked
+                        continue;
+                    }
+
+                    fmt::print("  -{}  {}\n", optionKey, option->GetDesc());
                 }
 
                 exit(-1);
@@ -363,13 +334,14 @@ namespace cl
             struct ParsedOptionArg
             {
                 int numLeadingDash;
-                std::string_view optionKey;
-                std::optional<std::string_view> inlineValue;
+                StringView optionKey;
+                std::optional<StringView> inlineValue;
             };
 
-            auto ParseOptionArg(std::string_view arg) -> std::optional<ParsedOptionArg>
+            // Try parse an option arg like "-o", "--option", "-o=foo", "--option=foo"
+            auto TryParseDashOptionArg(StringView arg) -> std::optional<ParsedOptionArg>
             {
-                if (!arg.starts_with('-')) {
+                if (!arg.StartWith('-')) {
                     return std::nullopt;
                 }
 
@@ -378,10 +350,9 @@ namespace cl
                 auto itEqualBegin      = std::ranges::find_if(arg, [](char ch) { return ch == '='; });
 
                 int numLeadingDash = std::distance(arg.begin(), itOptionNameBegin);
-                auto optionKey     = std::string_view(itOptionNameBegin, itEqualBegin);
-                auto inlineValue   = itEqualBegin != arg.end()
-                                         ? std::optional{std::string_view{itEqualBegin + 1, arg.end()}}
-                                         : std::nullopt;
+                auto optionKey     = StringView(itOptionNameBegin, itEqualBegin);
+                auto inlineValue =
+                    itEqualBegin != arg.end() ? std::optional{StringView{itEqualBegin + 1, arg.end()}} : std::nullopt;
 
                 return ParsedOptionArg{
                     .numLeadingDash = numLeadingDash,
@@ -390,7 +361,7 @@ namespace cl
                 };
             }
 
-            std::unordered_map<std::string_view, Option*> optionRegistry;
+            std::unordered_map<StringView, Option*> optionRegistry;
             std::vector<Option*> positionalOptionRegistry;
         };
     } // namespace detail
@@ -400,19 +371,18 @@ namespace cl
     {
     public:
         template <typename... Tags>
-        explicit Opt(const char* name, Tags... tags)
+        explicit Opt(const char* name, Tags... tags) : Option(name)
         {
-            SetOptionName(name);
             Initialize();
-            ApplyOptionAttributes(tags...);
-            detail::CommandLineContext::GetInstance().Register(this);
+            ApplyOptionTags(tags...);
+            detail::CommandLineContext::GetInstance().RegisterOption(this);
         }
         template <typename... Tags>
-        explicit Opt(Tags... tags)
+        explicit Opt(Tags... tags) : Option("")
         {
             Initialize();
-            ApplyOptionAttributes(tags...);
-            detail::CommandLineContext::GetInstance().Register(this);
+            ApplyOptionTags(tags...);
+            detail::CommandLineContext::GetInstance().RegisterOption(this);
         }
 
         Opt(const Opt&)                    = delete;
@@ -428,62 +398,67 @@ namespace cl
             return *value;
         }
 
-    private:
-        auto Initialize()
+        virtual auto ParseValue(std::optional<StringView> argValue) -> void override
         {
             if constexpr (std::is_same_v<T, bool>) {
                 SetValueExpected(ValueOptional);
-                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
-                    if (argValue) {
-                        if (argValue == "true") {
-                            value = true;
-                        }
-                        else if (argValue == "false") {
-                            value = false;
-                        }
-                        else {
-                            detail::ExitOnBadValue(GetName(), "bool", *argValue);
-                        }
-                    }
-                    else {
+                if (argValue) {
+                    if (argValue == "true") {
                         value = true;
                     }
-                });
+                    else if (argValue == "false") {
+                        value = false;
+                    }
+                    else {
+                        detail::ExitOnBadValue(GetName(), "bool", *argValue);
+                    }
+                }
+                else {
+                    value = true;
+                }
             }
             else if constexpr (std::is_integral_v<T>) {
-                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
-                    if (argValue) {
-                        T tmp;
-                        auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->size(), tmp);
-                        if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->size()) {
-                            value = tmp;
-                        }
-                        else {
-                            detail::ExitOnBadValue(GetName(), "int", *argValue);
-                        }
+                if (argValue) {
+                    T tmp;
+                    auto parseResult = std::from_chars(argValue->Data(), argValue->Data() + argValue->Size(), tmp);
+                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->Data() + argValue->Size()) {
+                        value = tmp;
                     }
-                });
+                    else {
+                        detail::ExitOnBadValue(GetName(), "int", *argValue);
+                    }
+                }
             }
             else if constexpr (std::is_floating_point_v<T>) {
-                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
-                    if (argValue) {
-                        T tmp;
-                        auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->size(), tmp);
-                        if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->size()) {
-                            value = tmp;
-                        }
-                        else {
-                            detail::ExitOnBadValue(GetName(), "float", *argValue);
-                        }
+                if (argValue) {
+                    T tmp;
+                    auto parseResult = std::from_chars(argValue->Data(), argValue->Data() + argValue->Size(), tmp);
+                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->Data() + argValue->Size()) {
+                        value = tmp;
                     }
-                });
+                    else {
+                        detail::ExitOnBadValue(GetName(), "float", *argValue);
+                    }
+                }
             }
             else if constexpr (std::is_same_v<T, std::string>) {
-                SetOptionValueHandler([this](std::optional<std::string_view> argValue) -> void {
-                    if (argValue) {
-                        value = *argValue;
-                    }
-                });
+                if (argValue) {
+                    value = argValue->Str();
+                }
+            }
+            else {
+                static_assert(AlwaysFalse<T>);
+            }
+        }
+
+    private:
+        auto Initialize() -> void
+        {
+            if constexpr (std::is_same_v<T, bool>) {
+                SetValueExpected(ValueOptional);
+            }
+            else {
+                SetValueExpected(ValueRequired);
             }
         }
 
@@ -494,4 +469,4 @@ namespace cl
     {
         detail::CommandLineContext::GetInstance().Parse(argc, argv);
     }
-} // namespace cl
+} // namespace glsld::cl

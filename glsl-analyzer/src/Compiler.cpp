@@ -9,6 +9,8 @@
 #include "TypeChecker.h"
 #include "AstPrinter.h"
 
+#include <atomic>
+
 namespace glsld
 {
     CompiledPreamble::CompiledPreamble()  = default;

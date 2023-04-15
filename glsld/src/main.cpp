@@ -1,3 +1,4 @@
+#include "CommandLine.h"
 #include "LanguageServer.h"
 
 #include <string_view>
@@ -5,13 +6,47 @@
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
-using namespace glsld;
-
-int main()
+namespace glsld
 {
-    using namespace std::literals;
-    // std::this_thread::sleep_for(10s);
-    glsld::LanguageServer{}.Run();
+    cl::Opt<bool> WaitDebugger(
+        "wait-debugger", cl::ReallyHidden,
+        cl::Desc("Wait for debugger to attach before starting the server. This option only works with debug build."));
 
+#if defined(GLSLD_DEBUG)
+
+    auto HasDebuggerAttached() -> bool
+    {
+#if defined(GLSLD_OS_WIN)
+        return IsDebuggerPresent() != FALSE;
+#elif defined(GLSLD_OS_LINUX)
+        return false;
+#else
+        return false;
+#endif
+    }
+
+    auto WaitDebuggerToAttach() -> void
+    {
+        using namespace std::literals;
+        // std::this_thread::sleep_for(10s);
+    }
+#endif
+
+    auto DoMain() -> void
+    {
+#if defined(GLSLD_DEBUG)
+        if (WaitDebugger.HasValue() && WaitDebugger.GetValue()) {
+            WaitDebuggerToAttach();
+        }
+#endif
+
+        glsld::LanguageServer{}.Run();
+    }
+} // namespace glsld
+
+auto main(int argc, char* argv[]) -> int
+{
+    glsld::cl::ParseArguments(argc, argv);
+    glsld::DoMain();
     return 0;
 }

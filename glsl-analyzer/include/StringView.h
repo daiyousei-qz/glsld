@@ -164,9 +164,18 @@ namespace glsld
             return data.find(s.data) != std::string_view::npos;
         }
 
+        [[nodiscard]] constexpr auto StartWith(char ch) const noexcept -> bool
+        {
+            return data.starts_with(ch);
+        }
         [[nodiscard]] constexpr auto StartWith(StringView s) const noexcept -> bool
         {
             return data.starts_with(s.data);
+        }
+
+        [[nodiscard]] constexpr auto EndWith(char ch) const noexcept -> bool
+        {
+            return data.ends_with(ch);
         }
         [[nodiscard]] constexpr auto EndWith(StringView s) const noexcept -> bool
         {
