@@ -1,0 +1,1 @@
+Returns sqrt(x). Results are undefined if x < 0.

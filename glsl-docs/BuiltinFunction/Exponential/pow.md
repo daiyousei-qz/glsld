@@ -1,0 +1,1 @@
+Returns x raised to the y power, i.e., xy. Results are undefined if x < 0. Results are undefined if x = 0 and y ≤ 0.

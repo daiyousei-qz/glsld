@@ -1,0 +1,1 @@
+Returns 1.0 if x > 0, 0.0 if x = 0, or -1.0 if x < 0.

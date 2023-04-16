@@ -1,0 +1,1 @@
+Returns the hyperbolic sine function (e^x - e^-x) / 2.

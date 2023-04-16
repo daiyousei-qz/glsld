@@ -1,0 +1,1 @@
+Returns abs(dFdxCoarse(p)) + abs(dFdyCoarse(p)).

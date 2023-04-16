@@ -1,0 +1,1 @@
+Subtracts the 32-bit unsigned integer y from x, returning the difference if non-negative, or 2^32 plus the difference otherwise. The value borrow is set to zero if x ≥ y, or one otherwise.

@@ -1,0 +1,1 @@
+Do a texture lookup with both explicit gradient and offset, as described in textureGrad and textureOffset.

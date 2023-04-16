@@ -1,0 +1,1 @@
+Fetch a single texel as in texelFetch, offset by offset as described in textureOffset.

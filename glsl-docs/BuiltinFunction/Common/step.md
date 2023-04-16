@@ -1,0 +1,1 @@
+Returns 0.0 if x < edge; otherwise it returns 1.0.

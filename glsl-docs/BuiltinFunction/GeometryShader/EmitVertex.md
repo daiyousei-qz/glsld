@@ -1,0 +1,2 @@
+Emits the current values of output variables to the current output primitive. When multiple output streams are supported, this is equivalent to calling EmitStreamVertex(0).
+On return from this call, the values of output variables are undefined.

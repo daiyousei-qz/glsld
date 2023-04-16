@@ -4,6 +4,7 @@
     "dependencies": [
         "fmt",
         "glslang",
-        "nlohmann-json"
+        "nlohmann-json",
+        "bshoshany-thread-pool"
     ]
 }

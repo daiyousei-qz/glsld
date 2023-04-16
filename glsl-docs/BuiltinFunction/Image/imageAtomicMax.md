@@ -1,0 +1,1 @@
+Computes a new value by taking the maximum of the value data and the contents of the selected texel.

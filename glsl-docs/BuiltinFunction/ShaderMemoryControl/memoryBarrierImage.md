@@ -1,0 +1,1 @@
+Control the ordering of memory transactions to images issued within a single shader invocation.

@@ -1,0 +1,1 @@
+Do a texture lookup as in texture but with explicit gradients as shown below. The partial derivatives of P are with respect to window x and window y. For the cube version, the partial derivatives of P are assumed to be in the coordinate system used before texture coordinates are projected onto the appropriate cube face.

@@ -1,0 +1,1 @@
+Do a texture lookup both projectively, as described in textureProj, and with explicit gradient as described in textureGrad. The partial derivatives dPdx and dPdy are assumed to be already projected.

@@ -1,0 +1,1 @@
+Returns the number of samples of the image or images bound to image.

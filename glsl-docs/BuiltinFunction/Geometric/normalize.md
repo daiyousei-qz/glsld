@@ -1,0 +1,1 @@
+Returns a vector in the same direction as x but with a length of 1, i.e. x / length(x).

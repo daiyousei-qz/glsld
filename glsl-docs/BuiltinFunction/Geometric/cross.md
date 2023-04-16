@@ -1,0 +1,1 @@
+Returns the cross product of x and y, i.e., (x_1 · y_2 - y_1 · x_2, x_2 · y_0 - y_2 · x_0, x_0 · y_1 - y_0 · x_1).
