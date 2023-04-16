@@ -68,14 +68,14 @@ find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
 
-# GLSL Analyzer
-file(GLOB_RECURSE GLSL_ANALYZER_HEADER_FILE glsl-analyzer/include/*.h)
-file(GLOB_RECURSE GLSL_ANALYZER_SOURCE_FILE glsl-analyzer/src/*.cpp)
+# GLSL Common Library
+file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
+file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
 
-add_library(glsl-analyzer STATIC ${GLSL_ANALYZER_HEADER_FILE} ${GLSL_ANALYZER_SOURCE_FILE})
-target_include_directories(glsl-analyzer PUBLIC glsl-analyzer/include)
+add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE})
+target_include_directories(glsld-common PUBLIC glsld-common/include)
 
-target_link_libraries(glsl-analyzer PRIVATE fmt::fmt)
+target_link_libraries(glsld-common PRIVATE fmt::fmt)
 
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
@@ -84,7 +84,7 @@ file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
 add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
-target_link_libraries(glsld-lexgen PRIVATE glsl-analyzer)
+target_link_libraries(glsld-lexgen PRIVATE glsld-common)
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
 
 # GLSLD
@@ -94,7 +94,7 @@ file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
 add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
 target_include_directories(glsld PRIVATE glsld/include)
 
-target_link_libraries(glsld PRIVATE glsl-analyzer)
+target_link_libraries(glsld PRIVATE glsld-common)
 
 target_link_libraries(glsld PRIVATE fmt::fmt)
 target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
@@ -107,7 +107,7 @@ file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
 add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
 target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
 
-target_link_libraries(glsld-wrapper PRIVATE glsl-analyzer)
+target_link_libraries(glsld-wrapper PRIVATE glsld-common)
 
 target_link_libraries(glsld-wrapper PRIVATE fmt::fmt)
 target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
