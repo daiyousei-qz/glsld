@@ -561,8 +561,6 @@ namespace glsld
         for (auto dimExpr : expr.GetArraySpec()->GetSizeList()) {
             if (!dimExpr || !dimExpr->GetDeducedType()->IsIntegralScalarType()) {
                 // FIXME: report error, bad dim index
-                // FIXME: Why do we early return here?
-                return;
             }
         }
 

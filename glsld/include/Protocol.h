@@ -27,7 +27,7 @@ namespace glsld::lsp
         // uri: DocumentUri;
         DocumentUri uri;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const TextDocumentIdentifier& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const TextDocumentIdentifier& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -35,7 +35,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentIdentifier& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentIdentifier& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -62,26 +62,6 @@ namespace glsld::lsp
         int32_t version;
     };
 
-    struct RequestMessage
-    {
-        std::string id;
-        std::string method;
-        std::any params;
-    };
-
-    struct ResponseError
-    {
-        int32_t code;
-        std::string message;
-        std::any data;
-    };
-
-    struct ResponseMessage
-    {
-        std::string id;
-        std::any result;
-    };
-
     struct Position
     {
         // /**
@@ -100,7 +80,7 @@ namespace glsld::lsp
         // character: uinteger;
         uint32_t character;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const Position& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const Position& value) -> bool
     {
         if (!mapper.Map("line", value.line)) {
             return false;
@@ -111,7 +91,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonToObjectMapper& mapper, Position& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, Position& value) -> bool
     {
         if (!mapper.Map("line", value.line)) {
             return false;
@@ -137,7 +117,7 @@ namespace glsld::lsp
         // end: Position;
         Position end;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const Range& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const Range& value) -> bool
     {
         if (!mapper.Map("start", value.start)) {
             return false;
@@ -148,7 +128,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonToObjectMapper& mapper, Range& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, Range& value) -> bool
     {
         if (!mapper.Map("start", value.start)) {
             return false;
@@ -176,7 +156,7 @@ namespace glsld::lsp
         // newText: string;
         std::string newText;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const TextEdit& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const TextEdit& value) -> bool
     {
         if (!mapper.Map("range", value.range)) {
             return false;
@@ -196,7 +176,7 @@ namespace glsld::lsp
         // range: Range;
         Range range;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const Location& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const Location& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -207,7 +187,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonToObjectMapper& mapper, Location& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, Location& value) -> bool
     {
         if (!mapper.Map("uri", value.uri)) {
             return false;
@@ -340,7 +320,7 @@ namespace glsld::lsp
         // message: string;
         std::string message;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const ShowMessageParams& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const ShowMessageParams& value) -> bool
     {
         if (!mapper.Map("type", static_cast<int32_t>(value.type))) {
             return false;
@@ -381,7 +361,7 @@ namespace glsld::lsp
     {
         TextDocumentPositionParams baseParams;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DeclarationParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DeclarationParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
             return false;
@@ -422,7 +402,7 @@ namespace glsld::lsp
     {
         TextDocumentPositionParams baseParams;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DefinitionParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DefinitionParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
             return false;
@@ -467,7 +447,7 @@ namespace glsld::lsp
     {
         TextDocumentPositionParams baseParams;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, HoverParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, HoverParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
             return false;
@@ -497,13 +477,69 @@ namespace glsld::lsp
         // range?: Range;
         Range range;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const Hover& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const Hover& value) -> bool
     {
         if (!mapper.Map("contents", value.contents)) {
             return false;
         }
         if (!mapper.Map("range", value.range)) {
             return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
+#pragma region Find References
+
+    //
+    // Find References
+    //
+
+    inline constexpr const char* LSPMethod_References = "textDocument/references";
+
+    struct ReferenceClientCapabilities
+    {
+        // /**
+        //  * Whether references supports dynamic registration.
+        //  */
+        // dynamicRegistration?: boolean;
+    };
+
+    struct ReferenceContext
+    {
+        // /**
+        //  * Include the declaration of the current symbol.
+        //  */
+        // includeDeclaration: boolean;
+        bool includeDeclaration;
+    };
+
+    struct ReferenceParams
+    {
+        TextDocumentPositionParams baseParams;
+
+        // /**
+        //  * Context carrying additional information.
+        //  */
+        // context: ReferenceContext;
+        ReferenceContext context;
+    };
+    inline auto MapJson(ObjectFromJsonMapper& mapper, ReferenceParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+
+        {
+            auto scopeGuard = mapper.EnterObjectScoped("context");
+            if (!mapper.Map("includeDeclaration", value.context.includeDeclaration)) {
+                return false;
+            }
         }
 
         return true;
@@ -580,7 +616,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DocumentSymbolParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DocumentSymbolParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -719,7 +755,7 @@ namespace glsld::lsp
         // children?: DocumentSymbol[];
         std::vector<DocumentSymbol> children;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const DocumentSymbol& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const DocumentSymbol& value) -> bool
     {
         if (!mapper.Map("name", value.name)) {
             return false;
@@ -782,32 +818,6 @@ namespace glsld::lsp
         //  * @since 3.17.0
         //  */
         // decorator = 'decorator'
-
-        // The following are predefined values
-        Namespace,
-        Type,
-        Class,
-        Enum,
-        Interface,
-        Struct,
-        TypeParameter,
-        Variable,
-        Property,
-        EnumMember,
-        Event,
-        Function,
-        Method,
-        Macro,
-        Keyword,
-        Modifier,
-        Comment,
-        String,
-        Number,
-        Regexp,
-        Operator,
-        Decorator,
-
-        //
     };
 
     enum class SemanticTokenModifiers
@@ -925,7 +935,7 @@ namespace glsld::lsp
         //  */
         // augmentsSyntaxTokens?: boolean;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, SemanticTokenClientsCapabilities& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokenClientsCapabilities& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("requests");
@@ -958,7 +968,7 @@ namespace glsld::lsp
         // tokenModifiers: string[];
         std::vector<std::string> tokenModifiers;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokensLegend& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokensLegend& value) -> bool
     {
         if (!mapper.Map("tokenTypes", value.tokenTypes)) {
             return false;
@@ -997,7 +1007,26 @@ namespace glsld::lsp
         // delta?: boolean;
         bool delta;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokenOptions& value) -> bool
+
+    template <typename Mapper>
+    inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokenOptions& value) -> bool
+    {
+        if (!mapper.Map("legend", value.legend)) {
+            return false;
+        }
+        if (!mapper.Map("range", value.range)) {
+            return false;
+        }
+        if (!mapper.Map("full", value.full)) {
+            return false;
+        }
+        if (!mapper.Map("delta", value.delta)) {
+            return false;
+        }
+
+        return true;
+    }
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokenOptions& value) -> bool
     {
         if (!mapper.Map("legend", value.legend)) {
             return false;
@@ -1023,7 +1052,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, SemanticTokensParam& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokensParam& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -1049,7 +1078,7 @@ namespace glsld::lsp
         // data: uinteger[];
         std::vector<uint32_t> data;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SemanticTokens& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokens& value) -> bool
     {
         if (!mapper.Map("resultId", value.resultId)) {
             return false;
@@ -1144,7 +1173,7 @@ namespace glsld::lsp
         // resolveProvider?: boolean;
         bool resolveProvider;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const InlayHintOptions& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const InlayHintOptions& value) -> bool
     {
         if (!mapper.Map("resolveProvider", value.resolveProvider)) {
             return false;
@@ -1172,7 +1201,7 @@ namespace glsld::lsp
         // range: Range;
         Range range;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, InlayHintParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, InlayHintParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -1258,7 +1287,7 @@ namespace glsld::lsp
         //  */
         // data?: LSPAny;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const InlayHint& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const InlayHint& value) -> bool
     {
         if (!mapper.Map("position", value.position)) {
             return false;
@@ -1497,7 +1526,7 @@ namespace glsld::lsp
         //     labelDetailsSupport?: boolean;
         // }
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const CompletionOptions& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const CompletionOptions& value) -> bool
     {
         if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
             return false;
@@ -1559,7 +1588,7 @@ namespace glsld::lsp
         // triggerCharacter?: string;
         std::optional<std::string> triggerCharacter;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, CompletionContext& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, CompletionContext& value) -> bool
     {
         // FIXME: fix object map
         uint32_t tmpTriggerKind;
@@ -1586,7 +1615,7 @@ namespace glsld::lsp
         // context?: CompletionContext;
         // std::optional<CompletionContext> context;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, CompletionParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, CompletionParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
             return false;
@@ -1962,7 +1991,7 @@ namespace glsld::lsp
         //  */
         // data?: LSPAny;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const CompletionItem& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const CompletionItem& value) -> bool
     {
         if (!mapper.Map("label", value.label)) {
             return false;
@@ -2132,7 +2161,7 @@ namespace glsld::lsp
         //  */
         // retriggerCharacters?: string[];
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureHelpOptions& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SignatureHelpOptions& value) -> bool
     {
         if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
             return false;
@@ -2213,7 +2242,7 @@ namespace glsld::lsp
         //  */
         // context?: SignatureHelpContext;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, SignatureHelpParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, SignatureHelpParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
             return false;
@@ -2251,7 +2280,7 @@ namespace glsld::lsp
         //  */
         // documentation?: string | MarkupContent;
     };
-    // inline auto MapJson(JsonFromObjectMapper& mapper, const ParameterInformation& value) -> bool
+    // inline auto MapJson(ObjectToJsonMapper& mapper, const ParameterInformation& value) -> bool
     // {
     //     return true;
     // }
@@ -2291,7 +2320,7 @@ namespace glsld::lsp
         //  */
         // activeParameter?: uinteger;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureInformation& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SignatureInformation& value) -> bool
     {
         if (!mapper.Map("label", value.label)) {
             return false;
@@ -2354,7 +2383,7 @@ namespace glsld::lsp
         //  */
         // activeParameter?: uinteger;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const SignatureHelp& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const SignatureHelp& value) -> bool
     {
         if (!mapper.Map("signatures", value.signatures)) {
             return false;
@@ -2393,7 +2422,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DocumentColorParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DocumentColorParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -2431,7 +2460,7 @@ namespace glsld::lsp
         // readonly alpha: decimal;
         double alpha;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const Color& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const Color& value) -> bool
     {
         if (!mapper.Map("red", value.red)) {
             return false;
@@ -2448,7 +2477,7 @@ namespace glsld::lsp
 
         return true;
     }
-    inline auto MapJson(JsonToObjectMapper& mapper, Color& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, Color& value) -> bool
     {
         if (!mapper.Map("red", value.red)) {
             return false;
@@ -2480,7 +2509,7 @@ namespace glsld::lsp
         // color: Color;
         Color color;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const ColorInformation& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const ColorInformation& value) -> bool
     {
         if (!mapper.Map("range", value.range)) {
             return false;
@@ -2512,7 +2541,7 @@ namespace glsld::lsp
         // range: Range;
         Range range;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, ColorPresentationParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, ColorPresentationParams& value) -> bool
     {
         if (!mapper.Map("textDocument", value.textDocument)) {
             return false;
@@ -2552,7 +2581,7 @@ namespace glsld::lsp
         //  */
         // additionalTextEdits?: TextEdit[];
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const ColorPresentation& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const ColorPresentation& value) -> bool
     {
         if (!mapper.Map("label", value.label)) {
             return false;
@@ -2578,7 +2607,7 @@ namespace glsld::lsp
 
         std::optional<SemanticTokenClientsCapabilities> semanticTokens;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentClientCapabilities& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentClientCapabilities& value) -> bool
     {
         if (!mapper.Map("semanticTokens", value.semanticTokens)) {
             return false;
@@ -2633,7 +2662,7 @@ namespace glsld::lsp
         // change?: TextDocumentSyncKind;
         TextDocumentSyncKind change;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const TextDocumentSyncOptions& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const TextDocumentSyncOptions& value) -> bool
     {
         if (!mapper.Map("openClose", value.openClose)) {
             return false;
@@ -2683,7 +2712,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentItem;
         TextDocumentItem textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DidOpenTextDocumentParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DidOpenTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -2734,7 +2763,7 @@ namespace glsld::lsp
         // text: string;
         std::string text;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
     {
         if (!mapper.Map("range", value.range)) {
             return false;
@@ -2780,7 +2809,7 @@ namespace glsld::lsp
         // contentChanges: TextDocumentContentChangeEvent[];
         std::vector<TextDocumentContentChangeEvent> contentChanges;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DidChangeTextDocumentParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DidChangeTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -2809,7 +2838,7 @@ namespace glsld::lsp
         // textDocument: TextDocumentIdentifier;
         TextDocumentIdentifier textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, DidCloseTextDocumentParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, DidCloseTextDocumentParams& value) -> bool
     {
         {
             auto scopeGuard = mapper.EnterObjectScoped("textDocument");
@@ -2832,19 +2861,13 @@ namespace glsld::lsp
         // Unsupported capabilities omitted
 
         // /**
-        //  * Capabilities specific to the various semantic token requests.
-        //  *
-        //  * @since 3.16.0
+        //  * Text document specific client capabilities.
         //  */
-        // semanticTokens?: SemanticTokensClientCapabilities;
-        std::optional<TextDocumentClientCapabilities> textDocument;
+        // textDocument?: TextDocumentClientCapabilities;
+        // std::optional<TextDocumentClientCapabilities> textDocument;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, ClientCapabilities& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, ClientCapabilities& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-
         return true;
     }
 
@@ -2893,6 +2916,12 @@ namespace glsld::lsp
         bool definitionProvider;
 
         // /**
+        //  * The server provides find references support.
+        //  */
+        // referencesProvider?: boolean | ReferenceOptions;
+        bool referenceProvider;
+
+        // /**
         //  * The server provides document symbol support.
         //  */
         // documentSymbolProvider ?: boolean | DocumentSymbolOptions;
@@ -2925,7 +2954,7 @@ namespace glsld::lsp
         //     | DocumentColorRegistrationOptions;
         bool colorProvider;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const ServerCapabilities& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const ServerCapabilities& value) -> bool
     {
         if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
             return false;
@@ -2943,6 +2972,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("definitionProvider", value.definitionProvider)) {
+            return false;
+        }
+        if (!mapper.Map("referencesProvider", value.referenceProvider)) {
             return false;
         }
         if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {
@@ -3053,7 +3085,7 @@ namespace glsld::lsp
         //  */
         // workspaceFolders?: WorkspaceFolder[] | null;
     };
-    inline auto MapJson(JsonToObjectMapper& mapper, InitializeParams& value) -> bool
+    inline auto MapJson(ObjectFromJsonMapper& mapper, InitializeParams& value) -> bool
     {
         if (!mapper.Map("processId", value.processId)) {
             return false;
@@ -3097,7 +3129,7 @@ namespace glsld::lsp
             std::string version;
         } serverInfo;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const InitializedResult& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const InitializedResult& value) -> bool
     {
         if (!mapper.Map("capabilities", value.capabilities)) {
             return false;
@@ -3128,7 +3160,7 @@ namespace glsld::lsp
         // retry: boolean;
         bool retry;
     };
-    inline auto MapJson(JsonFromObjectMapper& mapper, const InitializeError& value) -> bool
+    inline auto MapJson(ObjectToJsonMapper& mapper, const InitializeError& value) -> bool
     {
         if (!mapper.Map("retry", value.retry)) {
             return false;

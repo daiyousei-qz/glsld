@@ -25,6 +25,9 @@ namespace glsld
     auto ComputeDeclaration(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>;
 
+    auto ComputeReferences(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position,
+                           bool includeDeclaration) -> std::vector<lsp::Location>;
+
     auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>;
 
     auto ComputeDocumentColor(const CompilerObject& compilerObject) -> std::vector<lsp::ColorInformation>;
@@ -64,6 +67,7 @@ namespace glsld
                             },
                         .declarationProvider    = true,
                         .definitionProvider     = true,
+                        .referenceProvider      = true,
                         .documentSymbolProvider = true,
                         .semanticTokensProvider =
                             lsp::SemanticTokenOptions{
@@ -85,7 +89,7 @@ namespace glsld
                     },
             };
             server->HandleServerResponse(requestId, result, false);
-        }
+        } // namespace glsld
 
 #pragma region Document Synchronization
 
@@ -228,6 +232,21 @@ namespace glsld
                         std::vector<lsp::Location> result =
                             ComputeDeclaration(provider->GetCompilerObject(), params.baseParams.textDocument.uri,
                                                params.baseParams.position);
+                        server->HandleServerResponse(requestId, result, false);
+                    }
+                });
+            }
+        }
+
+        auto References(int requestId, lsp::ReferenceParams params) -> void
+        {
+            auto provider = providerLookup[params.baseParams.textDocument.uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
+                    if (provider->WaitAvailable()) {
+                        std::vector<lsp::Location> result =
+                            ComputeReferences(provider->GetCompilerObject(), params.baseParams.textDocument.uri,
+                                              params.baseParams.position, params.context.includeDeclaration);
                         server->HandleServerResponse(requestId, result, false);
                     }
                 });
