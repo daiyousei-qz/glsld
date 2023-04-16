@@ -17,11 +17,11 @@ namespace glsld
     public:
         auto ReportError(AstSyntaxRange range, std::string message) -> void
         {
-            errorStream.push_back({range, std::move(message)});
+            // errorStream.push_back({range, std::move(message)});
         }
         auto ReportWarning(AstSyntaxRange range, std::string message) -> void
         {
-            errorStream.push_back({range, std::move(message)});
+            // errorStream.push_back({range, std::move(message)});
         }
 
     private:

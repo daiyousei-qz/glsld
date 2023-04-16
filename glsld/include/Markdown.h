@@ -1,4 +1,6 @@
 #pragma once
+#include "Common.h"
+
 #include <string>
 #include <string_view>
 
@@ -9,12 +11,12 @@ namespace glsld
     public:
         MarkdownBuilder() = default;
 
-        auto Append(std::string_view s) -> void
+        auto Append(StringView s) -> void
         {
             buffer += s;
         }
 
-        auto AppendParagraph(std::string_view s) -> void
+        auto AppendParagraph(StringView s) -> void
         {
             buffer += s;
             buffer += "\n\n";
@@ -25,7 +27,7 @@ namespace glsld
             buffer += "\n---\n";
         }
 
-        auto AppendHeader(std::string_view s, int level) -> void
+        auto AppendHeader(StringView s, int level) -> void
         {
             buffer += std::string(level, '#');
             buffer += ' ';
@@ -33,9 +35,11 @@ namespace glsld
             buffer += "\n\n";
         }
 
-        auto AppendCodeBlock(std::string_view s) -> void
+        auto AppendCodeBlock(StringView s, StringView language = "") -> void
         {
-            buffer += "```\n";
+            buffer += "```";
+            buffer += language;
+            buffer += "\n";
             buffer += s;
             buffer += "\n```\n\n";
         }

@@ -10,6 +10,7 @@ namespace glsld
     {
         DeclTokenType type;
         std::string name;
+        std::string description;
         std::string documentation;
         std::string code;
         bool unknown = false;
@@ -18,6 +19,8 @@ namespace glsld
     static auto ComputeHoverText(const HoverContent& hover) -> std::string
     {
         MarkdownBuilder builder;
+
+        // Header explaining what the hover symbol is
         builder.Append("### ");
         if (hover.unknown) {
             builder.Append("Unknown ");
@@ -52,16 +55,22 @@ namespace glsld
         }
         builder.Append(fmt::format(" `{}`", hover.name));
 
+        // Description
+        if (!hover.description.empty()) {
+            builder.AppendRuler();
+            builder.AppendParagraph(hover.description);
+        }
+
+        // Documentation
         if (!hover.documentation.empty()) {
             builder.AppendRuler();
             builder.AppendParagraph(hover.documentation);
         }
 
+        // Reconstructed Code
         if (!hover.code.empty()) {
             builder.AppendRuler();
-            builder.Append("```glsl\n");
-            builder.Append(hover.code);
-            builder.Append("\n```");
+            builder.AppendCodeBlock(hover.code, "glsl");
         }
 
         return builder.Export();
@@ -70,14 +79,15 @@ namespace glsld
     static auto CreateHoverContent(DeclTokenType type, StringView name, bool unknown = true)
     {
         return HoverContent{
-            .type    = type,
-            .name    = name.Str(),
-            .code    = "",
-            .unknown = unknown,
+            .type        = type,
+            .name        = name.Str(),
+            .description = "",
+            .code        = "",
+            .unknown     = unknown,
         };
     }
 
-    static auto GetHoverContent(DeclView declView, StringView hoverId) -> std::optional<HoverContent>
+    static auto CreateHoverContentFromDecl(DeclView declView, StringView hoverId) -> std::optional<HoverContent>
     {
         if (!declView.IsValid()) {
             return std::nullopt;
@@ -86,54 +96,62 @@ namespace glsld
         AstDecl& decl = *declView.GetDecl();
 
         HoverContent hover;
-        std::string buffer;
+        std::string descriptionBuffer;
+        std::string codeBuffer;
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
-            ReconstructSourceText(buffer, *funcDecl);
+            ReconstructSourceText(codeBuffer, *funcDecl);
             return HoverContent{
                 .type          = DeclTokenType::Function,
                 .name          = hoverId.Str(),
+                .description   = std::move(descriptionBuffer),
                 .documentation = QueryFunctionDocumentation(hoverId).Str(),
-                .code          = std::move(buffer),
+                .code          = std::move(codeBuffer),
             };
         }
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
-            ReconstructSourceText(buffer, *paramDecl);
+            ReconstructSourceText(codeBuffer, *paramDecl);
             return HoverContent{
-                .type = DeclTokenType::Parameter,
-                .name = hoverId.Str(),
-                .code = std::move(buffer),
+                .type        = DeclTokenType::Parameter,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
             };
         }
         else if (auto varDecl = decl.As<AstVariableDecl>()) {
             // FIXME: use correct declarator index
-            ReconstructSourceText(buffer, *varDecl, 0);
+            ReconstructSourceText(codeBuffer, *varDecl, 0);
             return HoverContent{
-                .type = DeclTokenType::Variable,
-                .name = std::string{hoverId},
-                .code = std::move(buffer),
+                .type        = DeclTokenType::Variable,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
             };
         }
         else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
-            ReconstructSourceText(buffer, *memberDecl, declView.GetIndex());
+            ReconstructSourceText(codeBuffer, *memberDecl, declView.GetIndex());
             return HoverContent{
-                .type = DeclTokenType::MemberVariable,
-                .name = std::string{hoverId},
-                .code = std::move(buffer),
+                .type        = DeclTokenType::MemberVariable,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
             };
         }
         else if (auto structDecl = decl.As<AstStructDecl>()) {
-            ReconstructSourceText(buffer, *structDecl);
+            ReconstructSourceText(codeBuffer, *structDecl);
             return HoverContent{
-                .type = DeclTokenType::Type,
-                .name = std::string{hoverId},
-                .code = std::move(buffer),
+                .type        = DeclTokenType::Type,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
             };
         }
         else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>()) {
+            ReconstructSourceText(codeBuffer, *blockDecl);
             return HoverContent{
-                .type = DeclTokenType::InterfaceBlock,
-                .name = std::string{hoverId},
-                .code = "",
+                .type        = DeclTokenType::InterfaceBlock,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
             };
         }
 
@@ -150,7 +168,7 @@ namespace glsld
             if (declTokenResult->accessedDecl.IsValid()) {
                 // Decl token with resolved user declaration
                 GLSLD_ASSERT(declTokenResult->token.IsIdentifier());
-                auto hoverContent = GetHoverContent(declTokenResult->accessedDecl, hoverIdentifier);
+                auto hoverContent = CreateHoverContentFromDecl(declTokenResult->accessedDecl, hoverIdentifier);
                 if (hoverContent) {
                     return lsp::Hover{
                         .contents = ComputeHoverText(*hoverContent),

@@ -28,6 +28,8 @@ namespace glsld
         // Get a syntax token by index
         auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
 
+        auto GetTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken;
+
         auto GetTokenCount() const noexcept -> size_t
         {
             return tokens.size();

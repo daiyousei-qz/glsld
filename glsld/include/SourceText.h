@@ -288,6 +288,70 @@ namespace glsld
             buffer += " ";
             buffer += decl.GetDeclToken()->text.StrView();
         }
+
+        buffer += " {\n";
+
+        for (auto member : decl.GetMembers()) {
+            for (size_t i = 0; i < member->GetDeclarators().size(); ++i) {
+                buffer += "    ";
+                ReconstructSourceText(buffer, *member, i);
+                buffer += ";\n";
+            }
+        }
+
+        buffer += "}\n";
+    }
+    inline auto ReconstructSourceText(std::string& buffer, AstInterfaceBlockDecl& decl) -> void
+    {
+        QualifierGroup qual = decl.GetQualifiers()->GetQualfierGroup();
+        if (qual.qUniform) {
+            buffer += "uniform ";
+        }
+        else if (qual.qBuffer) {
+            buffer += "buffer ";
+        }
+        else if (qual.qIn) {
+            buffer += "in ";
+        }
+        else if (qual.qOut) {
+            buffer += "out ";
+        }
+        else if (qual.qRayPayloadEXT) {
+            buffer += "rayPayloadEXT ";
+        }
+        else if (qual.qRayPayloadInEXT) {
+            buffer += "rayPayloadInEXT ";
+        }
+        else if (qual.qHitAttributeEXT) {
+            buffer += "hitAttributeEXT ";
+        }
+        else if (qual.qCallableDataEXT) {
+            buffer += "callableDataEXT ";
+        }
+        else if (qual.qCallableDataInEXT) {
+            buffer += "callableDataInEXT ";
+        }
+
+        buffer += decl.GetDeclToken().text.StrView();
+        buffer += " {\n";
+
+        for (auto member : decl.GetMembers()) {
+            for (size_t i = 0; i < member->GetDeclarators().size(); ++i) {
+                buffer += "    ";
+                ReconstructSourceText(buffer, *member, i);
+                buffer += ";\n";
+            }
+        }
+
+        buffer += "}";
+
+        if (const auto& declarator = decl.GetDeclarator()) {
+            buffer += " ";
+            ReconstructSourceText(buffer, *declarator);
+        }
+        buffer += "\n";
+
+        // FIXME: add members
     }
 
 } // namespace glsld

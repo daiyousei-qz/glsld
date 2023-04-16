@@ -77,6 +77,16 @@ namespace glsld
         };
     }
 
+    auto LexContext::GetTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+    {
+        if (tokIndex < tokens.size()) {
+            return GetToken(tokIndex);
+        }
+        else {
+            return GetToken(GetTokenCount() - 1);
+        }
+    }
+
     auto LexContext::FindTokenByTextPosition(TextPosition position) const -> SyntaxToken
     {
         auto it = std::ranges::lower_bound(tokens, position, {},

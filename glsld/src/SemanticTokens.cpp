@@ -20,8 +20,20 @@ namespace glsld
     enum class SemanticTokenModifier
     {
         None        = 0,
-        Declaration = 1,
+        Readonly    = 1 << 0,
+        Declaration = 1 << 1,
     };
+
+    constexpr auto operator|(SemanticTokenModifier lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier
+    {
+        using EnumInt = std::underlying_type_t<SemanticTokenModifier>;
+        return static_cast<SemanticTokenModifier>(static_cast<EnumInt>(lhs) | static_cast<EnumInt>(rhs));
+    }
+    constexpr auto operator|=(SemanticTokenModifier& lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier&
+    {
+        lhs = lhs | rhs;
+        return lhs;
+    }
 
     auto GetTokenTypeIndex(SemanticTokenType type) -> int
     {
@@ -51,6 +63,7 @@ namespace glsld
                 },
             .tokenModifiers =
                 {
+                    "readonly",
                     "declaration",
                 },
         };
@@ -162,10 +175,14 @@ namespace glsld
 
             auto VisitAstStructMemberDecl(AstStructMemberDecl& decl) -> void
             {
+                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+                    modifier |= SemanticTokenModifier::Readonly;
+                }
+
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable,
-                                            SemanticTokenModifier::Declaration);
+                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable, modifier);
                     }
                 }
             }
@@ -200,16 +217,23 @@ namespace glsld
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter,
-                                        SemanticTokenModifier::Declaration);
+                    SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                    if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+                        modifier |= SemanticTokenModifier::Readonly;
+                    }
+                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter, modifier);
                 }
             }
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
             {
+                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+                    modifier |= SemanticTokenModifier::Readonly;
+                }
+
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator.declTok.IsIdentifier()) {
-                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable,
-                                            SemanticTokenModifier::Declaration);
+                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable, modifier);
                     }
                 }
             }
@@ -289,7 +313,7 @@ namespace glsld
         return result;
     }
 
-    // auto ComputeSemanticTokensDelta(CompiledPreamble& compiler) -> lsp::SemanticTokensDelta
+    // auto ComputeSemanticTokensDelta(const IntellisenseProvider& provider) -> lsp::SemanticTokensDelta
     // {
     //     GLSLD_NO_IMPL();
     // }

@@ -563,7 +563,7 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) const noexcept -> SyntaxToken
         {
-            return compilerObject.GetLexContext().GetToken(currentTok.index + lookahead);
+            return compilerObject.GetLexContext().GetTokenSafe(currentTok.index + lookahead);
         }
 
         auto GetTokenIndex() const noexcept -> SyntaxTokenIndex
@@ -686,7 +686,6 @@ namespace glsld
 
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
-            // FIXME: range of error?
             compilerObject.GetDiagnosticContext().ReportError(AstSyntaxRange{tokIndex}, std::move(message));
         }
         auto ReportError(std::string message) -> void
