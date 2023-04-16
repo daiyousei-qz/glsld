@@ -42,7 +42,6 @@ namespace glsld
         auto FindSymbol(const std::string& name) const -> DeclView;
 
     private:
-        // FIXME: avoid allocation
         auto TryAddSymbol(SyntaxToken declToken, AstDecl& decl) -> bool
         {
             // FIXME: avoid string allocation

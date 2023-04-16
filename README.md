@@ -1,4 +1,21 @@
-GLSLD is a WIP language server for GLSL. It aims to implement a frontend of a language that's comptible with most GLSL source code and, based on it, a language server that provides intellisense experience for the GLSL language.
+GLSLD is a WIP language server for GLSL. It aims to implement a frontend of a language that's comptible with most GLSL source code and, based on it, a language server that provides IDE features for the GLSL language.
+
+This project includes the following components:
+- glsld-common: A common library that provides glsl parser and other utilities.
+- glsld-lexgen: A lexer genenerator for the glsl language.
+- glsld-wrapper: A standalone wrapper executable around the glsl parser.
+- glsld: The language server executable.
+
+## Features
+Currently, language features below are partially implemented:
+- Go to Declaration
+- Go to Definition
+- Hover
+- Document Symbols
+- Semantic Tokens
+- Inlay Hint
+- Completion Proposals
+- Signature Help
 
 ## Roadmap
 This work is still in a very early development state, but the language server is already working in limited capacity. Planned improvements are:

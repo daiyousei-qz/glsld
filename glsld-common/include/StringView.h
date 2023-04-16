@@ -157,7 +157,7 @@ namespace glsld
             return data;
         }
 
-        // Testing
+        // Predicates
 
         [[nodiscard]] constexpr auto Contains(StringView s) const noexcept -> bool
         {
