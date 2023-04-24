@@ -230,6 +230,19 @@ namespace glsld
         {
             return range;
         }
+        auto GetFirstTokenIndex() const noexcept -> SyntaxTokenIndex
+        {
+            return range.startTokenIndex;
+        }
+        auto GetLastTokenIndex() const noexcept -> SyntaxTokenIndex
+        {
+            if (range.endTokenIndex == 0) {
+                return 0;
+            }
+            else {
+                return range.endTokenIndex - 1;
+            }
+        }
 
         template <typename AstType>
         auto Is() const -> bool
@@ -318,7 +331,7 @@ namespace glsld
 
     template <typename VisitorType>
     concept AstVisitorT = requires(VisitorType visitor, AstNodeBase& astNode) {
-                              visitor.Traverse(astNode);
-                              visitor.Traverse(&astNode);
-                          };
+        visitor.Traverse(astNode);
+        visitor.Traverse(&astNode);
+    };
 } // namespace glsld

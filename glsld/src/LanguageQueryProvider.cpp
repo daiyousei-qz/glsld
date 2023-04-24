@@ -1,49 +1,23 @@
-#pragma once
-#include "Compiler.h"
-#include "SourceText.h"
-#include "SyntaxToken.h"
+#include "LanguageQueryProvider.h"
 #include "ModuleVisitor.h"
 
 namespace glsld
 {
-    enum class DeclTokenType
-    {
-        Unknown,
-        LayoutQualifier,
-        Variable,
-        Swizzle,
-        MemberVariable,
-        Parameter,
-        Function,
-        Type,
-        InterfaceBlock,
-    };
-
-    struct DeclTokenLookupResult
-    {
-        SyntaxToken token;
-        TextRange range;
-        DeclView accessedDecl;
-        DeclTokenType accessType;
-    };
-
-    static auto FindDeclToken(const CompilerObject& compilerObject, TextPosition position)
-        -> std::optional<DeclTokenLookupResult>
+    auto LanguageQueryProvider::LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>
     {
         class DeclTokenVisitor : public ModuleVisitor<DeclTokenVisitor>
         {
         public:
-            DeclTokenVisitor(const CompilerObject& compiler, TextPosition position)
-                : ModuleVisitor<DeclTokenVisitor>(compiler), position(position)
+            DeclTokenVisitor(const LanguageQueryProvider& provider, TextPosition cursorPos)
+                : ModuleVisitor(provider), cursorPos(cursorPos)
             {
             }
 
-            auto Execute() -> std::optional<DeclTokenLookupResult>
+            auto Execute() -> std::optional<SymbolAccessInfo>
             {
                 result = std::nullopt;
 
-                this->Traverse();
-
+                TraverseGlobalDeclUntil(cursorPos);
                 return std::move(result);
             }
 
@@ -54,8 +28,8 @@ namespace glsld
                     return AstVisitPolicy::Leave;
                 }
 
-                TextRange range = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
-                if (range.Contains(position)) {
+                TextRange range = GetProvider().GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
+                if (range.Contains(cursorPos)) {
                     return AstVisitPolicy::Traverse;
                 }
                 else {
@@ -67,33 +41,33 @@ namespace glsld
             {
                 if (!type.GetStructDecl()) {
                     // NOTE we process struct decl at `VisitAstStructDecl`
-                    TryDeclToken(type.GetTypeNameTok(), type.GetResolvedStructDecl(), DeclTokenType::Type);
+                    TryDeclToken(type.GetTypeNameTok(), type.GetResolvedStructDecl(), SymbolAccessType::Type);
                 }
             }
 
             auto VisitAstTypeQualifierSeq(AstTypeQualifierSeq& quals) -> void
             {
                 for (const auto& layoutQual : quals.GetLayoutQuals()) {
-                    TryDeclToken(layoutQual.idToken, DeclView{}, DeclTokenType ::LayoutQualifier);
+                    TryDeclToken(layoutQual.idToken, DeclView{}, SymbolAccessType ::LayoutQualifier);
                 }
             }
 
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
                 if (decl.GetDeclToken()) {
-                    TryDeclToken(*decl.GetDeclToken(), &decl, DeclTokenType::Type);
+                    TryDeclToken(*decl.GetDeclToken(), &decl, SymbolAccessType::Type);
                 }
             }
 
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
-                TryDeclToken(decl.GetName(), &decl, DeclTokenType::Function);
+                TryDeclToken(decl.GetName(), &decl, SymbolAccessType::Function);
             }
 
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, DeclTokenType::Parameter);
+                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::Parameter);
                 }
             }
 
@@ -101,7 +75,7 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, DeclTokenType::Variable);
+                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, SymbolAccessType::Variable);
 
                     declaratorIndex += 1;
                 }
@@ -111,7 +85,8 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, DeclTokenType::MemberVariable);
+                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex},
+                                 SymbolAccessType::MemberVariable);
 
                     declaratorIndex += 1;
                 }
@@ -120,55 +95,54 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, DeclTokenType::InterfaceBlock);
+                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::InterfaceBlock);
                 }
             }
 
             auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
             {
-                DeclTokenType accessType;
+                SymbolAccessType accessType;
                 switch (expr.GetAccessType()) {
                 case NameAccessType::Unknown:
-                    accessType = DeclTokenType::Unknown;
+                    accessType = SymbolAccessType::Unknown;
                     break;
                 case NameAccessType::Variable:
-                    accessType = DeclTokenType::Variable;
+                    accessType = SymbolAccessType::Variable;
                     break;
                 case NameAccessType::Function:
-                    accessType = DeclTokenType::Function;
+                    accessType = SymbolAccessType::Function;
                     break;
                 case NameAccessType::Constructor:
-                    accessType = DeclTokenType::Type;
+                    accessType = SymbolAccessType::Type;
                     break;
                 case NameAccessType::Swizzle:
-                    accessType = DeclTokenType::Swizzle;
+                    accessType = SymbolAccessType::Swizzle;
                     break;
                 }
 
                 TryDeclToken(expr.GetAccessName(), expr.GetAccessedDecl(), accessType);
             }
 
-            auto TryDeclToken(const SyntaxToken& token, DeclView declView, DeclTokenType type) -> void
+            auto TryDeclToken(const SyntaxToken& token, DeclView declView, SymbolAccessType type) -> void
             {
                 if (token.IsIdentifier()) {
-                    auto tokRange = this->GetLexContext().LookupExpandedTextRange(token);
-                    if (tokRange.Contains(position)) {
+                    auto tokRange = GetProvider().GetLexContext().LookupExpandedTextRange(token);
+                    if (tokRange.Contains(cursorPos)) {
                         GLSLD_ASSERT(!result);
-                        result = DeclTokenLookupResult{
-                            .token        = token,
-                            .range        = tokRange,
-                            .accessedDecl = declView,
-                            .accessType   = type,
+                        result = SymbolAccessInfo{
+                            .token      = token,
+                            .symbolDecl = declView,
+                            .symbolType = type,
                         };
                     }
                 }
             }
 
-            std::optional<DeclTokenLookupResult> result = std::nullopt;
+            std::optional<SymbolAccessInfo> result = std::nullopt;
 
-            TextPosition position;
+            TextPosition cursorPos;
         };
 
-        return DeclTokenVisitor{compilerObject, position}.Execute();
+        return DeclTokenVisitor{*this, position}.Execute();
     }
 } // namespace glsld

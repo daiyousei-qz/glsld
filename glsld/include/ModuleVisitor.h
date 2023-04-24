@@ -3,6 +3,7 @@
 #include "AstContext.h"
 #include "AstVisitor.h"
 #include "Compiler.h"
+#include "LanguageQueryProvider.h"
 
 namespace glsld
 {
@@ -10,84 +11,47 @@ namespace glsld
     class ModuleVisitor : public AstVisitor<Derived>
     {
     public:
-        ModuleVisitor(const CompilerObject& compilerObject)
-            : sourceContext(compilerObject.GetSourceContext()), lexContext(compilerObject.GetLexContext()),
-              astContext(compilerObject.GetAstContext())
-        {
-        }
-        ModuleVisitor(const CompiledPreamble& compiledPreamble)
-            : sourceContext(compiledPreamble.GetSourceContext()), lexContext(compiledPreamble.GetLexContext()),
-              astContext(compiledPreamble.GetAstContext())
+        ModuleVisitor(const LanguageQueryProvider& provider) : provider(provider)
         {
         }
 
-        auto Traverse() -> void
+        auto GetProvider() const -> const LanguageQueryProvider&
         {
-            AstVisitor<Derived>::TraverseAst(astContext);
+            return provider;
         }
-
-        using AstVisitor<Derived>::Traverse;
 
     protected:
-        auto GetSourceContext() const -> const SourceContext&
+        auto TraverseAllGlobalDecl() -> void
         {
-            return sourceContext;
+            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+                this->Traverse(*decl);
+            }
         }
 
-        auto GetLexContext() const -> const LexContext&
+        auto TraverseGlobalDeclUntil(TextPosition position)
         {
-            return lexContext;
-        }
-        auto GetAstContext() const -> const AstContext&
-        {
-            return astContext;
+            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+                if (provider.SucceedsPosition(*decl, position)) {
+                    break;
+                }
+
+                this->Traverse(*decl);
+            }
         }
 
-        auto NodeContainPosition(const AstNodeBase& node, TextPosition position) const -> bool
+        auto TraverseGlobalDeclOverlaps(TextRange range)
         {
-            TextRange nodeRange = GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
-            return nodeRange.Contains(position);
-        }
-        auto NodePrecedesPosition(const AstNodeBase& node, TextPosition position) const -> bool
-        {
-            TextRange lastTokRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange().endTokenIndex);
-            return lastTokRange.end <= position;
-        }
-
-        auto EnterIfContainsPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
-        {
-            if (NodeContainPosition(node, position)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-        auto EnterIfPrecedesPosition(const AstNodeBase& node, TextPosition position) const -> AstVisitPolicy
-        {
-            TextRange lastTokRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange().endTokenIndex);
-            if (lastTokRange.end <= position) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-        auto EnterIfOverlapRange(const AstNodeBase& node, TextRange range) const -> AstVisitPolicy
-        {
-            TextRange nodeRange = this->GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
-            if (nodeRange.Overlaps(range)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
+            // FIXME: halt early
+            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+                TextRange declRange = provider.GetLexContext().LookupExpandedTextRange(decl->GetSyntaxRange());
+                if (declRange.Overlaps(range)) {
+                    this->Traverse(*decl);
+                }
             }
         }
 
     private:
-        const SourceContext& sourceContext;
-        const LexContext& lexContext;
-        const AstContext& astContext;
+        const LanguageQueryProvider& provider;
     };
 
 } // namespace glsld

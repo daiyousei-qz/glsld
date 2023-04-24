@@ -11,11 +11,16 @@ Currently, language features below are partially implemented:
 - Go to Declaration
 - Go to Definition
 - Hover
+- References
 - Document Symbols
 - Semantic Tokens
 - Inlay Hint
 - Completion Proposals
 - Signature Help
+
+The following features are planned:
+- Rename
+- Prepare Rename
 
 ## Roadmap
 This work is still in a very early development state, but the language server is already working in limited capacity. Planned improvements are:

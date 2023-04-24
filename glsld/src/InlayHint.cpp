@@ -3,28 +3,32 @@
 
 namespace glsld
 {
-    class InlayHintVisitor : public ModuleVisitor<InlayHintVisitor>
+    class InlayHintCollector : public ModuleVisitor<InlayHintCollector>
     {
+    private:
+        TextRange displayRange;
+
+        std::vector<lsp::InlayHint> result;
+
     public:
-        using ModuleVisitor::ModuleVisitor;
-
-        auto Execute(TextRange range) -> std::vector<lsp::InlayHint>
+        InlayHintCollector(const LanguageQueryProvider& provider, TextRange range)
+            : ModuleVisitor(provider), displayRange(range)
         {
-            this->range = range;
-
-            this->Traverse();
-
-            return std::move(result);
         }
 
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        auto Execute() -> std::vector<lsp::InlayHint>
         {
-            return this->EnterIfOverlapRange(node, range);
+            TraverseGlobalDeclOverlaps(displayRange);
+            return std::move(result);
         }
 
         auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
         {
             if (auto funcExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
+                if (GetProvider().InMainFile(funcExpr->GetAccessName())) {
+                    return;
+                }
+
                 if (funcExpr->GetAccessType() == NameAccessType::Function && funcExpr->GetAccessedDecl()) {
                     // We can resolve this function. So inlay hints could/should be computed.
 
@@ -35,7 +39,7 @@ namespace glsld
 
                     for (size_t i = 0; i < paramDeclList.size(); ++i) {
                         GLSLD_ASSERT(i < expr.GetArguments().size());
-                        const auto& lexContext = this->GetLexContext();
+                        const auto& lexContext = GetProvider().GetLexContext();
 
                         auto paramDecl = paramDeclList[i];
                         auto argExpr   = expr.GetArguments()[i];
@@ -59,16 +63,11 @@ namespace glsld
                 }
             }
         }
-
-    private:
-        TextRange range;
-
-        std::vector<lsp::InlayHint> result;
     };
 
-    auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>
+    auto ComputeInlayHint(const LanguageQueryProvider& provider, lsp::Range range) -> std::vector<lsp::InlayHint>
     {
-        return InlayHintVisitor{compilerObject}.Execute(FromLspRange(range));
+        return InlayHintCollector{provider, FromLspRange(range)}.Execute();
     }
 
 } // namespace glsld

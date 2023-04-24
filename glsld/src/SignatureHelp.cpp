@@ -4,18 +4,28 @@
 
 namespace glsld
 {
-    class SignatureHelpVisitor : public AstVisitor<SignatureHelpVisitor>
+    class SignatureHelpVisitor : public ModuleVisitor<SignatureHelpVisitor>
     {
+    private:
+        TextPosition position;
+
+        AstInvokeExpr* invokeExpr = nullptr;
+
     public:
-        SignatureHelpVisitor(const LexContext& lexContext, TextPosition position)
-            : lexContext(lexContext), position(position)
+        SignatureHelpVisitor(const LanguageQueryProvider& provider, TextPosition position)
+            : ModuleVisitor(provider), position(position)
         {
+        }
+
+        auto Execute() -> AstInvokeExpr*
+        {
+            TraverseAllGlobalDecl();
+            return invokeExpr;
         }
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            auto nodeRange = lexContext.LookupExpandedTextRange(node.GetSyntaxRange());
-            if (nodeRange.Contains(position)) {
+            if (GetProvider().ContainsPosition(node, position)) {
                 return AstVisitPolicy::Traverse;
             }
             else {
@@ -27,26 +37,13 @@ namespace glsld
         {
             invokeExpr = &expr;
         }
-
-        auto Export() -> AstInvokeExpr*
-        {
-            return invokeExpr;
-        }
-
-    private:
-        const LexContext& lexContext;
-        TextPosition position;
-
-        AstInvokeExpr* invokeExpr = nullptr;
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(const CompilerObject& compilerObject, lsp::Position position)
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>
     {
-        SignatureHelpVisitor visitor{compilerObject.GetLexContext(), FromLspPosition(position)};
-        visitor.TraverseAst(compilerObject.GetAstContext());
-        auto expr = visitor.Export();
+        auto expr = SignatureHelpVisitor{provider, FromLspPosition(position)}.Execute();
 
         if (expr) {
             auto funcExpr = expr->GetInvokedExpr()->As<AstNameAccessExpr>();
@@ -71,7 +68,7 @@ namespace glsld
                 }
 
                 // For function in this module
-                for (auto funcDecl : compilerObject.GetAstContext().functionDecls) {
+                for (auto funcDecl : provider.GetAstContext().functionDecls) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetName().text.StrView() == funcName) {
                         std::string label;

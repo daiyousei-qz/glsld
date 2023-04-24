@@ -1,7 +1,6 @@
 # Should have improvement
 - Don't read from disk for every include file
 - Proper file ID handling and jumping
-- Clean up for alpha release
 - Hover on Macro
 - Find references
 - Go to definition
@@ -21,3 +20,4 @@
 - Support initializer list
 - `Test/constantUnaryConversion.comp` no Hover on TYPE_TO(bo^ol)
 - nonuniformEXT qualifier
+- "highp int x;" in function, bad AST

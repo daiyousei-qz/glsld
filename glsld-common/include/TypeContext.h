@@ -31,12 +31,15 @@ namespace glsld
                 }
             }
 
-            auto typeName = decl.GetDeclToken() ? decl.GetDeclToken()->text.StrView() : "";
-            structTypes.push_back(new Type(fmt::format("struct#{}", typeName), StructTypeDesc{
-                                                                                   .decl    = &decl,
-                                                                                   .name    = std::string{typeName},
-                                                                                   .members = std::move(memberDesc),
-                                                                               }));
+            StringView typeName = "<unnamed-struct>";
+            if (decl.GetDeclToken()) {
+                typeName = decl.GetDeclToken()->text.StrView();
+            }
+            structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
+                                                               .decl    = &decl,
+                                                               .name    = decl.GetDeclToken() ? typeName.Str() : "",
+                                                               .members = std::move(memberDesc),
+                                                           }));
             return structTypes.back();
         }
 
@@ -51,11 +54,11 @@ namespace glsld
             }
 
             auto typeName = decl.GetDeclToken().text.StrView();
-            structTypes.push_back(new Type(fmt::format("block#{}", typeName), StructTypeDesc{
-                                                                                  .decl    = &decl,
-                                                                                  .name    = std::string{typeName},
-                                                                                  .members = std::move(memberDesc),
-                                                                              }));
+            structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
+                                                               .decl    = &decl,
+                                                               .name    = typeName.Str(),
+                                                               .members = std::move(memberDesc),
+                                                           }));
             return structTypes.back();
         }
 
@@ -110,10 +113,10 @@ namespace glsld
             // Find and cache the type desc if needed
             auto cachedItem = arrayTypes[std::pair{realElementType, realDimSizes}];
             if (cachedItem == nullptr) {
-                std::string debugName = realElementType->GetDebugName();
+                std::string debugName = realElementType->GetDebugName().Str();
                 for (auto dimSize : realDimSizes) {
                     if (dimSize != 0) {
-                        debugName += fmt ::format("[{}]", dimSize);
+                        debugName += fmt::format("[{}]", dimSize);
                     }
                     else {
                         debugName += "[]";

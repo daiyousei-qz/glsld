@@ -15,7 +15,7 @@ void main()
 
 layout(points) in float f[3];  // ERROR, must be standalone
 
-void foo() {
-    f;
+void foo(int x, int y) {
+    
     gl_Position;
 }

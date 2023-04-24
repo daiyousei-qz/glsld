@@ -91,7 +91,9 @@ namespace glsld
 
 #if defined(GLSLD_DEBUG)
         AstPrinter printer{true};
-        printer.TraverseAst(*astContext);
+        for (AstDecl* decl : astContext->GetGlobalDecls()) {
+            printer.Traverse(*decl);
+        }
         fmt::print(stderr, "{}", printer.Export());
 #endif
 

@@ -258,7 +258,11 @@ namespace glsld
     {
         this->externalSymbolTable = externalSymbolTable;
         symbolTableStack.push_back(std::make_unique<SymbolTable>());
-        TypeCheckVisitor{*this}.TraverseAst(compilerObject.GetAstContext());
+
+        TypeCheckVisitor typeCheckerVisitor{*this};
+        for (auto decl : compilerObject.GetAstContext().GetGlobalDecls()) {
+            typeCheckerVisitor.Traverse(decl);
+        }
 
         this->currentFunction     = nullptr;
         this->externalSymbolTable = nullptr;

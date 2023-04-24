@@ -32,13 +32,6 @@ namespace glsld
             static_assert(std::is_base_of_v<AstVisitor, Derived>);
         }
 
-        auto TraverseAst(const AstContext& ast) -> void
-        {
-            for (auto decl : ast.globalDecls) {
-                Traverse(*decl);
-            }
-        }
-
         auto Traverse(AstNodeBase& astNode) -> void
         {
             TraverseInternal(astNode);

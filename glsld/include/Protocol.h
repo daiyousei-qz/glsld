@@ -2595,6 +2595,77 @@ namespace glsld::lsp
 
 #pragma endregion
 
+#pragma region Rename
+
+    //
+    // Rename
+    //
+
+    inline constexpr const char* LSPMethod_Rename        = "textDocument/rename";
+    inline constexpr const char* LSPMethod_PrepareRename = "textDocument/prepareRename";
+
+    struct RenameOptions
+    {
+        // /**
+        //  * Renames should be checked and tested before being executed.
+        //  */
+        // prepareProvider?: boolean;
+        bool prepareProvider;
+    };
+    inline auto MapJson(ObjectToJsonMapper& mapper, const RenameOptions& value) -> bool
+    {
+        if (!mapper.Map("prepareProvider", value.prepareProvider)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct RenameParams
+    {
+        TextDocumentPositionParams baseParams;
+
+        // /**
+        //  * The new name of the symbol. If the given name is not valid the
+        //  * request must return a [ResponseError](#ResponseError) with an
+        //  * appropriate message set.
+        //  */
+        // newName: string;
+        std::string newName;
+    };
+    inline auto MapJson(ObjectFromJsonMapper& mapper, RenameParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+        if (!mapper.Map("newName", value.newName)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    struct PrepareRenameParams
+    {
+        TextDocumentPositionParams baseParams;
+    };
+    inline auto MapJson(ObjectFromJsonMapper& mapper, PrepareRenameParams& value) -> bool
+    {
+        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
+            return false;
+        }
+        if (!mapper.Map("position", value.baseParams.position)) {
+            return false;
+        }
+
+        return true;
+    }
+
+#pragma endregion
+
 #pragma region Text Document Synchronization
 
     //
@@ -2953,6 +3024,14 @@ namespace glsld::lsp
         // colorProvider?: boolean | DocumentColorOptions
         //     | DocumentColorRegistrationOptions;
         bool colorProvider;
+
+        // /**
+        //  * The server provides rename support. RenameOptions may only be
+        //  * specified if the client states that it supports
+        //  * `prepareSupport` in its initial `initialize` request.
+        //  */
+        // renameProvider?: boolean | RenameOptions;
+        std::optional<RenameOptions> renameProvider;
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const ServerCapabilities& value) -> bool
     {
@@ -2987,6 +3066,9 @@ namespace glsld::lsp
             return false;
         }
         if (!mapper.Map("colorProvider", value.colorProvider)) {
+            return false;
+        }
+        if (!mapper.Map("renameProvider", value.renameProvider)) {
             return false;
         }
 

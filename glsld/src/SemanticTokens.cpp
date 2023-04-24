@@ -94,8 +94,8 @@ namespace glsld
         };
     }
 
-    auto CollectPreprocessSemanticTokens(const PPInfoCache& ppInfoCache, std::vector<SemanticTokenInfo>& tokenBuffer)
-        -> void
+    auto CollectPreprocessSemanticTokens(const PreprocessInfoCache& ppInfoCache,
+                                         std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         for (const auto& ppToken : ppInfoCache.GetHeaderNames()) {
             tokenBuffer.push_back(SemanticTokenInfo{
@@ -118,15 +118,15 @@ namespace glsld
         }
     }
 
-    auto CollectLexSemanticTokens(const CompilerObject& compilerObject, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectLexSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
-        const auto& lexContext = compilerObject.GetLexContext();
+        const auto& lexContext = provider.GetLexContext();
         for (const auto& tok : lexContext.GetAllTokenView()) {
             std::optional<SemanticTokenType> type;
 
             // Only collect tokens from the main file.
-            if (lexContext.LookupSpelledFile(tok) != compilerObject.GetSourceContext().GetMainFile()->GetID()) {
+            if (!provider.InMainFile(tok)) {
                 continue;
             }
 
@@ -152,17 +152,21 @@ namespace glsld
         }
     }
 
-    auto CollectAstSemanticTokens(const CompilerObject& compilerObject, std::vector<SemanticTokenInfo>& tokenBuffer)
+    auto CollectAstSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
-        struct AstSemanticTokenCollector : public AstVisitor<AstSemanticTokenCollector>
+        struct AstSemanticTokenCollector : public ModuleVisitor<AstSemanticTokenCollector>
         {
-            const CompilerObject& compilerObject;
-            std::vector<SemanticTokenInfo>& tokenBuffer;
+            std::vector<SemanticTokenInfo>& output;
 
-            AstSemanticTokenCollector(const CompilerObject& compiler, std::vector<SemanticTokenInfo>& tokenBuffer)
-                : compilerObject(compiler), tokenBuffer(tokenBuffer)
+            AstSemanticTokenCollector(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& output)
+                : ModuleVisitor(provider), output(output)
             {
+            }
+
+            auto Execute() -> void
+            {
+                TraverseAllGlobalDecl();
             }
 
             auto VisitAstQualType(AstQualType& type) -> void
@@ -254,31 +258,36 @@ namespace glsld
                     }
                     break;
                 case NameAccessType::Unknown:
-                default:
-                    GLSLD_UNREACHABLE();
+                    break;
                 }
+
+                GLSLD_UNREACHABLE();
             }
 
             auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
-                if (compilerObject.GetLexContext().LookupSpelledFile(token) ==
-                    compilerObject.GetSourceContext().GetMainFile()->GetID()) {
-                    tokenBuffer.push_back(
-                        CreateSemanticTokenInfo(compilerObject.GetLexContext(), token, type, modifier));
+                if (GetProvider().InMainFile(token)) {
+                    // FIXME: how to handle multi-line token
+                    //            a\
+                    //            b
+                    auto range = GetProvider().GetLexContext().LookupSpelledTextRange(token);
+                    output.push_back(SemanticTokenInfo{
+                        .line      = range.start.line,
+                        .character = range.start.character,
+                        .length    = range.end.character - range.start.character,
+                        .type      = type,
+                        .modifier  = modifier,
+                    });
                 }
             }
         };
 
-        AstSemanticTokenCollector{compilerObject, tokenBuffer}.TraverseAst(compilerObject.GetAstContext());
+        AstSemanticTokenCollector{provider, tokenBuffer}.Execute();
     }
 
-    auto ComputeSemanticTokens(const IntellisenseProvider& provider) -> lsp::SemanticTokens
+    auto ToLspSemanticTokens(std::vector<SemanticTokenInfo> tokenBuffer) -> lsp::SemanticTokens
     {
-        std::vector<SemanticTokenInfo> tokenBuffer;
-        CollectPreprocessSemanticTokens(provider.GetPPInfoCache(), tokenBuffer);
-        CollectLexSemanticTokens(provider.GetCompilerObject(), tokenBuffer);
-        CollectAstSemanticTokens(provider.GetCompilerObject(), tokenBuffer);
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
             return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
         });
@@ -311,6 +320,16 @@ namespace glsld
         }
 
         return result;
+    }
+
+    auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> lsp::SemanticTokens
+    {
+        std::vector<SemanticTokenInfo> tokenBuffer;
+        CollectPreprocessSemanticTokens(provider.GetPreprocessInfoCache(), tokenBuffer);
+        CollectLexSemanticTokens(provider, tokenBuffer);
+        CollectAstSemanticTokens(provider, tokenBuffer);
+
+        return ToLspSemanticTokens(std::move(tokenBuffer));
     }
 
     // auto ComputeSemanticTokensDelta(const IntellisenseProvider& provider) -> lsp::SemanticTokensDelta

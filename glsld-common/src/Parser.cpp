@@ -37,7 +37,12 @@ namespace glsld
             ReportError("expect ')'");
 
             RecoverFromError(RecoveryMode::Paren);
-            if (!TryConsumeToken(TokenKlass::RParen)) {
+            if (TryConsumeToken(TokenKlass::RParen)) {
+                if (InRecoveryMode()) {
+                    ExitRecoveryMode();
+                }
+            }
+            else {
                 // we cannot find the closing ')' to continue parsing
                 EnterRecoveryMode();
             }
@@ -55,8 +60,13 @@ namespace glsld
             ReportError("expect ']'");
 
             RecoverFromError(RecoveryMode::Bracket);
-            if (!TryConsumeToken(TokenKlass::RBracket)) {
-                // we cannot find the closing ')' to continue parsing
+            if (TryConsumeToken(TokenKlass::RBracket)) {
+                if (InRecoveryMode()) {
+                    ExitRecoveryMode();
+                }
+            }
+            else {
+                // we cannot find the closing ']' to continue parsing
                 EnterRecoveryMode();
             }
         }
@@ -465,8 +475,7 @@ namespace glsld
                 return CreateAstNode<AstEmptyDecl>(beginTokIndex);
             }
 
-            if (TryTestToken(TokenKlass::LParen) ||
-                (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1))) {
+            if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
                 // function decl
                 return ParseFunctionDecl(beginTokIndex, type);
             }
@@ -1520,52 +1529,54 @@ namespace glsld
             // Comma expr
         case TokenKlass::Comma:
             return ParseExprStmt();
-        case TokenKlass::Identifier:
-            if (TryTestToken(TokenKlass::Identifier, 1)) {
-                // Case: `S x;`
-                return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
-            }
-            else if (TryTestToken(TokenKlass::LBracket, 1)) {
-                // Case: `S[1] x;` or `S[1] = x;`
+        default:
+            // FIXME: this is really hacky, we should do better
+            if (TryTestToken(TokenKlass::Identifier) || PeekToken().IsKeyword()) {
+                if (TryTestToken(TokenKlass::Identifier, 1)) {
+                    // Case: `S x;`
+                    return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+                }
+                else if (TryTestToken(TokenKlass::LBracket, 1)) {
+                    // Case: `S[1] x;` or `S[1] = x;`
 
-                // We scan ahead to see the next token after ']'
-                size_t nextLookahead = 2;
-                int bracketDepth     = 1;
-                while (true) {
-                    const auto lookaheadTok = PeekToken(nextLookahead);
-                    nextLookahead += 1;
+                    // We scan ahead to see the next token after ']'
+                    size_t nextLookahead = 2;
+                    int bracketDepth     = 1;
+                    while (true) {
+                        const auto lookaheadTok = PeekToken(nextLookahead);
+                        nextLookahead += 1;
 
-                    if (lookaheadTok.klass == TokenKlass::LBracket) {
-                        bracketDepth += 1;
-                    }
-                    else if (lookaheadTok.klass == TokenKlass::RBracket) {
-                        bracketDepth -= 1;
-                        if (bracketDepth == 0) {
+                        if (lookaheadTok.klass == TokenKlass::LBracket) {
+                            bracketDepth += 1;
+                        }
+                        else if (lookaheadTok.klass == TokenKlass::RBracket) {
+                            bracketDepth -= 1;
+                            if (bracketDepth == 0) {
+                                break;
+                            }
+                        }
+                        else if (lookaheadTok.klass == TokenKlass::Eof || lookaheadTok.klass == TokenKlass::Semicolon) {
                             break;
                         }
                     }
-                    else if (lookaheadTok.klass == TokenKlass::Eof || lookaheadTok.klass == TokenKlass::Semicolon) {
-                        break;
+
+                    if (bracketDepth == 0 && TryTestToken(TokenKlass::Identifier, nextLookahead)) {
+                        return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+                    }
+                    else {
+                        return ParseExprStmt();
                     }
                 }
-
-                if (bracketDepth == 0 && TryTestToken(TokenKlass::Identifier, nextLookahead)) {
-                    return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
-                }
                 else {
+                    // Other cases
+                    // FIXME: could we assume this?
                     return ParseExprStmt();
                 }
             }
             else {
-                // Other cases
-                // FIXME: could we assume this?
-                return ParseExprStmt();
+                // FIXME: need we recover here?
+                return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
             }
-
-        default:
-            // FIXME: need we recover here?
-            // FIXME: `vec3(0);` is being treated as function declaration but it's a constructor call expr
-            return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
         }
     }
 

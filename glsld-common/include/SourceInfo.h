@@ -13,6 +13,15 @@ namespace glsld
 
         auto operator==(const TextPosition&) const noexcept -> bool                  = default;
         auto operator<=>(const TextPosition&) const noexcept -> std::strong_ordering = default;
+
+        static auto Min() noexcept -> TextPosition
+        {
+            return TextPosition{0, 0};
+        }
+        static auto Max() noexcept -> TextPosition
+        {
+            return TextPosition{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
+        }
     };
 
     // A range in a text document expressed as (zero-based) start and end positions.

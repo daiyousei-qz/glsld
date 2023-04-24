@@ -7,12 +7,13 @@ namespace glsld
     class DocumentSymbolCollector : public ModuleVisitor<DocumentSymbolCollector>
     {
     public:
-        using ModuleVisitor::ModuleVisitor;
+        DocumentSymbolCollector(const LanguageQueryProvider& provider) : ModuleVisitor(provider)
+        {
+        }
 
         auto Execute() -> std::vector<lsp::DocumentSymbol>
         {
-            this->Traverse();
-
+            TraverseAllGlobalDecl();
             return std::move(result);
         }
 
@@ -59,9 +60,8 @@ namespace glsld
     private:
         auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> void
         {
-            if (token.IsIdentifier() &&
-                GetLexContext().LookupSpelledFile(token) == GetSourceContext().GetMainFile()->GetID()) {
-                auto tokRange = ToLspRange(GetLexContext().LookupSpelledTextRange(token));
+            if (token.IsIdentifier() && GetProvider().InMainFile(token)) {
+                auto tokRange = ToLspRange(GetProvider().GetLexContext().LookupSpelledTextRange(token));
                 result.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),
                     .kind           = kind,
@@ -75,9 +75,9 @@ namespace glsld
         std::vector<lsp::DocumentSymbol> result;
     };
 
-    auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>
     {
-        return DocumentSymbolCollector{compilerObject}.Execute();
+        return DocumentSymbolCollector{provider}.Execute();
     }
 
 } // namespace glsld

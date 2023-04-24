@@ -1,17 +1,17 @@
 #include "LanguageService.h"
-#include "AstHelper.h"
 
 namespace glsld
 {
-    auto ComputeDeclaration(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position)
+    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
-        const auto& lexContext = compilerObject.GetLexContext();
+        const auto& compilerObject = provider.GetCompilerObject();
+        const auto& lexContext     = compilerObject.GetLexContext();
 
-        auto declTokenResult = FindDeclToken(compilerObject, FromLspPosition(position));
-        if (declTokenResult && declTokenResult->accessedDecl.IsValid()) {
-            AstDecl& accessedDecl  = *declTokenResult->accessedDecl.GetDecl();
-            size_t declaratorIndex = declTokenResult->accessedDecl.GetIndex();
+        auto declTokenResult = provider.LookupSymbolAccess(FromLspPosition(position));
+        if (declTokenResult && declTokenResult->symbolDecl.IsValid()) {
+            AstDecl& accessedDecl  = *declTokenResult->symbolDecl.GetDecl();
+            size_t declaratorIndex = declTokenResult->symbolDecl.GetIndex();
 
             // Avoid giving declaration if the accessed decl isn't in this module
             if (accessedDecl.GetModuleId() != compilerObject.GetId()) {
@@ -41,8 +41,7 @@ namespace glsld
             }
 
             // FIXME: Support goto declaration in included files
-            if (accessedDeclTok && lexContext.LookupSpelledFile(*accessedDeclTok) ==
-                                       compilerObject.GetSourceContext().GetMainFile()->GetID())
+            if (accessedDeclTok && provider.InMainFile(*accessedDeclTok))
                 return {lsp::Location{
                     .uri   = uri,
                     .range = ToLspRange(lexContext.LookupSpelledTextRange(*accessedDeclTok)),

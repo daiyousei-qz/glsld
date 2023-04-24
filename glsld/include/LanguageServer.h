@@ -5,7 +5,6 @@
 #include "LanguageServerInterface.h"
 #include "TransportService.h"
 #include "LanguageService.h"
-#include "ThreadingService.h"
 
 #include <memory>
 
@@ -33,7 +32,6 @@ namespace glsld
 
             language  = std::make_unique<LanguageService>(this);
             transport = std::make_unique<TransportService>(stdin, stdout, this);
-            threading = std::make_unique<ThreadingService>();
 
             InitializeClientMessageHandler();
         }
@@ -151,6 +149,5 @@ namespace glsld
 
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TransportService> transport;
-        std::unique_ptr<ThreadingService> threading;
     };
 } // namespace glsld

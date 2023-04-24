@@ -36,6 +36,11 @@ namespace glsld
             }
         }
 
+        auto GetGlobalDecls() const -> ArrayView<AstDecl*>
+        {
+            return globalDecls;
+        }
+
         template <typename T, typename... Args>
             requires AstNodeTrait<T>::isLeafNode
         auto CreateAstNode(int moduleId, AstSyntaxRange range, Args&&... args) -> T*

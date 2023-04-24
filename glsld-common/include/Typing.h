@@ -194,7 +194,7 @@ namespace glsld
             return std::holds_alternative<StructTypeDesc>(descPayload);
         }
 
-        auto GetDebugName() const noexcept -> const std::string&
+        auto GetDebugName() const noexcept -> StringView
         {
             return debugName;
         }
@@ -250,7 +250,7 @@ namespace glsld
 
     inline auto TypeDescToString(const Type* desc) -> std::string
     {
-        if (desc && !desc->GetDebugName().empty()) {
+        if (desc && !desc->GetDebugName().Empty()) {
             return std::string{desc->GetDebugName()};
         }
         else {

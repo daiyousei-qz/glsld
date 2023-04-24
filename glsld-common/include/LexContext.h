@@ -88,6 +88,8 @@ namespace glsld
             return tokens[tokIndex].expandedRange;
         }
 
+        // NOTE we could only get the expanded range of an AstSyntaxRange because tokens could be spelled across
+        // different files.
         auto LookupExpandedTextRange(AstSyntaxRange range) const -> TextRange
         {
             GLSLD_ASSERT(range.endTokenIndex < tokens.size());

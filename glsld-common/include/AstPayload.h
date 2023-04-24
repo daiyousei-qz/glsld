@@ -53,7 +53,7 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            if (resolvedType && !resolvedType->GetDebugName().empty()) {
+            if (resolvedType && !resolvedType->GetDebugName().Empty()) {
                 return fmt::format("Type: {}", resolvedType->GetDebugName());
             }
             else {
@@ -146,7 +146,7 @@ namespace glsld
 
         auto DumpPayloadData() const -> std::string
         {
-            if (structType && !structType->GetDebugName().empty()) {
+            if (structType && !structType->GetDebugName().Empty()) {
                 return fmt::format("Type={}", structType->GetDebugName());
             }
             else {
