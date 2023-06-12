@@ -20,7 +20,7 @@ namespace glsld
         {
             if (UseHeapBuffer()) {
                 GLSLD_ASSERT(bufferPtr != nullptr);
-                free(bufferPtr);
+                delete[] bufferPtr;
                 bufferPtr = nullptr;
             }
         }
@@ -43,7 +43,7 @@ namespace glsld
         {
             if (UseHeapBuffer()) {
                 GLSLD_ASSERT(bufferPtr != nullptr);
-                free(bufferPtr);
+                delete[] bufferPtr;
             }
 
             scalarType       = other.scalarType;
@@ -227,7 +227,7 @@ namespace glsld
             result.rowSize    = rowSize;
             result.colSize    = colSize;
             if (UseHeapBuffer()) {
-                result.bufferPtr = malloc(arraySize * GetScalarSize());
+                result.bufferPtr = new std::byte[arraySize * GetScalarSize()];
                 std::memcpy(result.bufferPtr, bufferPtr, arraySize * GetScalarSize());
             }
             else {
@@ -822,7 +822,7 @@ namespace glsld
             GLSLD_ASSERT(GetScalarSize() == sizeof(T));
             void* buffer = nullptr;
             if (UseHeapBuffer()) {
-                bufferPtr = std::malloc(GetBufferSize());
+                bufferPtr = new std::byte[GetBufferSize()];
                 buffer    = bufferPtr;
             }
             else {
@@ -854,7 +854,7 @@ namespace glsld
 
         union
         {
-            void* bufferPtr;
+            std::byte* bufferPtr;
             alignas(8) uint8_t localBuffer[8];
         };
     };

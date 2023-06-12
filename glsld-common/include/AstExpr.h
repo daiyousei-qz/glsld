@@ -11,6 +11,9 @@
 
 namespace glsld
 {
+    // Base class of all AST nodes that could be used as an initializer, one of:
+    // - initializer list
+    // - expression
     class AstInitializer : public AstImpl<AstInitializer>
     {
     };
@@ -44,6 +47,7 @@ namespace glsld
         std::vector<AstInitializer*> items;
     };
 
+    // Base class of all AST nodes that could be used as an expression.
     class AstExpr : public AstImpl<AstExpr>
     {
     };

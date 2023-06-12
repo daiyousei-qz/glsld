@@ -236,17 +236,16 @@ namespace glsld
     class QualifierGroup
     {
     public:
-        auto HasStorageQual() -> bool
+        auto HasStorageQual() const noexcept -> bool
         {
             return qConst || qIn || qOut || qInout || qAttribute || qUniform || qVarying || qBuffer || qShared;
         }
 
-        auto CanDeclareInterfaceBlock() -> bool
+        auto CanDeclareInterfaceBlock() const noexcept -> bool
         {
             return qIn || qOut || qUniform || qBuffer;
         }
 
-    public:
         // Precision Qualifier
         bool qHighp : 1   = false;
         bool qMediump : 1 = false;
@@ -286,12 +285,18 @@ namespace glsld
         bool qReadonly : 1  = false;
         bool qWriteonly : 1 = false;
 
-        // Extensions
+        // Extension: raytracing
         bool qRayPayloadEXT : 1     = false;
         bool qRayPayloadInEXT : 1   = false;
         bool qHitAttributeEXT : 1   = false;
         bool qCallableDataEXT : 1   = false;
         bool qCallableDataInEXT : 1 = false;
+
+        // Extension: mesh shader
+        bool qPerprimitiveNV : 1       = false;
+        bool qPerviewNV : 1            = false;
+        bool qTaskNV : 1               = false;
+        bool qTaskPayloadSharedEXT : 1 = false;
     };
 
 } // namespace glsld

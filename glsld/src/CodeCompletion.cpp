@@ -56,7 +56,7 @@ namespace glsld
 
         auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
         {
-            if (GetProvider().ContainsPosition(node, cursorPosition)) {
+            if (GetProvider().ContainsPositionExtended(node, cursorPosition)) {
                 return AstVisitPolicy::Traverse;
             }
             else {
@@ -113,7 +113,8 @@ namespace glsld
 
         auto VisitAstNameAccessExpr(AstNameAccessExpr& expr) -> void
         {
-            if (expr.GetAccessChain() && GetProvider().ContainsPositionExtended(expr.GetAccessName(), cursorPosition)) {
+            if (expr.GetAccessChain() &&
+                GetProvider().ContainsPositionExtended(expr.GetLastTokenIndex(), cursorPosition)) {
                 accessChainExpr = expr.GetAccessChain();
             }
         }
@@ -169,6 +170,10 @@ namespace glsld
                 }
             }
         }
+        else if (decl.Is<AstEmptyDecl>() || decl.Is<AstStructDecl>()) {
+            // Do nothing here.
+            // NOTE we don't have struct decl in our AST. Instead, those are hidden in the variable decl.
+        }
         else {
             GLSLD_UNREACHABLE();
         }
@@ -190,16 +195,12 @@ namespace glsld
 
         auto EnterAstDecl(AstDecl& decl) -> AstVisitPolicy
         {
-            if (decl.Is<AstFunctionDecl>()) {
-                if (GetProvider().ContainsPosition(decl, cursorPosition)) {
-                    return AstVisitPolicy::Traverse;
-                }
-                else {
-                    return AstVisitPolicy::Visit;
-                }
+            if (decl.Is<AstFunctionDecl>() && GetProvider().ContainsPosition(decl, cursorPosition)) {
+                return AstVisitPolicy::Traverse;
             }
-
-            return AstVisitPolicy::Traverse;
+            else {
+                return AstVisitPolicy::Visit;
+            }
         }
 
         auto EnterAstStmt(AstStmt& stmt) -> AstVisitPolicy
@@ -263,7 +264,7 @@ namespace glsld
         std::unordered_map<AtomString, size_t> itemIndexMap;
     };
 
-    auto GetDefaultLibraryCompletionList() -> std::vector<lsp::CompletionItem>
+    auto GetDefaultLibraryCompletionList() -> ArrayView<lsp::CompletionItem>
     {
         static const auto cachedCompletionItems = []() {
             std::vector<lsp::CompletionItem> result;
@@ -298,6 +299,26 @@ namespace glsld
         return cachedCompletionItems;
     }
 
+    auto GetSwizzleCompletionItem() -> ArrayView<lsp::CompletionItem>
+    {
+        static const auto cachedCompletionItems = []() {
+            std::vector<lsp::CompletionItem> result;
+
+            // FIXME: multi-dimensional swizzle?
+            static constexpr StringView swizzles = "xyzwrgbapqst";
+            for (char ch : swizzles) {
+                result.push_back({lsp::CompletionItem{
+                    .label = std::string{ch},
+                    .kind  = lsp::CompletionItemKind::Property,
+                }});
+            }
+
+            return result;
+        }();
+
+        return cachedCompletionItems;
+    }
+
     auto ComputeCompletion(const LanguageQueryProvider& provider, lsp::Position lspPosition)
         -> std::vector<lsp::CompletionItem>
     {
@@ -316,9 +337,9 @@ namespace glsld
                     .kind  = lsp::CompletionItemKind::Method,
                 }});
             }
-            // if (type->IsScalar() || type->IsVector() || type->IsMatrix()) {
-            //     // FIXME: swizzle?
-            // }
+            if (type->IsScalar() || type->IsVector() || type->IsMatrix()) {
+                std::ranges::copy(GetSwizzleCompletionItem(), std::back_inserter(result));
+            }
             if (auto structDesc = type->GetStructDesc()) {
                 for (const auto& [memberName, memberType] : structDesc->members) {
                     result.push_back({lsp::CompletionItem{

@@ -248,12 +248,12 @@ namespace glsld::cl
                             return argValue;
                         }
                         else {
-                            printf("missing required arg value\n");
+                            fmt::print("missing required arg value\n");
                             exit(-1);
                         }
                     case ValueDisallowed:
                         if (inlineValue) {
-                            printf("arg value is disallowed\n");
+                            fmt::print("arg value is disallowed\n");
                             exit(-1);
                         }
                         return std::nullopt;
@@ -420,8 +420,8 @@ namespace glsld::cl
             else if constexpr (std::is_integral_v<T>) {
                 if (argValue) {
                     T tmp;
-                    auto parseResult = std::from_chars(argValue->Data(), argValue->Data() + argValue->Size(), tmp);
-                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->Data() + argValue->Size()) {
+                    auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->Size(), tmp);
+                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->Size()) {
                         value = tmp;
                     }
                     else {
@@ -432,8 +432,8 @@ namespace glsld::cl
             else if constexpr (std::is_floating_point_v<T>) {
                 if (argValue) {
                     T tmp;
-                    auto parseResult = std::from_chars(argValue->Data(), argValue->Data() + argValue->Size(), tmp);
-                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->Data() + argValue->Size()) {
+                    auto parseResult = std::from_chars(argValue->data(), argValue->data() + argValue->Size(), tmp);
+                    if (parseResult.ec == std::errc() && parseResult.ptr == argValue->data() + argValue->Size()) {
                         value = tmp;
                     }
                     else {

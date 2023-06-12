@@ -64,74 +64,88 @@ auto CreateLexingAutomata() -> NfaAutomata
     return builder.Build();
 }
 
-auto GenerateLexSource(const NfaAutomata& automata) -> void
+auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
 {
-    fmt::print("#pragma once\n");
-    fmt::print("// clang-format off\n");
-    fmt::print("#include <optional>\n");
-    fmt::print("#include <vector>\n");
-    fmt::print("#include \"SyntaxToken.h\"\n");
-    fmt::print("#include \"SourceInfo.h\"\n\n");
+    auto printToFile = [file]<typename... Ts>(fmt::format_string<Ts...> format, Ts&&... args) constexpr {
+        fmt::print(file, format, std::forward<Ts>(args)...);
+    };
 
-    fmt::print("namespace glsld::detail {{\n");
-    fmt::print("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");
+    printToFile("// clang-format off\n");
+    printToFile("#include <optional>\n");
+    printToFile("#include <vector>\n");
+    printToFile("#include \"SyntaxToken.h\"\n");
+    printToFile("#include \"SourceScanner.h\"\n\n");
 
-    fmt::print("TokenKlass acceptedKlass;\n");
-    fmt::print("size_t acceptedSize;\n");
-    fmt::print("SourceScanner acceptedCheckpoint;\n");
-    fmt::print("char ch;\n");
+    printToFile("namespace glsld::detail {{\n");
+    printToFile("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");
+
+    printToFile("TokenKlass acceptedKlass;\n");
+    printToFile("size_t acceptedSize;\n");
+    printToFile("SourceScanner acceptedCheckpoint;\n");
+    printToFile("char ch;\n");
 
     for (int i = 0; i < automata.NumState(); ++i) {
         auto state = automata[i];
 
-        fmt::print("LexState_{}:\n", i);
+        printToFile("LexState_{}:\n", i);
         if (state->GetAcceptId() != -1) {
-            fmt::print("// Accepting as {}\n", TokenKlassToString(static_cast<TokenKlass>(state->GetAcceptId())));
-            fmt::print("acceptedCheckpoint = srcView.Clone();\n");
-            fmt::print("acceptedKlass = static_cast<TokenKlass>({});\n", state->GetAcceptId());
-            fmt::print("acceptedSize = buffer.size();\n\n");
+            printToFile("// Accepting as {}\n", TokenKlassToString(static_cast<TokenKlass>(state->GetAcceptId())));
+            printToFile("acceptedCheckpoint = srcView.Clone();\n");
+            printToFile("acceptedKlass = static_cast<TokenKlass>({});\n", state->GetAcceptId());
+            printToFile("acceptedSize = buffer.size();\n\n");
         }
 
-        fmt::print("ch = srcView.ConsumeChar();\n");
-        fmt::print("buffer.push_back(ch);\n\n");
+        printToFile("ch = srcView.ConsumeChar();\n");
+        printToFile("buffer.push_back(ch);\n\n");
 
         if (i == 0) {
             GLSLD_REQUIRE(state->GetAcceptId() == -1);
-            fmt::print("// Initialize error token as a fallback\n");
-            fmt::print("acceptedCheckpoint = srcView.Clone();\n");
-            fmt::print("acceptedKlass = TokenKlass::Error;\n");
-            fmt::print("acceptedSize = buffer.size();\n\n");
+            printToFile("// Initialize error token as a fallback\n");
+            printToFile("acceptedCheckpoint = srcView.Clone();\n");
+            printToFile("acceptedKlass = TokenKlass::Error;\n");
+            printToFile("acceptedSize = buffer.size();\n\n");
         }
 
         auto outgoingTransitions = state->GetTransition();
         if (outgoingTransitions.empty()) {
-            fmt::print("goto FinishToken;\n");
+            printToFile("goto FinishToken;\n");
         }
         else {
-            fmt::print("switch(ch) {{\n");
+            printToFile("switch(ch) {{\n");
             for (auto transition : automata[i]->GetTransition()) {
                 GLSLD_REQUIRE(transition.second->GetIndex() != 0);
-                fmt::print("    case '{}': goto LexState_{};\n", static_cast<char>(transition.first),
-                           transition.second->GetIndex());
+                printToFile("    case '{}': goto LexState_{};\n", static_cast<char>(transition.first),
+                            transition.second->GetIndex());
             }
-            fmt::print("    default: goto FinishToken;\n");
-            fmt::print("}}\n");
+            printToFile("    default: goto FinishToken;\n");
+            printToFile("}}\n");
         }
-        fmt::print("\n");
+        printToFile("\n");
     }
 
-    fmt::print("FinishToken:\n");
-    fmt::print("srcView.Restore(acceptedCheckpoint);\n");
-    fmt::print("buffer.resize(acceptedSize);\n");
-    fmt::print("return acceptedKlass;\n");
+    printToFile("FinishToken:\n");
+    printToFile("srcView.Restore(acceptedCheckpoint);\n");
+    printToFile("buffer.resize(acceptedSize);\n");
+    printToFile("return acceptedKlass;\n");
 
-    fmt::print("}}\n");
-    fmt::print("}}\n");
-    fmt::print("// clang-format on\n");
+    printToFile("}}\n");
+    printToFile("}}\n");
+    printToFile("// clang-format on\n");
 }
 
-int main()
+int main(int argc, const char** argv)
 {
-    GenerateLexSource(CreateLexingAutomata());
+    if (argc != 2) {
+        fmt::print("Usage: {} <output file>\n", argv[0]);
+        return -1;
+    }
+
+    auto file = fopen(argv[1], "wb");
+    if (!file) {
+        fmt::print("Failed to open file {}\n", argv[1]);
+        return -1;
+    }
+
+    GenerateLexSource(file, CreateLexingAutomata());
     return 0;
 }

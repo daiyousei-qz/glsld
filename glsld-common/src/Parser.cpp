@@ -10,13 +10,15 @@ namespace glsld
         RestoreTokenIndex(0);
 
         while (!Eof()) {
-            compilerObject.GetAstContext().AddGlobalDecl(ParseDeclAndTryRecover());
+            if (auto decl = ParseDeclAndTryRecover()) {
+                compilerObject.GetAstContext().AddGlobalDecl(decl);
+            }
         }
     }
 
 #pragma region Parsing Misc
 
-    auto Parser::ParsePermissiveSemicolonHelper() -> void
+    auto Parser::ParseOrInferSemicolonHelper() -> void
     {
         if (InParsingMode()) {
             if (!TryConsumeToken(TokenKlass::Semicolon)) {
@@ -80,6 +82,7 @@ namespace glsld
             return result;
         }
         else {
+            // FIXME: this is not a valid token
             ReportError("Expect identifier");
             return SyntaxToken{};
         }
@@ -136,7 +139,7 @@ namespace glsld
         ParseClosingParenHelper();
     }
 
-    auto Parser::ParseTypeQualifiers() -> AstTypeQualifierSeq*
+    auto Parser::ParseTypeQualifierSeq() -> AstTypeQualifierSeq*
     {
         GLSLD_TRACE_PARSER();
 
@@ -146,7 +149,6 @@ namespace glsld
 
         bool inQualSeq = true;
         while (InParsingMode() && inQualSeq) {
-            // FIXME: implement correctly
             switch (PeekToken().klass) {
                 // precision qualifier
             case TokenKlass::K_highp:
@@ -158,14 +160,17 @@ namespace glsld
             case TokenKlass::K_lowp:
                 qualifiers.qLowp = true;
                 break;
+
                 // invariance qual?
             case TokenKlass::K_invariant:
                 qualifiers.qInvariant = true;
                 break;
+
                 // precise qual?
             case TokenKlass::K_precise:
                 qualifiers.qPrecise = true;
                 break;
+
                 // memory qualifier
             case TokenKlass::K_coherent:
                 qualifiers.qCoherent = true;
@@ -182,6 +187,7 @@ namespace glsld
             case TokenKlass::K_writeonly:
                 qualifiers.qWriteonly = true;
                 break;
+
                 // storage qual (also, parameter qual)
             case TokenKlass::K_const:
                 qualifiers.qConst = true;
@@ -210,6 +216,7 @@ namespace glsld
             case TokenKlass::K_shared:
                 qualifiers.qShared = true;
                 break;
+
                 // auxiliary storage qual
             case TokenKlass::K_centroid:
                 qualifiers.qCentroid = true;
@@ -220,6 +227,7 @@ namespace glsld
             case TokenKlass::K_patch:
                 qualifiers.qPatch = true;
                 break;
+
                 // Interpolation qual
             case TokenKlass::K_smooth:
                 qualifiers.qSmooth = true;
@@ -230,6 +238,7 @@ namespace glsld
             case TokenKlass::K_noperspective:
                 qualifiers.qNoperspective = true;
                 break;
+
                 // Extension: ray tracing
             case TokenKlass::K_rayPayloadNV:
             case TokenKlass::K_rayPayloadEXT:
@@ -251,6 +260,23 @@ namespace glsld
             case TokenKlass::K_callableDataInEXT:
                 qualifiers.qCallableDataInEXT = true;
                 break;
+
+                // Extension: mesh shader
+            case TokenKlass::K_perprimitiveNV:
+            case TokenKlass::K_perprimitiveEXT:
+                qualifiers.qPerprimitiveNV = true;
+                break;
+            case TokenKlass::K_perviewNV:
+                qualifiers.qPerviewNV = true;
+                break;
+            case TokenKlass::K_taskNV:
+                qualifiers.qTaskNV = true;
+                break;
+            case TokenKlass::K_taskPayloadSharedEXT:
+                qualifiers.qTaskPayloadSharedEXT = true;
+                break;
+
+                // Not a qualifier
             default:
                 inQualSeq = false;
                 break;
@@ -267,8 +293,14 @@ namespace glsld
             }
         }
 
-        // TODO: return nullptr if no qualifier is parsed
-        return CreateAstNode<AstTypeQualifierSeq>(beginTokIndex, qualifiers, std::move(layoutQuals));
+        if (GetTokenIndex() != beginTokIndex) {
+            // We've parsed a qualifier sequence if we've consumed at least one token.
+            return CreateAstNode<AstTypeQualifierSeq>(beginTokIndex, qualifiers, std::move(layoutQuals));
+        }
+        else {
+            // No token consumed, aka. no qualifiers.
+            return nullptr;
+        }
     }
 
     auto Parser::ParseStructBody() -> std::vector<AstStructMemberDecl*>
@@ -298,7 +330,7 @@ namespace glsld
 
             if (!InRecoveryMode()) {
                 result.push_back(CreateAstNode<AstStructMemberDecl>(beginTokIndex, typeResult, std::move(declarators)));
-                ParsePermissiveSemicolonHelper();
+                ParseOrInferSemicolonHelper();
             }
             else {
                 // Try to resume if we see a ';'
@@ -369,7 +401,7 @@ namespace glsld
                 continue;
             }
 
-            // TODO: expr? assignment_expr?
+            // Parse the array size/index expression
             sizes.push_back(ParseExpr());
 
             ParseClosingBracketHelper();
@@ -398,16 +430,17 @@ namespace glsld
             return CreateAstNode<AstQualType>(beginTokIndex, quals, structDefinition, arraySpec);
         }
         else if (TryTestToken(TokenKlass::Identifier) || GetGlslBuiltinType(PeekToken()).has_value()) {
-            auto tok = PeekToken();
+            // Parse type name, which is either an identifier or a keyword
+            auto typeNameTok = PeekToken();
             ConsumeToken();
             AstArraySpec* arraySpec = nullptr;
             if (TryTestToken(TokenKlass::LBracket)) {
                 arraySpec = ParseArraySpec();
             }
-            return CreateAstNode<AstQualType>(beginTokIndex, quals, tok, arraySpec);
+            return CreateAstNode<AstQualType>(beginTokIndex, quals, typeNameTok, arraySpec);
         }
         else {
-            // FIXME: how to handle error
+            // We can't parse a type. Just enter recovery mode and put parser in a unknown state for later recovery.
             EnterRecoveryMode();
             return nullptr;
         }
@@ -417,7 +450,7 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        auto qualifiers = ParseTypeQualifiers();
+        auto qualifiers = ParseTypeQualifierSeq();
         return ParseType(qualifiers);
     }
 
@@ -444,7 +477,7 @@ namespace glsld
             return CreateAstNode<AstEmptyDecl>(beginTokIndex);
         }
 
-        auto quals = ParseTypeQualifiers();
+        auto quals = ParseTypeQualifierSeq();
         if (TryTestToken(TokenKlass::Semicolon)) {
             // default qualifier decl
             // FIXME: implement this
@@ -470,9 +503,9 @@ namespace glsld
             // function/variable decl
             auto type = ParseType(quals);
             if (InRecoveryMode()) {
-                // FIXME: what to do here?
-                ReportError("what to do here?");
-                return CreateAstNode<AstEmptyDecl>(beginTokIndex);
+                // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
+                ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
+                return nullptr;
             }
 
             if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
@@ -484,18 +517,10 @@ namespace glsld
                 return ParseTypeOrVariableDecl(beginTokIndex, type);
             }
             else {
-                if (type->GetStructDecl()) {
-                    // If type is a struct definition, we assume this is a type decl with missing ';' for better
-                    // diagnostic This would always fail. We are just trying to infer the ';'
-                    ParsePermissiveSemicolonHelper();
-                }
-                else {
-                    // Otherwise, it's an unknown decl
-                    ReportError("unknown decl");
-                    EnterRecoveryMode();
-                }
+                // This would always fail. We are just trying to infer the ';' for better diagnostic.
+                ParseOrInferSemicolonHelper();
 
-                // In all cases, we'll return an empty decl with parsed type
+                // We just see this declaration as a variable decl without declarator.
                 return CreateAstNode<AstVariableDecl>(beginTokIndex, type);
             }
         }
@@ -726,7 +751,7 @@ namespace glsld
         auto declarators = ParseDeclaratorList();
 
         // Parse ';'
-        ParsePermissiveSemicolonHelper();
+        ParseOrInferSemicolonHelper();
 
         return CreateAstNode<AstVariableDecl>(beginTokIndex, variableType, declarators);
     }
@@ -753,7 +778,7 @@ namespace glsld
         }
 
         // Parse ';'
-        ParsePermissiveSemicolonHelper();
+        ParseOrInferSemicolonHelper();
 
         return CreateAstNode<AstInterfaceBlockDecl>(beginTokIndex, quals, declTok, blockBody, declarator);
     }
@@ -1369,14 +1394,14 @@ namespace glsld
         AstExpr* precidateExpr = ParseParenWrappedExprOrErrorHelper();
 
         // Parse ';'
-        ParsePermissiveSemicolonHelper();
+        ParseOrInferSemicolonHelper();
 
         return CreateAstNode<AstDoWhileStmt>(beginTokIndex, precidateExpr, loopBodyStmt);
     }
 
     auto Parser::ParseWhileStmt() -> AstStmt*
     {
-        GLSLD_TRACE_PARSER(TokenKlass::K_while);
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1423,7 +1448,7 @@ namespace glsld
 
     auto Parser::ParseSwitchStmt() -> AstStmt*
     {
-        GLSLD_TRACE_PARSER(TokenKlass::K_switch);
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
 
@@ -1447,21 +1472,21 @@ namespace glsld
 
     auto Parser::ParseJumpStmt() -> AstStmt*
     {
-        GLSLD_TRACE_PARSER(TokenKlass::K_break, TokenKlass::K_continue, TokenKlass::K_discard, TokenKlass::K_return);
+        GLSLD_TRACE_PARSER();
 
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
         case TokenKlass::K_break:
             ConsumeToken();
-            ParsePermissiveSemicolonHelper();
+            ParseOrInferSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Break);
         case TokenKlass::K_continue:
             ConsumeToken();
-            ParsePermissiveSemicolonHelper();
+            ParseOrInferSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Continue);
         case TokenKlass::K_discard:
             ConsumeToken();
-            ParsePermissiveSemicolonHelper();
+            ParseOrInferSemicolonHelper();
             return CreateAstNode<AstJumpStmt>(beginTokIndex, JumpType::Discard);
         case TokenKlass::K_return:
             ConsumeToken();
@@ -1471,10 +1496,11 @@ namespace glsld
             else {
                 auto returnedExpr = ParseExprNoComma();
 
-                ParsePermissiveSemicolonHelper();
+                ParseOrInferSemicolonHelper();
                 return CreateAstNode<AstReturnStmt>(beginTokIndex, returnedExpr);
             }
         default:
+            GLSLD_ASSERT(false && "Unexpected token");
             GLSLD_UNREACHABLE();
         }
     }
@@ -1489,7 +1515,7 @@ namespace glsld
         auto exprResult = ParseExpr();
 
         // Parse ';'
-        ParsePermissiveSemicolonHelper();
+        ParseOrInferSemicolonHelper();
 
         return CreateAstNode<AstExprStmt>(beginTokIndex, exprResult);
     }
@@ -1529,6 +1555,10 @@ namespace glsld
             // Comma expr
         case TokenKlass::Comma:
             return ParseExprStmt();
+            // Declaration
+        case TokenKlass::K_const:
+            // FIXME: what about other qualifiers?
+            return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
         default:
             // FIXME: this is really hacky, we should do better
             if (TryTestToken(TokenKlass::Identifier) || PeekToken().IsKeyword()) {
@@ -1584,7 +1614,6 @@ namespace glsld
 
     auto Parser::RecoverFromError(RecoveryMode mode) -> void
     {
-        // FIXME: is this a parser?
         GLSLD_TRACE_PARSER();
 
         auto desiredToken = static_cast<TokenKlass>(mode);

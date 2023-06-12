@@ -228,6 +228,7 @@ DECL_KEYWORD( subpassInputMS)
 DECL_KEYWORD(isubpassInputMS)
 DECL_KEYWORD(usubpassInputMS)
 
+// Extension: raytracing
 DECL_KEYWORD(rayPayloadNV)
 DECL_KEYWORD(rayPayloadEXT)
 DECL_KEYWORD(rayPayloadInNV)
@@ -241,5 +242,13 @@ DECL_KEYWORD(callableDataInEXT)
 
 DECL_KEYWORD(accelerationStructureNV)
 DECL_KEYWORD(accelerationStructureEXT)
+
+// Extension: mesh shader
+DECL_KEYWORD(perprimitiveNV)
+DECL_KEYWORD(perviewNV)
+DECL_KEYWORD(taskNV)
+DECL_KEYWORD(taskPayloadSharedEXT)
+DECL_KEYWORD(perprimitiveEXT)
+
 
 #endif

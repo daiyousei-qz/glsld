@@ -52,6 +52,11 @@ namespace glsld
             return start <= position && position < end;
         }
 
+        auto ContainsExtended(TextPosition position) const noexcept -> bool
+        {
+            return start <= position && position <= end;
+        }
+
         auto Overlaps(TextRange range) const noexcept -> bool
         {
             if (start < range.start) {

@@ -282,7 +282,7 @@ namespace glsld
         {
             return declTok;
         }
-        auto GetMembers() -> ArrayView<AstStructMemberDecl* const>
+        auto GetMembers() -> ArrayView<AstStructMemberDecl*>
         {
             return members;
         }

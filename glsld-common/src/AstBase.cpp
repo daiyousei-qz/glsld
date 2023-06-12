@@ -3,7 +3,7 @@
 
 namespace glsld
 {
-    auto AstNodeTagToString(AstNodeTag tag) -> std::string_view
+    auto AstNodeTagToString(AstNodeTag tag) -> StringView
     {
         switch (tag) {
         case AstNodeTag::Invalid:

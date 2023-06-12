@@ -76,7 +76,7 @@ namespace glsld
     class ParserTrace
     {
     public:
-        ParserTrace(StringView name, std::initializer_list<TokenKlass> expect) : name(name)
+        ParserTrace(StringView name) : name(name)
         {
             EmitTraceMessage(CompilerTraceSource::Parser, "Entering parser {}", name);
         }
@@ -117,13 +117,10 @@ namespace glsld
 #define GLSLD_TRACE_EXIT_INCLUDE_FILE(PATH) ::glsld::TraceExitIncludeFile(PATH)
 #define GLSLD_TRACE_TOKEN_CONSUMED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
 #define GLSLD_TRACE_TOKEN_SKIPPED(TOKEN) ::glsld::TraceTokenConsumed(TOKEN)
-#define GLSLD_TRACE_PARSER(...)                                                                                        \
+#define GLSLD_TRACE_PARSER()                                                                                           \
     ::glsld::ParserTrace GLSLD_TRACE_OBJECT_NAME(parserTraceObject)                                                    \
     {                                                                                                                  \
-        __func__,                                                                                                      \
-        {                                                                                                              \
-            __VA_ARGS__                                                                                                \
-        }                                                                                                              \
+        __func__                                                                                                       \
     }
 #define GLSLD_TRACE_COMPILE_TIME(NAME)                                                                                 \
     ::glsld::CompileTimeTrace GLSLD_TRACE_OBJECT_NAME(compileTimeTraceObject)                                          \

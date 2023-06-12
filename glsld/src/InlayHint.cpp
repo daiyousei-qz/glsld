@@ -25,7 +25,7 @@ namespace glsld
         auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
         {
             if (auto funcExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
-                if (GetProvider().InMainFile(funcExpr->GetAccessName())) {
+                if (!GetProvider().InMainFile(funcExpr->GetAccessName())) {
                     return;
                 }
 

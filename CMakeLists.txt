@@ -70,24 +70,31 @@ find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
 
-# GLSL Common Library
-file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
-file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
-
-add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE})
-target_include_directories(glsld-common PUBLIC glsld-common/include)
-
-target_link_libraries(glsld-common PRIVATE fmt::fmt)
-
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
 file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
 
 add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
+target_include_directories(glsld-lexgen PUBLIC glsld-common/include)
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
-target_link_libraries(glsld-lexgen PRIVATE glsld-common)
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
+
+add_custom_command(
+    OUTPUT Tokenize.generated.cpp
+    COMMAND glsld-lexgen "Tokenize.generated.cpp"
+    COMMENT "Generating Tokenize.generated.cpp"
+    VERBATIM
+)
+
+# GLSL Common Library
+file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
+file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
+
+add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
+target_include_directories(glsld-common PUBLIC glsld-common/include)
+
+target_link_libraries(glsld-common PRIVATE fmt::fmt)
 
 # GLSLD
 file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)

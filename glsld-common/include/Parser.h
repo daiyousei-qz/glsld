@@ -24,9 +24,9 @@ namespace glsld
     // When a parser is called from Recovery, it should do nothing and return with Recovery. A parser shouldn't
     // exit Recovery state by itself. The caller is responsible of that.
     //
-    // EXPECT: The expected next token. Parser triggers undefined behavior if the next token doesn't match.
-    // PARSE: Grammar rules that is going to be parsed.
-    // ACCEPT: Additional grammar rules to be accepted.
+    // EXPECT: The expected next token. Calling this parser with incorrect next token leads to undefined behavior.
+    // PARSE: Grammar rules that are going to be parsed.
+    // ACCEPT: Additional grammar rules to be accepted (for permissive parsing).
     // RECOVERY: The next token to be expected if this parser entered recovery mode
     class Parser
     {
@@ -53,11 +53,13 @@ namespace glsld
         // PARSE: ';'
         //
         // ACCEPT: null
-        auto ParsePermissiveSemicolonHelper() -> void;
+        auto ParseOrInferSemicolonHelper() -> void;
 
         // Parse a closing ')' with the assumption that a balanced '(' has been parsed.
         //
         // PARSE: ')'
+        //
+        // ACCEPT: ??? ')'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
         auto ParseClosingParenHelper() -> void;
@@ -65,6 +67,8 @@ namespace glsld
         // Parse a closing ']' with the assumption that a balanced '[' has been parsed.
         //
         // PARSE: ']'
+        //
+        // ACCEPT: ??? ']'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
         auto ParseClosingBracketHelper() -> void;
@@ -76,14 +80,14 @@ namespace glsld
         // ACCEPT: null
         auto ParseDeclIdHelper() -> SyntaxToken;
 
-        // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter revery mode and return error
-        // expr.
+        // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter recovery mode and return
+        // error expr.
         //
         // PARSE: paren_wrapped_expr
         //
         // ACCEPT: null
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseParenWrappedExprOrErrorHelper() -> AstExpr*;
 
 #pragma endregion
@@ -99,6 +103,7 @@ namespace glsld
         //      - layout_qual := 'layout' '(' layout_spec [',' layout_spec]... ')'
         //      - layout_spec := 'ID'
         //      - layout_spec := 'ID' '=' assignment_expr
+        //
         // ACCEPT: 'K_layout' '(' ??? ')'
         //
         // RECOVERY: ^'EOF' or ^';'
@@ -112,7 +117,7 @@ namespace glsld
         //      - qualifier := 'K_???'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseTypeQualifiers() -> AstTypeQualifierSeq*;
+        auto ParseTypeQualifierSeq() -> AstTypeQualifierSeq*;
 
         // EXPECT: '{'
         // PARSE: struct_body
@@ -141,12 +146,18 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^'}' or ^';'
         auto ParseArraySpec() -> AstArraySpec*;
 
+        // Parse a qualified type specifier, which could be either:
+        // 1. a struct definition
+        // 2. an identifier that's a type name
+        // 3. a keyword that's a built-in type name
+        // NOTE qualifier is previously parsed and passed in as a parameter.
+        //
         // PARSE: type_spec
         //      - type_spec := struct_definition
         //      - type_spec := 'ID'
         //      - type_spec := 'K_???'
         //
-        // RECOVERY:
+        // RECOVERY: unknown
         auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // PARSE: qualified_type_spec
@@ -276,14 +287,14 @@ namespace glsld
         //
         // PARSE: expr
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseExpr() -> AstExpr*;
 
         // Parse an expression without comma operator. If no token is consumed, enter recovery mode to advance parsing.
         //
         // PARSE: assignment_expr
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseExprNoComma() -> AstExpr*;
 
         // Parse a comma expression.
@@ -397,7 +408,7 @@ namespace glsld
         //      - stmt := expr_stmt
         //      - stmt := declaration
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseStmt() -> AstStmt*;
 
         // PARSE: stmt
@@ -422,6 +433,7 @@ namespace glsld
         //      - selection_stmt := 'K_if' paren_wrapped_expr stmt 'K_else' selection_stmt
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
+        //
         // FIXME: check with if-else nesting
         auto ParseSelectionStmt() -> AstStmt*;
 
@@ -440,7 +452,7 @@ namespace glsld
         // PARSE: dowhile_stmt
         //      - dowhile_stmt := 'K_do' stmt 'K_while' paren_wrapped_expr ';'
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseDoWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_while'
@@ -448,7 +460,7 @@ namespace glsld
         // PARSE: while_stmt
         //      - while_stmt := 'K_while' paren_wrapped_expr stmt
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_case' or 'K_default'
@@ -457,7 +469,7 @@ namespace glsld
         //      - label_stmt := 'K_case' expr [':']
         //      - label_stmt := 'K_default' [':']
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseLabelStmt() -> AstStmt*;
 
         // EXPECT: 'K_switch'
@@ -466,7 +478,7 @@ namespace glsld
         //      - switch_stmt := 'K_switch' paren_wrapped_expr switch_body
         //      - switch_body := '{' ??? '}'
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseSwitchStmt() -> AstStmt*;
 
         // Parse jump statement.
@@ -479,20 +491,20 @@ namespace glsld
         //      - jump_stmt := 'K_discard' [';']
         //      - jump_stmt := 'K_return' [expr] [';']
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseJumpStmt() -> AstStmt*;
 
         // PARSE: expr_stmt
         //      - expr_stmt := expr [';']
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         auto ParseExprStmt() -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt
         //      - decl_or_expr_stmt := declaration
         //
-        // RECOVERY: ?
+        // RECOVERY: unknown
         // FIXME: what's in recovery mode?
         auto ParseDeclOrExprStmt() -> AstStmt*;
 

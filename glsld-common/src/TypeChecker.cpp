@@ -12,9 +12,9 @@ namespace glsld
                 auto literalTextNoSuffix = literalText.DropBack(1);
 
                 uint32_t value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
                     return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_uint), ConstValue::FromValue<uint32_t>(value)};
                 }
             }
@@ -22,9 +22,9 @@ namespace glsld
                 auto literalTextNoSuffix = literalText;
 
                 int32_t value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
                     return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_int), ConstValue::FromValue<int32_t>(value)};
                 }
             }
@@ -39,9 +39,9 @@ namespace glsld
                 auto literalTextNoSuffix = literalText.DropBack(2);
 
                 double value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
                     return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_double), ConstValue::FromValue<double>(value)};
                 }
             }
@@ -52,9 +52,9 @@ namespace glsld
                 }
 
                 float value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.Data(),
-                                                   literalTextNoSuffix.Data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.Data() + literalTextNoSuffix.Size()) {
+                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
                     return {GetBuiltinTypeDesc(GlslBuiltinType::Ty_float), ConstValue::FromValue<float>(value)};
                 }
             }

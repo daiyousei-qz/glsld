@@ -48,7 +48,7 @@ namespace glsld
                 headerView = headerView.Drop(16);
 
                 // TODO: handle error
-                std::from_chars(headerView.Data(), headerView.Data() + headerView.Size(), payloadLength);
+                std::from_chars(headerView.data(), headerView.data() + headerView.Size(), payloadLength);
             }
             else if (headerView.StartWith("Content-Type: ")) {
                 // headerView.remove_prefix(14);
@@ -87,7 +87,7 @@ namespace glsld
         std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
 
         fwrite(header.data(), sizeof(char), header.size(), outFile);
-        fwrite(payload.Data(), sizeof(char), payload.Size(), outFile);
+        fwrite(payload.data(), sizeof(char), payload.Size(), outFile);
         fflush(outFile);
     }
 

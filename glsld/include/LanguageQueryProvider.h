@@ -85,6 +85,15 @@ namespace glsld
             return TextRange{startPosition, endPosition};
         }
 
+        auto GetExtendedTokenTextRange(SyntaxTokenIndex tokenIndex) const -> TextRange
+        {
+            auto nextTokenIndex = std::min<SyntaxTokenIndex>(tokenIndex + 1, GetLexContext().GetTokenCount() - 1);
+
+            TextPosition startPosition = GetLexContext().LookupSpelledTextRange(tokenIndex).start;
+            TextPosition endPosition   = GetLexContext().LookupSpelledTextRange(nextTokenIndex).start;
+            return TextRange{startPosition, endPosition};
+        }
+
         // Returns the related information if the cursor position hits an identifier that's accessing a symbol
         auto LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>;
 
@@ -109,18 +118,18 @@ namespace glsld
         // Returns true if the range of an AST node and trailing whitespaces contains the specified position
         auto ContainsPositionExtended(const AstNodeBase& node, TextPosition position) const -> bool
         {
-            return GetExtendedAstTextRange(node).Contains(position);
+            return GetExtendedAstTextRange(node).ContainsExtended(position);
+        }
+
+        auto ContainsPositionExtended(SyntaxTokenIndex tokenIndex, TextPosition position) const -> bool
+        {
+            return GetExtendedTokenTextRange(tokenIndex).ContainsExtended(position);
         }
 
         // Returns true if the range of a syntax token and trailing whitespaces contains the specified position
         auto ContainsPositionExtended(const SyntaxToken& token, TextPosition position) const -> bool
         {
-            auto tokenIndex     = token.index;
-            auto nextTokenIndex = std::min<SyntaxTokenIndex>(tokenIndex + 1, GetLexContext().GetTokenCount() - 1);
-
-            auto range = TextRange{GetLexContext().LookupSpelledTextRange(tokenIndex).start,
-                                   GetLexContext().LookupSpelledTextRange(nextTokenIndex).start};
-            return range.Contains(position);
+            return GetExtendedTokenTextRange(token.index).ContainsExtended(position);
         }
 
     private:

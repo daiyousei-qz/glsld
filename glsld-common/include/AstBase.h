@@ -146,7 +146,7 @@ namespace glsld
 #undef DECL_AST_TYPE
     };
 
-    auto AstNodeTagToString(AstNodeTag tag) -> std::string_view;
+    auto AstNodeTagToString(AstNodeTag tag) -> StringView;
 
     template <typename AstType>
     struct AstNodeTrait
@@ -164,7 +164,7 @@ namespace glsld
         static constexpr int tagEnd   = detail::InvalidAstNodeTagValue;
 
         using NodeType   = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
-        using ParentType = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::InvalidAstNodeTagValue>>;
+        using ParentType = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
     };
 
 #define DECL_AST_BEGIN_BASE(TYPE)                                                                                      \

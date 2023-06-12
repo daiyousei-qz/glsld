@@ -1,6 +1,5 @@
 #include "LexerBuilder.h"
 #include "FlatSet.h"
-#include "SyntaxToken.h"
 
 #include <array>
 #include <functional>

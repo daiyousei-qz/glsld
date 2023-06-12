@@ -23,13 +23,7 @@ namespace glsld
 
             auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
             {
-                // we already find the hover
-                if (result) {
-                    return AstVisitPolicy::Leave;
-                }
-
-                TextRange range = GetProvider().GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
-                if (range.Contains(cursorPos)) {
+                if (GetProvider().ContainsPosition(node, cursorPos)) {
                     return AstVisitPolicy::Traverse;
                 }
                 else {

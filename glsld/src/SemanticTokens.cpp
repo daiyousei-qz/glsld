@@ -180,7 +180,9 @@ namespace glsld
             auto VisitAstStructMemberDecl(AstStructMemberDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
-                if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+
+                auto quals = decl.GetType()->GetQualifiers();
+                if (quals && quals->GetQualfierGroup().qConst) {
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
@@ -222,7 +224,9 @@ namespace glsld
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
                     SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
-                    if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+
+                    auto quals = decl.GetType()->GetQualifiers();
+                    if (quals && quals->GetQualfierGroup().qConst) {
                         modifier |= SemanticTokenModifier::Readonly;
                     }
                     TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter, modifier);
@@ -231,7 +235,9 @@ namespace glsld
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
-                if (decl.GetType()->GetQualifiers()->GetQualfierGroup().qConst) {
+
+                auto quals = decl.GetType()->GetQualifiers();
+                if (quals && quals->GetQualfierGroup().qConst) {
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
@@ -258,10 +264,8 @@ namespace glsld
                     }
                     break;
                 case NameAccessType::Unknown:
-                    break;
+                    GLSLD_UNREACHABLE();
                 }
-
-                GLSLD_UNREACHABLE();
             }
 
             auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,

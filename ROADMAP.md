@@ -21,3 +21,7 @@
 - `Test/constantUnaryConversion.comp` no Hover on TYPE_TO(bo^ol)
 - nonuniformEXT qualifier
 - "highp int x;" in function, bad AST
+- `Test/decls.frag` decl stmt in while predicate
+- `Test/rayQuery-global.rgen` Why does function call resolution work?
+- `Test/rayQuery-types.comp` Bad AST
+- `Test/bufferhandle2.frag` GL_EXT_buffer_reference; interface block name is a type.

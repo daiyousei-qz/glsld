@@ -4,7 +4,11 @@
 #include "Preprocessor.h"
 #include "CompilerTrace.h"
 
-#include "Tokenize.Generated.inc"
+namespace glsld::detail
+{
+    // Defined in generated file "Tokenize.generated.cpp"
+    auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass;
+} // namespace glsld::detail
 
 namespace glsld
 {
@@ -12,7 +16,7 @@ namespace glsld
                          StringView sourceText)
         : compilerObject(compilerObject), preprocessor(preprocessor), sourceFile(sourceFile)
     {
-        srcScanner = SourceScanner{sourceText.Data(), sourceText.Data() + sourceText.Size()};
+        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size()};
     }
 
     auto Tokenizer::DoTokenize() -> void
