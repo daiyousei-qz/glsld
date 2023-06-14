@@ -1,83 +1,8 @@
-#include "LanguageService.h"
-#include "ModuleVisitor.h"
+#include "SemanticTokens.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
-    enum class SemanticTokenType
-    {
-        Type      = 0,
-        Struct    = 1,
-        Parameter = 2,
-        Variable  = 3,
-        Function  = 4,
-        Keyword   = 5,
-        Comment   = 6,
-        Number    = 7,
-        Macro     = 8,
-        String    = 9,
-    };
-
-    enum class SemanticTokenModifier
-    {
-        None        = 0,
-        Readonly    = 1 << 0,
-        Declaration = 1 << 1,
-    };
-
-    constexpr auto operator|(SemanticTokenModifier lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier
-    {
-        using EnumInt = std::underlying_type_t<SemanticTokenModifier>;
-        return static_cast<SemanticTokenModifier>(static_cast<EnumInt>(lhs) | static_cast<EnumInt>(rhs));
-    }
-    constexpr auto operator|=(SemanticTokenModifier& lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier&
-    {
-        lhs = lhs | rhs;
-        return lhs;
-    }
-
-    auto GetTokenTypeIndex(SemanticTokenType type) -> int
-    {
-        return static_cast<int>(type);
-    }
-
-    auto GetTokenModifierIndex(SemanticTokenModifier modifier) -> int
-    {
-        return static_cast<int>(modifier);
-    }
-
-    auto GetTokenLegend() -> lsp::SemanticTokensLegend
-    {
-        return lsp::SemanticTokensLegend{
-            .tokenTypes =
-                {
-                    "type",
-                    "struct",
-                    "parameter",
-                    "variable",
-                    "function",
-                    "keyword",
-                    "comment",
-                    "number",
-                    "macro",
-                    "string",
-                },
-            .tokenModifiers =
-                {
-                    "readonly",
-                    "declaration",
-                },
-        };
-    }
-
-    struct SemanticTokenInfo
-    {
-        int line;
-        int character;
-        int length;
-        SemanticTokenType type;
-        SemanticTokenModifier modifier;
-    };
-
     auto CreateSemanticTokenInfo(const LexContext& lexContext, SyntaxToken token, SemanticTokenType type,
                                  SemanticTokenModifier modifier = SemanticTokenModifier::None) -> SemanticTokenInfo
     {
@@ -118,6 +43,7 @@ namespace glsld
         }
     }
 
+    // Collect semantic tokens from token stream, including keywords, numbers, etc.
     auto CollectLexSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
@@ -152,15 +78,18 @@ namespace glsld
         }
     }
 
+    // Collect semantic tokens from AST, including types, structs, functions, etc.
     auto CollectAstSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
         -> void
     {
-        struct AstSemanticTokenCollector : public ModuleVisitor<AstSemanticTokenCollector>
+        class AstSemanticTokenCollector : public LanguageQueryVisitor<AstSemanticTokenCollector>
         {
+        private:
             std::vector<SemanticTokenInfo>& output;
 
+        public:
             AstSemanticTokenCollector(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& output)
-                : ModuleVisitor(provider), output(output)
+                : LanguageQueryVisitor(provider), output(output)
             {
             }
 
@@ -180,9 +109,7 @@ namespace glsld
             auto VisitAstStructMemberDecl(AstStructMemberDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
-
-                auto quals = decl.GetType()->GetQualifiers();
-                if (quals && quals->GetQualfierGroup().qConst) {
+                if (auto quals = decl.GetType()->GetQualifiers(); quals && quals->GetQualfierGroup().qConst) {
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
@@ -224,9 +151,7 @@ namespace glsld
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
                     SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
-
-                    auto quals = decl.GetType()->GetQualifiers();
-                    if (quals && quals->GetQualfierGroup().qConst) {
+                    if (auto quals = decl.GetType()->GetQualifiers(); quals && quals->GetQualfierGroup().qConst) {
                         modifier |= SemanticTokenModifier::Readonly;
                     }
                     TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter, modifier);
@@ -236,8 +161,7 @@ namespace glsld
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
 
-                auto quals = decl.GetType()->GetQualifiers();
-                if (quals && quals->GetQualfierGroup().qConst) {
+                if (auto quals = decl.GetType()->GetQualifiers(); quals && quals->GetQualfierGroup().qConst) {
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
@@ -271,7 +195,7 @@ namespace glsld
             auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
-                if (GetProvider().InMainFile(token)) {
+                if (GetProvider().InMainFile(token) && token.IsValid()) {
                     // FIXME: how to handle multi-line token
                     //            a\
                     //            b
@@ -290,12 +214,8 @@ namespace glsld
         AstSemanticTokenCollector{provider, tokenBuffer}.Execute();
     }
 
-    auto ToLspSemanticTokens(std::vector<SemanticTokenInfo> tokenBuffer) -> lsp::SemanticTokens
+    auto ToLspSemanticTokens(ArrayView<SemanticTokenInfo> tokenBuffer) -> lsp::SemanticTokens
     {
-        std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
-            return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
-        });
-
         lsp::SemanticTokens result;
         int lastTokLine   = -1;
         int lastTokColumn = -1;
@@ -317,7 +237,7 @@ namespace glsld
 
             result.data.push_back(tokInfo.length);
             result.data.push_back(GetTokenTypeIndex(tokInfo.type));
-            result.data.push_back(GetTokenModifierIndex(tokInfo.modifier));
+            result.data.push_back(GetTokenModifierMask(tokInfo.modifier));
 
             lastTokLine   = tokInfo.line;
             lastTokColumn = tokInfo.character;
@@ -333,11 +253,15 @@ namespace glsld
         CollectLexSemanticTokens(provider, tokenBuffer);
         CollectAstSemanticTokens(provider, tokenBuffer);
 
-        return ToLspSemanticTokens(std::move(tokenBuffer));
+        std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
+            return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
+        });
+
+        return ToLspSemanticTokens(tokenBuffer);
     }
 
-    // auto ComputeSemanticTokensDelta(const IntellisenseProvider& provider) -> lsp::SemanticTokensDelta
-    // {
-    //     GLSLD_NO_IMPL();
-    // }
+    auto ComputeSemanticTokensDelta(const LanguageQueryProvider& provider) -> lsp::SemanticTokensDelta
+    {
+        GLSLD_NO_IMPL();
+    }
 } // namespace glsld

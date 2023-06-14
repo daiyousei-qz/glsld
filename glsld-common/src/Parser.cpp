@@ -1520,6 +1520,18 @@ namespace glsld
         return CreateAstNode<AstExprStmt>(beginTokIndex, exprResult);
     }
 
+    auto Parser::ParseDeclStmt() -> AstStmt*
+    {
+        auto beginTokIndex = GetTokenIndex();
+
+        if (auto decl = ParseDeclAndTryRecover()) {
+            return CreateAstNode<AstDeclStmt>(beginTokIndex, decl);
+        }
+        else {
+            return CreateErrorStmt();
+        }
+    }
+
     auto Parser::ParseDeclOrExprStmt() -> AstStmt*
     {
         GLSLD_TRACE_PARSER();
@@ -1558,13 +1570,13 @@ namespace glsld
             // Declaration
         case TokenKlass::K_const:
             // FIXME: what about other qualifiers?
-            return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+            return ParseDeclStmt();
         default:
             // FIXME: this is really hacky, we should do better
             if (TryTestToken(TokenKlass::Identifier) || PeekToken().IsKeyword()) {
                 if (TryTestToken(TokenKlass::Identifier, 1)) {
                     // Case: `S x;`
-                    return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+                    return ParseDeclStmt();
                 }
                 else if (TryTestToken(TokenKlass::LBracket, 1)) {
                     // Case: `S[1] x;` or `S[1] = x;`
@@ -1591,7 +1603,7 @@ namespace glsld
                     }
 
                     if (bracketDepth == 0 && TryTestToken(TokenKlass::Identifier, nextLookahead)) {
-                        return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+                        return ParseDeclStmt();
                     }
                     else {
                         return ParseExprStmt();
@@ -1605,7 +1617,7 @@ namespace glsld
             }
             else {
                 // FIXME: need we recover here?
-                return CreateAstNode<AstDeclStmt>(beginTokIndex, ParseDeclAndTryRecover());
+                return ParseDeclStmt();
             }
         }
     }

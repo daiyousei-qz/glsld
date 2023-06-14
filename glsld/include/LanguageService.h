@@ -5,34 +5,22 @@
 #include "SourceText.h"
 #include "LanguageQueryProvider.h"
 
+#include "DocumentSymbol.h"
+#include "SemanticTokens.h"
+#include "CodeCompletion.h"
+#include "Hover.h"
+#include "Declaration.h"
+#include "InlayHints.h"
+
 #include <BS_thread_pool.hpp>
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>;
-
-    auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> lsp::SemanticTokens;
-    // auto ComputeSemanticTokensDelta(const IntellisenseProvider& provider) -> lsp::SemanticTokensDelta;
-
-    auto ComputeCompletion(const LanguageQueryProvider& provider, lsp::Position position)
-        -> std::vector<lsp::CompletionItem>;
-
     auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>;
 
-    auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>;
-
-    // we assume single source file for now
-    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
-        -> std::vector<lsp::Location>;
-
     auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
                            bool includeDeclaration) -> std::vector<lsp::Location>;
-
-    auto ComputeInlayHint(const LanguageQueryProvider& provider, lsp::Range range) -> std::vector<lsp::InlayHint>;
-
-    auto ComputeDocumentColor(const LanguageQueryProvider& provider) -> std::vector<lsp::ColorInformation>;
 
     class LanguageService
     {
@@ -49,6 +37,7 @@ namespace glsld
             auto result = lsp::InitializedResult{
                 .capabilities =
                     {
+                        .positionEncoding = "utf-16",
                         .textDocumentSync =
                             {
                                 .openClose = true,
@@ -92,7 +81,7 @@ namespace glsld
                     },
             };
             server->HandleServerResponse(requestId, result, false);
-        } // namespace glsld
+        }
 
 #pragma region Document Synchronization
 
@@ -104,9 +93,9 @@ namespace glsld
                 return;
             }
 
-            providerEntry = std::make_shared<PendingIntellisenseProvider>(params.textDocument.version,
-                                                                          UnescapeHttp(params.textDocument.uri),
-                                                                          std::move(params.textDocument.text));
+            providerEntry = std::make_shared<PendingLanguageQueryProvider>(params.textDocument.version,
+                                                                           UnescapeHttp(params.textDocument.uri),
+                                                                           std::move(params.textDocument.text));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
         }
@@ -129,7 +118,7 @@ namespace glsld
                     sourceBuffer = std::move(change.text);
                 }
             }
-            providerEntry = std::make_shared<PendingIntellisenseProvider>(
+            providerEntry = std::make_shared<PendingLanguageQueryProvider>(
                 params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
@@ -235,16 +224,6 @@ namespace glsld
                                   });
         }
 
-        auto DocumentColor(int requestId, lsp::DocumentColorParams params) -> void
-        {
-            auto uri = params.textDocument.uri;
-            ScheduleLanguageQuery(uri,
-                                  [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-                                      std::vector<lsp::ColorInformation> result = ComputeDocumentColor(provider);
-                                      server->HandleServerResponse(requestId, result, false);
-                                  });
-        }
-
 #pragma endregion
 
 #pragma region Window Features
@@ -278,7 +257,7 @@ namespace glsld
         }
 
         // uri -> provider
-        std::map<std::string, std::shared_ptr<PendingIntellisenseProvider>> providerLookup;
+        std::map<std::string, std::shared_ptr<PendingLanguageQueryProvider>> providerLookup;
 
         LanguageServerCallback* server;
 

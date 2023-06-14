@@ -81,13 +81,7 @@ namespace glsld
         // Issue a PP token to the preprocessor. The token will be processed according to the current state.
         auto IssueToken(const PPToken& token) -> void
         {
-            if (token.klass == TokenKlass::Comment) {
-                // FIXME: Handle comments.
-                // We ignore comments tokens for now.
-            }
-            else {
-                DispatchTokenToHandler(token);
-            }
+            DispatchTokenToHandler(token);
         }
 
     private:

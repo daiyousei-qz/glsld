@@ -1,15 +1,15 @@
 #include "LanguageQueryProvider.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
     auto LanguageQueryProvider::LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>
     {
-        class DeclTokenVisitor : public ModuleVisitor<DeclTokenVisitor>
+        class DeclTokenVisitor : public LanguageQueryVisitor<DeclTokenVisitor>
         {
         public:
             DeclTokenVisitor(const LanguageQueryProvider& provider, TextPosition cursorPos)
-                : ModuleVisitor(provider), cursorPos(cursorPos)
+                : LanguageQueryVisitor(provider), cursorPos(cursorPos)
             {
             }
 

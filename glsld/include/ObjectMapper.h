@@ -246,7 +246,7 @@ namespace glsld::lsp
         {
         }
 
-        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<ObjectFromJsonMapper>
+        [[nodiscard]] auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<ObjectFromJsonMapper>
         {
             return JsonObjectMapperScope<ObjectFromJsonMapper>{this, key};
         }
@@ -270,7 +270,7 @@ namespace glsld::lsp
         }
 
         template <typename T>
-        auto Map(const char* key, T& value) -> bool
+        [[nodiscard]] auto Map(const char* key, T& value) -> bool
         {
             // json[key] = JsonSerializer<T>::ToJson(value);
             auto currentNode = GetCurrentNode();
@@ -288,7 +288,7 @@ namespace glsld::lsp
 
         // TODO: refactor redundant code
         template <typename T>
-        auto Map(const char* key, std::optional<T>& value) -> bool
+        [[nodiscard]] auto Map(const char* key, std::optional<T>& value) -> bool
         {
             // json[key] = JsonSerializer<T>::ToJson(value);
             auto currentNode = GetCurrentNode();

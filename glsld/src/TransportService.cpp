@@ -8,8 +8,8 @@ namespace glsld
         buf.clear();
 
         while (true) {
-            int ch = std::cin.get();
-            if (std::cin.eof()) {
+            int ch = fgetc(inputFile);
+            if (ch == EOF) {
                 return false;
             }
             else {

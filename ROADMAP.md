@@ -25,3 +25,4 @@
 - `Test/rayQuery-global.rgen` Why does function call resolution work?
 - `Test/rayQuery-types.comp` Bad AST
 - `Test/bufferhandle2.frag` GL_EXT_buffer_reference; interface block name is a type.
+- Need to properly support UNICODE

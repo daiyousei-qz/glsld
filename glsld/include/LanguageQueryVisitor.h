@@ -8,10 +8,10 @@
 namespace glsld
 {
     template <typename Derived>
-    class ModuleVisitor : public AstVisitor<Derived>
+    class LanguageQueryVisitor : public AstVisitor<Derived>
     {
     public:
-        ModuleVisitor(const LanguageQueryProvider& provider) : provider(provider)
+        LanguageQueryVisitor(const LanguageQueryProvider& provider) : provider(provider)
         {
         }
 

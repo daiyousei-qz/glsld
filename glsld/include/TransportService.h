@@ -4,20 +4,9 @@
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 
-#include <fmt/format.h>
-
-#include <algorithm>
-#include <charconv>
 #include <cstdio>
-#include <iterator>
 #include <string>
-#include <string_view>
-#include <optional>
-#include <utility>
 #include <vector>
-#include <functional>
-#include <iostream>
-#include <ranges>
 
 namespace glsld
 {

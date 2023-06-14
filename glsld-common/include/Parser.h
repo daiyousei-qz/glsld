@@ -495,10 +495,18 @@ namespace glsld
         auto ParseJumpStmt() -> AstStmt*;
 
         // PARSE: expr_stmt
-        //      - expr_stmt := expr [';']
+        //      - expr_stmt := expr ';'
+        //
+        // ACCEPT: expr
         //
         // RECOVERY: unknown
         auto ParseExprStmt() -> AstStmt*;
+
+        // PARSE: decl_stmt
+        //      - decl_stmt := declaration
+        //
+        // RECOVERY: unknown
+        auto ParseDeclStmt() -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt

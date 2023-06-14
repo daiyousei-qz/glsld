@@ -2,19 +2,19 @@
 #include "Compiler.h"
 #include "LanguageQueryProvider.h"
 #include "Protocol.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 #include "SourceText.h"
 
 #include <vector>
 
 namespace glsld
 {
-    class CollectReferenceVisitor : public ModuleVisitor<CollectReferenceVisitor>
+    class CollectReferenceVisitor : public LanguageQueryVisitor<CollectReferenceVisitor>
     {
     public:
         CollectReferenceVisitor(std::vector<lsp::Location>& output, const LanguageQueryProvider& provider,
                                 lsp::DocumentUri uri, DeclView referenceDecl)
-            : ModuleVisitor(provider), documentUri(std::move(uri)), output(output), referenceDecl(referenceDecl)
+            : LanguageQueryVisitor(provider), documentUri(std::move(uri)), output(output), referenceDecl(referenceDecl)
         {
         }
 

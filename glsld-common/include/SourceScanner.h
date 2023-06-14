@@ -1,18 +1,30 @@
 #pragma once
 #include "SourceInfo.h"
+#include <vector>
 
 namespace glsld
 {
+    struct ScannerCheckPoint
+    {
+        const char* srcCursor;
+        int lineIndex;
+        int characterIndex;
+    };
+
+    // FIXME: the source text should have utf-8 encoding
+    // FIXME: support utf-16 character offset for vscode
     // A scanner of some source code string, providing utilities to lex the source text.
     // NOTE srcEnd must be a '\0' character
     class SourceScanner
     {
     public:
         SourceScanner() = default;
-        SourceScanner(const char* srcBegin, const char* srcEnd)
-            : srcBegin(srcBegin), srcEnd(srcEnd), srcCursor(srcBegin)
+        SourceScanner(const char* srcBegin, const char* srcEnd, bool countUtf16Characters = false)
+            : srcBegin(srcBegin), srcEnd(srcEnd), srcCursor(srcBegin), countUtf16Characters(countUtf16Characters)
         {
             GLSLD_REQUIRE(*srcEnd == '\0');
+            // FIXME:
+            // TryConsumeLineContinuation();
         }
 
         // Returns true if the cursor is at the beginning of the source.
@@ -27,25 +39,25 @@ namespace glsld
             return srcCursor == srcEnd;
         }
 
-        auto GetTextPosition() -> TextPosition
+        auto GetTextPosition() const noexcept -> TextPosition
         {
-            return TextPosition{lineIndex, columnIndex};
+            return TextPosition{lineIndex, characterIndex};
         };
 
         auto SkipWhitespace(bool& skippedWhitespace, bool& skippedNewline) -> void
         {
             while (!CursorAtEnd()) {
-                auto ch = PeekChar();
+                auto ch = *srcCursor;
 
                 if (ch == ' ' || ch == '\t' || ch == '\r') {
-                    ++columnIndex;
+                    ++characterIndex;
 
                     skippedWhitespace = true;
                     ++srcCursor;
                 }
                 else if (ch == '\n') {
                     ++lineIndex;
-                    columnIndex = 0;
+                    characterIndex = 0;
 
                     skippedWhitespace = true;
                     skippedNewline    = true;
@@ -57,77 +69,154 @@ namespace glsld
             }
         }
 
-        auto SkipChar(size_t num) -> void
-        {
-            // FIXME: optimize this
-            for (int i = 0; i < num; ++i) {
-                ConsumeChar();
-            }
-        }
-
-        auto ConsumeChar() -> char
-        {
-            if (CursorAtEnd()) {
-                return '\0';
-            }
-
-            auto result = *srcCursor++;
-
-            // Update line and column index
-            if (result == '\n') {
-                ++lineIndex;
-                columnIndex = 0;
-            }
-            else {
-                ++columnIndex;
-            }
-
-            // Skip line continuation
-            TryConsumeLineContinuation();
-
-            return result;
-        }
-
-        auto PeekChar() -> char
+        // Peek the next code unit.
+        auto PeekCodeUnit() -> char
         {
             return *srcCursor;
         }
 
-        auto PeekChar(size_t lookahead) -> char
+        // Consume a utf-8 char.
+        auto ConsumeChar() -> void
         {
-            if (lookahead > srcEnd - srcCursor) {
+            ConsumeCodePointHelper();
+            TryConsumeLineContinuation();
+        }
+
+        // Consume a utf-8 char and copy the code units to `buffer`.
+        auto ConsumeChar(std::vector<char>& buffer) -> void
+        {
+            auto begin = srcCursor;
+            ConsumeCodePointHelper();
+            auto end = srcCursor;
+            TryConsumeLineContinuation();
+
+            buffer.insert(buffer.end(), begin, end);
+        }
+
+        // Consume a code unit requiring it's an ascii character. If not, return '\0' without consuming.
+        auto ConsumeAsciiChar() -> char
+        {
+            const char firstChar = *srcCursor;
+            if (firstChar == '\0' || (firstChar & 0x80)) [[unlikely]] {
                 return '\0';
             }
 
-            return *(srcCursor + lookahead);
+            if (firstChar == '\n') {
+                ++lineIndex;
+                characterIndex = 0;
+            }
+            else {
+                ++characterIndex;
+            }
+
+            ++srcCursor;
+            TryConsumeLineContinuation();
+            return firstChar;
+        };
+
+        // Try to consume an ascii char and return true if succeeded.
+        // Assmumption: `ch` is an ascii character but not '\0' or '\n'
+        auto TryConsumeAsciiChar(char ch) -> bool
+        {
+            GLSLD_ASSERT(ch != '\0' && ch != '\n');
+            if (*srcCursor == ch) {
+                ++srcCursor;
+                ++characterIndex;
+                TryConsumeLineContinuation();
+                return true;
+            }
+
+            return false;
         }
 
-        auto Clone() -> SourceScanner
+        // Try to consume an ascii string and return true if succeeded.
+        // Assumption: `text` is an ascii string without '\0' or '\n'
+        // FIXME: line-continuation
+        auto TryConsumeAsciiText(StringView text) -> bool
         {
-            return *this;
+            if (StringView{srcCursor, srcEnd}.StartWith(text)) {
+                srcCursor += text.Size();
+                characterIndex += text.Size();
+                TryConsumeLineContinuation();
+                return true;
+            }
+
+            return false;
         }
 
-        auto Restore(SourceScanner srcView) -> void
+        auto CreateCheckPoint() -> ScannerCheckPoint
         {
-            *this = srcView;
+            return ScannerCheckPoint{.srcCursor = srcCursor, .lineIndex = lineIndex, .characterIndex = characterIndex};
+        }
+
+        auto RestoreCheckPoint(const ScannerCheckPoint& checkpoint)
+        {
+            srcCursor      = checkpoint.srcCursor;
+            lineIndex      = checkpoint.lineIndex;
+            characterIndex = checkpoint.characterIndex;
         }
 
     private:
+        auto ConsumeCodePointHelper() -> void
+        {
+            unsigned char firstChar = static_cast<unsigned char>(*srcCursor);
+            if (firstChar == '\0') [[unlikely]] {
+                return;
+            }
+
+            if (!(firstChar & 0x80)) [[likely]] {
+                // Fast path for ascii characters
+                ++srcCursor;
+
+                if (firstChar == '\n') {
+                    ++lineIndex;
+                    characterIndex = 0;
+                }
+                else {
+                    characterIndex += 1;
+                }
+            }
+            else [[unlikely]] {
+                int numCodeUnits = std::countl_one(firstChar);
+                characterIndex += ComputeLspCodeUnitNum(numCodeUnits);
+                srcCursor += numCodeUnits;
+
+                if (srcCursor > srcEnd) [[unlikely]] {
+                    srcCursor = srcEnd;
+                }
+            }
+        }
+
+        auto ComputeLspCodeUnitNum(int numCodeUnit) -> int
+        {
+            if (countUtf16Characters) {
+                // utf-16
+                return numCodeUnit == 4 ? 2 : 1;
+            }
+            else {
+                // utf-8
+                return numCodeUnit;
+            }
+        }
+
         auto TryConsumeLineContinuation() -> bool
         {
             bool consumed = false;
-            while (PeekChar() == '\\') {
-                if (PeekChar(1) == '\n') {
+            while (srcCursor[0] == '\\') {
+                if (srcCursor[1] == '\n') {
                     srcCursor += 2;
                     ++lineIndex;
-                    columnIndex = 0;
-                    consumed    = true;
+                    characterIndex = 0;
+                    consumed       = true;
                 }
-                else if (PeekChar(1) == '\r' && PeekChar(2) == '\n') {
+                else if (srcCursor[1] == '\r' && srcCursor[2] == '\n') {
                     srcCursor += 3;
                     ++lineIndex;
-                    columnIndex = 0;
-                    consumed    = true;
+                    characterIndex = 0;
+                    consumed       = true;
+                }
+                else {
+                    break;
                 }
             }
 
@@ -143,7 +232,9 @@ namespace glsld
         // The current cursor position in the source string
         const char* srcCursor = nullptr;
 
-        int lineIndex   = 0;
-        int columnIndex = 0;
+        int lineIndex      = 0;
+        int characterIndex = 0;
+
+        bool countUtf16Characters = false;
     };
 } // namespace glsld

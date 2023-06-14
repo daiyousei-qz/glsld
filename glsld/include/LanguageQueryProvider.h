@@ -133,16 +133,16 @@ namespace glsld
         }
 
     private:
-        friend class PendingIntellisenseProvider;
+        friend class PendingLanguageQueryProvider;
 
         CompilerObject compilerObject;
         PreprocessInfoCache ppInfoCache;
     };
 
-    class PendingIntellisenseProvider
+    class PendingLanguageQueryProvider
     {
     public:
-        PendingIntellisenseProvider(int version, std::string uri, std::string sourceString)
+        PendingLanguageQueryProvider(int version, std::string uri, std::string sourceString)
             : version(version), uri(std::move(uri)), sourceString(std::move(sourceString))
         {
         }

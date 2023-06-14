@@ -1,5 +1,6 @@
-#include "LanguageService.h"
-#include "ModuleVisitor.h"
+#include "CodeCompletion.h"
+#include "LanguageQueryVisitor.h"
+#include "SourceText.h"
 
 // FIXME: Currently, this is implemented as:
 //        - all library decl
@@ -20,11 +21,11 @@ namespace glsld
         AstExpr* accessChainExpr = nullptr;
     };
 
-    class CompletionTypeDecider : public ModuleVisitor<CompletionTypeDecider>
+    class CompletionTypeDecider : public LanguageQueryVisitor<CompletionTypeDecider>
     {
     public:
         CompletionTypeDecider(const LanguageQueryProvider& provider, TextPosition cursorPosition)
-            : ModuleVisitor(provider), cursorPosition(cursorPosition)
+            : LanguageQueryVisitor(provider), cursorPosition(cursorPosition)
         {
         }
 
@@ -179,12 +180,13 @@ namespace glsld
         }
     }
 
-    class CompletionCollector : public ModuleVisitor<CompletionCollector>
+    class CompletionCollector : public LanguageQueryVisitor<CompletionCollector>
     {
     public:
         CompletionCollector(std::vector<lsp::CompletionItem>& output, const LanguageQueryProvider& provider,
                             CompletionTypeResult completionType, TextPosition cursorPosition)
-            : ModuleVisitor(provider), output(output), completionType(completionType), cursorPosition(cursorPosition)
+            : LanguageQueryVisitor(provider), output(output), completionType(completionType),
+              cursorPosition(cursorPosition)
         {
         }
 
@@ -193,6 +195,7 @@ namespace glsld
             TraverseGlobalDeclUntil(cursorPosition);
         }
 
+    protected:
         auto EnterAstDecl(AstDecl& decl) -> AstVisitPolicy
         {
             if (decl.Is<AstFunctionDecl>() && GetProvider().ContainsPosition(decl, cursorPosition)) {

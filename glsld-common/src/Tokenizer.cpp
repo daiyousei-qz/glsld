@@ -16,7 +16,8 @@ namespace glsld
                          StringView sourceText)
         : compilerObject(compilerObject), preprocessor(preprocessor), sourceFile(sourceFile)
     {
-        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size()};
+        // FIXME: expose countUtf16 as options
+        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), true};
     }
 
     auto Tokenizer::DoTokenize() -> void
@@ -65,20 +66,26 @@ namespace glsld
         TokenKlass klass      = TokenKlass::Error;
         TextPosition beginPos = srcScanner.GetTextPosition();
 
-        if (srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '/') {
+        // We handle comments and header names manually instead of using generated lexer. Those are only places where
+        // unicode is allowed.
+        if (srcScanner.TryConsumeAsciiText("//")) {
             klass = ParseLineComment();
         }
-        else if (srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '*') {
+        else if (srcScanner.TryConsumeAsciiText("/*")) {
             klass = ParseBlockComment();
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcScanner.PeekChar() == '"') {
+        else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('"')) {
             klass = ParseQuotedString();
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcScanner.PeekChar() == '<') {
-            // klass = ParseAngleString();
-        }
+        // else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
+        //     klass = ParseAngleString();
+        // }
         else {
             klass = detail::Tokenize(srcScanner, tokenTextBuffer);
+            if (klass == TokenKlass::Error) [[unlikely]] {
+                // At least consume one character to avoid infinite loop
+                srcScanner.ConsumeChar(tokenTextBuffer);
+            }
         }
 
         AtomString text     = compilerObject.GetLexContext().GetLexString(StringView{tokenTextBuffer});
@@ -96,20 +103,13 @@ namespace glsld
 
     auto Tokenizer::ParseLineComment() -> TokenKlass
     {
-        GLSLD_ASSERT(srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '/');
-
-        // Consume "//"
-        srcScanner.SkipChar(2);
-
+        // Assuming "//" is already consumed
         while (!srcScanner.CursorAtEnd()) {
-            auto ch = srcScanner.PeekChar();
-
-            if (ch != '\n') {
-                srcScanner.ConsumeChar();
-            }
-            else {
+            if (srcScanner.PeekCodeUnit() == '\n') {
                 break;
             }
+
+            srcScanner.ConsumeChar();
         }
 
         return TokenKlass::Comment;
@@ -117,22 +117,13 @@ namespace glsld
 
     auto Tokenizer::ParseBlockComment() -> TokenKlass
     {
-        GLSLD_ASSERT(srcScanner.PeekChar() == '/' && srcScanner.PeekChar(1) == '*');
-
-        // Consume "/*"
-        srcScanner.SkipChar(2);
-
+        // Assuming "/*" is already consumed
         while (!srcScanner.CursorAtEnd()) {
-            auto ch = srcScanner.PeekChar();
-
-            if (ch != '*' || srcScanner.PeekChar(1) != '/') {
-                srcScanner.ConsumeChar();
-            }
-            else {
-                // Consume "*/"
-                srcScanner.SkipChar(2);
+            if (srcScanner.TryConsumeAsciiText("*/")) {
                 return TokenKlass::Comment;
             }
+
+            srcScanner.ConsumeChar();
         }
 
         return TokenKlass::Error;
@@ -140,25 +131,16 @@ namespace glsld
 
     auto Tokenizer::ParseQuotedString() -> TokenKlass
     {
-        // FIXME: a quoted string shouldn't contain a newline
-
-        GLSLD_ASSERT(srcScanner.PeekChar() == '"');
-
-        // Consume '"'
-        srcScanner.SkipChar(1);
+        // Assuming '"' is already consumed
         tokenTextBuffer.push_back('"');
 
         while (!srcScanner.CursorAtEnd()) {
-            auto ch = srcScanner.PeekChar();
-            tokenTextBuffer.push_back(ch);
-
-            if (ch != '"') {
-                srcScanner.ConsumeChar();
+            if (srcScanner.TryConsumeAsciiChar('"')) {
+                tokenTextBuffer.push_back('"');
+                return TokenKlass::QuotedString;
             }
             else {
-                // Consume '"'
-                srcScanner.SkipChar(1);
-                return TokenKlass::QuotedString;
+                srcScanner.ConsumeChar(tokenTextBuffer);
             }
         }
 
@@ -167,9 +149,6 @@ namespace glsld
 
     auto Tokenizer::ParseAngleString() -> TokenKlass
     {
-        GLSLD_ASSERT(srcScanner.PeekChar() == '<');
-
-        // FIXME: a quoted string shouldn't contain a newline
         GLSLD_NO_IMPL();
     }
 

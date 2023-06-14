@@ -89,7 +89,7 @@ namespace glsld
                 TypeChecker{*this}.DoTypeCheck(this->preamble ? this->preamble->symbolTable.get() : nullptr);
         }
 
-#if defined(GLSLD_DEBUG)
+#if defined(GLSLD_ENABLE_COMPILER_TRACE)
         AstPrinter printer{true};
         for (AstDecl* decl : astContext->GetGlobalDecls()) {
             printer.Traverse(*decl);

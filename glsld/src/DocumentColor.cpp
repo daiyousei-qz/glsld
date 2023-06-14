@@ -1,9 +1,9 @@
 #include "LanguageService.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
-    // class DocumentColorVisitor : public ModuleVisitor<DocumentColorVisitor>
+    // class DocumentColorVisitor : public LanguageQueryVisitor<DocumentColorVisitor>
     // {
     // public:
     //     auto VisitAstBinaryExpr(AstBinaryExpr& expr) -> void

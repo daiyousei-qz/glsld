@@ -1,10 +1,10 @@
 #include "LanguageService.h"
 #include "StandardDocumentation.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
-    class SignatureHelpVisitor : public ModuleVisitor<SignatureHelpVisitor>
+    class SignatureHelpVisitor : public LanguageQueryVisitor<SignatureHelpVisitor>
     {
     private:
         TextPosition position;
@@ -13,7 +13,7 @@ namespace glsld
 
     public:
         SignatureHelpVisitor(const LanguageQueryProvider& provider, TextPosition position)
-            : ModuleVisitor(provider), position(position)
+            : LanguageQueryVisitor(provider), position(position)
         {
         }
 

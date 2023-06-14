@@ -79,9 +79,10 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
     printToFile("namespace glsld::detail {{\n");
     printToFile("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");
 
-    printToFile("TokenKlass acceptedKlass;\n");
-    printToFile("size_t acceptedSize;\n");
-    printToFile("SourceScanner acceptedCheckpoint;\n");
+    printToFile("// Initialize error token as a fallback\n");
+    printToFile("TokenKlass acceptedKlass = TokenKlass::Error;\n");
+    printToFile("size_t acceptedSize = 0;\n");
+    printToFile("ScannerCheckPoint acceptedCheckpoint = srcView.CreateCheckPoint();\n");
     printToFile("char ch;\n");
 
     for (int i = 0; i < automata.NumState(); ++i) {
@@ -90,21 +91,13 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
         printToFile("LexState_{}:\n", i);
         if (state->GetAcceptId() != -1) {
             printToFile("// Accepting as {}\n", TokenKlassToString(static_cast<TokenKlass>(state->GetAcceptId())));
-            printToFile("acceptedCheckpoint = srcView.Clone();\n");
+            printToFile("acceptedCheckpoint = srcView.CreateCheckPoint();\n");
             printToFile("acceptedKlass = static_cast<TokenKlass>({});\n", state->GetAcceptId());
             printToFile("acceptedSize = buffer.size();\n\n");
         }
 
-        printToFile("ch = srcView.ConsumeChar();\n");
+        printToFile("ch = srcView.ConsumeAsciiChar();\n");
         printToFile("buffer.push_back(ch);\n\n");
-
-        if (i == 0) {
-            GLSLD_REQUIRE(state->GetAcceptId() == -1);
-            printToFile("// Initialize error token as a fallback\n");
-            printToFile("acceptedCheckpoint = srcView.Clone();\n");
-            printToFile("acceptedKlass = TokenKlass::Error;\n");
-            printToFile("acceptedSize = buffer.size();\n\n");
-        }
 
         auto outgoingTransitions = state->GetTransition();
         if (outgoingTransitions.empty()) {
@@ -124,7 +117,7 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
     }
 
     printToFile("FinishToken:\n");
-    printToFile("srcView.Restore(acceptedCheckpoint);\n");
+    printToFile("srcView.RestoreCheckPoint(acceptedCheckpoint);\n");
     printToFile("buffer.resize(acceptedSize);\n");
     printToFile("return acceptedKlass;\n");
 

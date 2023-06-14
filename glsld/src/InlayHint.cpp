@@ -1,9 +1,9 @@
 #include "LanguageService.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
-    class InlayHintCollector : public ModuleVisitor<InlayHintCollector>
+    class InlayHintCollector : public LanguageQueryVisitor<InlayHintCollector>
     {
     private:
         TextRange displayRange;
@@ -12,7 +12,7 @@ namespace glsld
 
     public:
         InlayHintCollector(const LanguageQueryProvider& provider, TextRange range)
-            : ModuleVisitor(provider), displayRange(range)
+            : LanguageQueryVisitor(provider), displayRange(range)
         {
         }
 

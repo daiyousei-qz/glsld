@@ -85,7 +85,6 @@ namespace glsld
 
     auto Preprocessor::DispatchTokenToHandler(const PPToken& token) -> void
     {
-        GLSLD_ASSERT(token.klass != TokenKlass::Comment);
         switch (state) {
         case PreprocessorState::Default:
             AcceptOnDefaultState(token);
@@ -119,7 +118,10 @@ namespace glsld
             }
         }
         else {
-            macroExpansionProcessor.Feed(token);
+            if (token.klass != TokenKlass::Comment) {
+                // FIXME: we ignore comment for now.
+                macroExpansionProcessor.Feed(token);
+            }
         }
     }
 
@@ -171,6 +173,10 @@ namespace glsld
                 }
             }
         }
+        else if (token.klass == TokenKlass::Comment) {
+            // FIXME: we ignore comment for now.
+            return;
+        }
         else {
             // A bad directive.
             TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
@@ -194,7 +200,10 @@ namespace glsld
             }
         }
         else {
-            directiveArgBuffer.push_back(token);
+            if (token.klass != TokenKlass::Comment) {
+                // FIXME: we ignore comment for now.
+                directiveArgBuffer.push_back(token);
+            }
         }
     }
 

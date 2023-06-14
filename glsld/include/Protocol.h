@@ -2927,23 +2927,59 @@ namespace glsld::lsp
     // Capabilities
     //
 
+    // This class doesn't strictly match the LSP spec.
     struct ClientCapabilities
     {
-        // Unsupported capabilities omitted
-
         // /**
-        //  * Text document specific client capabilities.
+        //  * The position encodings supported by the client. Client and server
+        //  * have to agree on the same position encoding to ensure that offsets
+        //  * (e.g. character position in a line) are interpreted the same on both
+        //  * side.
+        //  *
+        //  * To keep the protocol backwards compatible the following applies: if
+        //  * the value 'utf-16' is missing from the array of position encodings
+        //  * servers can assume that the client supports UTF-16. UTF-16 is
+        //  * therefore a mandatory encoding.
+        //  *
+        //  * If omitted it defaults to ['utf-16'].
+        //  *
+        //  * Implementation considerations: since the conversion from one encoding
+        //  * into another requires the content of the file / line the conversion
+        //  * is best done where the file is read which is usually on the server
+        //  * side.
+        //  *
+        //  * @since 3.17.0
         //  */
-        // textDocument?: TextDocumentClientCapabilities;
-        // std::optional<TextDocumentClientCapabilities> textDocument;
+        // positionEncodings?: PositionEncodingKind[];
+        std::vector<std::string> positionEncodings;
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, ClientCapabilities& value) -> bool
     {
+        {
+            auto scopeGuard = mapper.EnterObjectScoped("general");
+            if (!mapper.Map("positionEncodings", value.positionEncodings)) {
+                return false;
+            }
+        }
         return true;
     }
 
     struct ServerCapabilities
     {
+        // /**
+        //  * The position encoding the server picked from the encodings offered
+        //  * by the client via the client capability `general.positionEncodings`.
+        //  *
+        //  * If the client didn't provide any position encodings the only valid
+        //  * value that a server can return is 'utf-16'.
+        //  *
+        //  * If omitted it defaults to 'utf-16'.
+        //  *
+        //  * @since 3.17.0
+        //  */
+        // positionEncoding?: PositionEncodingKind;
+        std::string positionEncoding;
+
         // /**
         //  * Defines how text documents are synced. Is either a detailed structure
         //  * defining each notification or for backwards compatibility the
@@ -3233,12 +3269,12 @@ namespace glsld::lsp
 
     struct InitializeError
     {
-        /**
-         * Indicates whether the client execute the following retry logic:
-         * (1) show the message provided by the ResponseError to the user
-         * (2) user selects retry or cancel
-         * (3) if user selected retry the initialize method is sent again.
-         */
+        // /**
+        //  * Indicates whether the client execute the following retry logic:
+        //  * (1) show the message provided by the ResponseError to the user
+        //  * (2) user selects retry or cancel
+        //  * (3) if user selected retry the initialize method is sent again.
+        //  */
         // retry: boolean;
         bool retry;
     };
