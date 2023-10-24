@@ -1,11 +1,8 @@
-#include "CommandLine.h"
-#include "Compiler.h"
-#include "AstVisitor.h"
+#include "Basic/CommandLine.h"
+#include "Compiler/CompilerObject.h"
 
-#include <string_view>
 #include <fstream>
 #include <vector>
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
 namespace glsld

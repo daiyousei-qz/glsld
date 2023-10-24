@@ -1,13 +1,11 @@
-#include "CommandLine.h"
+#include "Basic/CommandLine.h"
 #include "LanguageServer.h"
 
 #if defined(GLSLD_OS_WIN)
 // #include <debugapi.h>
 #endif
 
-#include <string_view>
 #include <vector>
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
 namespace glsld

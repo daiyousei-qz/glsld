@@ -4,7 +4,6 @@
 
 namespace glsld
 {
-    // FIXME: Support struct member
     class DocumentSymbolCollector : public LanguageQueryVisitor<DocumentSymbolCollector>
     {
     public:
@@ -34,11 +33,7 @@ namespace glsld
             if (auto structDecl = decl.GetType()->GetStructDecl()) {
                 if (structDecl->GetDeclToken()) {
                     if (TryAddSymbol(*structDecl->GetDeclToken(), lsp::SymbolKind::Struct)) {
-                        for (auto memberDecl : structDecl->GetMembers()) {
-                            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                                TryAddSymbol(result.back().children, declarator.declTok, lsp::SymbolKind::Field);
-                            }
-                        }
+                        TryAddStructMembers(result.back().children, structDecl->GetMembers(), lsp::SymbolKind::Field);
                     }
                 }
             }
@@ -52,21 +47,15 @@ namespace glsld
         {
             if (decl.GetDeclarator()) {
                 // Named block
+                // FIXME: should block name be added as a symbol?
                 if (TryAddSymbol(decl.GetDeclarator()->declTok, lsp::SymbolKind::Variable)) {
-                    for (auto memberDecl : decl.GetMembers()) {
-                        for (const auto& declarator : memberDecl->GetDeclarators()) {
-                            TryAddSymbol(result.back().children, declarator.declTok, lsp::SymbolKind::Field);
-                        }
-                    }
+                    TryAddStructMembers(result.back().children, decl.GetMembers(), lsp::SymbolKind::Field);
                 }
             }
             else {
-                // Anonymous block
-                for (auto blockMember : decl.GetMembers()) {
-                    for (const auto& declarator : blockMember->GetDeclarators()) {
-                        TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
-                    }
-                }
+                // Anonymous block.
+                // We add members to global scope as if they are global variables.
+                TryAddStructMembers(result, decl.GetMembers(), lsp::SymbolKind::Variable);
             }
         }
 
@@ -92,6 +81,16 @@ namespace glsld
             }
 
             return false;
+        }
+
+        auto TryAddStructMembers(std::vector<lsp::DocumentSymbol>& buffer, ArrayView<AstStructMemberDecl*> memberDecls,
+                                 lsp::SymbolKind kind) -> void
+        {
+            for (auto memberDecl : memberDecls) {
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    TryAddSymbol(buffer, declarator.declTok, kind);
+                }
+            }
         }
 
         std::vector<lsp::DocumentSymbol> result;

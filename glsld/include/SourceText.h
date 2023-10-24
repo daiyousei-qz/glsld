@@ -1,8 +1,8 @@
 #pragma once
+#include "Basic/Common.h"
 #include "Ast.h"
-#include "Common.h"
+#include "Compiler/SyntaxToken.h"
 #include "Protocol.h"
-#include "SyntaxToken.h"
 #include <iterator>
 #include <vector>
 #include <string_view>

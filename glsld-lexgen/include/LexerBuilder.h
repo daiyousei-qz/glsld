@@ -1,5 +1,5 @@
 #pragma once
-#include "Common.h"
+#include "Basic/Common.h"
 
 #include <fmt/format.h>
 #include <vector>
@@ -171,7 +171,7 @@ namespace glsld
 
     struct RegexTextSeq
     {
-        RegexTextSeq(std::string_view data) : data(data)
+        RegexTextSeq(StringView data) : data(data)
         {
         }
 
@@ -187,12 +187,12 @@ namespace glsld
             return cur;
         }
 
-        std::string_view data;
+        StringView data;
     };
 
     struct RegexTextChoice
     {
-        RegexTextChoice(std::string_view data) : data(data)
+        RegexTextChoice(StringView data) : data(data)
         {
         }
 
@@ -206,7 +206,7 @@ namespace glsld
             return out;
         }
 
-        std::string_view data;
+        StringView data;
     };
 
     struct RegexTextRange

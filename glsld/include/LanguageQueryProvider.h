@@ -1,8 +1,8 @@
 #pragma once
 #include "AstBase.h"
-#include "LexContext.h"
-#include "AstContext.h"
-#include "SourceContext.h"
+#include "Compiler/LexContext.h"
+#include "Compiler/AstContext.h"
+#include "Compiler/SourceContext.h"
 #include "PreprocessInfoCache.h"
 #include "Uri.h"
 

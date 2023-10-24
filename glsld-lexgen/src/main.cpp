@@ -1,5 +1,5 @@
 #include "LexerBuilder.h"
-#include "SyntaxToken.h"
+#include "Compiler/SyntaxToken.h"
 
 using namespace glsld;
 
@@ -73,8 +73,8 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
     printToFile("// clang-format off\n");
     printToFile("#include <optional>\n");
     printToFile("#include <vector>\n");
-    printToFile("#include \"SyntaxToken.h\"\n");
-    printToFile("#include \"SourceScanner.h\"\n\n");
+    printToFile("#include \"Compiler/SyntaxToken.h\"\n");
+    printToFile("#include \"Compiler/SourceScanner.h\"\n\n");
 
     printToFile("namespace glsld::detail {{\n");
     printToFile("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");

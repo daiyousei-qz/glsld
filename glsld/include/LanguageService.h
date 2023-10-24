@@ -1,10 +1,10 @@
 #pragma once
-#include "PPCallback.h"
+#include "Compiler/PPCallback.h"
+
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 #include "SourceText.h"
 #include "LanguageQueryProvider.h"
-
 #include "DocumentSymbol.h"
 #include "SemanticTokens.h"
 #include "CodeCompletion.h"

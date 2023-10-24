@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common.h"
+#include "Basic/Common.h"
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 

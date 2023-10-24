@@ -1,5 +1,5 @@
 
-#include "Compiler.h"
+#include "Compiler/CompilerObject.h"
 #include "LanguageQueryProvider.h"
 #include "Protocol.h"
 #include "LanguageQueryVisitor.h"
