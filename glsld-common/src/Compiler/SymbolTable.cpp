@@ -2,9 +2,8 @@
 
 namespace glsld
 {
-    auto SymbolTable::AddFunctionDecl(AstFunctionDecl& decl) -> void
+    auto SymbolTableLevel::AddFunctionDecl(AstFunctionDecl& decl) -> void
     {
-        GLSLD_ASSERT(parent == nullptr);
         if (!decl.GetDeclTok().IsIdentifier()) {
             return;
         }
@@ -21,14 +20,14 @@ namespace glsld
         }
     }
 
-    auto SymbolTable::AddStructDecl(AstStructDecl& decl) -> void
+    auto SymbolTableLevel::AddStructDecl(AstStructDecl& decl) -> void
     {
         if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
             TryAddSymbol(*decl.GetDeclTok(), decl);
         }
     }
 
-    auto SymbolTable::AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+    auto SymbolTableLevel::AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
     {
         if (decl.GetDeclarator()) {
             // For named interface block, add the decl token for the interface block
@@ -46,7 +45,7 @@ namespace glsld
         }
     }
 
-    auto SymbolTable::AddVariableDecl(AstVariableDecl& decl) -> void
+    auto SymbolTableLevel::AddVariableDecl(AstVariableDecl& decl) -> void
     {
         for (auto declarator : decl.GetDeclarators()) {
             if (declarator.declTok.IsIdentifier()) {
@@ -55,43 +54,72 @@ namespace glsld
         }
     }
 
-    auto SymbolTable::AddParamDecl(AstParamDecl& decl) -> void
+    auto SymbolTableLevel::AddParamDecl(AstParamDecl& decl) -> void
     {
+
         if (decl.GetDeclarator().declTok.IsIdentifier()) {
             TryAddSymbol(decl.GetDeclarator().declTok, decl);
         }
     }
 
+    auto SymbolTableLevel::TryAddSymbol(SyntaxToken declToken, const AstDecl& decl) -> bool
+    {
+        if (freezed) {
+            assert("Trying to add a symbol to a freezed symbol table");
+            return false;
+        }
+
+        // FIXME: avoid string allocation
+        auto name = declToken.text.Str();
+        if (name.empty()) {
+            return false;
+        }
+
+        auto& entry = declLookup[std::move(name)];
+        if (!entry.IsValid()) {
+            entry = DeclView{&decl};
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    auto SymbolTable::FindSymbol(const std::string& name) const -> DeclView
+    {
+        for (auto level : std::views::reverse(levels)) {
+            if (auto declView = level->FindSymbol(name); declView.IsValid()) {
+                return declView;
+            }
+        }
+
+        return DeclView{};
+    }
+
     auto SymbolTable::FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const
         -> const AstFunctionDecl*
     {
-        // FIXME: Move resolution to its own function
-        // FIXME: impl correct resolution
-        auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
-
-        // First pass: resolve candidates and early return if exact match is found
+        // First pass: filter out candidates that's invocable with the given argument types
         std::vector<const FunctionSymbolEntry*> candidateList;
-        for (auto it = itBegin; it != itEnd; ++it) {
-            const auto& funcEntry = it->second;
-
-            ArrayView<const Type*> paramTypes = funcEntry.paramTypes;
-
-            // FIXME: use proper compare, this could fail for composite type
-            if (std::ranges::equal(paramTypes, argTypes)) {
-                return funcEntry.decl;
-            }
-
-            if (paramTypes.size() == argTypes.size()) {
-                auto convertible = true;
-                for (size_t i = 0; i < argTypes.size(); ++i) {
-                    if (!argTypes[i]->IsConvertibleTo(paramTypes[i])) {
-                        convertible = false;
-                        break;
+        for (auto level : GetGlobalLevels()) {
+            for (auto candidate : level->FindFunctionCandidate(name)) {
+                if (candidate->paramTypes.size() == argTypes.size()) {
+                    // Fast path for exact match
+                    if (std::ranges::equal(candidate->paramTypes, argTypes)) {
+                        return candidate->decl;
                     }
-                }
 
-                if (convertible) {
-                    candidateList.push_back(&funcEntry);
+                    auto convertible = true;
+                    for (size_t i = 0; i < argTypes.size(); ++i) {
+                        if (!argTypes[i]->IsConvertibleTo(candidate->paramTypes[i])) {
+                            convertible = false;
+                            break;
+                        }
+                    }
+
+                    if (convertible) {
+                        candidateList.push_back(candidate);
+                    }
                 }
             }
         }
@@ -99,10 +127,16 @@ namespace glsld
         if (candidateList.empty()) {
             return nullptr;
         }
+        else if (candidateList.size() == 1) {
+            return candidateList[0]->decl;
+        }
 
         // Second pass: select the best match with partial order
         std::vector<const FunctionSymbolEntry*> currentBestList;
         std::vector<const FunctionSymbolEntry*> nextBestList;
+        currentBestList.reserve(candidateList.size());
+        nextBestList.reserve(candidateList.size());
+
         for (auto candidate : candidateList) {
             auto pickedCandidate = false;
             for (auto currentBest : currentBestList) {
@@ -119,6 +153,9 @@ namespace glsld
                     }
                 }
 
+                // F1 is better than F2 if:
+                // 1. No conversion in F1 is worse than F2
+                // 2. At least one conversion in F1 is better than F2
                 if (numCandidateBetter > 0 && numCurrentBetter == 0) {
                     // Candidate is better, but we still have to deduplicate
                     if (!pickedCandidate) {
@@ -126,7 +163,7 @@ namespace glsld
                         nextBestList.push_back(candidate);
                     }
                 }
-                if (numCurrentBetter > 0 && numCandidateBetter == 0) {
+                else if (numCurrentBetter > 0 && numCandidateBetter == 0) {
                     // Current is better
                     nextBestList.push_back(currentBest);
                 }
@@ -148,37 +185,6 @@ namespace glsld
         }
         else {
             return nullptr;
-        }
-    }
-
-    auto SymbolTable::FindSymbol(const std::string& name) const -> DeclView
-    {
-        if (auto it = declLookup.find(name); it != declLookup.end()) {
-            return it->second;
-        }
-        else if (parent) {
-            return parent->FindSymbol(name);
-        }
-        else {
-            return DeclView{};
-        }
-    }
-
-    auto SymbolTable::TryAddSymbol(SyntaxToken declToken, const AstDecl& decl) -> bool
-    {
-        // FIXME: avoid string allocation
-        auto name = declToken.text.Str();
-        if (name.empty()) {
-            return false;
-        }
-
-        auto& entry = declLookup[std::move(name)];
-        if (!entry.IsValid()) {
-            entry = DeclView{&decl};
-            return true;
-        }
-        else {
-            return false;
         }
     }
 } // namespace glsld

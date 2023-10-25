@@ -239,7 +239,25 @@ namespace glsld
 
         auto IsValid() const noexcept -> bool
         {
-            return std::ranges::all_of(data, [](uint8_t x) { return x <= 3; });
+            return std::ranges::any_of(data, [](uint8_t x) { return x != 0xff; });
+        }
+
+        auto GetDimension() const noexcept -> size_t
+        {
+            return std::ranges::count_if(data, [](uint8_t x) { return x != 0xff; });
+        }
+
+        auto ToString() const -> std::string
+        {
+            std::string buffer;
+            for (auto i : data) {
+                if (i > 3) {
+                    break;
+                }
+                buffer += "xyzw"[i];
+            }
+
+            return buffer.empty() ? "<InvalidSwizzle>" : buffer;
         }
 
     private:

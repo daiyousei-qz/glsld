@@ -694,11 +694,11 @@ namespace glsld
         int baseExprDimSize     = 0;
         if (baseExprType->IsScalar()) {
             baseExprDimSize = 1;
-            expr.SetDeducedType(GetVectorTypeDesc(baseExprType->GetScalarDesc()->type, swizzleName.Size()));
+            expr.SetDeducedType(Type::GetVectorType(baseExprType->GetScalarDesc()->type, swizzleName.Size()));
         }
         else if (baseExprType->IsVector()) {
             baseExprDimSize = baseExprType->GetVectorDesc()->vectorSize;
-            expr.SetDeducedType(GetVectorTypeDesc(baseExprType->GetVectorDesc()->scalarType, swizzleName.Size()));
+            expr.SetDeducedType(Type::GetVectorType(baseExprType->GetVectorDesc()->scalarType, swizzleName.Size()));
         }
         else {
             GLSLD_ASSERT(false);

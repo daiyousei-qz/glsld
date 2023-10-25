@@ -1,4 +1,4 @@
-#include "Ast/AstPrinter.h"
+#include "Ast/AstDumper.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/SourceContext.h"
 #include "Compiler/DiagnosticContext.h"
@@ -78,7 +78,7 @@ namespace glsld
         // Parsing
         {
             GLSLD_TRACE_COMPILE_TIME("Parsing");
-            Parser{*this}.DoParse();
+            Parser{*this}.ParseCompileUnit()->Print();
         }
 
         // Type checking

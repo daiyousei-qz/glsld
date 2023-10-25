@@ -31,8 +31,8 @@ namespace glsld
         //     return scope;
         // }
 
-        template <typename Dumper>
-        auto DumpPayload(Dumper d) const -> void
+        template <AstDumperT Dumper>
+        auto DumpPayload(Dumper& d) const -> void
         {
         }
     };
@@ -48,7 +48,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
@@ -66,7 +66,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
@@ -85,7 +85,7 @@ namespace glsld
         // Initializer
         const AstInitializer* initializer = nullptr;
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
@@ -104,7 +104,7 @@ namespace glsld
         AstQualType* qualType;
         std::vector<VariableDeclarator> declarators;
 
-        // Payload:
+        // [Payload]
         std::vector<const Type*> resolvedTypes;
 
     public:
@@ -154,7 +154,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
@@ -168,10 +168,13 @@ namespace glsld
     class AstStructDecl final : public AstDecl
     {
     private:
+        // [Node]
         std::optional<SyntaxToken> declTok;
+
+        // [Node]
         std::vector<AstVariableDecl*> members;
 
-        // Payload:
+        // [Payload]
         const Type* declaredType = nullptr;
 
     public:
@@ -210,17 +213,17 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
             if (declTok) {
                 d.DumpAttribute("DeclToken", declTok->IsIdentifier() ? declTok->text.StrView() : "<Error>");
             }
-            d.DumpAttribute("ResolvedType", "FIXME");
             for (const auto& member : members) {
                 d.DumpChildItem("Member", [&](Dumper& d) { member->Dump(d); });
             }
+            d.DumpAttribute("DeclaredType", declaredType->GetDebugName());
         }
     };
 
@@ -271,13 +274,13 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
-            d.DumpAttribute("ResolvedType", "FIXME");
             d.DumpChildNode("QualType", *qualType);
             declarator.Dump(d);
+            d.DumpAttribute("ResolvedType", resolvedType->GetDebugName());
         }
     };
 
@@ -330,7 +333,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
@@ -424,10 +427,15 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstDecl::DumpPayload(d);
+            d.DumpAttribute("ResolvedBlockType", resolvedBlockType->GetDebugName());
+            if (declarator) {
+                d.DumpAttribute("ResolvedInstanceType", resolvedInstanceType->GetDebugName());
+            }
+
             d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
 
             d.DumpChildNode("Quals", *quals);

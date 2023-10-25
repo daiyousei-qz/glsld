@@ -117,8 +117,6 @@ namespace glsld
     class AstDecl;
     struct StructTypeDesc
     {
-        // FIXME: what should be in a struct type desc?
-        AstDecl* decl;
         std::string name;
         std::vector<std::pair<std::string, const Type*>> members;
     };
@@ -145,6 +143,14 @@ namespace glsld
         static auto GetErrorType() -> const Type*;
         // Get a globally unique type instance for the particular builtin type
         static auto GetBuiltinType(GlslBuiltinType tag) -> const Type*;
+
+        // Get a globally unique type instance for the particular scalar type, if any
+        // NOTE if the scalar type doesn't exist in glsl language, returns nullptr
+        static auto GetScalarType(ScalarType type) -> const Type*;
+
+        // Get a globally unique type instance for the particular vector type, if any
+        // NOTE if the vector type doesn't exist in glsl language, returns nullptr
+        static auto GetVectorType(ScalarType type, size_t dim) -> const Type*;
 
         auto IsError() const noexcept -> bool
         {
@@ -250,8 +256,4 @@ namespace glsld
             return fmt::format("{}", static_cast<const void*>(desc));
         }
     }
-
-    // Get a globally unique type instance for the particular vector type, if any
-    // NOTE if the vector type doesn't exist in glsl language, returns nullptr
-    auto GetVectorTypeDesc(ScalarType type, size_t dim) -> const Type*;
 } // namespace glsld

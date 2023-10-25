@@ -2,6 +2,7 @@
 DECL_AST_BEGIN_BASE(AstNodeBase)
 
 // misc
+DECL_AST_TYPE(AstTranslationUnit)
 DECL_AST_TYPE(AstTypeQualifierSeq)
 DECL_AST_TYPE(AstQualType)
 DECL_AST_TYPE(AstArraySpec)
@@ -22,6 +23,7 @@ DECL_AST_TYPE(AstUnaryExpr)
 DECL_AST_TYPE(AstBinaryExpr)
 DECL_AST_TYPE(AstSelectExpr)
 DECL_AST_TYPE(AstInvokeExpr)
+DECL_AST_TYPE(AstConstructorExpr)
 DECL_AST_END_BASE(AstExpr)
 
 DECL_AST_END_BASE(AstInitializer)

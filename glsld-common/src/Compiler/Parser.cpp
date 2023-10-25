@@ -2,17 +2,18 @@
 
 namespace glsld
 {
-    auto Parser::DoParse() -> void
+    auto Parser::ParseCompileUnit() -> const AstTranslationUnit*
     {
         GLSLD_TRACE_PARSER();
 
         RestoreTokenIndex(0);
 
+        std::vector<AstDecl*> decls;
         while (!Eof()) {
-            if (auto decl = ParseDeclAndTryRecover()) {
-                compilerObject.GetAstContext().AddGlobalDecl(decl);
-            }
+            decls.push_back(ParseDeclAndTryRecover());
         }
+
+        return astBuilder.BuildTranslationUnit(CreateAstSyntaxRange(0), std::move(decls));
     }
 
 #pragma region Parsing Misc
@@ -700,7 +701,13 @@ namespace glsld
             result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));
 
             if (!TryConsumeToken(TokenKlass::Comma)) {
-                break;
+                ReportError("expect ',' or ')'");
+
+                // We try to search for a ',' to recover first.
+                RecoverFromError(RecoveryMode::Comma);
+                if (!TryConsumeToken(TokenKlass::Comma)) {
+                    break;
+                }
             }
         }
 
@@ -715,16 +722,17 @@ namespace glsld
         // Parse function name
         auto declTok = ParseDeclIdHelper();
 
+        astBuilder.EnterFunction();
+
         // Parse function parameter list
         auto params = ParseFunctionParamList();
 
+        // Parse function body
+        AstStmt* body = nullptr;
         if (TryTestToken(TokenKlass::LBrace)) {
             // This is a definition
             GLSLD_ASSERT(InParsingMode());
-
-            auto body = ParseCompoundStmt();
-            return astBuilder.BuildFunctionDecl(CreateAstSyntaxRange(beginTokIndex), returnType, declTok,
-                                                std::move(params), body);
+            body = ParseCompoundStmt();
         }
         else {
             // This is a declaration
@@ -734,10 +742,11 @@ namespace glsld
             if (InParsingMode() && !TryConsumeToken(TokenKlass::Semicolon)) {
                 ReportError("expect ';' or function body");
             }
-
-            return astBuilder.BuildFunctionDecl(CreateAstSyntaxRange(beginTokIndex), returnType, declTok,
-                                                std::move(params), nullptr);
         }
+
+        astBuilder.LeaveFunction();
+        return astBuilder.BuildFunctionDecl(CreateAstSyntaxRange(beginTokIndex), returnType, declTok, std::move(params),
+                                            body);
     }
 
     auto Parser::ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*
@@ -1076,7 +1085,8 @@ namespace glsld
                 // Function call
                 // NOTE we could have parsed `type_spec '(' ??? ')'`, which would be handled later
                 auto args = ParseFunctionArgumentList();
-                result    = astBuilder.BuildInvokeExpr(CreateAstSyntaxRange(beginTokIndex), result, std::move(args));
+                // FIXME: constructor?
+                result = astBuilder.BuildInvokeExpr(CreateAstSyntaxRange(beginTokIndex), result, std::move(args));
                 break;
             }
             case TokenKlass::LBracket:
@@ -1135,9 +1145,10 @@ namespace glsld
         auto tok = PeekToken();
         switch (PeekToken().klass) {
         case TokenKlass::Identifier:
-            // variable name
+            // variable/function name
             ConsumeToken();
-            return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok);
+            return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok,
+                                                  PeekToken().klass == TokenKlass::LParen);
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
         case TokenKlass::K_true:
@@ -1192,14 +1203,16 @@ namespace glsld
 
         std::vector<AstExpr*> result;
         while (!Eof()) {
-            auto arg = ParseAssignmentExpr();
-            if (InRecoveryMode()) {
-                break;
-            }
+            result.push_back(ParseAssignmentExpr());
 
-            result.push_back(arg);
             if (!TryConsumeToken(TokenKlass::Comma)) {
-                break;
+                ReportError("expect ',' or ')'");
+
+                // We try to search for a ',' to recover first.
+                RecoverFromError(RecoveryMode::Comma);
+                if (!TryConsumeToken(TokenKlass::Comma)) {
+                    break;
+                }
             }
         }
 
@@ -1218,8 +1231,13 @@ namespace glsld
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
         case TokenKlass::LBrace:
+        {
             // compound stmt
-            return ParseCompoundStmt();
+            astBuilder.EnterLexicalBlock();
+            auto stmt = ParseCompoundStmt();
+            astBuilder.LeaveLexicalBlock();
+            return stmt;
+        }
         case TokenKlass::K_if:
             // selection stmt
             return ParseSelectionStmt();
@@ -1474,7 +1492,9 @@ namespace glsld
         // Parse switch body
         AstStmt* switchBody = nullptr;
         if (TryTestToken(TokenKlass::LBrace)) {
+            astBuilder.EnterLexicalBlock();
             switchBody = ParseCompoundStmt();
+            astBuilder.LeaveLexicalBlock();
         }
         else {
             switchBody = CreateErrorStmt();
@@ -1634,13 +1654,11 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        auto desiredToken = static_cast<TokenKlass>(mode);
-
         size_t initParenDepth   = parenDepth;
         size_t initBracketDepth = bracketDepth;
         size_t initBraceDepth   = braceDepth;
 
-        if (mode == RecoveryMode::Paren) {
+        if (mode == RecoveryMode::Comma || mode == RecoveryMode::Paren) {
             GLSLD_ASSERT(initParenDepth > 0);
         }
         if (mode == RecoveryMode::Bracket) {
@@ -1653,6 +1671,7 @@ namespace glsld
         // We may close a pair of parenthsis without the closing delimitor
         auto removeDepthIfUnclosed = [&]() {
             switch (mode) {
+            case RecoveryMode::Comma:
             case RecoveryMode::Paren:
                 if (!TryTestToken(TokenKlass::RParen)) {
                     GLSLD_ASSERT(initParenDepth != 0);
@@ -1680,16 +1699,16 @@ namespace glsld
             switch (PeekToken().klass) {
             case TokenKlass::RParen:
                 if (parenDepth == 0) {
-                    // skip an isolated ')'
+                    // skip an isolated ')' without leading '('
                     break;
                 }
-                if (mode == RecoveryMode::Paren && parenDepth == initParenDepth) {
+                if ((mode == RecoveryMode::Comma || mode == RecoveryMode::Paren) && parenDepth == initParenDepth) {
                     return;
                 }
                 break;
             case TokenKlass::RBracket:
                 if (bracketDepth == 0) {
-                    // skip an isolated ']'
+                    // skip an isolated ']' without leading '['
                     break;
                 }
                 if (mode == RecoveryMode::Bracket && bracketDepth == initBracketDepth) {
@@ -1698,17 +1717,22 @@ namespace glsld
                 break;
             case TokenKlass::RBrace:
                 if (braceDepth == 0) {
-                    // skip an isolated '}'
+                    // skip an isolated '}' without leading '{'
                     break;
                 }
-                if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Brace ||
-                     mode == RecoveryMode::IListBrace || mode == RecoveryMode::Semi) &&
-                    braceDepth == initBraceDepth) {
+                if (braceDepth == initBraceDepth) {
                     return removeDepthIfUnclosed();
                 }
                 break;
+            case TokenKlass::Comma:
+                if (mode == RecoveryMode::Comma && parenDepth == initParenDepth && bracketDepth == initBracketDepth &&
+                    braceDepth == initBraceDepth) {
+                    return;
+                }
+                break;
             case TokenKlass::Semicolon:
-                if ((mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket || mode == RecoveryMode::Semi) &&
+                if ((mode == RecoveryMode::Comma || mode == RecoveryMode::Paren || mode == RecoveryMode::Bracket ||
+                     mode == RecoveryMode::Semi) &&
                     braceDepth == initBraceDepth) {
                     return removeDepthIfUnclosed();
                 }

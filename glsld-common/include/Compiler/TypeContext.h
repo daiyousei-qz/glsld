@@ -12,15 +12,22 @@ namespace glsld
 {
     class TypeContext
     {
+    private:
+        std::vector<const Type*> structTypes;
+
+        std::map<const Type*, const AstStructDecl*> structDeclLookup;
+
+        std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
+
     public:
         TypeContext() = default;
         ~TypeContext()
         {
-            for (const auto& [key, typeDesc] : arrayTypes) {
-                delete typeDesc;
+            for (const auto& [key, type] : arrayTypes) {
+                delete type;
             }
-            for (const auto& typeDesc : structTypes) {
-                delete typeDesc;
+            for (const auto& type : structTypes) {
+                delete type;
             }
         }
 
@@ -39,7 +46,6 @@ namespace glsld
                 typeName = decl.GetDeclTok()->text.StrView();
             }
             structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                               .decl    = &decl,
                                                                .name    = decl.GetDeclTok() ? typeName.Str() : "",
                                                                .members = std::move(memberDesc),
                                                            }));
@@ -61,7 +67,6 @@ namespace glsld
                 typeName = decl.GetDeclTok().text.StrView();
             }
             structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                               .decl    = &decl,
                                                                .name    = typeName.Str(),
                                                                .members = std::move(memberDesc),
                                                            }));
@@ -143,9 +148,5 @@ namespace glsld
             }
             return cachedItem;
         }
-
-    private:
-        std::vector<const Type*> structTypes;
-        std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
     };
 } // namespace glsld

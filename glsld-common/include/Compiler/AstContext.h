@@ -45,7 +45,7 @@ namespace glsld
 
         template <typename T, typename... Args>
             requires AstNodeTrait<T>::isLeafNode
-        auto CreateAstNode(int moduleId, AstSyntaxRange range, Args&&... args) -> T*
+        auto CreateAstNode(AstSyntaxRange range, Args&&... args) -> T*
         {
             auto result = new T(std::forward<Args>(args)...);
             result->Initialize(AstNodeTrait<T>::tag, range);

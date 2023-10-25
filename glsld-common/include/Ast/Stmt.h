@@ -13,7 +13,7 @@ namespace glsld
     protected:
         AstStmt() = default;
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto DumpPayload(Dumper& d) const -> void
         {
         }
@@ -32,7 +32,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -52,7 +52,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -84,12 +84,12 @@ namespace glsld
             }
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
             for (auto stmt : children) {
-                d.DumpChildNode("Child", *stmt);
+                d.DumpChildNode("Stmt", *stmt);
             }
         }
     };
@@ -115,7 +115,7 @@ namespace glsld
             return visitor.Traverse(*expr);
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -144,7 +144,7 @@ namespace glsld
             return visitor.Traverse(*decl);
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -194,7 +194,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -256,7 +256,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -304,7 +304,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -346,7 +346,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -384,7 +384,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -431,7 +431,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -456,7 +456,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);
@@ -489,7 +489,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstStmt::DumpPayload(d);

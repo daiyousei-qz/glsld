@@ -242,7 +242,7 @@ namespace glsld
 
 #if defined(GLSLD_DEBUG)
         // Although we don't need virtual destructor, but this is still helpful for debugging.
-        // virtual ~AstNode() = default;
+        virtual ~AstNode() = default;
 #endif
 
         auto GetTag() const noexcept -> AstNodeTag
@@ -269,6 +269,29 @@ namespace glsld
         {
             return Is<AstType>() ? static_cast<const AstType*>(this) : nullptr;
         }
+
+        auto Print() const -> void;
+    };
+
+    template <typename AstType>
+    concept AstNodeT = AstNodeTrait<AstType>::tag != AstNodeTag::Invalid;
+
+    template <typename AstType>
+    concept AstLeafNodeT = AstNodeT<AstType> && AstNodeTrait<AstType>::isLeafNode;
+
+    template <typename VisitorType>
+    concept AstVisitorT = requires(VisitorType visitor, const AstNode& astNode) { visitor.Traverse(astNode); };
+
+    template <typename DumperType>
+    concept AstDumperT = requires(DumperType d, StringView key, const AstNode& astNode) {
+        {
+            d.GetAstNodeIdentifier(astNode)
+        } -> std::convertible_to<uint64_t>;
+        d.DumpAttribute(key, false);
+        d.DumpAttribute(key, 0);
+        d.DumpAttribute(key, "value");
+        d.DumpChildNode(key, astNode);
+        d.DumpChildItem(key, [](DumperType& d) {});
     };
 
     // An observing pointer into a declaration, including an index of declarator.
@@ -311,23 +334,12 @@ namespace glsld
         }
 
         auto operator==(const DeclView&) const -> bool = default;
-    };
 
-    template <typename AstType>
-    concept AstNodeT = AstNodeTrait<AstType>::tag != AstNodeTag::Invalid;
-
-    template <typename AstType>
-    concept AstLeafNodeT = AstNodeT<AstType> && AstNodeTrait<AstType>::isLeafNode;
-
-    template <typename VisitorType>
-    concept AstVisitorT = requires(VisitorType visitor, const AstNode& astNode) { visitor.Traverse(astNode); };
-
-    template <typename DumperType>
-    concept AstDumperT = requires(DumperType d, StringView key, const AstNode& astNode) {
-        d.DumpAttribute(key, false);
-        d.DumpAttribute(key, 0);
-        d.DumpAttribute(key, "value");
-        d.DumpChildNode(key, astNode);
-        d.DumpChildItem(key, [](DumperType& d) {});
+        template <AstDumperT Dumper>
+        auto Dump(Dumper& d) const -> void
+        {
+            d.DumpAttribute("DeclNode", IsValid() ? fmt::format("{}", d.GetAstNodeIdentifier(*decl)) : "<Error>");
+            d.DumpAttribute("DeclIndex", index);
+        }
     };
 } // namespace glsld

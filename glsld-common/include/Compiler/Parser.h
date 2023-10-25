@@ -70,7 +70,7 @@ namespace glsld
         // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.
-        auto DoParse() -> void;
+        auto ParseCompileUnit() -> const AstTranslationUnit*;
 
     private:
 #pragma region Parsing Misc
@@ -606,6 +606,14 @@ namespace glsld
 
         enum class RecoveryMode
         {
+            // Assuming a preceding '(', skip until we see:
+            // 1. ')' that ends the leading '('
+            // 2. ',' that in exactly this level of parenthesis
+            // 2. ';' in this scope
+            // 3. '}' that ends this scope (N/A in the global scope)
+            // 4. 'EOF'
+            Comma,
+
             // Assuming a preceding '(', skip until we see
             // 1. ')' that ends the leading '('
             // 2. ';' in this scope
@@ -773,11 +781,15 @@ namespace glsld
             return astBuilder.BuildErrorExpr(CreateAstSyntaxRange());
         }
 
+        auto CreateErrorExpr(SyntaxTokenIndex beginTokIndex) -> AstErrorExpr*
+        {
+            return astBuilder.BuildErrorExpr(CreateAstSyntaxRange(beginTokIndex));
+        }
+
         auto CreateErrorStmt() -> AstErrorStmt*
         {
             auto tokIndex = GetTokenIndex();
-            return compilerObject.GetAstContext().CreateAstNode<AstErrorStmt>(compilerObject.GetId(),
-                                                                              AstSyntaxRange{tokIndex, tokIndex});
+            return astBuilder.BuildErrorStmt(CreateAstSyntaxRange());
         }
 
         auto CreateAstSyntaxRange() -> AstSyntaxRange

@@ -15,8 +15,8 @@ namespace glsld
     protected:
         AstInitializer() = default;
 
-        template <typename Dumper>
-        auto DumpPayload(Dumper d) const -> void
+        template <AstDumperT Dumper>
+        auto DumpPayload(Dumper& d) const -> void
         {
         }
     };
@@ -24,6 +24,7 @@ namespace glsld
     class AstInitializerList final : public AstInitializer
     {
     private:
+        // [Node]
         std::vector</*NotNull*/ AstInitializer*> items;
 
     public:
@@ -48,7 +49,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             for (auto item : items) {
@@ -61,16 +62,18 @@ namespace glsld
     class AstExpr : public AstInitializer
     {
     private:
-        // Payload: Whether this expression is const, i.e. can be evaluated at compile time.
+        // [Payload]
+        // Whether this expression is const, i.e. can be evaluated at compile time.
         bool isConst = false;
 
-        // Payload: The type that this expression is deduced to.
+        // [Payload]
+        // The type that this expression is deduced to.
         const Type* deducedType = nullptr;
 
     protected:
         AstExpr() = default;
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto DumpPayload(Dumper& d) const -> void
         {
             AstInitializer::DumpPayload(d);
@@ -109,7 +112,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -137,7 +140,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -148,11 +151,12 @@ namespace glsld
     class AstNameAccessExpr final : public AstExpr
     {
     private:
-        // Children:
+        // [Node]
         SyntaxToken accessName;
 
-        // Payload: The declaration that this name access expression refers to.
-        DeclView resolvedDecl = nullptr;
+        // [Payload]
+        // The declaration that this name access expression refers to.
+        DeclView resolvedDecl = {};
 
     public:
         AstNameAccessExpr(SyntaxToken name) : accessName(name)
@@ -179,28 +183,30 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
-            d.DumpAttribute("ResolvedDecl", "FIXME");
+            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
         }
     };
 
     class AstMemberNameAccessExpr final : public AstExpr
     {
     private:
-        // Children:
+        // [Node]
         NotNull<AstExpr*> baseExpr;
 
-        // Children:
+        // [Node]
         SyntaxToken accessName;
 
-        // Payload: The declaration that this name access expression refers to.
-        DeclView resolvedDecl = nullptr;
+        // [Payload]
+        // The declaration that this name access expression refers to.
+        DeclView resolvedDecl = {};
 
-        // Payload: The swizzle description if this is a swizzle expression.
+        // [Payload]
+        // The swizzle description if this is a swizzle expression.
         SwizzleDesc swizzleDesc = {};
 
     public:
@@ -217,19 +223,36 @@ namespace glsld
             return accessName;
         }
 
+        auto SetResolvedDecl(DeclView decl) noexcept -> void
+        {
+            this->resolvedDecl = decl;
+        }
+        auto GetResolvedDecl() const noexcept -> DeclView
+        {
+            return resolvedDecl;
+        }
+        auto SetSwizzleDesc(SwizzleDesc swizzleDesc) noexcept -> void
+        {
+            this->swizzleDesc = swizzleDesc;
+        }
+        auto GetSwizzleDesc() const noexcept -> SwizzleDesc
+        {
+            return swizzleDesc;
+        }
+
         template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*baseExpr);
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
-            d.DumpAttribute("ResolvedDecl", "FIXME");
-            d.DumpAttribute("Swizzle", "FIXME");
+            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
+            d.DumpAttribute("Swizzle", swizzleDesc.ToString());
             d.DumpChildNode("BaseExpr", *baseExpr);
         }
     };
@@ -237,7 +260,10 @@ namespace glsld
     class AstIndexAccessExpr final : public AstExpr
     {
     private:
+        // [Node]
         NotNull<AstExpr*> baseExpr;
+
+        // [Node]
         NotNull<AstArraySpec*> indices;
 
     public:
@@ -267,7 +293,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -279,7 +305,10 @@ namespace glsld
     class AstUnaryExpr final : public AstExpr
     {
     private:
+        // [Node]
         NotNull<AstExpr*> operand;
+
+        // [Node]
         UnaryOp opcode;
 
     public:
@@ -302,7 +331,7 @@ namespace glsld
             return visitor.Traverse(*operand);
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -314,8 +343,13 @@ namespace glsld
     class AstBinaryExpr final : public AstExpr
     {
     private:
+        // [Node]
         NotNull<AstExpr*> lhsOperand;
+
+        // [Node]
         NotNull<AstExpr*> rhsOperand;
+
+        // [Node]
         BinaryOp opcode;
 
     public:
@@ -350,7 +384,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -363,8 +397,13 @@ namespace glsld
     class AstSelectExpr final : public AstExpr
     {
     private:
+        // [Node]
         NotNull<AstExpr*> condition;
+
+        // [Node]
         NotNull<AstExpr*> trueExpr;
+
+        // [Node]
         NotNull<AstExpr*> falseExpr;
 
     public:
@@ -402,7 +441,7 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
@@ -415,7 +454,10 @@ namespace glsld
     class AstInvokeExpr final : public AstExpr
     {
     private:
+        // [Node]
         NotNull<AstExpr*> invokedExpr;
+
+        // [Node]
         std::vector</*NotNull*/ AstExpr*> args;
 
     public:
@@ -448,11 +490,61 @@ namespace glsld
             return true;
         }
 
-        template <typename Dumper>
+        template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
             d.DumpChildNode("InvokedExpr", *invokedExpr);
+            for (auto arg : args) {
+                d.DumpChildNode("Arg", *arg);
+            }
+        }
+    };
+
+    class AstConstructorExpr final : public AstExpr
+    {
+    private:
+        // [Node]
+        NotNull<AstQualType*> constructedType;
+
+        // [Node]
+        std::vector</*NotNull*/ AstExpr*> args;
+
+    public:
+        AstConstructorExpr(AstQualType* constructedType, std::vector<AstExpr*> args)
+            : constructedType(constructedType), args(std::move(args))
+        {
+        }
+
+        auto GetConstructedType() const noexcept -> const AstQualType*
+        {
+            return constructedType;
+        }
+        auto GetArgs() const noexcept -> ArrayView<const AstExpr*>
+        {
+            return args;
+        }
+
+        template <AstVisitorT Visitor>
+        auto Traverse(Visitor& visitor) const -> bool
+        {
+            if (!visitor.Traverse(*constructedType)) {
+                return false;
+            }
+            for (auto arg : args) {
+                if (!visitor.Traverse(*arg)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        template <AstDumperT Dumper>
+        auto Dump(Dumper& d) const -> void
+        {
+            AstExpr::DumpPayload(d);
+            d.DumpChildNode("ConstructedType", *constructedType);
             for (auto arg : args) {
                 d.DumpChildNode("Arg", *arg);
             }
