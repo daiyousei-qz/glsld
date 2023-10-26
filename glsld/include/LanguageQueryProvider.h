@@ -1,16 +1,15 @@
 #pragma once
-#include "AstBase.h"
+#include "Basic/Common.h"
 #include "Compiler/LexContext.h"
 #include "Compiler/AstContext.h"
 #include "Compiler/SourceContext.h"
+#include "Compiler/CompilerObject.h"
 #include "PreprocessInfoCache.h"
-#include "Uri.h"
 
-#include "Compiler.h"
+#include "Uri.h"
 
 #include <mutex>
 #include <condition_variable>
-#include <filesystem>
 
 namespace glsld
 {
@@ -69,13 +68,13 @@ namespace glsld
         }
 
         // Returns the text range of the specified AST node
-        auto GetAstTextRange(const AstNodeBase& node) const -> TextRange
+        auto GetAstTextRange(const AstNode& node) const -> TextRange
         {
             return GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
         }
 
         // Returns the text range of the specified AST node, including the trailing whitespace and comments
-        auto GetExtendedAstTextRange(const AstNodeBase& node) const -> TextRange
+        auto GetExtendedAstTextRange(const AstNode& node) const -> TextRange
         {
             const auto& lexContext = GetLexContext();
             auto range             = node.GetSyntaxRange();
@@ -98,25 +97,25 @@ namespace glsld
         auto LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>;
 
         // Returns true if the range of an AST node precedes the specified position
-        auto PrecedesPosition(const AstNodeBase& node, TextPosition position) const -> bool
+        auto PrecedesPosition(const AstNode& node, TextPosition position) const -> bool
         {
             return GetLexContext().LookupExpandedTextRange(node.GetLastTokenIndex()).end <= position;
         }
 
         // Returns true if the range of an AST node succedes the specified position
-        auto SucceedsPosition(const AstNodeBase& node, TextPosition position) const -> bool
+        auto SucceedsPosition(const AstNode& node, TextPosition position) const -> bool
         {
             return GetLexContext().LookupExpandedTextRange(node.GetFirstTokenIndex()).start > position;
         }
 
         // Returns true if the range of an AST node contains the specified position
-        auto ContainsPosition(const AstNodeBase& node, TextPosition position) const -> bool
+        auto ContainsPosition(const AstNode& node, TextPosition position) const -> bool
         {
             return GetAstTextRange(node).Contains(position);
         }
 
         // Returns true if the range of an AST node and trailing whitespaces contains the specified position
-        auto ContainsPositionExtended(const AstNodeBase& node, TextPosition position) const -> bool
+        auto ContainsPositionExtended(const AstNode& node, TextPosition position) const -> bool
         {
             return GetExtendedAstTextRange(node).ContainsExtended(position);
         }

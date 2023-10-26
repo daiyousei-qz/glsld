@@ -211,7 +211,7 @@ namespace glsld
             }
         };
 
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        auto VisitAstInvokeExpr(AstFunctionCallExpr& expr) -> void
         {
             typeChecker.PreprocessInvokeExpr(expr);
         }
@@ -237,8 +237,8 @@ namespace glsld
             case AstNodeTag::AstSelectExpr:
                 typeChecker.CheckSelectExpr(*expr.As<AstSelectExpr>());
                 break;
-            case AstNodeTag::AstInvokeExpr:
-                typeChecker.CheckInvokeExpr(*expr.As<AstInvokeExpr>());
+            case AstNodeTag::AstFunctionCallExpr:
+                typeChecker.CheckInvokeExpr(*expr.As<AstFunctionCallExpr>());
                 break;
             case AstNodeTag::AstIndexAccessExpr:
                 typeChecker.CheckIndexAccessExpr(*expr.As<AstIndexAccessExpr>());
@@ -395,7 +395,7 @@ namespace glsld
         PopScope();
     }
 
-    auto TypeChecker::PreprocessInvokeExpr(AstInvokeExpr& expr) -> void
+    auto TypeChecker::PreprocessInvokeExpr(AstFunctionCallExpr& expr) -> void
     {
         if (auto func = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
             // Case 1: `IDENTIFIER(...)` or `EXPR.IDENTIFIER(...)`
@@ -610,7 +610,7 @@ namespace glsld
         expr.SetDeducedType(Type::GetErrorType());
     }
 
-    auto TypeChecker::CheckInvokeExpr(AstInvokeExpr& expr) -> void
+    auto TypeChecker::CheckInvokeExpr(AstFunctionCallExpr& expr) -> void
     {
         // Resolve the called entity first
         ResolveInvokeExpr(expr);
@@ -758,7 +758,7 @@ namespace glsld
         expr.SetSwizzleInfo(SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.Size()}});
     }
 
-    auto TypeChecker::ResolveInvokeExpr(AstInvokeExpr& expr) -> void
+    auto TypeChecker::ResolveInvokeExpr(AstFunctionCallExpr& expr) -> void
     {
         if (auto invokedExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
             // Case 1: `ID()`

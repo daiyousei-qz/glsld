@@ -242,10 +242,10 @@ namespace glsld
         AstExpr* elseBranch;
     };
 
-    class AstInvokeExpr final : public AstImpl<AstInvokeExpr>
+    class AstFunctionCallExpr final : public AstImpl<AstFunctionCallExpr>
     {
     public:
-        AstInvokeExpr(AstExpr* invokedExpr, std::vector<AstExpr*> args)
+        AstFunctionCallExpr(AstExpr* invokedExpr, std::vector<AstExpr*> args)
             : invokedExpr(invokedExpr), args(std::move(args))
         {
         }

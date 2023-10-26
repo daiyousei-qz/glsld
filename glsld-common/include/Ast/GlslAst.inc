@@ -1,5 +1,5 @@
 
-DECL_AST_BEGIN_BASE(AstNodeBase)
+DECL_AST_BEGIN_BASE(AstNode)
 
 // misc
 DECL_AST_TYPE(AstTranslationUnit)
@@ -22,8 +22,8 @@ DECL_AST_TYPE(AstIndexAccessExpr)
 DECL_AST_TYPE(AstUnaryExpr)
 DECL_AST_TYPE(AstBinaryExpr)
 DECL_AST_TYPE(AstSelectExpr)
-DECL_AST_TYPE(AstInvokeExpr)
-DECL_AST_TYPE(AstConstructorExpr)
+DECL_AST_TYPE(AstFunctionCallExpr)
+DECL_AST_TYPE(AstConstructorCallExpr)
 DECL_AST_END_BASE(AstExpr)
 
 DECL_AST_END_BASE(AstInitializer)
@@ -57,4 +57,4 @@ DECL_AST_TYPE(AstFunctionDecl)
 DECL_AST_TYPE(AstInterfaceBlockDecl)
 DECL_AST_END_BASE(AstDecl)
 
-DECL_AST_END_BASE(AstNodeBase)
+DECL_AST_END_BASE(AstNode)

@@ -196,17 +196,17 @@ namespace glsld
 #undef DECL_AST_TYPE
 
     // The base class of all Ast type
-    class AstNodeBase
+    class AstNode
     {
     public:
-        AstNodeBase() = default;
+        AstNode() = default;
 
-        AstNodeBase(const AstNodeBase&)                    = delete;
-        auto operator=(const AstNodeBase&) -> AstNodeBase& = delete;
+        AstNode(const AstNode&)                    = delete;
+        auto operator=(const AstNode&) -> AstNode& = delete;
 
 #if defined(GLSLD_DEBUG)
         // We don't need virtual dtor because we dispatch Ast type manually, but this is helpful for debugging
-        virtual ~AstNodeBase()
+        virtual ~AstNode()
         {
         }
 #endif
@@ -330,7 +330,7 @@ namespace glsld
     };
 
     template <typename VisitorType>
-    concept AstVisitorT = requires(VisitorType visitor, AstNodeBase& astNode) {
+    concept AstVisitorT = requires(VisitorType visitor, AstNode& astNode) {
         visitor.Traverse(astNode);
         visitor.Traverse(&astNode);
     };

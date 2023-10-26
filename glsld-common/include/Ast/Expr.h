@@ -451,36 +451,45 @@ namespace glsld
         }
     };
 
-    class AstInvokeExpr final : public AstExpr
+    class AstFunctionCallExpr final : public AstExpr
     {
     private:
         // [Node]
-        NotNull<AstExpr*> invokedExpr;
+        SyntaxToken functionName;
 
         // [Node]
         std::vector</*NotNull*/ AstExpr*> args;
 
+        // [Payload]
+        const AstFunctionDecl* resolvedFunction = nullptr;
+
     public:
-        AstInvokeExpr(AstExpr* invokedExpr, std::vector<AstExpr*> args)
-            : invokedExpr(invokedExpr), args(std::move(args))
+        AstFunctionCallExpr(SyntaxToken functionName, std::vector<AstExpr*> args)
+            : functionName(functionName), args(std::move(args))
         {
         }
 
-        auto GetInvokedExpr() const noexcept -> const AstExpr*
+        auto GetFunctionName() const noexcept -> SyntaxToken
         {
-            return invokedExpr;
+            return functionName;
         }
         auto GetArgs() const noexcept -> ArrayView<const AstExpr*>
         {
             return args;
         }
 
+        auto SetResolvedFunction(const AstFunctionDecl* decl)
+        {
+            this->resolvedFunction = decl;
+        }
+        auto GetResolvedFunction() const noexcept
+        {
+            return resolvedFunction;
+        }
+
         template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) const -> bool
         {
-            if (!visitor.Traverse(*invokedExpr)) {
-                return false;
-            }
             for (auto arg : args) {
                 if (!visitor.Traverse(*arg)) {
                     return false;
@@ -494,14 +503,14 @@ namespace glsld
         auto Dump(Dumper& d) const -> void
         {
             AstExpr::DumpPayload(d);
-            d.DumpChildNode("InvokedExpr", *invokedExpr);
+            d.DumpAttribute("Function", functionName.IsIdentifier() ? functionName.text.StrView() : "<Error>");
             for (auto arg : args) {
                 d.DumpChildNode("Arg", *arg);
             }
         }
     };
 
-    class AstConstructorExpr final : public AstExpr
+    class AstConstructorCallExpr final : public AstExpr
     {
     private:
         // [Node]
@@ -511,7 +520,7 @@ namespace glsld
         std::vector</*NotNull*/ AstExpr*> args;
 
     public:
-        AstConstructorExpr(AstQualType* constructedType, std::vector<AstExpr*> args)
+        AstConstructorCallExpr(AstQualType* constructedType, std::vector<AstExpr*> args)
             : constructedType(constructedType), args(std::move(args))
         {
         }

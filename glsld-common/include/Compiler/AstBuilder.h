@@ -119,7 +119,11 @@ namespace glsld
         }
     }
 
-    // Construct AST from parsed nodes. This class also computes and fills payload.
+    // Construct AST from parsed nodes. This class also computes and fills payload, including:
+    // - Name resolution
+    // - Type deduction
+    // - .etc
+    // However, we don't do sophisticated type checking here.
     class AstBuilder
     {
     private:
@@ -127,9 +131,17 @@ namespace glsld
 
         SymbolTable symbolTable;
 
+        std::vector<AstNode*> astNodes;
+
     public:
         AstBuilder(CompilerObject& compilerObject) : compilerObject(compilerObject)
         {
+        }
+
+        auto IsTypeName(StringView name) const
+        {
+            auto symbol = symbolTable.FindSymbol(name.Str());
+            return symbol.IsValid() && symbol.GetDecl()->Is<AstStructDecl>();
         }
 
         auto EnterFunction() -> void
@@ -176,8 +188,7 @@ namespace glsld
 
         auto BuildLiteralExpr(AstSyntaxRange range, ConstValue value) -> AstLiteralExpr*;
 
-        auto BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken, bool hintFunctionName = false)
-            -> AstNameAccessExpr*;
+        auto BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken) -> AstNameAccessExpr*;
 
         auto BuildMemberNameAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, SyntaxToken idToken)
             -> AstMemberNameAccessExpr*;
@@ -192,7 +203,11 @@ namespace glsld
         auto BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr, AstExpr* falseExpr)
             -> AstSelectExpr*;
 
-        auto BuildInvokeExpr(AstSyntaxRange range, AstExpr* invokedExpr, std::vector<AstExpr*> args) -> AstInvokeExpr*;
+        auto BuildInvokeExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
+            -> AstFunctionCallExpr*;
+
+        auto BuildConstructorExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
+            -> AstConstructorCallExpr*;
 
 #pragma endregion
 

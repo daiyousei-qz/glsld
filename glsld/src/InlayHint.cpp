@@ -22,7 +22,7 @@ namespace glsld
             return std::move(result);
         }
 
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        auto VisitAstInvokeExpr(AstFunctionCallExpr& expr) -> void
         {
             if (auto funcExpr = expr.GetInvokedExpr()->As<AstNameAccessExpr>()) {
                 if (!GetProvider().InMainFile(funcExpr->GetAccessName())) {

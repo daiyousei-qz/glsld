@@ -17,7 +17,7 @@ namespace glsld
             return std::move(result);
         }
 
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        auto EnterAstNodeBase(AstNode& node) -> AstVisitPolicy
         {
             // Only visit global decl
             return AstVisitPolicy::Visit;

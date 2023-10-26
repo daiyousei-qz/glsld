@@ -23,7 +23,7 @@ namespace glsld
         }
     };
 
-    auto AstNodeBase::Dump() -> void
+    auto AstNode::Dump() -> void
     {
         AstPrinter printer;
         printer.Traverse(*this);

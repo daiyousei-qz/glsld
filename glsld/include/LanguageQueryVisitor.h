@@ -1,8 +1,9 @@
 #pragma once
-#include "LexContext.h"
-#include "AstContext.h"
-#include "AstVisitor.h"
-#include "Compiler.h"
+#include "Ast/AstVisitor.h"
+#include "Compiler/LexContext.h"
+#include "Compiler/AstContext.h"
+#include "Compiler/CompilerObject.h"
+
 #include "LanguageQueryProvider.h"
 
 namespace glsld

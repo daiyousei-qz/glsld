@@ -83,8 +83,7 @@ namespace glsld
         }
         return result;
     }
-    auto AstBuilder::BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken, bool hintFunctionName)
-        -> AstNameAccessExpr*
+    auto AstBuilder::BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken) -> AstNameAccessExpr*
     {
         auto result = CreateAstNode<AstNameAccessExpr>(range, idToken);
 
@@ -93,8 +92,7 @@ namespace glsld
         result->SetDeducedType(Type::GetErrorType());
         result->SetResolvedDecl({});
 
-        // Note functions are resolved in `BuildInvokeExpr` because we need args for overload resolution.
-        if (!hintFunctionName && idToken.IsIdentifier()) {
+        if (idToken.IsIdentifier()) {
             auto symbol = symbolTable.FindSymbol(idToken.text.Str());
             if (auto refInfo = ComputeSymbolReferenceInfo(symbol)) {
                 GLSLD_ASSERT(symbol.IsValid());
@@ -299,20 +297,18 @@ namespace glsld
         }
         return result;
     }
-    auto AstBuilder::BuildInvokeExpr(AstSyntaxRange range, AstExpr* invokedExpr, std::vector<AstExpr*> args)
-        -> AstInvokeExpr*
+    auto AstBuilder::BuildInvokeExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
+        -> AstFunctionCallExpr*
     {
         // FIXME: do we need fix up AST for constructor call?
-        auto result = CreateAstNode<AstInvokeExpr>(range, invokedExpr, std::move(args));
+        auto result = CreateAstNode<AstFunctionCallExpr>(range, functionName, std::move(args));
 
         // Set a good default since the logic is complicated.
         result->SetConst(false);
         result->SetDeducedType(Type::GetErrorType());
+        result->SetResolvedFunction(nullptr);
 
-        // We need to resolve the called function first
-        if (auto invokedNameExpr = invokedExpr->As<AstNameAccessExpr>()) {
-            // Case 1: function/constructor call `IDENTIFIER(...)`
-
+        if (functionName.IsIdentifier()) {
             std::vector<const Type*> argTypes;
             for (auto arg : result->GetArgs()) {
                 argTypes.push_back(arg->GetDeducedType());
@@ -320,31 +316,25 @@ namespace glsld
 
             // TODO: if the function name could uniquely identify a function, we can skip overload resolution
             //       this could help make the resolution more resilient to errors while typing
-            auto function = symbolTable.FindFunction(invokedNameExpr->GetAccessName().text.Str(), argTypes);
+            auto function = symbolTable.FindFunction(functionName.text.Str(), argTypes);
             if (function) {
-                invokedNameExpr->SetResolvedDecl(function);
-                // invokedNameExpr->SetDeducedType(function->GetDeducedType());
-
-                // result->SetDeducedType(function->GetReturnType().)
+                result->SetResolvedFunction(function);
+                result->SetDeducedType(function->GetReturnType()->GetResolvedType());
                 // TODO: result of some function call can be const
                 result->SetConst(false);
             }
-            else {
-                // This could also be a constructor call
-            }
-        }
-        else if (auto invokedIndexExpr = invokedExpr->As<AstIndexAccessExpr>();
-                 invokedIndexExpr && invokedIndexExpr->GetBaseExpr()->Is<AstNameAccessExpr>()) {
-            // Case 2: constructor call `TYPE[...](...)`
-
-            // result->SetDeducedType();
-            result->SetConst(false);
-        }
-        else {
-            // FIXME: Are there other cases? Perhaps need to report error for invalid invocation.
-            // Note: we treat `IDENTIFIER.length()` as a unary expression, not a function call.
         }
 
+        return result;
+    }
+    auto AstBuilder::BuildConstructorExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
+        -> AstConstructorCallExpr*
+    {
+        auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, std::move(args));
+
+        // FIXME: implement this.
+        result->SetConst(false);
+        result->SetDeducedType(qualType->GetResolvedType());
         return result;
     }
 #pragma endregion

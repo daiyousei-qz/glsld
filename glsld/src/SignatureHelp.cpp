@@ -9,7 +9,7 @@ namespace glsld
     private:
         TextPosition position;
 
-        AstInvokeExpr* invokeExpr = nullptr;
+        AstFunctionCallExpr* invokeExpr = nullptr;
 
     public:
         SignatureHelpVisitor(const LanguageQueryProvider& provider, TextPosition position)
@@ -17,13 +17,13 @@ namespace glsld
         {
         }
 
-        auto Execute() -> AstInvokeExpr*
+        auto Execute() -> AstFunctionCallExpr*
         {
             TraverseAllGlobalDecl();
             return invokeExpr;
         }
 
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        auto EnterAstNodeBase(AstNode& node) -> AstVisitPolicy
         {
             if (GetProvider().ContainsPosition(node, position)) {
                 return AstVisitPolicy::Traverse;
@@ -33,7 +33,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
+        auto VisitAstInvokeExpr(AstFunctionCallExpr& expr) -> void
         {
             invokeExpr = &expr;
         }

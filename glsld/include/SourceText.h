@@ -1,6 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
-#include "Ast.h"
+#include "Ast/Dispatch.h"
 #include "Compiler/SyntaxToken.h"
 #include "Protocol.h"
 #include <iterator>
@@ -112,7 +112,7 @@ namespace glsld
     {
         // Reconstruct qualfiers
         if (type.GetQualifiers()) {
-            const auto quals = type.GetQualifiers()->GetQualfierGroup();
+            const auto quals = type.GetQualifiers()->GetQualGroup();
             // Precision Qualifier
             if (quals.qHighp) {
                 buffer += "highp ";

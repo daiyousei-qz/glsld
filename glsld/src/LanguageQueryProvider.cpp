@@ -21,7 +21,7 @@ namespace glsld
                 return std::move(result);
             }
 
-            auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+            auto EnterAstNodeBase(AstNode& node) -> AstVisitPolicy
             {
                 if (GetProvider().ContainsPosition(node, cursorPos)) {
                     return AstVisitPolicy::Traverse;
@@ -48,21 +48,19 @@ namespace glsld
 
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclToken()) {
-                    TryDeclToken(*decl.GetDeclToken(), &decl, SymbolAccessType::Type);
+                if (decl.GetDeclTok()) {
+                    TryDeclToken(*decl.GetDeclTok(), &decl, SymbolAccessType::Type);
                 }
             }
 
             auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
             {
-                TryDeclToken(decl.GetName(), &decl, SymbolAccessType::Function);
+                TryDeclToken(decl.GetDeclTok(), &decl, SymbolAccessType::Function);
             }
 
             auto VisitAstParamDecl(AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::Parameter);
-                }
+                TryDeclToken(decl.GetDeclarator().declTok, &decl, SymbolAccessType::Parameter);
             }
 
             auto VisitAstVariableDecl(AstVariableDecl& decl) -> void

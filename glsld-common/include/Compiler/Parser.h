@@ -243,11 +243,13 @@ namespace glsld
         //      - type_spec := 'ID'
         //      - type_spec := 'K_???'
         //
-        // RECOVERY: unknown
-        auto ParseType(AstTypeQualifierSeq* quals) -> AstQualType*;
+        // RECOVERY: ^'EOF' or ^'}' or ^';'
+        auto ParseTypeSpec(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // PARSE: qualified_type_spec
         //      - qualified_type_spec := [qual_seq] type_spec
+        //
+        // RECOVERY: ^'EOF' or ^'}' or ^';'
         auto ParseQualType() -> AstQualType*;
 
 #pragma endregion
@@ -326,7 +328,7 @@ namespace glsld
         //      - func_param_list := '(' ')'
         //      - func_param_list := '(' 'K_void' ')'
         //      - func_param_list := '(' func_param_decl [',' func_param_decl]...  ')'
-        //      - func_param_decl := qualified_type_spec 'ID' [array_sped]
+        //      - func_param_decl := type-qual? type_spec 'ID' [array_sped]
         //
         // RECOVERY: ^'EOF' or ^';'
         // WHAT'S AN ERROR SECTION?
@@ -430,16 +432,25 @@ namespace glsld
         //
         // PARSE: postfix_expr
         //      - postfix_expr := primary_expr
+        //      - postfix_expr := function_call
+        //      - postfix_expr := constructor_call
         //      - postfix_expr := postfix_expr 'incdec'
         //      - postfix_expr := postfix_expr '.' 'ID'
         //      - postfix_expr := postfix_expr array_spec
-        //      - postfix_expr := function_call
-        //      - function_call := function_identifier func_arg_list
-        //      - function_identifier := postfix_expr
-        //      - function_identifier := type_spec
+        //      - function_call := postfix_expr func_arg_list
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePostfixExpr() -> AstExpr*;
+
+        // Parse an constructor call expression.
+        //
+        // EXPECT: 'K_struct' or 'K_???' or 'ID' (aka. type_spec)
+        //
+        // PARSE: constructor_call
+        //      - constructor_call := type_spec func_arg_list
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseConstructorCallExpr() -> AstExpr*;
 
         // Parse an primary expression.
         //
@@ -725,6 +736,14 @@ namespace glsld
         auto Eof() -> bool
         {
             return TryTestToken(TokenKlass::Eof);
+        }
+
+        auto CreateRecoveryPoint() -> int
+        {
+        }
+
+        auto BacktrackToRecoveryPoint(int) -> void
+        {
         }
 
         auto ConsumeToken() -> void

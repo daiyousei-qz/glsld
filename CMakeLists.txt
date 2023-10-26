@@ -100,14 +100,14 @@ target_link_libraries(glsld-common PRIVATE fmt::fmt)
 file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)
 file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
 
-# add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
-# target_include_directories(glsld PRIVATE glsld/include)
+add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
+target_include_directories(glsld PRIVATE glsld/include)
 
-# target_link_libraries(glsld PRIVATE glsld-common)
+target_link_libraries(glsld PRIVATE glsld-common)
 
-# target_link_libraries(glsld PRIVATE fmt::fmt)
-# target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
-# target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
+target_link_libraries(glsld PRIVATE fmt::fmt)
+target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 
 # GLSLD Wrapper
 file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)

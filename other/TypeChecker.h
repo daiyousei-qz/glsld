@@ -67,7 +67,7 @@ namespace glsld
         // For `InvokeExpr`, we need to update the access type before entering the children nodes
         // so we could skip the type checking of the invoked expression.
         // We'll do the checking in `CheckInvokeExpr` because of better context.
-        auto PreprocessInvokeExpr(AstInvokeExpr& expr) -> void;
+        auto PreprocessInvokeExpr(AstFunctionCallExpr& expr) -> void;
 
         auto CheckConstantExpr(AstLiteralExpr& expr) -> void;
 
@@ -81,7 +81,7 @@ namespace glsld
 
         auto CheckSelectExpr(AstSelectExpr& expr) -> void;
 
-        auto CheckInvokeExpr(AstInvokeExpr& expr) -> void;
+        auto CheckInvokeExpr(AstFunctionCallExpr& expr) -> void;
 
         //
         // Stmt
@@ -110,7 +110,7 @@ namespace glsld
         // 1. `func()` where `func` is a function name
         // 2. `type()` where `type` is a type specifier
         // 3. `expr.length()` where `expr` has array/vector type
-        auto ResolveInvokeExpr(AstInvokeExpr& expr) -> void;
+        auto ResolveInvokeExpr(AstFunctionCallExpr& expr) -> void;
 
         auto GetSymbolTable() -> SymbolTable&
         {

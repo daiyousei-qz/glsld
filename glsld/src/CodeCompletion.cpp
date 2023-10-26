@@ -55,7 +55,7 @@ namespace glsld
             return result;
         }
 
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        auto EnterAstNodeBase(AstNode& node) -> AstVisitPolicy
         {
             if (GetProvider().ContainsPositionExtended(node, cursorPosition)) {
                 return AstVisitPolicy::Traverse;

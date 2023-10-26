@@ -416,7 +416,7 @@ namespace glsld
         return astBuilder.BuildArraySpec(CreateAstSyntaxRange(beginTokIndex), std::move(sizes));
     }
 
-    auto Parser::ParseType(AstTypeQualifierSeq* quals) -> AstQualType*
+    auto Parser::ParseTypeSpec(AstTypeQualifierSeq* quals) -> AstQualType*
     {
         GLSLD_TRACE_PARSER();
 
@@ -443,9 +443,9 @@ namespace glsld
             return astBuilder.BuildQualType(CreateAstSyntaxRange(beginTokIndex), quals, typeNameTok, arraySpec);
         }
         else {
-            // We can't parse a type. Just enter recovery mode and put parser in a unknown state for later recovery.
             EnterRecoveryMode();
-            return nullptr;
+            RecoverFromError(RecoveryMode::Semi);
+            return astBuilder.BuildQualType(CreateAstSyntaxRange(beginTokIndex), quals, SyntaxToken{}, nullptr);
         }
     }
 
@@ -454,7 +454,7 @@ namespace glsld
         GLSLD_TRACE_PARSER();
 
         auto qualifiers = ParseTypeQualifierSeq();
-        return ParseType(qualifiers);
+        return ParseTypeSpec(qualifiers);
     }
 
 #pragma endregion
@@ -504,7 +504,7 @@ namespace glsld
         }
         else {
             // function/variable decl
-            auto type = ParseType(quals);
+            auto type = ParseTypeSpec(quals);
             if (InRecoveryMode()) {
                 // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
                 ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
@@ -1068,27 +1068,38 @@ namespace glsld
 
         // Parse primary_expr or constructor call
         AstExpr* result = nullptr;
-        if (GetGlslBuiltinType(PeekToken().klass)) {
-            auto tok = PeekToken();
-            ConsumeToken();
-            result = astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok);
+        if (GetGlslBuiltinType(PeekToken().klass) || PeekToken().klass == TokenKlass::K_struct) {
+            // Obviously this is a constructor call
+            result = ParseConstructorCallExpr();
         }
         else {
-            result = ParsePrimaryExpr();
+            if (TryTestToken(TokenKlass::Identifier)) {
+                // Could still be constructor call if it's a type name
+                // Though we are conservative here and need to peek a following '(' or '[' to confirm.
+                // This means we'll parse a isolated type identifier as a name access.
+                if (astBuilder.IsTypeName(PeekToken().text.StrView()) &&
+                    TryTestToken(TokenKlass::LParen, TokenKlass::LBracket, 1)) {
+                    result = ParseConstructorCallExpr();
+                }
+                else if (TryTestToken(TokenKlass::LParen, 1)) {
+                    // Note there's no function pointer in GLSL.
+                    auto functionName = PeekToken();
+                    ConsumeToken();
+                    auto args = ParseFunctionArgumentList();
+                    result =
+                        astBuilder.BuildInvokeExpr(CreateAstSyntaxRange(beginTokIndex), functionName, std::move(args));
+                }
+            }
+
+            if (result == nullptr) {
+                // Parse a primary expression if the logic above failed to parse a call
+                result = ParsePrimaryExpr();
+            }
         }
 
         bool parsedPostfixOp = true;
         while (InParsingMode() && parsedPostfixOp) {
             switch (PeekToken().klass) {
-            case TokenKlass::LParen:
-            {
-                // Function call
-                // NOTE we could have parsed `type_spec '(' ??? ')'`, which would be handled later
-                auto args = ParseFunctionArgumentList();
-                // FIXME: constructor?
-                result = astBuilder.BuildInvokeExpr(CreateAstSyntaxRange(beginTokIndex), result, std::move(args));
-                break;
-            }
             case TokenKlass::LBracket:
             {
                 // Indexing access
@@ -1136,6 +1147,22 @@ namespace glsld
         return result;
     }
 
+    auto Parser::ParseConstructorCallExpr() -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_struct) || TryTestToken(TokenKlass::Identifier) ||
+                     GetGlslBuiltinType(PeekToken().klass));
+
+        auto beginTokIndex = GetTokenIndex();
+        auto typeSpec      = ParseTypeSpec(nullptr);
+        std::vector<AstExpr*> args;
+        if (TryTestToken(TokenKlass::LParen)) {
+            ParseFunctionArgumentList();
+        }
+        return astBuilder.BuildConstructorExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
+    }
+
     auto Parser::ParsePrimaryExpr() -> AstExpr*
     {
         GLSLD_TRACE_PARSER();
@@ -1147,8 +1174,7 @@ namespace glsld
         case TokenKlass::Identifier:
             // variable/function name
             ConsumeToken();
-            return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok,
-                                                  PeekToken().klass == TokenKlass::LParen);
+            return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok);
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
         case TokenKlass::K_true:

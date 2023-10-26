@@ -1,6 +1,6 @@
 #pragma once
-#include "SyntaxToken.h"
-#include "PPCallback.h"
+#include "Compiler/SyntaxToken.h"
+#include "Compiler/PPCallback.h"
 
 #include <vector>
 

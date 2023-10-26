@@ -7,7 +7,7 @@
 namespace glsld
 {
     template <typename F, typename... Args>
-    inline auto AstNodeBase::DispatchInvoke(F&& f, Args&&... args)
+    inline auto AstNode::DispatchInvoke(F&& f, Args&&... args)
     {
         switch (GetTag()) {
 #define DECL_AST_BEGIN_BASE(TYPE)

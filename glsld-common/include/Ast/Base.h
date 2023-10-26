@@ -254,6 +254,22 @@ namespace glsld
             return range;
         }
 
+        auto GetFirstTokenIndex() const noexcept -> SyntaxTokenIndex
+        {
+            return range.startTokenIndex;
+        }
+        auto GetLastTokenIndex() const noexcept -> SyntaxTokenIndex
+        {
+            if (range.endTokenIndex == 0) {
+                // Technically this logic is incorrect as the AST node contains no token.
+                // FIXME: any better solution?
+                return 0;
+            }
+            else {
+                return range.endTokenIndex - 1;
+            }
+        }
+
         template <typename AstType>
         auto Is() const noexcept -> bool
         {
