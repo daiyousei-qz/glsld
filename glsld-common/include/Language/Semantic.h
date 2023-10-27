@@ -83,6 +83,25 @@ namespace glsld
         ShiftLeft,
         ShiftRight,
     };
+    inline constexpr auto IsAssignmentOp(BinaryOp op) noexcept -> bool
+    {
+        switch (op) {
+        case BinaryOp::Assign:
+        case BinaryOp::MulAssign:
+        case BinaryOp::DivAssign:
+        case BinaryOp::ModAssign:
+        case BinaryOp::AddAssign:
+        case BinaryOp::SubAssign:
+        case BinaryOp::LShiftAssign:
+        case BinaryOp::RShiftAssign:
+        case BinaryOp::AndAssign:
+        case BinaryOp::XorAssign:
+        case BinaryOp::OrAssign:
+            return true;
+        default:
+            return false;
+        }
+    }
     inline constexpr auto BinaryOpToString(BinaryOp op) -> StringView
     {
         switch (op) {

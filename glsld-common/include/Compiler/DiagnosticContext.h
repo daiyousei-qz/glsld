@@ -14,6 +14,9 @@ namespace glsld
 
     class DiagnosticContext
     {
+    private:
+        std::vector<DiagnosticMessage> errorStream;
+
     public:
         auto ReportError(AstSyntaxRange range, std::string message) -> void
         {
@@ -23,8 +26,5 @@ namespace glsld
         {
             // errorStream.push_back({range, std::move(message)});
         }
-
-    private:
-        std::vector<DiagnosticMessage> errorStream;
     };
 } // namespace glsld

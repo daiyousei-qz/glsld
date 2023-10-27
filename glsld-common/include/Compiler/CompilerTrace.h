@@ -6,8 +6,29 @@
 
 namespace glsld
 {
+#if defined(GLSLD_DEBUG)
 #define GLSLD_ENABLE_COMPILER_TRACE 1
+#endif
+
 #if defined(GLSLD_ENABLE_COMPILER_TRACE)
+    struct CompilerTraceConfig
+    {
+        bool traceCompiler = false;
+
+        static auto Get() -> const CompilerTraceConfig&
+        {
+            static CompilerTraceConfig config = []() {
+                CompilerTraceConfig result;
+                if (auto envTraceCompiler = std::getenv("__GLSLD_TRACE_COMPILER")) {
+                    result.traceCompiler = std::stoi(envTraceCompiler) != 0;
+                }
+
+                return result;
+            }();
+            return config;
+        }
+    };
+
     enum class CompilerTraceSource
     {
         Lexer,
@@ -19,6 +40,10 @@ namespace glsld
     template <typename... Ts>
     inline auto EmitTraceMessage(CompilerTraceSource source, fmt::format_string<Ts...> fmt, Ts&&... args) -> void
     {
+        if (CompilerTraceConfig::Get().traceCompiler == false) {
+            return;
+        }
+
         StringView sourceName;
         switch (source) {
         case CompilerTraceSource::Lexer:
@@ -67,6 +92,13 @@ namespace glsld
         EmitTraceMessage(CompilerTraceSource::Parser, "Consumed token [{}]'{}'", TokenKlassToString(tok.klass),
                          tok.text.StrView());
     }
+
+    // inline auto TraceAstCreated(const AstNode& node) -> void
+    // {
+    //     EmitTraceMessage(CompilerTraceSource::Parser, "Created Ast node [{}]'{}' @ ({},{}~{},{})",
+    //                      TokenKlassToString(tok.klass), tok.text.StrView(), expandedRange.start.line,
+    //                      expandedRange.start.character, expandedRange.end.line, expandedRange.end.character);
+    // }
 
     class ParserTrace
     {

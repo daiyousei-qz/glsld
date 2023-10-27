@@ -15,7 +15,7 @@ namespace glsld
             for (auto paramDecl : decl.GetParams()) {
                 paramTypes.push_back(paramDecl->GetResolvedType());
             }
-            funcDeclLookup.insert(
+            funcDeclLookup.Insert(
                 {std::move(name), FunctionSymbolEntry{.decl = &decl, .paramTypes = std::move(paramTypes)}});
         }
     }
@@ -75,17 +75,11 @@ namespace glsld
             return false;
         }
 
-        auto& entry = declLookup[std::move(name)];
-        if (!entry.IsValid()) {
-            entry = DeclView{&decl};
-            return true;
-        }
-        else {
-            return false;
-        }
+        auto [it, success] = declLookup.Insert({std::move(name), DeclView{&decl}});
+        return success;
     }
 
-    auto SymbolTable::FindSymbol(const std::string& name) const -> DeclView
+    auto SymbolTable::FindSymbol(StringView name) const -> DeclView
     {
         for (auto level : std::views::reverse(levels)) {
             if (auto declView = level->FindSymbol(name); declView.IsValid()) {
@@ -96,7 +90,7 @@ namespace glsld
         return DeclView{};
     }
 
-    auto SymbolTable::FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const
+    auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes) const
         -> const AstFunctionDecl*
     {
         // First pass: filter out candidates that's invocable with the given argument types

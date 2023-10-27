@@ -239,7 +239,7 @@ namespace glsld
 
     auto Type::GetErrorType() -> const Type*
     {
-        static Type errorType{"<error>", ErrorTypeDesc{}};
+        static Type errorType{"__ErrorType", ErrorTypeDesc{}};
         return &errorType;
     }
     auto Type::GetBuiltinType(GlslBuiltinType tag) -> const Type*

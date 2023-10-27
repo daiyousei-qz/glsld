@@ -21,6 +21,10 @@ namespace glsld
 
     struct CompilerConfig
     {
+        bool dumpTokens = false;
+
+        bool dumpAst = false;
+
         bool noStdLib = false;
 
         // Whether the compiler should skip tokens in the preamble.
@@ -36,6 +40,18 @@ namespace glsld
 
     class CompiledPreamble
     {
+    private:
+        friend class CompilerObject;
+
+        int moduleId;
+
+        std::unique_ptr<const SourceContext> sourceContext;
+        std::unique_ptr<const LexContext> lexContext;
+        std::unique_ptr<const PreprocessContext> ppContext;
+        std::unique_ptr<const AstContext> astContext;
+        std::unique_ptr<const TypeContext> typeContext;
+        std::unique_ptr<const SymbolTable> symbolTable;
+
     public:
         CompiledPreamble();
         ~CompiledPreamble();
@@ -67,18 +83,6 @@ namespace glsld
         {
             return *symbolTable;
         }
-
-    private:
-        friend class CompilerObject;
-
-        int moduleId;
-
-        std::unique_ptr<const SourceContext> sourceContext;
-        std::unique_ptr<const LexContext> lexContext;
-        std::unique_ptr<const PreprocessContext> ppContext;
-        std::unique_ptr<const AstContext> astContext;
-        std::unique_ptr<const TypeContext> typeContext;
-        std::unique_ptr<const SymbolTable> symbolTable;
     };
 
     class CompilerObject final
@@ -185,6 +189,16 @@ namespace glsld
 
         auto Reset() -> void;
 
+        auto SetDumpTokens(bool value) -> void
+        {
+            config.dumpTokens = value;
+        }
+
+        auto SetDumpAst(bool value) -> void
+        {
+            config.dumpAst = value;
+        }
+
         auto AddIncludePath(const std::filesystem::path& path) -> void
         {
             // FIXME: Check if path is valid
@@ -193,10 +207,14 @@ namespace glsld
 
         auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
 
-        auto Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble, PPCallback* callback) -> void;
+        auto CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble, PPCallback* ppCallback)
+            -> void;
+        auto CompileFromBuffer(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
+                               PPCallback* ppCallback) -> void;
 
     private:
         auto InitializeCompilation(std::shared_ptr<CompiledPreamble> preamble) -> void;
+        auto DoCompile(PPCallback* callback) -> void;
         auto FinalizeCompilation() -> void;
     };
 

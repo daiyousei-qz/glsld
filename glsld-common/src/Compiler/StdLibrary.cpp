@@ -9,7 +9,7 @@ namespace glsld
             ;
 
         CompilerObject compilerObject{};
-        compilerObject.Compile(standardLibrarySource, nullptr, nullptr);
+        compilerObject.CompileFromBuffer(standardLibrarySource, nullptr, nullptr);
         return compilerObject.CreatePreamble();
     }
 

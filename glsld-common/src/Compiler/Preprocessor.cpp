@@ -187,7 +187,10 @@ namespace glsld
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Finish processing the directive.
-            HandleDirective(*directiveToken, directiveArgBuffer);
+            if (directiveToken) {
+                // FIXME: what if the directive is bad? we should raise error
+                HandleDirective(*directiveToken, directiveArgBuffer);
+            }
             directiveToken = std::nullopt;
             directiveArgBuffer.clear();
 

@@ -87,8 +87,13 @@ namespace glsld
     };
     struct MatrixTypeDesc
     {
+        // Scalar type of the matrix.
         ScalarType scalarType;
+
+        // Dimension of the row vector, i.e. the number of columns.
         int dimRow;
+
+        // Dimension of the columns vector, i.e. the number of rows.
         int dimCol;
     };
 

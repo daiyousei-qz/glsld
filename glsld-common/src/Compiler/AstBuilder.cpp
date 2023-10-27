@@ -2,6 +2,53 @@
 
 namespace glsld
 {
+    struct SymbolReferenceInfo
+    {
+        const Type* type;
+
+        bool isConst;
+    };
+
+    auto ComputeSymbolReferenceInfo(DeclView declView) -> std::optional<SymbolReferenceInfo>
+    {
+        if (!declView.IsValid()) {
+            return std::nullopt;
+        }
+
+        if (auto variableDecl = declView.GetDecl()->As<AstVariableDecl>()) {
+            // TODO: should we also check if initializer is const?
+            auto type    = variableDecl->GetResolvedTypes()[declView.GetIndex()];
+            bool isConst = false;
+            if (auto qualifiers = variableDecl->GetQualType()->GetQualifiers()) {
+                isConst = qualifiers->GetQualGroup().qConst;
+            }
+
+            return SymbolReferenceInfo{.type = type, .isConst = isConst};
+        }
+        else if (auto paramDecl = declView.GetDecl()->As<AstParamDecl>()) {
+            return SymbolReferenceInfo{
+                .type    = paramDecl->GetResolvedType(),
+                .isConst = false,
+            };
+        }
+        else if (auto interfaceBlockDecl = declView.GetDecl()->As<AstInterfaceBlockDecl>()) {
+            GLSLD_ASSERT(interfaceBlockDecl->GetDeclarator().has_value());
+            return SymbolReferenceInfo{
+                .type    = interfaceBlockDecl->GetResolvedInstanceType(),
+                .isConst = false,
+            };
+        }
+        else if (auto structDecl = declView.GetDecl()->As<AstStructDecl>()) {
+            return SymbolReferenceInfo{
+                .type    = Type::GetErrorType(),
+                .isConst = false,
+            };
+        }
+        else {
+            return std::nullopt;
+        }
+    }
+
 #pragma region Misc
     auto AstBuilder::BuildTranslationUnit(AstSyntaxRange range, std::vector<AstDecl*> decls) -> AstTranslationUnit*
     {
@@ -65,6 +112,7 @@ namespace glsld
     {
         auto result = CreateAstNode<AstErrorExpr>(range);
 
+        // Note anything with error type is not const
         result->SetConst(false);
         result->SetDeducedType(Type::GetErrorType());
         return result;
@@ -96,9 +144,9 @@ namespace glsld
             auto symbol = symbolTable.FindSymbol(idToken.text.Str());
             if (auto refInfo = ComputeSymbolReferenceInfo(symbol)) {
                 GLSLD_ASSERT(symbol.IsValid());
-                result->SetResolvedDecl(symbol);
-                result->SetDeducedType(refInfo->type);
                 result->SetConst(refInfo->isConst);
+                result->SetDeducedType(refInfo->type);
+                result->SetResolvedDecl(symbol);
             }
         }
 
@@ -107,6 +155,12 @@ namespace glsld
 
     auto ParseSwizzle(StringView swizzleName) -> SwizzleDesc
     {
+        GLSLD_ASSERT(!swizzleName.Empty());
+        if (swizzleName.Size() > 4) {
+            // Swizzle name too long
+            return {};
+        }
+
         struct SwizzleCharDesc
         {
             int set;
@@ -166,8 +220,12 @@ namespace glsld
 
     auto DeduceSwizzleType(const Type* baseType, SwizzleDesc swizzleDesc) -> const Type*
     {
-        // Note we don't check if the swizzle is valid here.
+        GLSLD_ASSERT(baseType->IsScalar() || baseType->IsVector());
+        if (!swizzleDesc.IsValid()) {
+            return Type::GetErrorType();
+        }
 
+        // Note we don't further check if the swizzle is out-of-bound here.
         size_t swizzleDim = swizzleDesc.GetDimension();
         if (auto scalarDesc = baseType->GetScalarDesc()) {
             return Type::GetVectorType(scalarDesc->type, swizzleDim);
@@ -180,45 +238,84 @@ namespace glsld
         }
     }
 
-    auto AstBuilder::BuildMemberNameAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, SyntaxToken idToken)
-        -> AstMemberNameAccessExpr*
+    auto AstBuilder::BuildDotAccessExpr(AstSyntaxRange range, AstExpr* lhsExpr, SyntaxToken idToken) -> AstExpr*
     {
-        auto result = CreateAstNode<AstMemberNameAccessExpr>(range, baseExpr, idToken);
+        auto baseType = lhsExpr->GetDeducedType();
+        if (baseType->IsScalar() || baseType->IsVector()) {
+            // This is swizzle access
+            auto result = CreateAstNode<AstSwizzleAccessExpr>(range, lhsExpr, idToken);
 
-        // Set a good default first
-        result->SetConst(false);
-        result->SetDeducedType(Type::GetErrorType());
-        result->SetResolvedDecl({});
-        result->SetSwizzleDesc({});
-
-        if (idToken.IsIdentifier()) {
-            auto baseType   = baseExpr->GetDeducedType();
-            auto accessName = idToken.text.StrView();
-
-            if (baseType->IsStruct()) {
-                // Struct member access
-                // FIXME: implement this
-                result->SetConst(baseExpr->IsConst());        // FIXME: but types also matter
-                result->SetDeducedType(Type::GetErrorType()); // FIXME: fill this
-                result->SetResolvedDecl({});
+            auto swizzleDesc = SwizzleDesc{};
+            if (idToken.IsIdentifier()) {
+                swizzleDesc = ParseSwizzle(idToken.text.StrView());
             }
-            else if (baseType->IsScalar() || baseType->IsVector()) {
-                // Swizzle
-                result->SetConst(baseExpr->IsConst());
-                SwizzleDesc swizzleDesc = ParseSwizzle(accessName);
-                result->SetDeducedType(DeduceSwizzleType(baseType, swizzleDesc));
-                result->SetSwizzleDesc(swizzleDesc);
+
+            result->SetConst(lhsExpr->IsConst());
+            result->SetDeducedType(DeduceSwizzleType(baseType, swizzleDesc));
+            result->SetSwizzleDesc(swizzleDesc);
+            return result;
+        }
+        else {
+            // This is struct member access
+            auto result = CreateAstNode<AstFieldAccessExpr>(range, lhsExpr, idToken);
+
+            // Set a good default first
+            result->SetConst(false);
+            result->SetDeducedType(Type::GetErrorType());
+            result->SetResolvedDecl({});
+
+            if (idToken.IsIdentifier()) {
+                if (auto structRecord = compilerObject.GetTypeContext().FindStructTypeDecl(baseType)) {
+                    if (auto it = structRecord->memberLookup.find(idToken.text.Str());
+                        it != structRecord->memberLookup.end()) {
+                        auto memberDecl = it->second;
+                        GLSLD_ASSERT(memberDecl.IsValid());
+
+                        result->SetConst(lhsExpr->IsConst()); // FIXME: but types also matter
+                        result->SetDeducedType(
+                            memberDecl.GetDecl()->As<AstVariableDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
+                        result->SetResolvedDecl(memberDecl);
+                    }
+                }
+            }
+            return result;
+        }
+    }
+
+    static auto DeduceIndexAccessType(const Type* baseType, size_t dimToUnwrap) -> const Type*
+    {
+        if (baseType->IsError() || dimToUnwrap == 0) {
+            return baseType;
+        }
+
+        if (auto arrayDesc = baseType->GetArrayDesc()) {
+            return DeduceIndexAccessType(arrayDesc->elementType, dimToUnwrap - 1);
+        }
+        else if (auto vectorDesc = baseType->GetVectorDesc()) {
+            if (dimToUnwrap == 1) {
+                return Type::GetScalarType(vectorDesc->scalarType);
+            }
+        }
+        else if (auto matrixDesc = baseType->GetMatrixDesc()) {
+            if (dimToUnwrap == 2) {
+                return Type::GetScalarType(matrixDesc->scalarType);
+            }
+            else if (dimToUnwrap == 1) {
+                // Note we are indexing to a column vector here.
+                return Type::GetVectorType(matrixDesc->scalarType, matrixDesc->dimCol);
             }
         }
 
-        return result;
+        return Type::GetErrorType();
     }
+
     auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstArraySpec* indices)
         -> AstIndexAccessExpr*
     {
         auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indices);
 
-        if (baseExpr->IsConst()) {
+        result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType(), indices->GetSizeList().size()));
+        if (baseExpr->IsConst() && !result->GetDeducedType()->IsError()) {
             bool isConst = true;
             for (auto indexExpr : indices->GetSizeList()) {
                 if (!indexExpr->IsConst()) {
@@ -229,66 +326,114 @@ namespace glsld
 
             result->SetConst(isConst);
         }
-        else {
-            result->SetConst(false);
+        return result;
+    }
+
+    static auto DeduceUnaryExprType(UnaryOp op, const Type* operandType) -> const Type*
+    {
+        switch (op) {
+        case UnaryOp::Identity:
+            return operandType;
+        case UnaryOp::Negate:
+            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint) ||
+                operandType->IsSameWith(GlslBuiltinType::Ty_float) ||
+                operandType->IsSameWith(GlslBuiltinType::Ty_double)) {
+                return operandType;
+            }
+            else {
+                return Type::GetErrorType();
+            }
+        case UnaryOp::BitwiseNot:
+            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint)) {
+                return operandType;
+            }
+            else {
+                return Type::GetErrorType();
+            }
+        case UnaryOp::LogicalNot:
+            if (operandType->IsSameWith(GlslBuiltinType::Ty_bool)) {
+                return operandType;
+            }
+            else {
+                return Type::GetErrorType();
+            }
+        case UnaryOp::PrefixInc:
+        case UnaryOp::PrefixDec:
+        case UnaryOp::PostfixInc:
+        case UnaryOp::PostfixDec:
+            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint)) {
+                return operandType;
+            }
+            else {
+                return Type::GetErrorType();
+            }
+        case UnaryOp::Length:
+            if (operandType->IsArray() || operandType->IsVector() || operandType->IsMatrix()) {
+                return Type::GetBuiltinType(GlslBuiltinType::Ty_int);
+            }
+            else {
+                // FIXME: are there any other cases?
+                return Type::GetErrorType();
+            }
         }
 
-        auto baseType = baseExpr->GetDeducedType();
-        if (auto arrayDesc = baseType->GetArrayDesc()) {
-            result->SetDeducedType(arrayDesc->elementType);
-        }
-        else if (auto vectorDesc = baseType->GetVectorDesc()) {
-            result->SetDeducedType(Type::GetScalarType(vectorDesc->scalarType));
-        }
-        else if (auto matrixDesc = baseType->GetMatrixDesc()) {
-            // FIXME: row vector? column vector?
-            result->SetDeducedType(Type::GetVectorType(matrixDesc->scalarType, matrixDesc->dimCol));
-        }
-        else {
-            result->SetDeducedType(Type::GetErrorType());
-        }
-        return result;
+        GLSLD_UNREACHABLE();
+    }
+
+    static auto IsUnaryExprConst(UnaryOp op, const Type* operandType) -> bool
+    {
+        // FIXME: implement this.
+        return false;
     }
 
     auto AstBuilder::BuildUnaryExpr(AstSyntaxRange range, AstExpr* operand, UnaryOp opcode) -> AstUnaryExpr*
     {
         auto result = CreateAstNode<AstUnaryExpr>(range, operand, opcode);
 
-        if (operand->IsConst() && IsUnaryExprConst(opcode, operand->GetDeducedType())) {
-            result->SetConst(true);
-        }
-        else {
-            result->SetConst(false);
-        }
+        result->SetConst(false);
         result->SetDeducedType(DeduceUnaryExprType(opcode, operand->GetDeducedType()));
+
+        if (!result->GetDeducedType()->IsError()) {
+            if (operand->IsConst() && IsUnaryExprConst(opcode, operand->GetDeducedType())) {
+                result->SetConst(true);
+            }
+        }
         return result;
     }
+
+    static auto DeduceBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType) -> const Type*
+    {
+        // FIXME: implement this
+        if (lhsType->IsSameWith(rhsType)) {
+            return lhsType;
+        }
+        else {
+            return Type::GetErrorType();
+        }
+    }
+
     auto AstBuilder::BuildBinaryExpr(AstSyntaxRange range, AstExpr* lhs, AstExpr* rhs, BinaryOp opcode)
         -> AstBinaryExpr*
     {
         auto result = CreateAstNode<AstBinaryExpr>(range, lhs, rhs, opcode);
 
-        if (lhs->IsConst() && rhs->IsConst() &&
-            IsBinaryExprConst(opcode, lhs->GetDeducedType(), rhs->GetDeducedType())) {
-            result->SetConst(true);
-        }
-        else {
-            result->SetConst(false);
-        }
+        result->SetConst(false);
         result->SetDeducedType(DeduceBinaryExprType(opcode, lhs->GetDeducedType(), rhs->GetDeducedType()));
+
+        if (!result->GetDeducedType()->IsError()) {
+            if (lhs->IsConst() && rhs->IsConst() && !(opcode == BinaryOp::Comma || IsAssignmentOp(opcode))) {
+                result->SetConst(true);
+            }
+        }
         return result;
     }
+
     auto AstBuilder::BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr, AstExpr* falseExpr)
         -> AstSelectExpr*
     {
         auto result = CreateAstNode<AstSelectExpr>(range, condExpr, trueExpr, falseExpr);
 
-        if (condExpr->IsConst() && trueExpr->IsConst() && falseExpr->IsConst()) {
-            result->SetConst(true);
-        }
-        else {
-            result->SetConst(false);
-        }
+        result->SetConst(condExpr->IsConst() && trueExpr->IsConst() && falseExpr->IsConst());
         if (trueExpr->GetDeducedType()->IsSameWith(falseExpr->GetDeducedType())) {
             result->SetDeducedType(trueExpr->GetDeducedType());
         }
@@ -297,7 +442,8 @@ namespace glsld
         }
         return result;
     }
-    auto AstBuilder::BuildInvokeExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
+
+    auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
         -> AstFunctionCallExpr*
     {
         // FIXME: do we need fix up AST for constructor call?
@@ -327,7 +473,8 @@ namespace glsld
 
         return result;
     }
-    auto AstBuilder::BuildConstructorExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
+
+    auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
         -> AstConstructorCallExpr*
     {
         auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, std::move(args));

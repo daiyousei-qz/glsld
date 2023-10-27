@@ -301,8 +301,8 @@ namespace glsld
     template <typename DumperType>
     concept AstDumperT = requires(DumperType d, StringView key, const AstNode& astNode) {
         {
-            d.GetAstNodeIdentifier(astNode)
-        } -> std::convertible_to<uint64_t>;
+            d.GetPointerIdentifier(static_cast<void*>(nullptr))
+        } -> std::convertible_to<uintptr_t>;
         d.DumpAttribute(key, false);
         d.DumpAttribute(key, 0);
         d.DumpAttribute(key, "value");
@@ -354,7 +354,7 @@ namespace glsld
         template <AstDumperT Dumper>
         auto Dump(Dumper& d) const -> void
         {
-            d.DumpAttribute("DeclNode", IsValid() ? fmt::format("{}", d.GetAstNodeIdentifier(*decl)) : "<Error>");
+            d.DumpAttribute("DeclNode", IsValid() ? fmt::format("#{:x}", d.GetPointerIdentifier(decl)) : "<Error>");
             d.DumpAttribute("DeclIndex", index);
         }
     };

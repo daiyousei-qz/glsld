@@ -10,12 +10,19 @@
 
 namespace glsld
 {
+    struct StructDeclRecord
+    {
+        const AstDecl* structDecl;
+
+        std::unordered_map<std::string, DeclView> memberLookup;
+    };
+
     class TypeContext
     {
     private:
         std::vector<const Type*> structTypes;
 
-        std::map<const Type*, const AstStructDecl*> structDeclLookup;
+        std::unordered_map<const Type*, StructDeclRecord> structDeclLookup;
 
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
@@ -31,6 +38,15 @@ namespace glsld
             }
         }
 
+        auto FindStructTypeDecl(const Type* type) const -> const StructDeclRecord*
+        {
+            if (auto it = structDeclLookup.find(type); it != structDeclLookup.end()) {
+                return &it->second;
+            }
+
+            return nullptr;
+        }
+
         auto CreateStructType(AstStructDecl& decl) -> const Type*
         {
             std::vector<std::pair<std::string, const Type*>> memberDesc;
@@ -41,7 +57,7 @@ namespace glsld
                 }
             }
 
-            StringView typeName = "<unnamed-struct-type>";
+            StringView typeName = "__UnnamedStructType";
             if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
                 typeName = decl.GetDeclTok()->text.StrView();
             }
@@ -49,6 +65,20 @@ namespace glsld
                                                                .name    = decl.GetDeclTok() ? typeName.Str() : "",
                                                                .members = std::move(memberDesc),
                                                            }));
+
+            std::unordered_map<std::string, DeclView> memberLookup;
+            for (auto memberDecl : decl.GetMembers()) {
+                size_t declIndex = 0;
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    if (declarator.declTok.IsIdentifier()) {
+                        memberLookup[declarator.declTok.text.Str()] = DeclView{memberDecl, declIndex};
+                    }
+                    declIndex += 1;
+                }
+            }
+            structDeclLookup[structTypes.back()] =
+                StructDeclRecord{.structDecl = &decl, .memberLookup = std::move(memberLookup)};
+
             return structTypes.back();
         }
 
@@ -62,7 +92,7 @@ namespace glsld
                 }
             }
 
-            StringView typeName = "<unnamed-block-type>";
+            StringView typeName = "__UnnamedBlockType";
             if (decl.GetDeclTok().IsIdentifier()) {
                 typeName = decl.GetDeclTok().text.StrView();
             }
@@ -70,6 +100,19 @@ namespace glsld
                                                                .name    = typeName.Str(),
                                                                .members = std::move(memberDesc),
                                                            }));
+            std::unordered_map<std::string, DeclView> memberLookup;
+            for (auto memberDecl : decl.GetMembers()) {
+                size_t declIndex = 0;
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    if (declarator.declTok.IsIdentifier()) {
+                        memberLookup[declarator.declTok.text.Str()] = DeclView{memberDecl, declIndex};
+                    }
+                    declIndex += 1;
+                }
+            }
+            structDeclLookup[structTypes.back()] =
+                StructDeclRecord{.structDecl = &decl, .memberLookup = std::move(memberLookup)};
+
             return structTypes.back();
         }
 

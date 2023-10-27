@@ -182,6 +182,11 @@ namespace glsld::cl
 
     namespace detail
     {
+        [[noreturn]] inline auto ExitOnBadConfig(StringView optionKey) -> void
+        {
+            fmt::print("bad config {}", optionKey);
+            exit(-1);
+        }
         [[noreturn]] inline auto ExitOnUnknownOption(StringView optionKey) -> void
         {
             fmt::print("unknown option {}", optionKey);

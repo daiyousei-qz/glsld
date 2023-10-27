@@ -58,41 +58,24 @@ namespace glsld
         return std::move(result);
     }
 
-    auto CompilerObject::Compile(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
-                                 PPCallback* ppCallback) -> void
+    auto CompilerObject::CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble,
+                                         PPCallback* ppCallback) -> void
     {
         InitializeCompilation(std::move(preamble));
+        sourceContext->SetMainFile(sourceContext->OpenFromFile(path.StdStrView()));
 
-        auto mainFileEntry = sourceContext->OpenFromBuffer(sourceText);
-        GLSLD_ASSERT(mainFileEntry);
+        DoCompile(ppCallback);
 
-        sourceContext->SetMainFile(mainFileEntry);
+        FinalizeCompilation();
+    }
 
-        // Lexing
-        {
-            GLSLD_TRACE_COMPILE_TIME("Lexing");
-            Preprocessor pp{*this, ppCallback, std::nullopt};
-            Tokenizer{*this, pp, mainFileEntry->GetID(), sourceText}.DoTokenize();
-        }
+    auto CompilerObject::CompileFromBuffer(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
+                                           PPCallback* ppCallback) -> void
+    {
+        InitializeCompilation(std::move(preamble));
+        sourceContext->SetMainFile(sourceContext->OpenFromBuffer(sourceText));
 
-        // Parsing
-        {
-            GLSLD_TRACE_COMPILE_TIME("Parsing");
-            Parser{*this}.ParseCompileUnit()->Print();
-        }
-
-        // Type checking
-        {
-            // GLSLD_TRACE_COMPILE_TIME("TypeChecking");
-            // this->symbolTable =
-            //     AstBuilder{*this}.DoTypeCheck(this->preamble ? this->preamble->symbolTable.get() : nullptr);
-        }
-
-#if defined(GLSLD_ENABLE_COMPILER_TRACE)
-        for (AstDecl* decl : astContext->GetGlobalDecls()) {
-            DumpAst(*decl);
-        }
-#endif
+        DoCompile(ppCallback);
 
         FinalizeCompilation();
     }
@@ -108,6 +91,46 @@ namespace glsld
         this->ppContext     = std::make_unique<PreprocessContext>();
         this->astContext    = std::make_unique<AstContext>();
         this->typeContext   = std::make_unique<TypeContext>();
+    }
+
+    auto CompilerObject::DoCompile(PPCallback* ppCallback) -> void
+    {
+        if (!sourceContext->GetMainFile()) {
+            // FIXME: error
+            GLSLD_UNREACHABLE();
+        }
+
+        auto mainFileEntry = sourceContext->GetMainFile();
+        if (!mainFileEntry->GetSourceText().has_value()) {
+            // FIXME: error
+            GLSLD_UNREACHABLE();
+        }
+
+        // Lexing
+        {
+            GLSLD_TRACE_COMPILE_TIME("Lexing");
+            Preprocessor pp{*this, ppCallback, std::nullopt};
+            Tokenizer{*this, pp, mainFileEntry->GetID(), *mainFileEntry->GetSourceText()}.DoTokenize();
+        }
+        if (config.dumpTokens) {
+            // FIXME:
+        }
+
+        // Parsing
+        {
+            GLSLD_TRACE_COMPILE_TIME("Parsing");
+            Parser{*this}.DoParse();
+        }
+        if (config.dumpAst) {
+            GetAstContext().GetTranslationUnit()->Print();
+        }
+
+        // Type checking
+        {
+            // GLSLD_TRACE_COMPILE_TIME("TypeChecking");
+            // this->symbolTable =
+            //     AstBuilder{*this}.DoTypeCheck(this->preamble ? this->preamble->symbolTable.get() : nullptr);
+        }
     }
 
     auto CompilerObject::FinalizeCompilation() -> void

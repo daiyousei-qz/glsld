@@ -192,11 +192,11 @@ namespace glsld
         }
     };
 
-    class AstMemberNameAccessExpr final : public AstExpr
+    class AstFieldAccessExpr final : public AstExpr
     {
     private:
         // [Node]
-        NotNull<AstExpr*> baseExpr;
+        NotNull<AstExpr*> lhsExpr;
 
         // [Node]
         SyntaxToken accessName;
@@ -205,18 +205,14 @@ namespace glsld
         // The declaration that this name access expression refers to.
         DeclView resolvedDecl = {};
 
-        // [Payload]
-        // The swizzle description if this is a swizzle expression.
-        SwizzleDesc swizzleDesc = {};
-
     public:
-        AstMemberNameAccessExpr(AstExpr* baseExpr, SyntaxToken name) : baseExpr(baseExpr), accessName(name)
+        AstFieldAccessExpr(AstExpr* lhsExpr, SyntaxToken name) : lhsExpr(lhsExpr), accessName(name)
         {
         }
 
-        auto GetBaseExpr() const noexcept -> const AstExpr*
+        auto GetLhsExpr() const noexcept -> const AstExpr*
         {
-            return baseExpr;
+            return lhsExpr;
         }
         auto GetAccessName() const noexcept -> SyntaxToken
         {
@@ -231,6 +227,50 @@ namespace glsld
         {
             return resolvedDecl;
         }
+
+        template <AstVisitorT Visitor>
+        auto Traverse(Visitor& visitor) const -> bool
+        {
+            return visitor.Traverse(*lhsExpr);
+        }
+
+        template <AstDumperT Dumper>
+        auto Dump(Dumper& d) const -> void
+        {
+            AstExpr::DumpPayload(d);
+            d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
+            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
+            d.DumpChildNode("LhsExpr", *lhsExpr);
+        }
+    };
+
+    class AstSwizzleAccessExpr final : public AstExpr
+    {
+    private:
+        // [Node]
+        NotNull<AstExpr*> lhsExpr;
+
+        // [Node]
+        SyntaxToken accessName;
+
+        // [Payload]
+        // The swizzle description if this is a swizzle expression.
+        SwizzleDesc swizzleDesc = {};
+
+    public:
+        AstSwizzleAccessExpr(AstExpr* lhsExpr, SyntaxToken name) : lhsExpr(lhsExpr), accessName(name)
+        {
+        }
+
+        auto GetLhsExpr() const noexcept -> const AstExpr*
+        {
+            return lhsExpr;
+        }
+        auto GetAccessName() const noexcept -> SyntaxToken
+        {
+            return accessName;
+        }
+
         auto SetSwizzleDesc(SwizzleDesc swizzleDesc) noexcept -> void
         {
             this->swizzleDesc = swizzleDesc;
@@ -243,7 +283,7 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto Traverse(Visitor& visitor) const -> bool
         {
-            return visitor.Traverse(*baseExpr);
+            return visitor.Traverse(*lhsExpr);
         }
 
         template <AstDumperT Dumper>
@@ -251,9 +291,8 @@ namespace glsld
         {
             AstExpr::DumpPayload(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
-            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
             d.DumpAttribute("Swizzle", swizzleDesc.ToString());
-            d.DumpChildNode("BaseExpr", *baseExpr);
+            d.DumpChildNode("LhsExpr", *lhsExpr);
         }
     };
 

@@ -2,7 +2,12 @@
 
 namespace glsld
 {
-    auto Parser::ParseCompileUnit() -> const AstTranslationUnit*
+    auto Parser::DoParse() -> void
+    {
+        compilerObject.GetAstContext().SetTranslationUnit(ParseTranslationUnit());
+    }
+
+    auto Parser::ParseTranslationUnit() -> const AstTranslationUnit*
     {
         GLSLD_TRACE_PARSER();
 
@@ -82,7 +87,6 @@ namespace glsld
             return result;
         }
         else {
-            // FIXME: this is not a valid token
             ReportError("Expect identifier");
             return SyntaxToken{};
         }
@@ -384,7 +388,7 @@ namespace glsld
         else {
             // FIXME: could we do better on recovery?
             EnterRecoveryMode();
-            return nullptr;
+            return astBuilder.BuildStructDecl(CreateAstSyntaxRange(beginTokIndex), declTok, {});
         }
     }
 
@@ -481,51 +485,54 @@ namespace glsld
         }
 
         auto quals = ParseTypeQualifierSeq();
-        if (TryTestToken(TokenKlass::Semicolon)) {
-            // default qualifier decl
-            // FIXME: implement this
-            ReportError("default qualifier decl not supported yet");
-            EnterRecoveryMode();
-            return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
-        }
-        else if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::Semicolon, TokenKlass::Comma, 1)) {
-            // qualifier overwrite decl
-            // FIXME: implement this
-            ReportError("qualifier overwrite decl not supported yet");
-            EnterRecoveryMode();
-            return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
-        }
-        if (TryTestToken(TokenKlass::LBrace) ||
-            (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
-            // interface blocks
-            // for example, uniform UBO { ... }
-            // FIXME: only enter here if qualifier can actually start a interface block
-            return ParseInterfaceBlockDecl(beginTokIndex, quals);
-        }
-        else {
-            // function/variable decl
-            auto type = ParseTypeSpec(quals);
-            if (InRecoveryMode()) {
-                // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
-                ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
+        if (quals) {
+            if (TryTestToken(TokenKlass::Semicolon)) {
+                // default qualifier decl
+                // FIXME: implement this
+                ReportError("default qualifier decl not supported yet");
+                EnterRecoveryMode();
                 return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
             }
 
-            if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
-                // function decl
-                return ParseFunctionDecl(beginTokIndex, type);
+            if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::Semicolon, TokenKlass::Comma, 1)) {
+                // qualifier overwrite decl
+                // FIXME: implement this
+                ReportError("qualifier overwrite decl not supported yet");
+                EnterRecoveryMode();
+                return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
             }
-            else if (TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier)) {
-                // type/variable decl
-                return ParseTypeOrVariableDecl(beginTokIndex, type);
-            }
-            else {
-                // This would always fail. We are just trying to infer the ';' for better diagnostic.
-                ParseOrInferSemicolonHelper();
 
-                // We just see this declaration as a variable decl without declarator.
-                return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), type, {});
+            if (TryTestToken(TokenKlass::LBrace) ||
+                (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
+                // interface blocks
+                // for example, uniform UBO { ... }
+                // FIXME: only enter here if qualifier can actually start a interface block
+                return ParseInterfaceBlockDecl(beginTokIndex, quals);
             }
+        }
+
+        // function/variable decl
+        auto type = ParseTypeSpec(quals);
+        if (InRecoveryMode()) {
+            // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
+            ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
+            return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
+        }
+
+        if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
+            // function decl
+            return ParseFunctionDecl(beginTokIndex, type);
+        }
+        else if (TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier)) {
+            // type/variable decl
+            return ParseTypeOrVariableDecl(beginTokIndex, type);
+        }
+        else {
+            // This would always fail. We are just trying to infer the ';' for better diagnostic.
+            ParseOrInferSemicolonHelper();
+
+            // We just see this declaration as a variable decl without declarator.
+            return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), type, {});
         }
     }
 
@@ -1086,8 +1093,8 @@ namespace glsld
                     auto functionName = PeekToken();
                     ConsumeToken();
                     auto args = ParseFunctionArgumentList();
-                    result =
-                        astBuilder.BuildInvokeExpr(CreateAstSyntaxRange(beginTokIndex), functionName, std::move(args));
+                    result    = astBuilder.BuildFuntionCallExpr(CreateAstSyntaxRange(beginTokIndex), functionName,
+                                                                std::move(args));
                 }
             }
 
@@ -1119,8 +1126,7 @@ namespace glsld
                     result = astBuilder.BuildUnaryExpr(CreateAstSyntaxRange(beginTokIndex), result, UnaryOp::Length);
                 }
                 else {
-                    result =
-                        astBuilder.BuildMemberNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), result, accessName);
+                    result = astBuilder.BuildDotAccessExpr(CreateAstSyntaxRange(beginTokIndex), result, accessName);
                 }
                 break;
             }
@@ -1158,9 +1164,61 @@ namespace glsld
         auto typeSpec      = ParseTypeSpec(nullptr);
         std::vector<AstExpr*> args;
         if (TryTestToken(TokenKlass::LParen)) {
-            ParseFunctionArgumentList();
+            args = ParseFunctionArgumentList();
         }
-        return astBuilder.BuildConstructorExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
+        return astBuilder.BuildConstructorCallExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
+    }
+
+    static auto ParseConstantLiteral(StringView literalText) -> ConstValue
+    {
+        if (literalText.EndWith("u") || literalText.EndWith("U")) {
+            auto literalTextNoSuffix = literalText.DropBack(1);
+
+            uint32_t value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<uint32_t>(value);
+            }
+        }
+        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
+            auto literalTextNoSuffix = literalText.DropBack(1);
+
+            float value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<float>(value);
+            }
+        }
+        else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
+            auto literalTextNoSuffix = literalText.DropBack(2);
+
+            double value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<double>(value);
+            }
+        }
+        else {
+            if (literalText.Contains('.') || literalText.Contains('e')) {
+                float value;
+                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
+                if (parseResult.ptr == literalText.data() + literalText.Size()) {
+                    return ConstValue::FromValue<float>(value);
+                }
+            }
+            else {
+                int32_t value;
+                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
+                if (parseResult.ptr == literalText.data() + literalText.Size()) {
+                    return ConstValue::FromValue<int32_t>(value);
+                }
+            }
+        }
+
+        return ConstValue{};
     }
 
     auto Parser::ParsePrimaryExpr() -> AstExpr*

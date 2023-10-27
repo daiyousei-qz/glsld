@@ -12,6 +12,12 @@ namespace glsld
     // This class holds all AST nodes in a translation unit
     class AstContext
     {
+    private:
+        // FIXME: optimize memory layout
+        std::vector<AstNode*> nodes;
+
+        const AstTranslationUnit* translationUnit;
+
     public:
         AstContext() = default;
 
@@ -27,20 +33,14 @@ namespace glsld
         auto operator=(const AstContext&) -> AstContext& = delete;
         auto operator=(AstContext&&) -> AstContext&      = delete;
 
-        auto AddGlobalDecl(AstDecl* decl) -> void
+        auto SetTranslationUnit(const AstTranslationUnit* tu)
         {
-            globalDecls.push_back(decl);
-            if (auto p = decl->As<AstFunctionDecl>()) {
-                functionDecls.push_back(p);
-            }
-            if (auto p = decl->As<AstVariableDecl>()) {
-                variableDecls.push_back(p);
-            }
+            GLSLD_ASSERT(!translationUnit && "Translation unit is already set.");
+            translationUnit = tu;
         }
-
-        auto GetGlobalDecls() const -> ArrayView<AstDecl*>
+        auto GetTranslationUnit() const noexcept
         {
-            return globalDecls;
+            return translationUnit;
         }
 
         template <typename T, typename... Args>
@@ -52,12 +52,5 @@ namespace glsld
             nodes.push_back(result);
             return result;
         }
-
-        std::vector<AstDecl*> globalDecls;
-        std::vector<AstVariableDecl*> variableDecls;
-        std::vector<AstFunctionDecl*> functionDecls;
-
-        // FIXME: optimize memory layout
-        std::vector<AstNode*> nodes;
     };
 } // namespace glsld

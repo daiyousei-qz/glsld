@@ -16,9 +16,9 @@ namespace glsld
     public:
         AstDumper() = default;
 
-        auto GetAstNodeIdentifier(const AstNode& node) -> uint64_t
+        auto GetPointerIdentifier(const void* ptr) -> uintptr_t
         {
-            return reinterpret_cast<uint64_t>(&node);
+            return reinterpret_cast<uintptr_t>(ptr);
         }
 
         template <typename T>
@@ -30,7 +30,8 @@ namespace glsld
         auto DumpChildNode(StringView key, const AstNode& node) -> void
         {
             PrintIndentation();
-            fmt::format_to(std::back_inserter(buffer), "+{}: {} -> {{\n", key, AstNodeTagToString(node.GetTag()));
+            fmt::format_to(std::back_inserter(buffer), "+{}: {} #{:x} -> {{\n", key, AstNodeTagToString(node.GetTag()),
+                           GetPointerIdentifier(&node));
 
             PushIndent();
             InvokeAstDispatched(
@@ -42,8 +43,15 @@ namespace glsld
         }
         auto DumpChildItem(StringView key, std::function<void(AstDumper&)> callback) -> void
         {
+            PrintIndentation();
+            fmt::format_to(std::back_inserter(buffer), "-{} -> {{\n", key);
+
             PushIndent();
+            callback(*this);
             PopIndent();
+
+            PrintIndentation();
+            fmt::format_to(std::back_inserter(buffer), "}}\n");
         }
 
         auto GetBufferView() const noexcept -> StringView

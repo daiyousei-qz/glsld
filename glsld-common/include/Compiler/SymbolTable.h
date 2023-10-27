@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringMap.h"
 #include "Ast/Decl.h"
 #include "Language/Typing.h"
 
@@ -21,18 +22,17 @@ namespace glsld
     {
     private:
         // Lookup table for function declarations
-        std::unordered_multimap<std::string, FunctionSymbolEntry> funcDeclLookup;
+        UnorderedStringMultiMap<FunctionSymbolEntry> funcDeclLookup;
 
         // Lookup table for all other declarations
-        std::unordered_map<std::string, DeclView> declLookup;
+        UnorderedStringMap<DeclView> declLookup;
 
         DeclScope scope;
 
         bool freezed = false;
 
-        using FunctionCandidateRange =
-            std::pair<std::unordered_multimap<std::string, FunctionSymbolEntry>::const_iterator,
-                      std::unordered_multimap<std::string, FunctionSymbolEntry>::const_iterator>;
+        using FunctionCandidateRange = std::pair<UnorderedStringMultiMap<FunctionSymbolEntry>::ConstIteratorType,
+                                                 UnorderedStringMultiMap<FunctionSymbolEntry>::ConstIteratorType>;
 
     public:
         SymbolTableLevel(DeclScope scope) : scope(scope)
@@ -70,17 +70,17 @@ namespace glsld
         auto AddParamDecl(AstParamDecl& decl) -> void;
 
         // Find a function declaration by name and argument types
-        auto FindFunctionCandidate(const std::string& name) const
+        auto FindFunctionCandidate(StringView name) const
         {
-            auto [itBegin, itEnd] = funcDeclLookup.equal_range(name);
+            auto [itBegin, itEnd] = funcDeclLookup.EqualRange(name);
             return std::ranges::subrange{itBegin, itEnd} |
                    std::views::transform([](const auto& entry) { return &entry.second; });
         }
 
         // Find a declaration by name
-        auto FindSymbol(const std::string& name) const -> DeclView
+        auto FindSymbol(StringView name) const -> DeclView
         {
-            if (auto it = declLookup.find(name); it != declLookup.end()) {
+            if (auto it = declLookup.Find(name); it != declLookup.end()) {
                 return it->second;
             }
             else {
@@ -148,10 +148,9 @@ namespace glsld
         }
 
         // Find a declaration by name
-        auto FindSymbol(const std::string& name) const -> DeclView;
+        auto FindSymbol(StringView name) const -> DeclView;
 
         // Find a function declaration by name and argument types
-        auto FindFunction(const std::string& name, const std::vector<const Type*>& argTypes) const
-            -> const AstFunctionDecl*;
+        auto FindFunction(StringView name, const std::vector<const Type*>& argTypes) const -> const AstFunctionDecl*;
     };
 } // namespace glsld

@@ -67,12 +67,14 @@ namespace glsld
         {
         }
 
+        auto DoParse() -> void;
+
+    private:
         // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.
-        auto ParseCompileUnit() -> const AstTranslationUnit*;
+        auto ParseTranslationUnit() -> const AstTranslationUnit*;
 
-    private:
 #pragma region Parsing Misc
 
         //
@@ -121,61 +123,6 @@ namespace glsld
         //
         // RECOVERY: unknown
         auto ParseParenWrappedExprOrErrorHelper() -> AstExpr*;
-
-        auto ParseConstantLiteral(StringView literalText) -> ConstValue
-        {
-            if (literalText.EndWith("u") || literalText.EndWith("U")) {
-                auto literalTextNoSuffix = literalText.DropBack(1);
-
-                uint32_t value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<uint32_t>(value);
-                }
-            }
-            else if (literalText.EndWith("f") || literalText.EndWith("F")) {
-                auto literalTextNoSuffix = literalText.DropBack(1);
-
-                float value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<float>(value);
-                }
-            }
-            else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
-                auto literalTextNoSuffix = literalText.DropBack(2);
-
-                double value;
-                auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                                   literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-                if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                    return ConstValue::FromValue<double>(value);
-                }
-            }
-            else {
-                if (literalText.Contains('.') || literalText.Contains('e')) {
-                    float value;
-                    auto parseResult =
-                        std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                    if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                        return ConstValue::FromValue<float>(value);
-                    }
-                }
-                else {
-                    int32_t value;
-                    auto parseResult =
-                        std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                    if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                        return ConstValue::FromValue<int32_t>(value);
-                    }
-                }
-            }
-
-            return ConstValue{};
-        }
-
 #pragma endregion
 
 #pragma region Parsing QualType
@@ -195,7 +142,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';'
         auto ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void;
 
-        // Try to parse a sequence of qualifiers
+        // Try to parse a sequence of qualifiers. Returns nullptr if no qualifier is parsed.
         //
         // PARSE: qual_seq
         //      - qual_seq := [qualifier]...
@@ -246,6 +193,8 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^'}' or ^';'
         auto ParseTypeSpec(AstTypeQualifierSeq* quals) -> AstQualType*;
 
+        // Parse a qualfied type specifier.
+        //
         // PARSE: qualified_type_spec
         //      - qualified_type_spec := [qual_seq] type_spec
         //

@@ -88,11 +88,13 @@ namespace glsld
         }
     };
 
-    // "layout = xxx"
+    // Key-value pair in "layout(key = value)".
     struct LayoutItem
     {
         SyntaxToken idToken;
-        /*NotNull*/ AstExpr* value;
+
+        // Could be `nullptr` if there's no value, like "layout(xxx)".
+        AstExpr* value;
     };
 
     // Represents a sequence of qualifiers in the source program. Could be either:
@@ -139,7 +141,9 @@ namespace glsld
                 d.DumpChildItem("LayoutQual", [&](Dumper& d) {
                     d.DumpAttribute("Key",
                                     layoutItem.idToken.IsIdentifier() ? layoutItem.idToken.text.Str() : "<Error>");
-                    d.DumpChildNode("Value", *layoutItem.value);
+                    if (layoutItem.value) {
+                        d.DumpChildNode("Value", *layoutItem.value);
+                    }
                 });
             }
         }
