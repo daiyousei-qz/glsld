@@ -4,9 +4,5 @@
 
 namespace glsld
 {
-    inline auto EvaluateAstExpr(const AstExpr* expr) -> ConstValue
-    {
-        // FIXME: implement this
-        return ConstValue{};
-    }
+    auto EvaluateAstExpr(const AstExpr* expr) -> ConstValue;
 } // namespace glsld

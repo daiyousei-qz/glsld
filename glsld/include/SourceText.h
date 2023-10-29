@@ -1,6 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Ast/Dispatch.h"
+#include "Compiler/AstEval.h"
 #include "Compiler/SyntaxToken.h"
 #include "Protocol.h"
 #include <iterator>
@@ -89,8 +90,14 @@ namespace glsld
             buffer += declarator.declTok.text.StrView();
             if (declarator.arraySize) {
                 for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
-                    if (dimSizeExpr && dimSizeExpr->GetConstValue().IsScalarInt32()) {
-                        buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetInt32Value());
+                    if (dimSizeExpr) {
+                        auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                        if (dimSizeExprValue.IsScalarInt32()) {
+                            buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
+                        }
+                        else {
+                            buffer += "[__error]";
+                        }
                     }
                     else {
                         buffer += "[]";
@@ -105,8 +112,14 @@ namespace glsld
     inline auto ReconstructSourceText(std::string& buffer, const AstArraySpec& arraySpec) -> void
     {
         for (auto dimSizeExpr : arraySpec.GetSizeList()) {
-            if (dimSizeExpr && dimSizeExpr->GetConstValue().IsScalarInt32()) {
-                buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetInt32Value());
+            if (dimSizeExpr) {
+                auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                if (dimSizeExprValue.IsScalarInt32()) {
+                    buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
+                }
+                else {
+                    buffer += "[__error]";
+                }
             }
             else {
                 buffer += "[]";
@@ -242,6 +255,15 @@ namespace glsld
         }
     }
     inline auto ReconstructSourceText(std::string& buffer, const AstVariableDecl& decl, size_t index) -> void
+    {
+        GLSLD_ASSERT(index < decl.GetDeclarators().size());
+
+        ReconstructSourceText(buffer, *decl.GetQualType());
+        buffer += " ";
+
+        ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
+    }
+    inline auto ReconstructSourceText(std::string& buffer, const AstFieldDecl& decl, size_t index) -> void
     {
         GLSLD_ASSERT(index < decl.GetDeclarators().size());
 

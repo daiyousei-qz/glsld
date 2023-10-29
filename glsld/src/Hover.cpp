@@ -49,9 +49,9 @@ namespace glsld
             builder.Append("Type");
             break;
         case SymbolAccessType::InterfaceBlockType:
-            builder.Append("Interface Block Type");
-        case SymbolAccessType::InterfaceBlock:
             builder.Append("Interface Block");
+        case SymbolAccessType::InterfaceBlock:
+            builder.Append("Interface Block Instance");
             break;
         case SymbolAccessType::Unknown:
             GLSLD_UNREACHABLE();
@@ -130,15 +130,15 @@ namespace glsld
                 .code        = std::move(codeBuffer),
             };
         }
-        // else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
-        //     ReconstructSourceText(codeBuffer, *memberDecl, declView.GetIndex());
-        //     return HoverContent{
-        //         .type        = SymbolAccessType::MemberVariable,
-        //         .name        = hoverId.Str(),
-        //         .description = std::move(descriptionBuffer),
-        //         .code        = std::move(codeBuffer),
-        //     };
-        // }
+        else if (auto memberDecl = decl.As<AstFieldDecl>()) {
+            ReconstructSourceText(codeBuffer, *memberDecl, declView.GetIndex());
+            return HoverContent{
+                .type        = SymbolAccessType::MemberVariable,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
+            };
+        }
         else if (auto structDecl = decl.As<AstStructDecl>()) {
             ReconstructSourceText(codeBuffer, *structDecl);
             return HoverContent{

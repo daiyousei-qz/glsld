@@ -13,6 +13,12 @@ namespace glsld
     protected:
         AstStmt() = default;
 
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return true;
+        }
+
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
@@ -29,6 +35,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -49,6 +59,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -77,11 +91,17 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             for (auto stmt : children) {
                 if (!visitor.Traverse(*stmt)) {
                     return false;
                 }
             }
+
+            return true;
         }
 
         template <AstDumperT Dumper>
@@ -112,6 +132,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*expr);
         }
 
@@ -141,6 +165,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*decl);
         }
 
@@ -181,6 +209,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*condition)) {
                 return false;
             }
@@ -240,6 +272,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*init)) {
                 return false;
             }
@@ -294,6 +330,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*condition)) {
                 return false;
             }
@@ -336,6 +376,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*condition)) {
                 return false;
             }
@@ -377,6 +421,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (caseExpr && !visitor.Traverse(*caseExpr)) {
                 return false;
             }
@@ -421,6 +469,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*testExpr)) {
                 return false;
             }
@@ -453,6 +505,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -482,6 +538,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstStmt::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (expr && !visitor.Traverse(*expr)) {
                 return false;
             }

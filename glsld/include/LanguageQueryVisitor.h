@@ -24,30 +24,30 @@ namespace glsld
     protected:
         auto TraverseTranslationUnit() -> void
         {
-            this->Traverse(provider.GetAstContext().GetTranslationUnit());
+            this->Traverse(*provider.GetAstContext().GetTranslationUnit());
         }
 
-        auto TraverseGlobalDeclUntil(TextPosition position)
-        {
-            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
-                if (provider.SucceedsPosition(*decl, position)) {
-                    break;
-                }
+        // auto TraverseGlobalDeclUntil(TextPosition position)
+        // {
+        //     for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+        //         if (provider.SucceedsPosition(*decl, position)) {
+        //             break;
+        //         }
 
-                this->Traverse(*decl);
-            }
-        }
+        //         this->Traverse(*decl);
+        //     }
+        // }
 
-        auto TraverseGlobalDeclOverlaps(TextRange range)
-        {
-            // FIXME: halt early
-            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
-                TextRange declRange = provider.GetLexContext().LookupExpandedTextRange(decl->GetSyntaxRange());
-                if (declRange.Overlaps(range)) {
-                    this->Traverse(*decl);
-                }
-            }
-        }
+        // auto TraverseGlobalDeclOverlaps(TextRange range)
+        // {
+        //     // FIXME: halt early
+        //     for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+        //         TextRange declRange = provider.GetLexContext().LookupExpandedTextRange(decl->GetSyntaxRange());
+        //         if (declRange.Overlaps(range)) {
+        //             this->Traverse(*decl);
+        //         }
+        //     }
+        // }
 
     private:
         const LanguageQueryProvider& provider;

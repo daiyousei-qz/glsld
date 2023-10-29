@@ -129,15 +129,15 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            if (!visitor.Traverse(qualType)) {
+            if (!visitor.Traverse(*qualType)) {
                 return false;
             }
 
             for (const auto& declarator : declarators) {
-                if (declarator.arraySize && !visitor.Traverse(declarator.arraySize)) {
+                if (declarator.arraySize && !visitor.Traverse(*declarator.arraySize)) {
                     return false;
                 }
-                if (declarator.initializer && !visitor.Traverse(declarator.initializer)) {
+                if (declarator.initializer && !visitor.Traverse(*declarator.initializer)) {
                     return false;
                 }
             }
@@ -323,13 +323,13 @@ namespace glsld
             if (!AstDecl::DoTraverse(visitor)) {
                 return false;
             }
-            if (!visitor.Traverse(qualType)) {
+            if (!visitor.Traverse(*qualType)) {
                 return false;
             }
-            if (declarator.arraySize && !visitor.Traverse(declarator.arraySize)) {
+            if (declarator.arraySize && !visitor.Traverse(*declarator.arraySize)) {
                 return false;
             }
-            if (declarator.initializer && !visitor.Traverse(declarator.initializer)) {
+            if (declarator.initializer && !visitor.Traverse(*declarator.initializer)) {
                 return false;
             }
 
@@ -476,7 +476,7 @@ namespace glsld
             if (!AstDecl::DoTraverse(visitor)) {
                 return false;
             }
-            if (quals && !visitor.Traverse(quals)) {
+            if (quals && !visitor.Traverse(*quals)) {
                 return false;
             }
             for (auto member : members) {
@@ -485,10 +485,10 @@ namespace glsld
                 }
             }
             if (declarator) {
-                if (declarator->arraySize && visitor.Traverse(declarator->arraySize)) {
+                if (declarator->arraySize && visitor.Traverse(*declarator->arraySize)) {
                     return false;
                 }
-                if (declarator->initializer && visitor.Traverse(declarator->initializer)) {
+                if (declarator->initializer && visitor.Traverse(*declarator->initializer)) {
                     return false;
                 }
             }

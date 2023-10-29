@@ -50,7 +50,15 @@ namespace glsld
             {
                 if (!type.GetStructDecl()) {
                     // NOTE we handle struct decl at `VisitAstStructDecl`
-                    TryDeclToken(type.GetTypeNameTok(), type.GetResolvedType(), SymbolAccessType::Type, false);
+                    auto resolvedType = type.GetResolvedType();
+                    if (auto structDesc = type.GetResolvedType()->GetStructDesc()) {
+                        TryDeclToken(type.GetTypeNameTok(), structDesc->decl, SymbolAccessType::Type, false);
+                    }
+                    else if (type.GetResolvedType()->IsBuiltin()) {
+                        TryDeclToken(type.GetTypeNameTok(), nullptr, SymbolAccessType::Type, false);
+                    }
+
+                    // FIXME: any other case?
                 }
             }
 
@@ -103,7 +111,7 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
                 // FIXME: explain the symbol access type
-                TryDeclToken(decl.GetDeclTok(), &decl, SymbolAccessType::InterfaceBlockType);
+                TryDeclToken(decl.GetDeclTok(), &decl, SymbolAccessType::InterfaceBlockType, true);
                 if (decl.GetDeclarator()) {
                     TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::InterfaceBlock, true);
                 }

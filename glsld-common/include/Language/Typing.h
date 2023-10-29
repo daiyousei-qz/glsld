@@ -9,6 +9,8 @@ namespace glsld
 {
     class Type;
 
+    class AstStructDecl;
+
     enum class ScalarKind
     {
         // Base language
@@ -170,6 +172,7 @@ namespace glsld
     {
         std::string name;
         std::vector<std::pair<std::string, const Type*>> members;
+        const AstDecl* decl;
     };
 
     struct FunctionTypeDesc

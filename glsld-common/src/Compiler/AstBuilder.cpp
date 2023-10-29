@@ -132,6 +132,7 @@ namespace glsld
         }
         return result;
     }
+
     auto AstBuilder::BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken) -> AstNameAccessExpr*
     {
         auto result = CreateAstNode<AstNameAccessExpr>(range, idToken);
@@ -154,7 +155,7 @@ namespace glsld
         return result;
     }
 
-    auto ParseSwizzle(StringView swizzleName) -> SwizzleDesc
+    static auto ParseSwizzle(StringView swizzleName) -> SwizzleDesc
     {
         GLSLD_ASSERT(!swizzleName.Empty());
         if (swizzleName.Size() > 4) {
