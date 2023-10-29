@@ -10,9 +10,18 @@
 
 namespace glsld
 {
-    // This class manages everything about the source texts and tokens
+    // This class manages everything about the source texts and tokens.
     class LexContext
     {
+    private:
+        AtomTable atomTable;
+
+        size_t tokenIndexOffset;
+
+        // The token stream that is lexed from the source text, including from included files and macro expansion.
+        std::vector<RawSyntaxTokenEntry> tokens;
+        // std::vector<RawSyntaxToken> commentTokens;
+
     public:
         LexContext();
         ~LexContext();
@@ -113,12 +122,5 @@ namespace glsld
         {
             return atomTable.GetAtom(text);
         }
-
-    private:
-        AtomTable atomTable;
-
-        // The token stream that is lexed from the source text, including from included files and macro expansion.
-        std::vector<RawSyntaxTokenEntry> tokens;
-        // std::vector<RawSyntaxToken> commentTokens;
     };
 } // namespace glsld

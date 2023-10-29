@@ -31,8 +31,8 @@ namespace glsld
         auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
         {
             if (auto structDecl = decl.GetType()->GetStructDecl()) {
-                if (structDecl->GetDeclToken()) {
-                    if (TryAddSymbol(*structDecl->GetDeclToken(), lsp::SymbolKind::Struct)) {
+                if (structDecl->GetDeclTok()) {
+                    if (TryAddSymbol(*structDecl->GetDeclTok(), lsp::SymbolKind::Struct)) {
                         TryAddStructMembers(result.back().children, structDecl->GetMembers(), lsp::SymbolKind::Field);
                     }
                 }

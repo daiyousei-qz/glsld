@@ -122,11 +122,12 @@ namespace glsld
     {
         auto result = CreateAstNode<AstLiteralExpr>(range, std::move(value));
 
-        result->SetConst(true);
         if (auto glslType = result->GetValue().GetGlslType()) {
+            result->SetConst(true);
             result->SetDeducedType(Type::GetBuiltinType(*glslType));
         }
         else {
+            result->SetConst(false);
             result->SetDeducedType(Type::GetErrorType());
         }
         return result;
@@ -273,7 +274,7 @@ namespace glsld
 
                         result->SetConst(lhsExpr->IsConst()); // FIXME: but types also matter
                         result->SetDeducedType(
-                            memberDecl.GetDecl()->As<AstVariableDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
+                            memberDecl.GetDecl()->As<AstFieldDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
                         result->SetResolvedDecl(memberDecl);
                     }
                 }
@@ -331,156 +332,591 @@ namespace glsld
 
     static auto DeduceUnaryExprType(UnaryOp op, const Type* operandType) -> const Type*
     {
+        if (operandType->IsError()) {
+            return Type::GetErrorType();
+        }
+
         switch (op) {
         case UnaryOp::Identity:
-            return operandType;
         case UnaryOp::Negate:
-            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint) ||
-                operandType->IsSameWith(GlslBuiltinType::Ty_float) ||
-                operandType->IsSameWith(GlslBuiltinType::Ty_double)) {
-                return operandType;
-            }
-            else {
-                return Type::GetErrorType();
-            }
-        case UnaryOp::BitwiseNot:
-            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint)) {
-                return operandType;
-            }
-            else {
-                return Type::GetErrorType();
-            }
-        case UnaryOp::LogicalNot:
-            if (operandType->IsSameWith(GlslBuiltinType::Ty_bool)) {
-                return operandType;
-            }
-            else {
-                return Type::GetErrorType();
-            }
         case UnaryOp::PrefixInc:
         case UnaryOp::PrefixDec:
         case UnaryOp::PostfixInc:
         case UnaryOp::PostfixDec:
-            if (operandType->IsSameWith(GlslBuiltinType::Ty_int) || operandType->IsSameWith(GlslBuiltinType::Ty_uint)) {
+            if (operandType->IsArithmetic()) {
                 return operandType;
             }
-            else {
-                return Type::GetErrorType();
+            break;
+
+        case UnaryOp::BitwiseNot:
+            if (operandType->IsIntegral()) {
+                return operandType;
             }
+            break;
+
+        case UnaryOp::LogicalNot:
+            if (operandType->IsScalarBool()) {
+                return operandType;
+            }
+            break;
+
         case UnaryOp::Length:
             if (operandType->IsArray() || operandType->IsVector() || operandType->IsMatrix()) {
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_int);
             }
-            else {
-                // FIXME: are there any other cases?
-                return Type::GetErrorType();
-            }
+            break;
         }
 
-        GLSLD_UNREACHABLE();
-    }
-
-    static auto IsUnaryExprConst(UnaryOp op, const Type* operandType) -> bool
-    {
-        // FIXME: implement this.
-        return false;
+        return Type::GetErrorType();
     }
 
     auto AstBuilder::BuildUnaryExpr(AstSyntaxRange range, AstExpr* operand, UnaryOp opcode) -> AstUnaryExpr*
     {
-        auto result = CreateAstNode<AstUnaryExpr>(range, operand, opcode);
+        const Type* operandType = operand->GetDeducedType();
 
-        result->SetConst(false);
-        result->SetDeducedType(DeduceUnaryExprType(opcode, operand->GetDeducedType()));
+        bool isConst            = false;
+        const Type* deducedType = DeduceUnaryExprType(opcode, operandType);
 
-        if (!result->GetDeducedType()->IsError()) {
-            if (operand->IsConst() && IsUnaryExprConst(opcode, operand->GetDeducedType())) {
-                result->SetConst(true);
+        if (!deducedType->IsError() && operand->IsConst()) {
+            if (opcode == UnaryOp::Length) {
+                if (operandType->IsVector() || operandType->IsMatrix()) {
+                    isConst = true;
+                }
+                else if (auto desc = operandType->GetArrayDesc()) {
+                    isConst = desc->dimSizes[0] != 0;
+                }
+            }
+            else {
+                isConst = true;
             }
         }
+
+        auto result = CreateAstNode<AstUnaryExpr>(range, operand, opcode);
+        result->SetConst(isConst);
+        result->SetDeducedType(deducedType);
         return result;
     }
 
-    static auto DeduceBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType) -> const Type*
+    struct BinaryExprTypeInfo
     {
-        // FIXME: implement this
-        if (lhsType->IsSameWith(rhsType)) {
-            return lhsType;
+        const Type* deducedType;
+        const Type* lhsContextType;
+        const Type* rhsContextType;
+    };
+
+    static auto DeduceBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType) -> BinaryExprTypeInfo;
+
+    // lhs and rhs should be scalar or vector of the same dimension
+    // Either:
+    // 1. lhs is scalar, rhs is scalar
+    // 2. lhs is vector, rhs is vector
+    static auto DeduceComponentWiseBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
+        -> BinaryExprTypeInfo
+    {
+        BinaryExprTypeInfo result{
+            .deducedType    = Type::GetErrorType(),
+            .lhsContextType = lhsType,
+            .rhsContextType = rhsType,
+        };
+
+        if (lhsType->IsVector()) {
+            GLSLD_ASSERT(rhsType->IsVector());
+            auto lhsDim = lhsType->GetVectorDesc()->vectorSize;
+            auto rhsDim = rhsType->GetVectorDesc()->vectorSize;
+            if (lhsDim != rhsDim) {
+                return result;
+            }
         }
-        else {
-            return Type::GetErrorType();
+
+        auto deduceWithConversion = [&]() {
+            if (lhsType->IsSameWith(rhsType)) {
+                result.deducedType = lhsType;
+            }
+            else if (lhsType->IsConvertibleTo(rhsType)) {
+                GLSLD_ASSERT(!rhsType->IsConvertibleTo(lhsType));
+                result.deducedType    = rhsType;
+                result.lhsContextType = rhsType;
+            }
+            else if (rhsType->IsConvertibleTo(lhsType)) {
+                GLSLD_ASSERT(!lhsType->IsConvertibleTo(rhsType));
+                result.deducedType    = lhsType;
+                result.rhsContextType = lhsType;
+            }
+        };
+
+        // Upon this point, we could ensure that lhs and rhs are of the same dimension.
+        switch (op) {
+        case BinaryOp::Comma:
+        case BinaryOp::Assign:
+        case BinaryOp::AddAssign:
+        case BinaryOp::SubAssign:
+        case BinaryOp::MulAssign:
+        case BinaryOp::DivAssign:
+        case BinaryOp::ModAssign:
+        case BinaryOp::LShiftAssign:
+        case BinaryOp::RShiftAssign:
+        case BinaryOp::AndAssign:
+        case BinaryOp::XorAssign:
+        case BinaryOp::OrAssign:
+            GLSLD_ASSERT(false && "Comma/Assignment should have been handled earlier.");
+            break;
+
+        case BinaryOp::Plus:
+        case BinaryOp::Minus:
+        case BinaryOp::Mul:
+        case BinaryOp::Div:
+            deduceWithConversion();
+            break;
+
+        case BinaryOp::Modulo:
+            if (lhsType->IsIntegral() && rhsType->IsIntegral()) {
+                deduceWithConversion();
+            }
+            break;
+
+        case BinaryOp::Equal:
+        case BinaryOp::NotEqual:
+            if (lhsType->IsEqualComparableTo(rhsType)) {
+                deduceWithConversion();
+                result.deducedType = Type::GetBuiltinType(GlslBuiltinType::Ty_bool);
+            }
+            break;
+
+        case BinaryOp::Less:
+        case BinaryOp::LessEq:
+        case BinaryOp::Greater:
+        case BinaryOp::GreaterEq:
+            if (lhsType->IsOrderingComparableTo(rhsType)) {
+                deduceWithConversion();
+                result.deducedType = Type::GetBuiltinType(GlslBuiltinType::Ty_bool);
+            }
+            break;
+
+        case BinaryOp::BitwiseAnd:
+        case BinaryOp::BitwiseOr:
+        case BinaryOp::BitwiseXor:
+            if (lhsType->IsIntegral() && rhsType->IsIntegral()) {
+                deduceWithConversion();
+            }
+            break;
+
+        case BinaryOp::LogicalAnd:
+        case BinaryOp::LogicalOr:
+        case BinaryOp::LogicalXor:
+            if (lhsType->IsScalarBool() && rhsType->IsScalarBool()) {
+                result.deducedType = Type::GetBuiltinType(GlslBuiltinType::Ty_bool);
+            }
+            break;
+
+        case BinaryOp::ShiftLeft:
+        case BinaryOp::ShiftRight:
+            if (lhsType->IsIntegral() && rhsType->IsIntegral()) {
+                result.deducedType = lhsType;
+            }
+            break;
         }
+
+        return result;
+    }
+
+    // Either:
+    // 1. lhs is scalar, rhs is vector/matrix
+    // 2. lhs is vector/matrix, rhs is scalar
+    static auto DeduceScalarBroadcastBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
+        -> BinaryExprTypeInfo
+    {
+        const Type* scalarType        = lhsType->IsScalar() ? lhsType : rhsType;
+        const Type* compositeType     = lhsType->IsScalar() ? rhsType : lhsType;
+        const Type* compositeElemType = compositeType->GetElementScalarType();
+        GLSLD_ASSERT(compositeType->IsVector() || compositeType->IsMatrix());
+
+        const Type* deducedType          = Type::GetErrorType();
+        const Type* scalarContextType    = scalarType;
+        const Type* compositeContextType = compositeType;
+
+        auto deduceWithElemConversion = [&]() {
+            if (scalarType->IsConvertibleTo(compositeElemType)) {
+                deducedType       = compositeType;
+                scalarContextType = compositeElemType;
+            }
+            else if (compositeElemType->IsConvertibleTo(scalarType)) {
+                // Note conversion on the vector/matrix type is also allowed.
+                auto scalarKind = scalarType->GetScalarDesc()->type;
+                if (auto desc = compositeType->GetVectorDesc()) {
+                    compositeContextType = Type::GetVectorType(scalarKind, desc->vectorSize);
+                }
+                else if (auto desc = compositeType->GetMatrixDesc()) {
+                    compositeContextType = Type::GetMatrixType(scalarKind, desc->dimRow, desc->dimCol);
+                }
+                deducedType = compositeContextType;
+            }
+        };
+
+        switch (op) {
+        case BinaryOp::Comma:
+        case BinaryOp::Assign:
+        case BinaryOp::AddAssign:
+        case BinaryOp::SubAssign:
+        case BinaryOp::MulAssign:
+        case BinaryOp::DivAssign:
+        case BinaryOp::ModAssign:
+        case BinaryOp::LShiftAssign:
+        case BinaryOp::RShiftAssign:
+        case BinaryOp::AndAssign:
+        case BinaryOp::XorAssign:
+        case BinaryOp::OrAssign:
+            GLSLD_ASSERT(false && "Comma/Assignment should have been handled earlier.");
+            break;
+
+        case BinaryOp::Plus:
+        case BinaryOp::Minus:
+        case BinaryOp::Mul:
+        case BinaryOp::Div:
+            deduceWithElemConversion();
+            break;
+
+        case BinaryOp::Modulo:
+            if (scalarType->IsIntegral() && compositeType->IsIntegral() && compositeType->IsVector()) {
+                deduceWithElemConversion();
+            }
+            break;
+
+        case BinaryOp::Equal:
+        case BinaryOp::NotEqual:
+        case BinaryOp::Less:
+        case BinaryOp::LessEq:
+        case BinaryOp::Greater:
+        case BinaryOp::GreaterEq:
+            break;
+
+        case BinaryOp::BitwiseAnd:
+        case BinaryOp::BitwiseOr:
+        case BinaryOp::BitwiseXor:
+            if (scalarType->IsIntegral() && compositeType->IsIntegral() && compositeType->IsVector()) {
+                deduceWithElemConversion();
+            }
+            break;
+
+        case BinaryOp::LogicalAnd:
+        case BinaryOp::LogicalOr:
+        case BinaryOp::LogicalXor:
+            break;
+
+        case BinaryOp::ShiftLeft:
+        case BinaryOp::ShiftRight:
+            if (lhsType->IsVector() && lhsType->IsIntegral() && rhsType->IsScalar() && rhsType->IsIntegral()) {
+                deducedType = compositeType;
+            }
+            break;
+        }
+
+        return BinaryExprTypeInfo{
+            .deducedType    = deducedType,
+            .lhsContextType = lhsType->IsScalar() ? scalarContextType : compositeContextType,
+            .rhsContextType = lhsType->IsScalar() ? compositeContextType : scalarContextType,
+        };
+    }
+
+    // Either:
+    // 1. lhs is matrix, rhs is vector
+    // 2. lhs is vector, rhs is matrix
+    // 3. lhs is matrix, rhs is matrix
+    static auto DeduceMatrixOpBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
+        -> BinaryExprTypeInfo
+    {
+        GLSLD_ASSERT((op != BinaryOp::Comma && !IsAssignmentOp(op)) &&
+                     "Comma/Assignment should have been handled earlier.");
+
+        const Type* deducedType    = Type::GetErrorType();
+        const Type* lhsContextType = lhsType;
+        const Type* rhsContextType = rhsType;
+
+        // FIXME: handle type conversion on element type
+        if (op == BinaryOp::Mul) {
+            auto lhsElemType = lhsType->GetElementScalarType();
+            auto rhsElemType = rhsType->GetElementScalarType();
+            const Type* resultElemType;
+            if (lhsElemType->IsSameWith(rhsElemType)) {
+                resultElemType = lhsElemType;
+            }
+            else if (lhsElemType->IsConvertibleTo(rhsElemType)) {
+                resultElemType = rhsElemType;
+            }
+            else if (rhsElemType->IsConvertibleTo(lhsElemType)) {
+                resultElemType = lhsElemType;
+            }
+            else {
+                GLSLD_UNREACHABLE();
+            }
+
+            ScalarKind resultScalarKind = resultElemType->GetScalarDesc()->type;
+            if (lhsType->IsVector() && rhsType->IsMatrix()) {
+                auto lhsVectorDesc = lhsType->GetVectorDesc();
+                auto rhsMatrixDesc = rhsType->GetMatrixDesc();
+                if (lhsVectorDesc->vectorSize == rhsMatrixDesc->dimCol) {
+                    deducedType = Type::GetVectorType(resultScalarKind, rhsMatrixDesc->dimRow);
+                    if (lhsElemType != resultElemType) {
+                        lhsContextType = Type::GetVectorType(resultScalarKind, lhsVectorDesc->vectorSize);
+                    }
+                    if (rhsElemType != resultElemType) {
+                        rhsContextType =
+                            Type::GetMatrixType(resultScalarKind, rhsMatrixDesc->dimRow, rhsMatrixDesc->dimCol);
+                    }
+                }
+            }
+            else if (lhsType->IsMatrix() && rhsType->IsVector()) {
+                auto lhsMatrixDesc = lhsType->GetMatrixDesc();
+                auto rhsVectorDesc = rhsType->GetVectorDesc();
+                if (lhsMatrixDesc->dimRow == rhsVectorDesc->vectorSize) {
+                    deducedType = Type::GetVectorType(resultScalarKind, lhsMatrixDesc->dimCol);
+                    if (lhsElemType != resultElemType) {
+                        lhsContextType =
+                            Type::GetMatrixType(resultScalarKind, lhsMatrixDesc->dimRow, lhsMatrixDesc->dimCol);
+                    }
+                    if (rhsElemType != resultElemType) {
+                        rhsContextType = Type::GetVectorType(resultScalarKind, rhsVectorDesc->vectorSize);
+                    }
+                }
+            }
+            else if (lhsType->IsMatrix() && rhsType->IsMatrix()) {
+                auto lhsMatrixDesc = lhsType->GetMatrixDesc();
+                auto rhsMatrixDesc = rhsType->GetMatrixDesc();
+                if (lhsMatrixDesc->dimRow == rhsMatrixDesc->dimCol) {
+                    deducedType = Type::GetMatrixType(resultScalarKind, rhsMatrixDesc->dimRow, lhsMatrixDesc->dimCol);
+                    if (lhsElemType != resultElemType) {
+                        lhsContextType =
+                            Type::GetMatrixType(resultScalarKind, lhsMatrixDesc->dimRow, lhsMatrixDesc->dimCol);
+                    }
+                    if (rhsElemType != resultElemType) {
+                        rhsContextType =
+                            Type::GetMatrixType(resultScalarKind, rhsMatrixDesc->dimRow, rhsMatrixDesc->dimCol);
+                    }
+                }
+            }
+            else {
+                GLSLD_ASSERT(false);
+            }
+        }
+
+        return BinaryExprTypeInfo{
+            .deducedType    = deducedType,
+            .lhsContextType = lhsContextType,
+            .rhsContextType = rhsContextType,
+        };
+    }
+
+    static auto DeduceAssignmentBinaryExprType(std::optional<BinaryOp> baseOp, const Type* lhsType, const Type* rhsType)
+        -> BinaryExprTypeInfo
+    {
+        // FIXME: need to review the behavior of this function
+        auto deducedType    = lhsType;
+        auto rhsContextType = rhsType;
+
+        if (baseOp) {
+            auto baseOpTypeInfo = DeduceBinaryExprType(*baseOp, lhsType, rhsType);
+            rhsContextType      = baseOpTypeInfo.rhsContextType;
+        }
+        else if (rhsType->IsConvertibleTo(lhsType)) {
+            rhsContextType = lhsType;
+        }
+
+        return BinaryExprTypeInfo{
+            .deducedType    = deducedType,
+            .lhsContextType = lhsType,
+            .rhsContextType = rhsContextType,
+        };
+    }
+
+    static auto DeduceBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType) -> BinaryExprTypeInfo
+    {
+        const auto defaultResult = BinaryExprTypeInfo{
+            .deducedType    = Type::GetErrorType(),
+            .lhsContextType = lhsType,
+            .rhsContextType = rhsType,
+        };
+
+        switch (op) {
+        case BinaryOp::Comma:
+            return BinaryExprTypeInfo{
+                .deducedType    = rhsType,
+                .lhsContextType = lhsType,
+                .rhsContextType = rhsType,
+            };
+            break;
+        case BinaryOp::Assign:
+            return DeduceAssignmentBinaryExprType(std::nullopt, lhsType, rhsType);
+        case BinaryOp::MulAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::Mul, lhsType, rhsType);
+        case BinaryOp::DivAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::Div, lhsType, rhsType);
+        case BinaryOp::ModAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::Modulo, lhsType, rhsType);
+        case BinaryOp::AddAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::Plus, lhsType, rhsType);
+        case BinaryOp::SubAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::Minus, lhsType, rhsType);
+        case BinaryOp::LShiftAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::ShiftLeft, lhsType, rhsType);
+        case BinaryOp::RShiftAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::ShiftRight, lhsType, rhsType);
+        case BinaryOp::AndAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::BitwiseAnd, lhsType, rhsType);
+        case BinaryOp::XorAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::BitwiseXor, lhsType, rhsType);
+        case BinaryOp::OrAssign:
+            return DeduceAssignmentBinaryExprType(BinaryOp::BitwiseOr, lhsType, rhsType);
+
+        default:
+            if (lhsType->IsError() || rhsType->IsError()) {
+                return defaultResult;
+            }
+
+            if (lhsType->IsScalar()) {
+                if (rhsType->IsScalar()) {
+                    return DeduceComponentWiseBinaryExprType(op, lhsType, rhsType);
+                }
+                else if (rhsType->IsVector() || rhsType->IsMatrix()) {
+                    return DeduceScalarBroadcastBinaryExprType(op, lhsType, rhsType);
+                }
+            }
+            else if (rhsType->IsScalar()) {
+                GLSLD_ASSERT(!lhsType->IsScalar());
+                if (lhsType->IsVector() || lhsType->IsMatrix()) {
+                    return DeduceScalarBroadcastBinaryExprType(op, lhsType, rhsType);
+                }
+            }
+            else if (lhsType->IsVector()) {
+                if (rhsType->IsVector()) {
+                    return DeduceComponentWiseBinaryExprType(op, lhsType, rhsType);
+                }
+                else if (rhsType->IsMatrix()) {
+                    return DeduceMatrixOpBinaryExprType(op, lhsType, rhsType);
+                }
+            }
+            else if (rhsType->IsVector()) {
+                GLSLD_ASSERT(!lhsType->IsVector());
+                if (lhsType->IsMatrix()) {
+                    return DeduceMatrixOpBinaryExprType(op, lhsType, rhsType);
+                }
+            }
+            else if (lhsType->IsMatrix() && rhsType->IsMatrix()) {
+                return DeduceMatrixOpBinaryExprType(op, lhsType, rhsType);
+            }
+
+            break;
+        }
+
+        return defaultResult;
     }
 
     auto AstBuilder::BuildBinaryExpr(AstSyntaxRange range, AstExpr* lhs, AstExpr* rhs, BinaryOp opcode)
         -> AstBinaryExpr*
     {
-        auto result = CreateAstNode<AstBinaryExpr>(range, lhs, rhs, opcode);
+        bool isConst      = false;
+        auto exprTypeInfo = DeduceBinaryExprType(opcode, lhs->GetDeducedType(), rhs->GetDeducedType());
 
-        result->SetConst(false);
-        result->SetDeducedType(DeduceBinaryExprType(opcode, lhs->GetDeducedType(), rhs->GetDeducedType()));
-
-        if (!result->GetDeducedType()->IsError()) {
-            if (lhs->IsConst() && rhs->IsConst() && !(opcode == BinaryOp::Comma || IsAssignmentOp(opcode))) {
-                result->SetConst(true);
-            }
+        if (!exprTypeInfo.deducedType->IsError() && lhs->IsConst() && rhs->IsConst()) {
+            // Comma and assignment operators are not const
+            isConst = opcode != BinaryOp::Comma && !IsAssignmentOp(opcode);
         }
+
+        lhs = TryMakeImplicitCast(lhs, exprTypeInfo.lhsContextType);
+        rhs = TryMakeImplicitCast(rhs, exprTypeInfo.rhsContextType);
+
+        // FIXME: implicit cast
+        auto result = CreateAstNode<AstBinaryExpr>(range, lhs, rhs, opcode);
+        result->SetConst(isConst);
+        result->SetDeducedType(exprTypeInfo.deducedType);
         return result;
     }
 
     auto AstBuilder::BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr, AstExpr* falseExpr)
         -> AstSelectExpr*
     {
-        auto result = CreateAstNode<AstSelectExpr>(range, condExpr, trueExpr, falseExpr);
+        bool isConst            = false;
+        const Type* deducedType = Type::GetErrorType();
 
-        result->SetConst(condExpr->IsConst() && trueExpr->IsConst() && falseExpr->IsConst());
-        if (trueExpr->GetDeducedType()->IsSameWith(falseExpr->GetDeducedType())) {
-            result->SetDeducedType(trueExpr->GetDeducedType());
+        if (trueExpr->GetDeducedType()->IsError() || falseExpr->GetDeducedType()->IsError()) {
+            deducedType = Type::GetErrorType();
         }
-        else {
-            result->SetDeducedType(Type::GetErrorType());
+        else if (trueExpr->GetDeducedType()->IsSameWith(falseExpr->GetDeducedType())) {
+            deducedType = trueExpr->GetDeducedType();
         }
+        else if (trueExpr->GetDeducedType()->IsConvertibleTo(falseExpr->GetDeducedType())) {
+            deducedType = falseExpr->GetDeducedType();
+            trueExpr    = TryMakeImplicitCast(trueExpr, deducedType);
+        }
+        else if (falseExpr->GetDeducedType()->IsConvertibleTo(trueExpr->GetDeducedType())) {
+            deducedType = trueExpr->GetDeducedType();
+            falseExpr   = TryMakeImplicitCast(falseExpr, deducedType);
+        }
+
+        if (!deducedType->IsError() && condExpr->IsConst() && trueExpr->IsConst() && falseExpr->IsConst()) {
+            isConst = true;
+        }
+
+        auto result = CreateAstNode<AstSelectExpr>(range, condExpr, trueExpr, falseExpr);
+        result->SetConst(isConst);
+        result->SetDeducedType(deducedType);
+        return result;
+    }
+
+    auto AstBuilder::BuildImplicitCastExpr(AstSyntaxRange range, AstExpr* expr, const Type* castType)
+        -> AstImplicitCastExpr*
+    {
+        auto result = CreateAstNode<AstImplicitCastExpr>(range, expr);
+        result->SetConst(expr->IsConst());
+        result->SetDeducedType(castType);
         return result;
     }
 
     auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
         -> AstFunctionCallExpr*
     {
-        // FIXME: do we need fix up AST for constructor call?
-        auto result = CreateAstNode<AstFunctionCallExpr>(range, functionName, std::move(args));
-
-        // Set a good default since the logic is complicated.
-        result->SetConst(false);
-        result->SetDeducedType(Type::GetErrorType());
-        result->SetResolvedFunction(nullptr);
+        bool isConst                            = false;
+        const Type* deducedType                 = Type::GetErrorType();
+        const AstFunctionDecl* resolvedFunction = nullptr;
 
         if (functionName.IsIdentifier()) {
             std::vector<const Type*> argTypes;
-            for (auto arg : result->GetArgs()) {
+            for (auto arg : args) {
                 argTypes.push_back(arg->GetDeducedType());
             }
 
-            // TODO: if the function name could uniquely identify a function, we can skip overload resolution
-            //       this could help make the resolution more resilient to errors while typing
-            auto function = symbolTable.FindFunction(functionName.text.Str(), argTypes);
-            if (function) {
-                result->SetResolvedFunction(function);
-                result->SetDeducedType(function->GetReturnType()->GetResolvedType());
-                // TODO: result of some function call can be const
-                result->SetConst(false);
+            if (auto function = symbolTable.FindFunction(functionName.text.StrView(), argTypes)) {
+                // FIXME: result of some function call can be const
+                isConst          = false;
+                deducedType      = function->GetReturnType()->GetResolvedType();
+                resolvedFunction = function;
+
+                for (size_t i = 0; i < args.size(); ++i) {
+                    // Construct implicit cast if needed
+                    args[i] = TryMakeImplicitCast(args[i], function->GetParams()[i]->GetResolvedType());
+                }
             }
         }
 
+        auto result = CreateAstNode<AstFunctionCallExpr>(range, functionName, std::move(args));
+        result->SetConst(isConst);
+        result->SetDeducedType(deducedType);
+        result->SetResolvedFunction(resolvedFunction);
         return result;
     }
 
     auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
         -> AstConstructorCallExpr*
     {
-        auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, std::move(args));
+        bool isConst = true;
+        for (auto arg : args) {
+            if (!arg->IsConst()) {
+                isConst = false;
+                break;
+            }
+        }
 
-        // FIXME: implement this.
-        result->SetConst(false);
+        // FIXME: implicit cast
+        auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, std::move(args));
+        result->SetConst(isConst);
         result->SetDeducedType(qualType->GetResolvedType());
         return result;
     }
@@ -554,6 +990,9 @@ namespace glsld
 
     auto AstBuilder::BuildReturnStmt(AstSyntaxRange range, AstExpr* expr) -> AstReturnStmt*
     {
+        if (expr && returnType && expr->GetDeducedType()->IsConvertibleTo(returnType)) {
+            expr = TryMakeImplicitCast(expr, returnType);
+        }
         return CreateAstNode<AstReturnStmt>(range, expr);
     }
 #pragma endregion
@@ -570,38 +1009,68 @@ namespace glsld
         return CreateAstNode<AstEmptyDecl>(range);
     }
 
-    auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType,
-                                       std::vector<VariableDeclarator> declarators) -> AstVariableDecl*
+    static auto ComputeDeclaratorTypes(TypeContext& typeContext, AstQualType* qualType,
+                                       ArrayView<Declarator> declarators)
     {
-        auto result = CreateAstNode<AstVariableDecl>(range, qualType, std::move(declarators));
-
-        std::vector<const Type*> variableTypes;
-        for (const auto& declarator : result->GetDeclarators()) {
-            variableTypes.push_back(
-                compilerObject.GetTypeContext().GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
+        std::vector<const Type*> types;
+        for (const auto& declarator : declarators) {
+            types.push_back(typeContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
         }
-        result->SetResolvedTypes(std::move(variableTypes));
+        return types;
+    }
 
+    auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+        -> AstVariableDecl*
+    {
+        auto resolvedTypes = ComputeDeclaratorTypes(compilerObject.GetTypeContext(), qualType, declarators);
+
+        for (size_t i = 0; i < declarators.size(); ++i) {
+            auto& declarator = declarators[i];
+            if (declarator.initializer && declarator.initializer->Is<AstExpr>() && !resolvedTypes[i]->IsError()) {
+                // TODO: avoid const_cast
+                auto initExpr = const_cast<AstExpr*>(declarator.initializer->As<AstExpr>());
+                GLSLD_ASSERT(initExpr);
+
+                declarator.initializer = TryMakeImplicitCast(initExpr, resolvedTypes[i]);
+            }
+        }
+
+        auto result = CreateAstNode<AstVariableDecl>(range, qualType, std::move(declarators));
+        result->SetResolvedTypes(resolvedTypes);
         symbolTable.GetCurrentLevel()->AddVariableDecl(*result);
         return result;
     }
 
+    auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+        -> AstFieldDecl*
+    {
+        auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetTypeContext(), qualType, declarators);
+
+        // Note for an AstFieldDecl, initializer is not allowed.
+
+        auto result = CreateAstNode<AstFieldDecl>(range, qualType, std::move(declarators));
+        result->SetResolvedTypes(resolvedType);
+        return result;
+    }
+
     auto AstBuilder::BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
-                                     std::vector<AstVariableDecl*> members) -> AstStructDecl*
+                                     std::vector<AstFieldDecl*> members) -> AstStructDecl*
     {
         auto result = CreateAstNode<AstStructDecl>(range, declTok, std::move(members));
 
+        result->SetScope(symbolTable.GetCurrentLevel()->GetScope());
         result->SetDeclaredType(compilerObject.GetTypeContext().CreateStructType(*result));
 
         symbolTable.GetCurrentLevel()->AddStructDecl(*result);
         return result;
     }
 
-    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, VariableDeclarator declarator)
-        -> AstParamDecl*
+    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, Declarator declarator) -> AstParamDecl*
     {
+        GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsFunctionScope());
         auto result = CreateAstNode<AstParamDecl>(range, qualType, declarator);
 
+        result->SetScope(DeclScope::Function);
         result->SetResolvedType(
             compilerObject.GetTypeContext().GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
 
@@ -611,20 +1080,26 @@ namespace glsld
     auto AstBuilder::BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, SyntaxToken declTok,
                                        std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*
     {
+        // FIXME: don't build AST for local function decl?
+        // GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
         auto result = CreateAstNode<AstFunctionDecl>(range, returnType, declTok, std::move(params), body);
+
+        result->SetScope(DeclScope::Global);
 
         symbolTable.GetCurrentLevel()->AddFunctionDecl(*result);
         return result;
     }
 
     auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, SyntaxToken declTok,
-                                             std::vector<AstVariableDecl*> members,
-                                             std::optional<VariableDeclarator> declarator) -> AstInterfaceBlockDecl*
+                                             std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
+        -> AstInterfaceBlockDecl*
     {
+        GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
         auto result =
             CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, std::move(members), std::move(declarator));
 
         auto blockType = compilerObject.GetTypeContext().CreateInterfaceBlockType(*result);
+        result->SetScope(DeclScope::Global);
         result->SetResolvedBlockType(blockType);
         if (declarator) {
             result->SetResolvedInstanceType(

@@ -7,6 +7,7 @@
 
 namespace glsld
 {
+    // Dispatch the given AST node to its real type and invoke the given function with the node as the first argument.
     template <typename F, typename... Args>
     auto InvokeAstDispatched(AstNode& node, F&& f, Args&&... args) -> decltype(auto)
     {
@@ -25,6 +26,7 @@ namespace glsld
         }
     }
 
+    // Dispatch the given AST node to its real type and invoke the given function with the node as the first argument.
     template <typename F, typename... Args>
     auto InvokeAstDispatched(const AstNode& node, F&& f, Args&&... args) -> decltype(auto)
     {

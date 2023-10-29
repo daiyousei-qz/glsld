@@ -83,7 +83,7 @@ namespace glsld
 
         auto VisitAstStructDecl(AstStructDecl& decl) -> void
         {
-            if (decl.GetDeclToken() && GetProvider().ContainsPositionExtended(*decl.GetDeclToken(), cursorPosition)) {
+            if (decl.GetDeclTok() && GetProvider().ContainsPositionExtended(*decl.GetDeclTok(), cursorPosition)) {
                 inDeclarator = true;
             }
 
@@ -121,7 +121,7 @@ namespace glsld
         }
 
     private:
-        auto TestDeclarator(const VariableDeclarator& declarator) -> void
+        auto TestDeclarator(const Declarator& declarator) -> void
         {
             if (GetProvider().ContainsPositionExtended(declarator.declTok, cursorPosition)) {
                 inDeclarator = true;
@@ -154,8 +154,8 @@ namespace glsld
             }
 
             if (auto structDecl = varDecl->GetType()->GetStructDecl(); structDecl) {
-                if (structDecl->GetDeclToken()) {
-                    callback(*structDecl->GetDeclToken(), lsp::CompletionItemKind::Struct);
+                if (structDecl->GetDeclTok()) {
+                    callback(*structDecl->GetDeclTok(), lsp::CompletionItemKind::Struct);
                 }
             }
         }

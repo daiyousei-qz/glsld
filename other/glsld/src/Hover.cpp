@@ -12,8 +12,6 @@ namespace glsld
         std::string description;
         std::string documentation;
         std::string code;
-
-        // We can't resolve the AST node that declares the symbol.
         bool unknown = false;
     };
 
@@ -48,8 +46,6 @@ namespace glsld
         case SymbolAccessType::Type:
             builder.Append("Type");
             break;
-        case SymbolAccessType::InterfaceBlockType:
-            builder.Append("Interface Block Type");
         case SymbolAccessType::InterfaceBlock:
             builder.Append("Interface Block");
             break;
@@ -130,15 +126,15 @@ namespace glsld
                 .code        = std::move(codeBuffer),
             };
         }
-        // else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
-        //     ReconstructSourceText(codeBuffer, *memberDecl, declView.GetIndex());
-        //     return HoverContent{
-        //         .type        = SymbolAccessType::MemberVariable,
-        //         .name        = hoverId.Str(),
-        //         .description = std::move(descriptionBuffer),
-        //         .code        = std::move(codeBuffer),
-        //     };
-        // }
+        else if (auto memberDecl = decl.As<AstStructMemberDecl>()) {
+            ReconstructSourceText(codeBuffer, *memberDecl, declView.GetIndex());
+            return HoverContent{
+                .type        = SymbolAccessType::MemberVariable,
+                .name        = hoverId.Str(),
+                .description = std::move(descriptionBuffer),
+                .code        = std::move(codeBuffer),
+            };
+        }
         else if (auto structDecl = decl.As<AstStructDecl>()) {
             ReconstructSourceText(codeBuffer, *structDecl);
             return HoverContent{

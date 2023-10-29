@@ -43,36 +43,36 @@ namespace glsld
                                 .openClose = true,
                                 .change    = lsp::TextDocumentSyncKind::Incremental,
                             },
-                        // .completionProvider =
-                        //     lsp::CompletionOptions{
-                        //         // FIXME: this is a MSVC ICE workaround
-                        //         .triggerCharacters   = std::move(completionTriggerCharacters),
-                        //         .allCommitCharacters = {},
-                        //         .resolveProvider     = false,
-                        //     },
-                        // .hoverProvider = true,
-                        // .signatureHelpProvider =
-                        //     lsp::SignatureHelpOptions{
-                        //         // FIXME: this is a MSVC ICE workaround
-                        //         .triggerCharacters = std::move(signatureHelpTriggerCharacters),
-                        //     },
-                        // .declarationProvider    = true,
-                        // .definitionProvider     = true,
-                        // .referenceProvider      = true,
-                        // .documentSymbolProvider = true,
-                        // .semanticTokensProvider =
-                        //     lsp::SemanticTokenOptions{
-                        //         .legend = GetTokenLegend(),
-                        //         .range  = false,
-                        //         .full   = true,
-                        //         .delta  = false,
-                        //     },
-                        // .inlayHintProvider =
-                        //     lsp::InlayHintOptions{
-                        //         .resolveProvider = false,
-                        //     },
-                        // .colorProvider  = false,
-                        // .renameProvider = std::nullopt,
+                        .completionProvider =
+                            lsp::CompletionOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters   = std::move(completionTriggerCharacters),
+                                .allCommitCharacters = {},
+                                .resolveProvider     = false,
+                            },
+                        .hoverProvider = true,
+                        .signatureHelpProvider =
+                            lsp::SignatureHelpOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters = std::move(signatureHelpTriggerCharacters),
+                            },
+                        .declarationProvider    = true,
+                        .definitionProvider     = true,
+                        .referenceProvider      = true,
+                        .documentSymbolProvider = true,
+                        .semanticTokensProvider =
+                            lsp::SemanticTokenOptions{
+                                .legend = GetTokenLegend(),
+                                .range  = false,
+                                .full   = true,
+                                .delta  = false,
+                            },
+                        .inlayHintProvider =
+                            lsp::InlayHintOptions{
+                                .resolveProvider = false,
+                            },
+                        .colorProvider  = false,
+                        .renameProvider = std::nullopt,
                     },
                 .serverInfo =
                     {

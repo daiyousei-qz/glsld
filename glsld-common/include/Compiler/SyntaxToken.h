@@ -14,7 +14,8 @@ namespace glsld
 {
     enum class TokenKlass
     {
-        Error,
+        Invalid,
+        Unknown,
         Eof,
         // Line and block comments
         Comment,
@@ -44,8 +45,10 @@ namespace glsld
 #define STRINGIZE(X) #X
 
         switch (klass) {
-        case TokenKlass::Error:
-            return "Error";
+        case TokenKlass::Invalid:
+            return "Invalid";
+        case TokenKlass::Unknown:
+            return "Unknown";
         case TokenKlass::Eof:
             return "Eof";
         case TokenKlass::Comment:
@@ -185,16 +188,16 @@ namespace glsld
     struct SyntaxToken
     {
         SyntaxTokenIndex index = InvalidTokenIndex;
-        TokenKlass klass       = TokenKlass::Error;
+        TokenKlass klass       = TokenKlass::Invalid;
         AtomString text        = {};
 
         auto IsValid() const -> bool
         {
             return index != InvalidTokenIndex;
         }
-        auto IsError() const -> bool
+        auto IsUnknown() const -> bool
         {
-            return klass == TokenKlass::Error;
+            return klass == TokenKlass::Unknown;
         }
         auto IsIdentifier() const -> bool
         {
@@ -214,7 +217,8 @@ namespace glsld
         // The source file id that the token is spelled.
         FileID spelledFile;
 
-        // The text range in which the token is spelled. If the token isn't directly spelled, this is an empty range.
+        // The text range in which the token is spelled. If the token isn't directly spelled but created by macro
+        // expansion, this is an empty range.
         TextRange spelledRange;
 
         // The text range in which the token expanded into the main file.

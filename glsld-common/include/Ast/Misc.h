@@ -23,7 +23,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto decl : globalDecls) {
                 if (!visitor.Traverse(*decl)) {
@@ -35,7 +35,7 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             for (auto decl : globalDecls) {
                 d.DumpChildNode("Decl", *decl);
@@ -63,7 +63,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto expr : sizes) {
                 if (expr && !visitor.Traverse(*expr)) {
@@ -75,7 +75,7 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             for (auto expr : sizes) {
                 if (expr) {
@@ -122,7 +122,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (const auto& layoutItem : layoutQuals) {
                 if (layoutItem.value && !visitor.Traverse(*layoutItem.value)) {
@@ -134,7 +134,7 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             d.DumpAttribute("QualGroup", "FIXME");
             for (const auto& layoutItem : layoutQuals) {
@@ -213,7 +213,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (qualifiers && !visitor.Traverse(*qualifiers)) {
                 return false;
@@ -229,7 +229,7 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             if (qualifiers) {
                 d.DumpChildNode("Qualifiers", *qualifiers);
@@ -238,7 +238,7 @@ namespace glsld
                 d.DumpChildNode("StructDecl", *structDecl);
             }
             else {
-                d.DumpAttribute("TypeName", !typeName.IsError() ? typeName.text.StrView() : "<Error>");
+                d.DumpAttribute("TypeName", !typeName.IsUnknown() ? typeName.text.StrView() : "<Error>");
             }
             if (arraySpec) {
                 d.DumpChildNode("ArraySpec", *arraySpec);

@@ -14,7 +14,7 @@ namespace glsld
         AstStmt() = default;
 
         template <AstDumperT Dumper>
-        auto DumpPayload(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
         }
     };
@@ -27,15 +27,15 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
         }
     };
 
@@ -47,15 +47,15 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
         }
     };
 
@@ -75,7 +75,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto stmt : children) {
                 if (!visitor.Traverse(*stmt)) {
@@ -85,9 +85,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             for (auto stmt : children) {
                 d.DumpChildNode("Stmt", *stmt);
             }
@@ -110,15 +110,15 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*expr);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Expr", *expr);
         }
     };
@@ -139,15 +139,15 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*decl);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Decl", *decl);
         }
     };
@@ -179,7 +179,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*condition)) {
                 return false;
@@ -195,9 +195,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Condition", *condition);
             d.DumpChildNode("Then", *thenStmt);
             if (elseStmt) {
@@ -238,7 +238,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*init)) {
                 return false;
@@ -257,9 +257,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Init", *init);
             if (condition) {
                 d.DumpChildNode("Condition", *condition);
@@ -292,7 +292,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*condition)) {
                 return false;
@@ -305,9 +305,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Condition", *condition);
             d.DumpChildNode("Body", *body);
         }
@@ -334,7 +334,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*condition)) {
                 return false;
@@ -347,9 +347,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("Condition", *condition);
             d.DumpChildNode("Body", *body);
         }
@@ -375,7 +375,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (caseExpr && !visitor.Traverse(*caseExpr)) {
                 return false;
@@ -385,9 +385,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             if (caseExpr) {
                 d.DumpAttribute("Kind", "CaseLabel");
                 d.DumpChildNode("CaseExpr", *caseExpr);
@@ -419,7 +419,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*testExpr)) {
                 return false;
@@ -432,9 +432,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpChildNode("TestExpr", *testExpr);
             d.DumpChildNode("Body", *body);
         }
@@ -451,15 +451,15 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             d.DumpAttribute("JumpType", JumpTypeToString(jumpType));
         }
     };
@@ -480,7 +480,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (expr && !visitor.Traverse(*expr)) {
                 return false;
@@ -490,9 +490,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstStmt::DumpPayload(d);
+            AstStmt::DoDump(d);
             if (expr) {
                 d.DumpChildNode("Expr", *expr);
             }

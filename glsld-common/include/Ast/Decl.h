@@ -17,23 +17,30 @@ namespace glsld
     class AstDecl : public AstNode
     {
     private:
-        // DeclScope scope = DeclScope::Global;
+        DeclScope scope = DeclScope::Global;
 
     protected:
         AstDecl() = default;
 
-        // auto SetScope(DeclScope scope) noexcept -> void
-        // {
-        //     this->scope = scope;
-        // }
-        // auto GetScope() const noexcept -> DeclScope
-        // {
-        //     return scope;
-        // }
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return true;
+        }
 
         template <AstDumperT Dumper>
-        auto DumpPayload(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
+        }
+
+    public:
+        auto SetScope(DeclScope scope) noexcept -> void
+        {
+            this->scope = scope;
+        }
+        auto GetScope() const noexcept -> DeclScope
+        {
+            return scope;
         }
     };
 
@@ -43,50 +50,52 @@ namespace glsld
         AstErrorDecl() = default;
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return true;
+            return AstDecl::DoTraverse(visitor);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
         }
     };
 
+    // Represents an empty declaration, such as a semicolon in the global scope.
     class AstEmptyDecl final : public AstDecl
     {
     public:
         AstEmptyDecl() = default;
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return true;
+            return AstDecl::DoTraverse(visitor);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
         }
     };
 
-    struct VariableDeclarator
+    // Represents a single declarator, including name, array specifier and initializer.
+    struct Declarator
     {
         // The identifier token that defines the symbol name
         // Maybe an error token, which means the declarator is invalid.
         SyntaxToken declTok = {};
 
-        // Array specifier
+        // Array specifier. May be nullptr if none is specified.
         const AstArraySpec* arraySize = nullptr;
 
-        // Initializer
+        // Initializer. May be nullptr if none is specified.
         const AstInitializer* initializer = nullptr;
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
             if (arraySize) {
@@ -98,45 +107,27 @@ namespace glsld
         }
     };
 
-    class AstVariableDecl final : public AstDecl
+    // Base class for all declarations that consist of a qualified type and a list of declarators.
+    class AstDeclaratorDecl : public AstDecl
     {
     private:
-        AstQualType* qualType;
-        std::vector<VariableDeclarator> declarators;
+        // [Node]
+        NotNull<AstQualType*> qualType;
+
+        // [Node]
+        std::vector<Declarator> declarators;
 
         // [Payload]
         std::vector<const Type*> resolvedTypes;
 
-    public:
-        AstVariableDecl(AstQualType* type) : qualType(type)
-        {
-            // Yes, a variable decl could declare no variable
-        }
-        AstVariableDecl(AstQualType* type, std::vector<VariableDeclarator> declarators)
+    protected:
+        AstDeclaratorDecl(AstQualType* type, std::vector<Declarator> declarators)
             : qualType(type), declarators(std::move(declarators))
         {
         }
 
-        auto GetQualType() const noexcept -> const AstQualType*
-        {
-            return qualType;
-        }
-        auto GetDeclarators() const noexcept -> ArrayView<VariableDeclarator>
-        {
-            return declarators;
-        }
-
-        auto SetResolvedTypes(std::vector<const Type*> types) -> void
-        {
-            this->resolvedTypes = std::move(types);
-        }
-        auto GetResolvedTypes() const noexcept -> ArrayView<const Type*>
-        {
-            return resolvedTypes;
-        }
-
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(qualType)) {
                 return false;
@@ -155,16 +146,80 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
             d.DumpChildNode("QualType", *qualType);
             for (const auto& declarator : declarators) {
-                d.DumpChildItem("Declarator", [&](Dumper& d) { declarator.Dump(d); });
+                d.DumpChildItem("Declarator", [&](Dumper& d) { declarator.DoDump(d); });
             }
+        }
+
+    public:
+        auto GetQualType() const noexcept -> const AstQualType*
+        {
+            return qualType;
+        }
+        auto GetDeclarators() const noexcept -> ArrayView<Declarator>
+        {
+            return declarators;
+        }
+
+        auto SetResolvedTypes(std::vector<const Type*> types) -> void
+        {
+            this->resolvedTypes = std::move(types);
+        }
+        auto GetResolvedTypes() const noexcept -> ArrayView<const Type*>
+        {
+            return resolvedTypes;
         }
     };
 
+    // Represents a declaration of variables.
+    class AstVariableDecl final : public AstDeclaratorDecl
+    {
+    public:
+        AstVariableDecl(AstQualType* type, std::vector<Declarator> declarators)
+            : AstDeclaratorDecl(type, std::move(declarators))
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return AstDeclaratorDecl::DoTraverse(visitor);
+        }
+
+        template <AstDumperT Dumper>
+        auto DoDump(Dumper& d) const -> void
+        {
+            AstDeclaratorDecl::DoDump(d);
+        }
+    };
+
+    // Represents a declaration of a struct member.
+    class AstFieldDecl final : public AstDeclaratorDecl
+    {
+    public:
+        AstFieldDecl(AstQualType* type, std::vector<Declarator> declarators)
+            : AstDeclaratorDecl(type, std::move(declarators))
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return AstDeclaratorDecl::DoTraverse(visitor);
+        }
+
+        template <AstDumperT Dumper>
+        auto DoDump(Dumper& d) const -> void
+        {
+            AstDeclaratorDecl::DoDump(d);
+        }
+    };
+
+    // Represents a declaration of a struct, .e.g `struct S { ... };`
     class AstStructDecl final : public AstDecl
     {
     private:
@@ -172,13 +227,13 @@ namespace glsld
         std::optional<SyntaxToken> declTok;
 
         // [Node]
-        std::vector<AstVariableDecl*> members;
+        std::vector<AstFieldDecl*> members;
 
         // [Payload]
         const Type* declaredType = nullptr;
 
     public:
-        AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstVariableDecl*> members)
+        AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstFieldDecl*> members)
             : declTok(declTok), members(std::move(members))
         {
         }
@@ -187,7 +242,7 @@ namespace glsld
         {
             return declTok;
         }
-        auto GetMembers() const noexcept -> ArrayView<const AstVariableDecl*>
+        auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
         {
             return members;
         }
@@ -202,8 +257,11 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
             for (auto member : members) {
                 if (!visitor.Traverse(*member)) {
                     return false;
@@ -214,29 +272,30 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
             if (declTok) {
                 d.DumpAttribute("DeclToken", declTok->IsIdentifier() ? declTok->text.StrView() : "<Error>");
             }
             for (const auto& member : members) {
-                d.DumpChildItem("Member", [&](Dumper& d) { member->Dump(d); });
+                d.DumpChildItem("Member", [&](Dumper& d) { member->DoDump(d); });
             }
             d.DumpAttribute("DeclaredType", declaredType->GetDebugName());
         }
     };
 
+    // Represents a declaration of a function parameter, e.g. `int x` in `void foo(int x) { ... }`.
     class AstParamDecl final : public AstDecl
     {
     private:
         AstQualType* qualType;
-        VariableDeclarator declarator;
+        Declarator declarator;
 
         const Type* resolvedType = nullptr;
 
     public:
-        AstParamDecl(AstQualType* type, VariableDeclarator declarator) : qualType(type), declarator(declarator)
+        AstParamDecl(AstQualType* type, Declarator declarator) : qualType(type), declarator(declarator)
         {
         }
 
@@ -244,7 +303,7 @@ namespace glsld
         {
             return qualType;
         }
-        auto GetDeclarator() const noexcept -> const VariableDeclarator&
+        auto GetDeclarator() const noexcept -> const Declarator&
         {
             return declarator;
         }
@@ -259,8 +318,11 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
             if (!visitor.Traverse(qualType)) {
                 return false;
             }
@@ -275,15 +337,16 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
             d.DumpChildNode("QualType", *qualType);
-            declarator.Dump(d);
+            declarator.DoDump(d);
             d.DumpAttribute("ResolvedType", resolvedType->GetDebugName());
         }
     };
 
+    // Represents a declaration of a function, e.g. `void foo(int x) { ... }`.
     class AstFunctionDecl final : public AstDecl
     {
     private:
@@ -316,8 +379,11 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
             if (!visitor.Traverse(*returnType)) {
                 return false;
             }
@@ -334,9 +400,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
             d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
 
             d.DumpChildNode("ReturnType", *returnType);
@@ -354,8 +420,8 @@ namespace glsld
     private:
         NotNull<AstTypeQualifierSeq*> quals;
         SyntaxToken declTok;
-        std::vector</*NotNull*/ AstVariableDecl*> members;
-        std::optional<VariableDeclarator> declarator;
+        std::vector</*NotNull*/ AstFieldDecl*> members;
+        std::optional<Declarator> declarator;
 
         // Payload:
         const Type* resolvedBlockType = nullptr;
@@ -364,8 +430,8 @@ namespace glsld
         const Type* resolvedInstanceType = nullptr;
 
     public:
-        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok, std::vector<AstVariableDecl*> members,
-                              std::optional<VariableDeclarator> declarator)
+        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok, std::vector<AstFieldDecl*> members,
+                              std::optional<Declarator> declarator)
             : quals(quals), declTok(declTok), members(std::move(members)), declarator(declarator)
         {
         }
@@ -378,11 +444,11 @@ namespace glsld
         {
             return declTok;
         }
-        auto GetMembers() const noexcept -> ArrayView<const AstVariableDecl*>
+        auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
         {
             return members;
         }
-        auto GetDeclarator() const noexcept -> std::optional<VariableDeclarator>
+        auto GetDeclarator() const noexcept -> std::optional<Declarator>
         {
             return declarator;
         }
@@ -405,8 +471,11 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
             if (quals && !visitor.Traverse(quals)) {
                 return false;
             }
@@ -428,9 +497,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstDecl::DumpPayload(d);
+            AstDecl::DoDump(d);
             d.DumpAttribute("ResolvedBlockType", resolvedBlockType->GetDebugName());
             if (declarator) {
                 d.DumpAttribute("ResolvedInstanceType", resolvedInstanceType->GetDebugName());
@@ -443,7 +512,7 @@ namespace glsld
                 d.DumpChildNode("Member", *member);
             }
             if (declarator) {
-                d.DumpChildItem("InstanceDeclarator", [&](Dumper& d) { declarator->Dump(d); });
+                d.DumpChildItem("InstanceDeclarator", [&](Dumper& d) { declarator->DoDump(d); });
             }
         }
     };

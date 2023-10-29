@@ -14,7 +14,7 @@ namespace glsld
     {
     public:
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
         }
 
@@ -32,7 +32,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto stmt : children) {
                 visitor.Traverse(*stmt);
@@ -55,7 +55,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*expr);
         }
@@ -77,7 +77,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*decl);
         }
@@ -116,7 +116,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*initClause);
             visitor.Traverse(condExpr);
@@ -152,7 +152,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*predicate);
             visitor.Traverse(*loopBody);
@@ -184,7 +184,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*predicate);
             visitor.Traverse(*loopBody);
@@ -224,7 +224,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*predicate);
             visitor.Traverse(*ifBranch);
@@ -256,7 +256,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(caseExpr);
         }
@@ -278,7 +278,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(*expr);
             visitor.Traverse(*body);
@@ -301,7 +301,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
         }
 
@@ -331,7 +331,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(returnValue);
         }

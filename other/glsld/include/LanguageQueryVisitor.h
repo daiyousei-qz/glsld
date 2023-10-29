@@ -22,9 +22,11 @@ namespace glsld
         }
 
     protected:
-        auto TraverseTranslationUnit() -> void
+        auto TraverseAllGlobalDecl() -> void
         {
-            this->Traverse(provider.GetAstContext().GetTranslationUnit());
+            for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {
+                this->Traverse(*decl);
+            }
         }
 
         auto TraverseGlobalDeclUntil(TextPosition position)

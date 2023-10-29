@@ -21,7 +21,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto expr : sizes) {
                 visitor.Traverse(expr);
@@ -62,7 +62,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
         }
 
@@ -107,7 +107,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             // FIXME: how to traverse expressions in the layout qualifier?
             visitor.Traverse(qualifiers);

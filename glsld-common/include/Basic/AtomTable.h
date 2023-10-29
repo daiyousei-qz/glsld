@@ -66,6 +66,22 @@ namespace glsld
 
     class AtomTable
     {
+    private:
+        struct BufferPage
+        {
+            char* bufferBegin;
+            char* bufferEnd;
+            char* bufferCursor;
+        };
+
+        static constexpr size_t BufferPageSize           = 4096;
+        static constexpr size_t LargeStringThresholdSize = 64;
+
+        std::vector<BufferPage> pagedBuffers;
+        std::vector<char*> largeBuffers;
+
+        std::unordered_map<StringView, AtomString> atomLookup;
+
     public:
         AtomTable() = default;
         ~AtomTable()
@@ -111,16 +127,6 @@ namespace glsld
         }
 
     private:
-        struct BufferPage
-        {
-            char* bufferBegin;
-            char* bufferEnd;
-            char* bufferCursor;
-        };
-
-        static constexpr size_t BufferPageSize           = 4096;
-        static constexpr size_t LargeStringThresholdSize = 64;
-
         auto AddAtom(StringView s) -> AtomString
         {
             char* atomPtr = nullptr;
@@ -159,10 +165,5 @@ namespace glsld
                 .bufferCursor = data,
             };
         }
-
-        std::vector<BufferPage> pagedBuffers;
-        std::vector<char*> largeBuffers;
-
-        std::unordered_map<StringView, AtomString> atomLookup;
     };
 } // namespace glsld

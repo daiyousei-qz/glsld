@@ -79,8 +79,8 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
     printToFile("namespace glsld::detail {{\n");
     printToFile("auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass {{\n");
 
-    printToFile("// Initialize error token as a fallback\n");
-    printToFile("TokenKlass acceptedKlass = TokenKlass::Error;\n");
+    printToFile("// Initialize unknown token as a fallback\n");
+    printToFile("TokenKlass acceptedKlass = TokenKlass::Unknown;\n");
     printToFile("size_t acceptedSize = 0;\n");
     printToFile("ScannerCheckPoint acceptedCheckpoint = srcView.CreateCheckPoint();\n");
     printToFile("char ch;\n");

@@ -2,14 +2,14 @@
 
 namespace glsld
 {
-    constexpr auto IsIntergralPromotion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsIntergralPromotion(ScalarKind from, ScalarKind to) -> bool
     {
-        if (to == ScalarType::Int) {
+        if (to == ScalarKind::Int) {
             switch (from) {
-            case ScalarType::Int8:
-            case ScalarType::Int16:
-            case ScalarType::Uint8:
-            case ScalarType::Uint16:
+            case ScalarKind::Int8:
+            case ScalarKind::Int16:
+            case ScalarKind::Uint8:
+            case ScalarKind::Uint16:
                 return true;
             default:
                 break;
@@ -18,12 +18,12 @@ namespace glsld
 
         return false;
     };
-    constexpr auto IsFPPromotion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsFPPromotion(ScalarKind from, ScalarKind to) -> bool
     {
-        if (to == ScalarType::Double) {
+        if (to == ScalarKind::Double) {
             switch (from) {
-            case ScalarType::Float16:
-            case ScalarType::Float:
+            case ScalarKind::Float16:
+            case ScalarKind::Float:
                 return true;
             default:
                 break;
@@ -32,94 +32,94 @@ namespace glsld
 
         return false;
     };
-    constexpr auto IsScalarPromotion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsScalarPromotion(ScalarKind from, ScalarKind to) -> bool
     {
         return IsIntergralPromotion(from, to) || IsFPPromotion(from, to);
     }
 
     // TODO: should we match exactly glslang's implementation?
-    constexpr auto IsIntegralConversion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsIntegralConversion(ScalarKind from, ScalarKind to) -> bool
     {
         switch (from) {
-        case ScalarType::Int:
+        case ScalarKind::Int:
             switch (to) {
-            case ScalarType::Uint:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Uint:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Uint:
+        case ScalarKind::Uint:
             switch (to) {
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Int8:
+        case ScalarKind::Int8:
             switch (to) {
-            case ScalarType::Uint8:
-            case ScalarType::Int16:
-            case ScalarType::Uint16:
+            case ScalarKind::Uint8:
+            case ScalarKind::Int16:
+            case ScalarKind::Uint16:
             // case ScalarType::Int:
-            case ScalarType::Uint:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Uint:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Int16:
+        case ScalarKind::Int16:
             switch (to) {
-            case ScalarType::Uint16:
+            case ScalarKind::Uint16:
             // case ScalarType::Int:
-            case ScalarType::Uint:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Uint:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Int64:
+        case ScalarKind::Int64:
             switch (to) {
-            case ScalarType::Uint64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Uint8:
+        case ScalarKind::Uint8:
             switch (to) {
             // case ScalarType::Int8:
-            case ScalarType::Int16:
-            case ScalarType::Uint16:
+            case ScalarKind::Int16:
+            case ScalarKind::Uint16:
             // case ScalarType::Int:
-            case ScalarType::Uint:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Uint:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Uint16:
+        case ScalarKind::Uint16:
             switch (to) {
             // case ScalarType::Int:
-            case ScalarType::Uint:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Uint:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return true;
             default:
                 break;
@@ -141,37 +141,37 @@ namespace glsld
 
         return false;
     }
-    constexpr auto IsFPConversion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsFPConversion(ScalarKind from, ScalarKind to) -> bool
     {
-        if (to == ScalarType::Float && from == ScalarType::Float16) {
+        if (to == ScalarKind::Float && from == ScalarKind::Float16) {
             return true;
         }
         else {
             return false;
         }
     }
-    constexpr auto IsFPIntegralConversion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsFPIntegralConversion(ScalarKind from, ScalarKind to) -> bool
     {
         switch (from) {
-        case ScalarType::Int:
-        case ScalarType::Uint:
+        case ScalarKind::Int:
+        case ScalarKind::Uint:
             switch (to) {
-            case ScalarType::Float:
-            case ScalarType::Double:
+            case ScalarKind::Float:
+            case ScalarKind::Double:
                 return true;
             default:
                 break;
             }
             break;
 
-        case ScalarType::Int8:
-        case ScalarType::Uint8:
-        case ScalarType::Int16:
-        case ScalarType::Uint16:
+        case ScalarKind::Int8:
+        case ScalarKind::Uint8:
+        case ScalarKind::Int16:
+        case ScalarKind::Uint16:
             switch (to) {
-            case ScalarType::Float16:
-            case ScalarType::Float:
-            case ScalarType::Double:
+            case ScalarKind::Float16:
+            case ScalarKind::Float:
+            case ScalarKind::Double:
                 return true;
             default:
                 break;
@@ -184,7 +184,7 @@ namespace glsld
 
         return false;
     }
-    constexpr auto IsScalarConversion(ScalarType from, ScalarType to) -> bool
+    constexpr auto IsScalarConversion(ScalarKind from, ScalarKind to) -> bool
     {
         return IsIntegralConversion(from, to) || IsFPConversion(from, to) || IsFPIntegralConversion(from, to);
     }
@@ -229,7 +229,7 @@ namespace glsld
 
         if (isFPIntegralConversionLhs && isFPIntegralConversionRhs) {
             // float is better
-            return lhsTo.type == ScalarType::Float && rhsTo.type != ScalarType::Float;
+            return lhsTo.type == ScalarKind::Float && rhsTo.type != ScalarKind::Float;
         }
 
         // FIXME: optimize the logic
@@ -258,18 +258,18 @@ namespace glsld
         GLSLD_UNREACHABLE();
     }
 
-    auto Type::GetScalarType(ScalarType type) -> const Type*
+    auto Type::GetScalarType(ScalarKind kind) -> const Type*
     {
-        switch (type) {
-        case ScalarType::Bool:
+        switch (kind) {
+        case ScalarKind::Bool:
             return GetBuiltinType(GlslBuiltinType::Ty_bool);
-        case ScalarType::Int:
+        case ScalarKind::Int:
             return GetBuiltinType(GlslBuiltinType::Ty_int);
-        case ScalarType::Uint:
+        case ScalarKind::Uint:
             return GetBuiltinType(GlslBuiltinType::Ty_uint);
-        case ScalarType::Float:
+        case ScalarKind::Float:
             return GetBuiltinType(GlslBuiltinType::Ty_float);
-        case ScalarType::Double:
+        case ScalarKind::Double:
             return GetBuiltinType(GlslBuiltinType::Ty_double);
         default:
             // FIXME: extension types
@@ -277,10 +277,10 @@ namespace glsld
         }
     }
 
-    auto Type::GetVectorType(ScalarType type, size_t dim) -> const Type*
+    auto Type::GetVectorType(ScalarKind type, size_t dim) -> const Type*
     {
         switch (type) {
-        case ScalarType::Bool:
+        case ScalarKind::Bool:
             switch (dim) {
             case 2:
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_bvec2);
@@ -290,7 +290,7 @@ namespace glsld
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_bvec4);
             }
             break;
-        case ScalarType::Int:
+        case ScalarKind::Int:
             switch (dim) {
             case 2:
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_ivec2);
@@ -300,7 +300,7 @@ namespace glsld
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_ivec4);
             }
             break;
-        case ScalarType::Uint:
+        case ScalarKind::Uint:
             switch (dim) {
             case 2:
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_uvec2);
@@ -310,7 +310,7 @@ namespace glsld
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_uvec4);
             }
             break;
-        case ScalarType::Float:
+        case ScalarKind::Float:
             switch (dim) {
             case 2:
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_vec2);
@@ -320,7 +320,7 @@ namespace glsld
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_vec4);
             }
             break;
-        case ScalarType::Double:
+        case ScalarKind::Double:
             switch (dim) {
             case 2:
                 return Type::GetBuiltinType(GlslBuiltinType::Ty_dvec2);
@@ -338,6 +338,80 @@ namespace glsld
         return Type::GetErrorType();
     }
 
+    auto Type::GetMatrixType(ScalarKind type, size_t dimRow, size_t dimCol) -> const Type*
+    {
+        if (type == ScalarKind::Float) {
+            switch (dimRow) {
+            case 2:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat2x3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat2x4);
+                }
+                break;
+            case 3:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat3x2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat3x4);
+                }
+                break;
+            case 4:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat4x2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat4x3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_mat4);
+                }
+                break;
+            }
+        }
+        else if (type == ScalarKind::Double) {
+            switch (dimRow) {
+            case 2:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat2x3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat2x4);
+                }
+                break;
+            case 3:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat3x2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat3x4);
+                }
+                break;
+            case 4:
+                switch (dimCol) {
+                case 2:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat4x2);
+                case 3:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat4x3);
+                case 4:
+                    return Type::GetBuiltinType(GlslBuiltinType::Ty_dmat4);
+                }
+                break;
+            }
+        }
+
+        return Type::GetErrorType();
+    }
+
     auto Type::IsSameWith(GlslBuiltinType type) const -> bool
     {
         return this == Type::GetBuiltinType(type);
@@ -345,16 +419,17 @@ namespace glsld
 
     auto Type::IsSameWith(const Type* other) const -> bool
     {
-        if (this == other) {
-            return true;
-        }
-        else if (IsArray() && other->IsArray()) {
-            // NOTE different modules could instantiate array types that's essentially the same
-            return GetArrayDesc()->elementType->IsSameWith(other->GetArrayDesc()->elementType);
-        }
-        else {
-            return false;
-        }
+        return this == other;
+        // if (this == other) {
+        //     return true;
+        // }
+        // else if (IsArray() && other->IsArray()) {
+        //     // NOTE different modules could instantiate array types that's essentially the same
+        //     return GetArrayDesc()->elementType->IsSameWith(other->GetArrayDesc()->elementType);
+        // }
+        // else {
+        //     return false;
+        // }
     }
 
     auto Type::IsConvertibleTo(const Type* to) const -> bool
@@ -369,16 +444,25 @@ namespace glsld
             return true;
         }
 
-        if (descPayload.index() == to->descPayload.index()) {
-            if (IsScalar()) {
-                const auto& fromDesc = *GetScalarDesc();
-                const auto& toDesc   = *to->GetScalarDesc();
-                if (IsScalarPromotion(fromDesc.type, toDesc.type) || IsScalarConversion(fromDesc.type, toDesc.type)) {
-                    return true;
-                }
+        if (IsScalar() && to->IsScalar()) {
+            const auto& fromDesc = *GetScalarDesc();
+            const auto& toDesc   = *to->GetScalarDesc();
+            return IsScalarPromotion(fromDesc.type, toDesc.type) || IsScalarConversion(fromDesc.type, toDesc.type);
+        }
+        else if (IsVector() && to->IsVector()) {
+            const auto& fromDesc = *GetVectorDesc();
+            const auto& toDesc   = *to->GetVectorDesc();
+            if (fromDesc.vectorSize == toDesc.vectorSize) {
+                return IsScalarPromotion(fromDesc.scalarType, toDesc.scalarType) ||
+                       IsScalarConversion(fromDesc.scalarType, toDesc.scalarType);
             }
-
-            // FIXME: other conversion
+        }
+        else if (IsMatrix() && to->IsMatrix()) {
+            const auto& fromDesc = *GetMatrixDesc();
+            const auto& toDesc   = *to->GetMatrixDesc();
+            if (fromDesc.dimCol == toDesc.dimCol && fromDesc.dimRow == toDesc.dimRow) {
+                return toDesc.scalarType == ScalarKind::Double;
+            }
         }
 
         return false;

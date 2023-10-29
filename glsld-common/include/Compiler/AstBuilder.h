@@ -10,7 +10,8 @@
 
 namespace glsld
 {
-    // Construct AST from parsed nodes. This class also computes and fills payload, including:
+    // A stateful builder to construct AST from parsed nodes.
+    // This class also computes and fills payload, including:
     // - Name resolution
     // - Type deduction
     // - .etc
@@ -22,7 +23,8 @@ namespace glsld
 
         SymbolTable symbolTable;
 
-        std::vector<AstNode*> astNodes;
+        // Return type of the current function. `nullptr` if we are not in a function.
+        const Type* returnType;
 
     public:
         AstBuilder(CompilerObject& compilerObject) : compilerObject(compilerObject)
@@ -35,12 +37,14 @@ namespace glsld
             return symbol.IsValid() && symbol.GetDecl()->Is<AstStructDecl>();
         }
 
-        auto EnterFunction() -> void
+        auto EnterFunction(const Type* returnType) -> void
         {
+            this->returnType = returnType;
             symbolTable.PushLevel(DeclScope::Function);
         }
         auto LeaveFunction() -> void
         {
+            this->returnType = nullptr;
             symbolTable.PopLevel();
         }
         auto EnterLexicalBlock() -> void
@@ -95,6 +99,8 @@ namespace glsld
         auto BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr, AstExpr* falseExpr)
             -> AstSelectExpr*;
 
+        auto BuildImplicitCastExpr(AstSyntaxRange range, AstExpr* expr, const Type* castType) -> AstImplicitCastExpr*;
+
         auto BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
             -> AstFunctionCallExpr*;
 
@@ -142,25 +148,37 @@ namespace glsld
 
         auto BuildEmptyDecl(AstSyntaxRange range) -> AstEmptyDecl*;
 
-        auto BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<VariableDeclarator> declarators)
+        auto BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
             -> AstVariableDecl*;
 
-        auto BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
-                             std::vector<AstVariableDecl*> members) -> AstStructDecl*;
+        auto BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+            -> AstFieldDecl*;
 
-        auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, VariableDeclarator declarator)
-            -> AstParamDecl*;
+        auto BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
+                             std::vector<AstFieldDecl*> members) -> AstStructDecl*;
+
+        auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, Declarator declarator) -> AstParamDecl*;
 
         auto BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, SyntaxToken declTok,
                                std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*;
 
         auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, SyntaxToken declTok,
-                                     std::vector<AstVariableDecl*> members,
-                                     std::optional<VariableDeclarator> declarator) -> AstInterfaceBlockDecl*;
+                                     std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
+            -> AstInterfaceBlockDecl*;
 
 #pragma endregion
 
     private:
+        auto TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*
+        {
+            if (expr->GetDeducedType()->IsSameWith(contextType) || expr->GetDeducedType()->IsError()) {
+                return expr;
+            }
+
+            GLSLD_ASSERT(!contextType->IsError());
+            return BuildImplicitCastExpr(expr->GetSyntaxRange(), expr, contextType);
+        }
+
         template <AstNodeT T, typename... Args>
         auto CreateAstNode(AstSyntaxRange range, Args&&... args) -> T*
         {

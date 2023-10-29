@@ -308,7 +308,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseStructBody() -> std::vector<AstVariableDecl*>
+    auto Parser::ParseStructBody() -> std::vector<AstFieldDecl*>
     {
         GLSLD_TRACE_PARSER();
 
@@ -320,7 +320,7 @@ namespace glsld
             return {};
         }
 
-        std::vector<AstVariableDecl*> result;
+        std::vector<AstFieldDecl*> result;
         while (!Eof()) {
             // Fast path. Parse an empty decl
             if (TryConsumeToken(TokenKlass::Semicolon)) {
@@ -334,8 +334,8 @@ namespace glsld
             auto declarators   = ParseDeclaratorList();
 
             if (!InRecoveryMode()) {
-                result.push_back(astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), typeResult,
-                                                              std::move(declarators)));
+                result.push_back(
+                    astBuilder.BuildFieldDecl(CreateAstSyntaxRange(beginTokIndex), typeResult, std::move(declarators)));
                 ParseOrInferSemicolonHelper();
             }
             else {
@@ -627,13 +627,13 @@ namespace glsld
         return astBuilder.BuildInitializerList(CreateAstSyntaxRange(beginTokIndex), std::move(initializers));
     }
 
-    auto Parser::ParseDeclarator() -> VariableDeclarator
+    auto Parser::ParseDeclarator() -> Declarator
     {
         GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
 
-        VariableDeclarator result;
+        Declarator result;
 
         // Parse declaration identifier
         result.declTok = ParseDeclIdHelper();
@@ -650,11 +650,11 @@ namespace glsld
         return result;
     }
 
-    auto Parser::ParseDeclaratorList() -> std::vector<VariableDeclarator>
+    auto Parser::ParseDeclaratorList() -> std::vector<Declarator>
     {
         GLSLD_TRACE_PARSER();
 
-        std::vector<VariableDeclarator> result;
+        std::vector<Declarator> result;
         while (TryTestToken(TokenKlass::Identifier)) {
             result.push_back(ParseDeclarator());
 
@@ -695,7 +695,7 @@ namespace glsld
                 break;
             }
 
-            VariableDeclarator declarator;
+            Declarator declarator;
             if (TryTestToken(TokenKlass::Identifier)) {
                 declarator = ParseDeclarator();
             }
@@ -729,7 +729,7 @@ namespace glsld
         // Parse function name
         auto declTok = ParseDeclIdHelper();
 
-        astBuilder.EnterFunction();
+        astBuilder.EnterFunction(returnType->GetResolvedType());
 
         // Parse function parameter list
         auto params = ParseFunctionParamList();
@@ -793,7 +793,7 @@ namespace glsld
         }
 
         // Parse declarator if any
-        std::optional<VariableDeclarator> declarator;
+        std::optional<Declarator> declarator;
         if (TryTestToken(TokenKlass::Identifier)) {
             declarator = ParseDeclarator();
         }
@@ -1169,7 +1169,7 @@ namespace glsld
         return astBuilder.BuildConstructorCallExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
     }
 
-    static auto ParseConstantLiteral(StringView literalText) -> ConstValue
+    static auto ParseNumberLiteral(StringView literalText) -> ConstValue
     {
         if (literalText.EndWith("u") || literalText.EndWith("U")) {
             auto literalTextNoSuffix = literalText.DropBack(1);
@@ -1181,16 +1181,6 @@ namespace glsld
                 return ConstValue::FromValue<uint32_t>(value);
             }
         }
-        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
-            auto literalTextNoSuffix = literalText.DropBack(1);
-
-            float value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<float>(value);
-            }
-        }
         else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
             auto literalTextNoSuffix = literalText.DropBack(2);
 
@@ -1199,6 +1189,16 @@ namespace glsld
                                                literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
             if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
                 return ConstValue::FromValue<double>(value);
+            }
+        }
+        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
+            auto literalTextNoSuffix = literalText.DropBack(1);
+
+            float value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<float>(value);
             }
         }
         else {
@@ -1235,12 +1235,16 @@ namespace glsld
             return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok);
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
-        case TokenKlass::K_true:
-        case TokenKlass::K_false:
-            // constant literal
+            // nermeric literal
             ConsumeToken();
             return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokIndex),
-                                               ParseConstantLiteral(tok.text.StrView()));
+                                               ParseNumberLiteral(tok.text.StrView()));
+        case TokenKlass::K_true:
+        case TokenKlass::K_false:
+            // boolean literal
+            ConsumeToken();
+            return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokIndex),
+                                               ConstValue::FromValue(tok.klass == TokenKlass::K_true));
         case TokenKlass::LParen:
             // expr in wrapped parens
             return ParseParenWrappedExpr();

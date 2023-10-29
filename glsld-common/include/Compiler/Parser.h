@@ -161,7 +161,7 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';'
         // FIXME: member_decl???
-        auto ParseStructBody() -> std::vector<AstVariableDecl*>;
+        auto ParseStructBody() -> std::vector<AstFieldDecl*>;
 
         // EXPECT: K_struct
         //
@@ -262,14 +262,14 @@ namespace glsld
         //      - declarator := 'ID' [array_spec] [ '=' initializer ]
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseDeclarator() -> VariableDeclarator;
+        auto ParseDeclarator() -> Declarator;
 
         // EXPECT: 'ID'
         // PARSE: declarator_list
         //      - declarator_list := declarator [',' declarator]...
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseDeclaratorList() -> std::vector<VariableDeclarator>;
+        auto ParseDeclaratorList() -> std::vector<Declarator>;
 
         // EXPECT: '('
         //

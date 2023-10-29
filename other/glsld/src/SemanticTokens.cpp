@@ -121,17 +121,16 @@ namespace glsld
             }
             auto VisitAstStructDecl(AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclToken() && !decl.GetDeclToken()->IsError()) {
-                    TryAddSementicToken(*decl.GetDeclToken(), SemanticTokenType::Struct,
+                if (decl.GetDeclTok() && !decl.GetDeclTok()->IsError()) {
+                    TryAddSementicToken(*decl.GetDeclTok(), SemanticTokenType::Struct,
                                         SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
-                if (decl.GetDeclToken().IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclToken(), SemanticTokenType::Type,
-                                        SemanticTokenModifier::Declaration);
+                if (decl.GetDeclTok().IsIdentifier()) {
+                    TryAddSementicToken(decl.GetDeclTok(), SemanticTokenType::Type, SemanticTokenModifier::Declaration);
                 }
 
                 // Interface block decl

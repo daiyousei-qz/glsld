@@ -43,10 +43,25 @@ namespace glsld
         {
             return scope;
         }
-
         auto IsGlobalScope() const noexcept -> bool
         {
             return scope == DeclScope::Global;
+        }
+        auto IsFunctionScope() const noexcept -> bool
+        {
+            return scope == DeclScope::Function;
+        }
+        auto IsBlockScope() const noexcept -> bool
+        {
+            return scope == DeclScope::Block;
+        }
+        auto IsLocalScope() const noexcept -> bool
+        {
+            return scope == DeclScope::Function || scope == DeclScope::Block;
+        }
+        auto IsStructScope() const noexcept -> bool
+        {
+            return scope == DeclScope::Struct;
         }
 
         auto IsFreezed() const noexcept -> bool

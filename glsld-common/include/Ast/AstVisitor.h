@@ -76,7 +76,7 @@ namespace glsld
         }                                                                                                              \
                                                                                                                        \
         /* Traverse */                                                                                                 \
-        if (!dispatchedNode.Traverse(visitor)) {                                                                       \
+        if (!dispatchedNode.DoTraverse(visitor)) {                                                                     \
             return false;                                                                                              \
         }                                                                                                              \
                                                                                                                        \

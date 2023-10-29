@@ -16,11 +16,12 @@ namespace glsld
         AstInitializer() = default;
 
         template <AstDumperT Dumper>
-        auto DumpPayload(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
         }
     };
 
+    // Represents an initializer list like `{1, 2, 3}`.
     class AstInitializerList final : public AstInitializer
     {
     private:
@@ -32,13 +33,13 @@ namespace glsld
         {
         }
 
-        auto GetItems() const -> ArrayView<const AstInitializer*>
+        auto GetItems() const noexcept -> ArrayView<const AstInitializer*>
         {
             return items;
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto item : items) {
                 if (!visitor.Traverse(*item)) {
@@ -50,7 +51,7 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             for (auto item : items) {
                 d.DumpChildNode("Item", *item);
@@ -74,9 +75,9 @@ namespace glsld
         AstExpr() = default;
 
         template <AstDumperT Dumper>
-        auto DumpPayload(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstInitializer::DumpPayload(d);
+            AstInitializer::DoDump(d);
             d.DumpAttribute("IsConst", IsConst());
             d.DumpAttribute("DeducedType", GetDeducedType()->GetDebugName());
         }
@@ -107,18 +108,19 @@ namespace glsld
         AstErrorExpr() = default;
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
         }
     };
 
+    // Represents a constant literal like `1`, `1.0`, `true`.
     class AstLiteralExpr final : public AstExpr
     {
     private:
@@ -135,19 +137,20 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Value", value.ToString());
         }
     };
 
+    // Represents a name access expression like `foo`.
     class AstNameAccessExpr final : public AstExpr
     {
     private:
@@ -178,20 +181,21 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return true;
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
-            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
+            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.DoDump(d); });
         }
     };
 
+    // Represents a field access expression like `foo.bar`.
     class AstFieldAccessExpr final : public AstExpr
     {
     private:
@@ -229,21 +233,22 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*lhsExpr);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
-            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.Dump(d); });
+            d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.DoDump(d); });
             d.DumpChildNode("LhsExpr", *lhsExpr);
         }
     };
 
+    // Represents a swizzle access expression like `foo.xyz`.
     class AstSwizzleAccessExpr final : public AstExpr
     {
     private:
@@ -281,21 +286,22 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*lhsExpr);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
             d.DumpAttribute("Swizzle", swizzleDesc.ToString());
             d.DumpChildNode("LhsExpr", *lhsExpr);
         }
     };
 
+    // Represents an array access expression like `foo[1]`.
     class AstIndexAccessExpr final : public AstExpr
     {
     private:
@@ -320,7 +326,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*baseExpr)) {
                 return false;
@@ -333,14 +339,15 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpChildNode("BaseExpr", *baseExpr);
             d.DumpChildNode("Indices", *indices);
         }
     };
 
+    // Represents a unary expression like `!foo`.
     class AstUnaryExpr final : public AstExpr
     {
     private:
@@ -365,20 +372,21 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             return visitor.Traverse(*operand);
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Opcode", UnaryOpToString(opcode));
             d.DumpChildNode("Operand", *operand);
         }
     };
 
+    // Represents a binary expression like `foo + bar`.
     class AstBinaryExpr final : public AstExpr
     {
     private:
@@ -411,7 +419,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*lhsOperand)) {
                 return false;
@@ -424,15 +432,16 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Opcode", BinaryOpToString(opcode));
             d.DumpChildNode("LhsOperand", *lhsOperand);
             d.DumpChildNode("RhsOperand", *rhsOperand);
         }
     };
 
+    // Represents a ternary expression like `foo ? bar : baz`.
     class AstSelectExpr final : public AstExpr
     {
     private:
@@ -465,7 +474,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*condition)) {
                 return false;
@@ -481,15 +490,49 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpChildNode("Condition", *condition);
             d.DumpChildNode("TrueExpr", *trueExpr);
             d.DumpChildNode("FalseExpr", *falseExpr);
         }
     };
 
+    // Represents an implicit cast. This is a virtual node that is not present in the source code.
+    class AstImplicitCastExpr final : public AstExpr
+    {
+    private:
+        // [Node]
+        NotNull<AstExpr*> operand;
+
+        // Note the cast target type is AstExpr::deducedType.
+
+    public:
+        AstImplicitCastExpr(AstExpr* operand) : operand(operand)
+        {
+        }
+
+        auto GetOperand() const noexcept -> const AstExpr*
+        {
+            return operand;
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return visitor.Traverse(*operand);
+        }
+
+        template <AstDumperT Dumper>
+        auto DoDump(Dumper& d) const -> void
+        {
+            AstExpr::DoDump(d);
+            d.DumpChildNode("Operand", *operand);
+        }
+    };
+
+    // Represents a function call expression like `foo(bar, baz)`.
     class AstFunctionCallExpr final : public AstExpr
     {
     private:
@@ -527,7 +570,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto arg : args) {
                 if (!visitor.Traverse(*arg)) {
@@ -539,9 +582,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpAttribute("Function", functionName.IsIdentifier() ? functionName.text.StrView() : "<Error>");
             for (auto arg : args) {
                 d.DumpChildNode("Arg", *arg);
@@ -549,6 +592,7 @@ namespace glsld
         }
     };
 
+    // Represents a constructor call expression like `vec3(1, 2, 3)`.
     class AstConstructorCallExpr final : public AstExpr
     {
     private:
@@ -574,7 +618,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             if (!visitor.Traverse(*constructedType)) {
                 return false;
@@ -589,9 +633,9 @@ namespace glsld
         }
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
-            AstExpr::DumpPayload(d);
+            AstExpr::DoDump(d);
             d.DumpChildNode("ConstructedType", *constructedType);
             for (auto arg : args) {
                 d.DumpChildNode("Arg", *arg);

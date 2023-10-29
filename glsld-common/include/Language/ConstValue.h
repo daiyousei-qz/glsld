@@ -74,37 +74,37 @@ namespace glsld
         {
             ConstValue result;
             if constexpr (std::is_same_v<T, bool>) {
-                result.InitializeAs<bool>(ScalarType::Bool, 1, 1, 1)[0] = value;
+                result.InitializeAs<bool>(ScalarKind::Bool, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, int32_t>) {
-                result.InitializeAs<int32_t>(ScalarType::Int, 1, 1, 1)[0] = value;
+                result.InitializeAs<int32_t>(ScalarKind::Int, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, uint32_t>) {
-                result.InitializeAs<uint32_t>(ScalarType::Uint, 1, 1, 1)[0] = value;
+                result.InitializeAs<uint32_t>(ScalarKind::Uint, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, float>) {
-                result.InitializeAs<float>(ScalarType::Float, 1, 1, 1)[0] = value;
+                result.InitializeAs<float>(ScalarKind::Float, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, double>) {
-                result.InitializeAs<double>(ScalarType::Double, 1, 1, 1)[0] = value;
+                result.InitializeAs<double>(ScalarKind::Double, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, int8_t>) {
-                result.InitializeAs<int8_t>(ScalarType::Int8, 1, 1, 1)[0] = value;
+                result.InitializeAs<int8_t>(ScalarKind::Int8, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, uint8_t>) {
-                result.InitializeAs<uint8_t>(ScalarType::Uint8, 1, 1, 1)[0] = value;
+                result.InitializeAs<uint8_t>(ScalarKind::Uint8, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, int16_t>) {
-                result.InitializeAs<int16_t>(ScalarType::Int16, 1, 1, 1)[0] = value;
+                result.InitializeAs<int16_t>(ScalarKind::Int16, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, uint16_t>) {
-                result.InitializeAs<uint16_t>(ScalarType::Uint16, 1, 1, 1)[0] = value;
+                result.InitializeAs<uint16_t>(ScalarKind::Uint16, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, int64_t>) {
-                result.InitializeAs<int64_t>(ScalarType::Int64, 1, 1, 1)[0] = value;
+                result.InitializeAs<int64_t>(ScalarKind::Int64, 1, 1, 1)[0] = value;
             }
             else if constexpr (std::is_same_v<T, uint64_t>) {
-                result.InitializeAs<uint64_t>(ScalarType::Uint64, 1, 1, 1)[0] = value;
+                result.InitializeAs<uint64_t>(ScalarKind::Uint64, 1, 1, 1)[0] = value;
             }
             else {
                 static_assert(AlwaysFalse<T>);
@@ -142,16 +142,16 @@ namespace glsld
         auto GetGlslType() const noexcept -> std::optional<GlslBuiltinType>
         {
             if (IsScalar()) {
-                switch (static_cast<ScalarType>(scalarType)) {
-                case ScalarType::Bool:
+                switch (static_cast<ScalarKind>(scalarType)) {
+                case ScalarKind::Bool:
                     return GlslBuiltinType::Ty_bool;
-                case ScalarType::Int:
+                case ScalarKind::Int:
                     return GlslBuiltinType::Ty_int;
-                case ScalarType::Uint:
+                case ScalarKind::Uint:
                     return GlslBuiltinType::Ty_uint;
-                case ScalarType::Float:
+                case ScalarKind::Float:
                     return GlslBuiltinType::Ty_float;
-                case ScalarType::Double:
+                case ScalarKind::Double:
                     return GlslBuiltinType::Ty_double;
                 default:
                     // FIXME: non-standard types?
@@ -160,8 +160,8 @@ namespace glsld
             }
             else if (IsVector()) {
                 // FIXME: should we use row vector or column vector?
-                switch (static_cast<ScalarType>(scalarType)) {
-                case ScalarType::Bool:
+                switch (static_cast<ScalarKind>(scalarType)) {
+                case ScalarKind::Bool:
                     switch (colSize) {
                     case 2:
                         return GlslBuiltinType::Ty_bvec2;
@@ -173,7 +173,7 @@ namespace glsld
                         break;
                     }
                     break;
-                case ScalarType::Int:
+                case ScalarKind::Int:
                     switch (colSize) {
                     case 2:
                         return GlslBuiltinType::Ty_ivec2;
@@ -185,7 +185,7 @@ namespace glsld
                         break;
                     }
                     break;
-                case ScalarType::Uint:
+                case ScalarKind::Uint:
                     switch (colSize) {
                     case 2:
                         return GlslBuiltinType::Ty_uvec2;
@@ -197,7 +197,7 @@ namespace glsld
                         break;
                     }
                     break;
-                case ScalarType::Float:
+                case ScalarKind::Float:
                     switch (colSize) {
                     case 2:
                         return GlslBuiltinType::Ty_vec2;
@@ -209,7 +209,7 @@ namespace glsld
                         break;
                     }
                     break;
-                case ScalarType::Double:
+                case ScalarKind::Double:
                     switch (colSize) {
                     case 2:
                         return GlslBuiltinType::Ty_dvec2;
@@ -232,29 +232,29 @@ namespace glsld
             return std::nullopt;
         };
 
-        auto GetScalarType() const noexcept -> ScalarType
+        auto GetScalarType() const noexcept -> ScalarKind
         {
-            return static_cast<ScalarType>(scalarType);
+            return static_cast<ScalarKind>(scalarType);
         }
         auto IsScalarBool() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarType::Bool;
+            return IsScalar() && GetScalarType() == ScalarKind::Bool;
         }
         auto IsScalarInt32() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarType::Int;
+            return IsScalar() && GetScalarType() == ScalarKind::Int;
         }
         auto IsScalarUInt32() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarType::Uint;
+            return IsScalar() && GetScalarType() == ScalarKind::Uint;
         }
         auto IsScalarFloat() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarType::Float;
+            return IsScalar() && GetScalarType() == ScalarKind::Float;
         }
         auto IsScalarDouble() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarType::Double;
+            return IsScalar() && GetScalarType() == ScalarKind::Double;
         }
 
         auto GetBoolValue() const noexcept -> bool
@@ -285,22 +285,22 @@ namespace glsld
 
         auto GetScalarSize() const noexcept -> int
         {
-            switch (static_cast<ScalarType>(scalarType)) {
-            case ScalarType::Bool:
-            case ScalarType::Int8:
-            case ScalarType::Uint8:
+            switch (static_cast<ScalarKind>(scalarType)) {
+            case ScalarKind::Bool:
+            case ScalarKind::Int8:
+            case ScalarKind::Uint8:
                 return 1;
-            case ScalarType::Int16:
-            case ScalarType::Uint16:
-            case ScalarType::Float16:
+            case ScalarKind::Int16:
+            case ScalarKind::Uint16:
+            case ScalarKind::Float16:
                 return 2;
-            case ScalarType::Int:
-            case ScalarType::Uint:
-            case ScalarType::Float:
+            case ScalarKind::Int:
+            case ScalarKind::Uint:
+            case ScalarKind::Float:
                 return 4;
-            case ScalarType::Double:
-            case ScalarType::Int64:
-            case ScalarType::Uint64:
+            case ScalarKind::Double:
+            case ScalarKind::Int64:
+            case ScalarKind::Uint64:
                 return 8;
             default:
                 return 0;
@@ -318,15 +318,15 @@ namespace glsld
             }
 
             switch (GetScalarType()) {
-            case ScalarType::Bool:
+            case ScalarKind::Bool:
                 return GetBoolValue() ? "true" : "false";
-            case ScalarType::Int:
+            case ScalarKind::Int:
                 return std::to_string(GetInt32Value());
-            case ScalarType::Uint:
+            case ScalarKind::Uint:
                 return std::to_string(GetUInt32Value());
-            case ScalarType::Float:
+            case ScalarKind::Float:
                 return std::to_string(GetFloatValue());
-            case ScalarType::Double:
+            case ScalarKind::Double:
                 return std::to_string(GetDoubleValue());
             default:
                 return "<other>";
@@ -391,7 +391,7 @@ namespace glsld
 
         auto ElemwiseNegate() const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseUnaryOp(ExcludingUnsigned<ExcludingBool<std::negate<>>>{});
             }
             else {
@@ -409,7 +409,7 @@ namespace glsld
         }
         auto ElemwiseLogicalNot() const -> ConstValue
         {
-            if (GetScalarType() == ScalarType::Bool) {
+            if (GetScalarType() == ScalarKind::Bool) {
                 return ApplyElemwiseUnaryOp(std::logical_not<>{});
             }
             else {
@@ -429,7 +429,7 @@ namespace glsld
 
         auto ElemwisePlus(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, std::plus<>{});
             }
             else {
@@ -438,7 +438,7 @@ namespace glsld
         }
         auto ElemwiseMinus(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, std::minus<>{});
             }
             else {
@@ -447,7 +447,7 @@ namespace glsld
         }
         auto ElemwiseMul(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, std::multiplies<>{});
             }
             else {
@@ -456,7 +456,7 @@ namespace glsld
         }
         auto ElemwiseDiv(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, ExcludingBool<std::divides<>>{});
             }
             else {
@@ -501,7 +501,7 @@ namespace glsld
         }
         auto ElemwiseLogicalAnd(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() == ScalarType::Bool) {
+            if (GetScalarType() == ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, std::logical_and<>{});
             }
             else {
@@ -510,7 +510,7 @@ namespace glsld
         }
         auto ElemwiseLogicalOr(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() == ScalarType::Bool) {
+            if (GetScalarType() == ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, std::logical_or<>{});
             }
             else {
@@ -527,7 +527,7 @@ namespace glsld
                 }
             };
 
-            if (GetScalarType() == ScalarType::Bool) {
+            if (GetScalarType() == ScalarKind::Bool) {
                 return ApplyElemwiseBinaryOp(other, LogicalXor{});
             }
             else {
@@ -555,7 +555,7 @@ namespace glsld
         }
         auto ElemwiseLessThan(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseComparisonOp(other, std::less<>{});
             }
             else {
@@ -564,7 +564,7 @@ namespace glsld
         }
         auto ElemwiseLessThanEq(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseComparisonOp(other, std::less_equal<>{});
             }
             else {
@@ -573,7 +573,7 @@ namespace glsld
         }
         auto ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseComparisonOp(other, std::greater<>{});
             }
             else {
@@ -582,7 +582,7 @@ namespace glsld
         }
         auto ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue
         {
-            if (GetScalarType() != ScalarType::Bool) {
+            if (GetScalarType() != ScalarKind::Bool) {
                 return ApplyElemwiseComparisonOp(other, std::greater_equal<>{});
             }
             else {
@@ -627,7 +627,7 @@ namespace glsld
 
             auto srcBuffer1 = GetBufferAs<T>();
             auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<bool>(ScalarType::Bool, arraySize, rowSize, colSize);
+            auto dstBuffer  = result.InitializeAs<bool>(ScalarKind::Bool, arraySize, rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);
@@ -638,12 +638,12 @@ namespace glsld
         template <typename F>
         auto ApplyElemwiseUnaryOp(F f) const -> ConstValue
         {
-            switch (static_cast<ScalarType>(scalarType)) {
+            switch (static_cast<ScalarKind>(scalarType)) {
 #if GLSLD_COMPILER_MSVC
 #pragma warning(push)
 #pragma warning(disable : 4804)
 #endif
-            case ScalarType::Bool:
+            case ScalarKind::Bool:
                 if constexpr (requires(bool x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<bool>(f);
                 }
@@ -653,77 +653,77 @@ namespace glsld
 #if GLSLD_COMPILER_MSVC
 #pragma warning(pop)
 #endif
-            case ScalarType::Int:
+            case ScalarKind::Int:
                 if constexpr (requires(int32_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<int32_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint:
+            case ScalarKind::Uint:
                 if constexpr (requires(uint32_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<uint32_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float:
+            case ScalarKind::Float:
                 if constexpr (requires(float x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<float>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Double:
+            case ScalarKind::Double:
                 if constexpr (requires(double x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<double>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int8:
+            case ScalarKind::Int8:
                 if constexpr (requires(int8_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<int8_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int16:
+            case ScalarKind::Int16:
                 if constexpr (requires(int16_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<int16_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int64:
+            case ScalarKind::Int64:
                 if constexpr (requires(int64_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<int64_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint8:
+            case ScalarKind::Uint8:
                 if constexpr (requires(uint8_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<uint8_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint16:
+            case ScalarKind::Uint16:
                 if constexpr (requires(uint16_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<uint16_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint64:
+            case ScalarKind::Uint64:
                 if constexpr (requires(uint64_t x) { f(x); }) {
                     return ApplyElemwiseUnaryOpUnsafe<uint64_t>(f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float16:
+            case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
                 return ConstValue();
@@ -733,12 +733,12 @@ namespace glsld
         template <typename F>
         auto ApplyElemwiseBinaryOp(const ConstValue& other, F f) const -> ConstValue
         {
-            switch (static_cast<ScalarType>(scalarType)) {
+            switch (static_cast<ScalarKind>(scalarType)) {
 #if GLSLD_COMPILER_MSVC
 #pragma warning(push)
 #pragma warning(disable : 4804)
 #endif
-            case ScalarType::Bool:
+            case ScalarKind::Bool:
                 if constexpr (requires(bool x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<bool>(other, f);
                 }
@@ -748,77 +748,77 @@ namespace glsld
 #if GLSLD_COMPILER_MSVC
 #pragma warning(pop)
 #endif
-            case ScalarType::Int:
+            case ScalarKind::Int:
                 if constexpr (requires(int32_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<int32_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint:
+            case ScalarKind::Uint:
                 if constexpr (requires(uint32_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<uint32_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float:
+            case ScalarKind::Float:
                 if constexpr (requires(float x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<float>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Double:
+            case ScalarKind::Double:
                 if constexpr (requires(double x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<double>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int8:
+            case ScalarKind::Int8:
                 if constexpr (requires(int8_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<int8_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int16:
+            case ScalarKind::Int16:
                 if constexpr (requires(int16_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<int16_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int64:
+            case ScalarKind::Int64:
                 if constexpr (requires(int64_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<int64_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint8:
+            case ScalarKind::Uint8:
                 if constexpr (requires(uint8_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<uint8_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint16:
+            case ScalarKind::Uint16:
                 if constexpr (requires(uint16_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<uint16_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint64:
+            case ScalarKind::Uint64:
                 if constexpr (requires(uint64_t x) { f(x, x); }) {
                     return ApplyElemwiseBinaryOpUnsafe<uint64_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float16:
+            case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
                 return ConstValue();
@@ -828,85 +828,85 @@ namespace glsld
         template <typename F>
         auto ApplyElemwiseComparisonOp(const ConstValue& other, F f) const -> ConstValue
         {
-            switch (static_cast<ScalarType>(scalarType)) {
-            case ScalarType::Bool:
+            switch (static_cast<ScalarKind>(scalarType)) {
+            case ScalarKind::Bool:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<bool>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<bool>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int:
+            case ScalarKind::Int:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int32_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<int32_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint:
+            case ScalarKind::Uint:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint32_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<uint32_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float:
+            case ScalarKind::Float:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<float>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<float>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Double:
+            case ScalarKind::Double:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<double>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<double>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int8:
+            case ScalarKind::Int8:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int8_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<int8_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int16:
+            case ScalarKind::Int16:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int16_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<int16_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Int64:
+            case ScalarKind::Int64:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int64_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<int64_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint8:
+            case ScalarKind::Uint8:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint8_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<uint8_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint16:
+            case ScalarKind::Uint16:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint16_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<uint16_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Uint64:
+            case ScalarKind::Uint64:
                 if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint64_t>(other, f); }) {
                     return ApplyElemwiseComparisonOpUnsafe<uint64_t>(other, f);
                 }
                 else {
                     return ConstValue();
                 }
-            case ScalarType::Float16:
+            case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
                 return ConstValue();
@@ -933,7 +933,7 @@ namespace glsld
         }
 
         template <typename T>
-        auto InitializeAs(ScalarType scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
+        auto InitializeAs(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
         {
             GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
 

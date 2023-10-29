@@ -33,8 +33,8 @@ namespace glsld
                 accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].declTok;
             }
             else if (auto structDecl = accessedDecl.As<AstStructDecl>();
-                     structDecl && structDecl->GetDeclToken() && structDecl->GetDeclToken()->IsIdentifier()) {
-                accessedDeclTok = *structDecl->GetDeclToken();
+                     structDecl && structDecl->GetDeclTok() && structDecl->GetDeclTok()->IsIdentifier()) {
+                accessedDeclTok = *structDecl->GetDeclTok();
             }
             else if (auto blockDecl = accessedDecl.As<AstInterfaceBlockDecl>(); blockDecl) {
                 accessedDeclTok = blockDecl->GetDeclarator()->declTok;

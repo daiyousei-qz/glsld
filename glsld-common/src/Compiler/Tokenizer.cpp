@@ -63,7 +63,7 @@ namespace glsld
         }
 
         tokenTextBuffer.clear();
-        TokenKlass klass      = TokenKlass::Error;
+        TokenKlass klass      = TokenKlass::Unknown;
         TextPosition beginPos = srcScanner.GetTextPosition();
 
         // We handle comments and header names manually instead of using generated lexer. Those are only places where
@@ -82,7 +82,7 @@ namespace glsld
         // }
         else {
             klass = detail::Tokenize(srcScanner, tokenTextBuffer);
-            if (klass == TokenKlass::Error) [[unlikely]] {
+            if (klass == TokenKlass::Unknown) [[unlikely]] {
                 // At least consume one character to avoid infinite loop
                 srcScanner.ConsumeChar(tokenTextBuffer);
             }
@@ -126,7 +126,7 @@ namespace glsld
             srcScanner.ConsumeChar();
         }
 
-        return TokenKlass::Error;
+        return TokenKlass::Unknown;
     }
 
     auto Tokenizer::ParseQuotedString() -> TokenKlass
@@ -144,7 +144,7 @@ namespace glsld
             }
         }
 
-        return TokenKlass::Error;
+        return TokenKlass::Unknown;
     }
 
     auto Tokenizer::ParseAngleString() -> TokenKlass

@@ -165,7 +165,7 @@ namespace glsld
     template <typename AstType>
     struct AstNodeTrait
     {
-        static_assert(AlwaysFalse<AstType>);
+        static_assert(AlwaysFalse<AstType> && "This is not a AST type in GlslAst.inc");
 
         // If AstType is a type for a leaf node
         static constexpr bool isLeafNode = false;
@@ -273,7 +273,8 @@ namespace glsld
         template <typename AstType>
         auto Is() const noexcept -> bool
         {
-            return tag == AstNodeTrait<AstType>::tag;
+            const int tagValue = static_cast<int>(tag);
+            return tagValue >= AstNodeTrait<AstType>::tagBegin && tagValue <= AstNodeTrait<AstType>::tagEnd;
         }
         template <typename AstType>
         auto As() noexcept -> AstType*
@@ -352,7 +353,7 @@ namespace glsld
         auto operator==(const DeclView&) const -> bool = default;
 
         template <AstDumperT Dumper>
-        auto Dump(Dumper& d) const -> void
+        auto DoDump(Dumper& d) const -> void
         {
             d.DumpAttribute("DeclNode", IsValid() ? fmt::format("#{:x}", d.GetPointerIdentifier(decl)) : "<Error>");
             d.DumpAttribute("DeclIndex", index);

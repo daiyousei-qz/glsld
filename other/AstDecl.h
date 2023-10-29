@@ -16,7 +16,7 @@ namespace glsld
     {
     public:
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
         }
 
@@ -26,7 +26,7 @@ namespace glsld
         }
     };
 
-    struct VariableDeclarator
+    struct Declarator
     {
         // Symbol identifier
         SyntaxToken declTok = {};
@@ -45,7 +45,7 @@ namespace glsld
         {
             // Yes, a variable decl could declare no variable
         }
-        AstStructMemberDecl(AstQualType* type, std::vector<VariableDeclarator> decls) : type(type), declarators(decls)
+        AstStructMemberDecl(AstQualType* type, std::vector<Declarator> decls) : type(type), declarators(decls)
         {
         }
 
@@ -53,13 +53,13 @@ namespace glsld
         {
             return type;
         }
-        auto GetDeclarators() -> ArrayView<VariableDeclarator>
+        auto GetDeclarators() -> ArrayView<Declarator>
         {
             return declarators;
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(type);
             for (const auto& declarator : declarators) {
@@ -76,7 +76,7 @@ namespace glsld
 
     private:
         AstQualType* type;
-        std::vector<VariableDeclarator> declarators;
+        std::vector<Declarator> declarators;
     };
 
     class AstStructDecl : public AstImpl<AstStructDecl>
@@ -87,7 +87,7 @@ namespace glsld
         {
         }
 
-        auto GetDeclToken() -> const std::optional<SyntaxToken>&
+        auto GetDeclTok() -> const std::optional<SyntaxToken>&
         {
             return declTok;
         }
@@ -97,7 +97,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             for (auto member : members) {
                 visitor.Traverse(member);
@@ -127,7 +127,7 @@ namespace glsld
         {
             // Yes, a variable decl could declare no variable
         }
-        AstVariableDecl(AstQualType* type, std::vector<VariableDeclarator> decls) : qualType(type), decls(decls)
+        AstVariableDecl(AstQualType* type, std::vector<Declarator> decls) : qualType(type), decls(decls)
         {
         }
 
@@ -135,13 +135,13 @@ namespace glsld
         {
             return qualType;
         }
-        auto GetDeclarators() -> ArrayView<VariableDeclarator>
+        auto GetDeclarators() -> ArrayView<Declarator>
         {
             return decls;
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(qualType);
             for (const auto& declarator : decls) {
@@ -158,15 +158,14 @@ namespace glsld
 
     private:
         AstQualType* qualType;
-        std::vector<VariableDeclarator> decls;
+        std::vector<Declarator> decls;
     };
 
     // declares a parameter
     class AstParamDecl : public AstImpl<AstParamDecl>
     {
     public:
-        AstParamDecl(AstQualType* type, std::optional<VariableDeclarator> declarator)
-            : qualType(type), declarator(declarator)
+        AstParamDecl(AstQualType* type, std::optional<Declarator> declarator) : qualType(type), declarator(declarator)
         {
         }
 
@@ -174,13 +173,13 @@ namespace glsld
         {
             return qualType;
         }
-        auto GetDeclarator() -> const std::optional<VariableDeclarator>&
+        auto GetDeclarator() -> const std::optional<Declarator>&
         {
             return declarator;
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(qualType);
             if (declarator) {
@@ -203,7 +202,7 @@ namespace glsld
 
     private:
         AstQualType* qualType;
-        std::optional<VariableDeclarator> declarator;
+        std::optional<Declarator> declarator;
     };
 
     // declares a function
@@ -241,7 +240,7 @@ namespace glsld
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(returnType);
             for (auto param : params) {
@@ -269,7 +268,7 @@ namespace glsld
     {
     public:
         AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok,
-                              std::vector<AstStructMemberDecl*> members, std::optional<VariableDeclarator> declarator)
+                              std::vector<AstStructMemberDecl*> members, std::optional<Declarator> declarator)
             : quals(quals), declTok(declTok), members(std::move(members)), instanceDeclarator(declarator)
         {
         }
@@ -278,7 +277,7 @@ namespace glsld
         {
             return quals;
         }
-        auto GetDeclToken() -> const SyntaxToken&
+        auto GetDeclTok() -> const SyntaxToken&
         {
             return declTok;
         }
@@ -286,13 +285,13 @@ namespace glsld
         {
             return members;
         }
-        auto GetDeclarator() -> const std::optional<VariableDeclarator>&
+        auto GetDeclarator() -> const std::optional<Declarator>&
         {
             return instanceDeclarator;
         }
 
         template <AstVisitorT Visitor>
-        auto Traverse(Visitor& visitor) const -> bool
+        auto DoTraverse(Visitor& visitor) const -> bool
         {
             visitor.Traverse(quals);
             for (auto member : members) {
@@ -316,9 +315,9 @@ namespace glsld
         }
 
     private:
-        AstTypeQualifierSeq* quals                   = nullptr;
-        SyntaxToken declTok                          = {};
-        std::vector<AstStructMemberDecl*> members    = {};
-        std::optional<VariableDeclarator> declarator = std::nullopt;
+        AstTypeQualifierSeq* quals                = nullptr;
+        SyntaxToken declTok                       = {};
+        std::vector<AstStructMemberDecl*> members = {};
+        std::optional<Declarator> declarator      = std::nullopt;
     };
 } // namespace glsld

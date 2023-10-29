@@ -35,7 +35,7 @@ namespace glsld
 
             PushIndent();
             InvokeAstDispatched(
-                node, [this]<typename AstType>(const AstType& dispatchedNode) { dispatchedNode.Dump(*this); });
+                node, [this]<typename AstType>(const AstType& dispatchedNode) { dispatchedNode.DoDump(*this); });
             PopIndent();
 
             PrintIndentation();
