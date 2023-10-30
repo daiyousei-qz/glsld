@@ -1,3 +1,4 @@
+#include "Ast/Misc.h"
 #include "Compiler/SymbolTable.h"
 
 namespace glsld
@@ -8,15 +9,20 @@ namespace glsld
             return;
         }
 
-        // deduplicate?
+        // FIXME: we need to deduplicate since a function could be declared multiple times
         auto name = decl.GetDeclTok().text.Str();
         if (!name.empty()) {
-            std::vector<const Type*> paramTypes;
+            std::vector<FunctionParamSymbolEntry> paramEntries;
             for (auto paramDecl : decl.GetParams()) {
-                paramTypes.push_back(paramDecl->GetResolvedType());
+                auto quals = paramDecl->GetQualType()->GetQualifiers();
+                paramEntries.push_back(FunctionParamSymbolEntry{
+                    .type     = paramDecl->GetResolvedType(),
+                    .isInput  = quals == nullptr || (quals->GetQualGroup().qIn || quals->GetQualGroup().qInout),
+                    .isOutput = quals != nullptr && (quals->GetQualGroup().qOut || quals->GetQualGroup().qInout),
+                });
             }
             funcDeclLookup.Insert(
-                {std::move(name), FunctionSymbolEntry{.decl = &decl, .paramTypes = std::move(paramTypes)}});
+                {std::move(name), FunctionSymbolEntry{.decl = &decl, .paramEntries = std::move(paramEntries)}});
         }
     }
 
@@ -56,9 +62,8 @@ namespace glsld
 
     auto SymbolTableLevel::AddParamDecl(AstParamDecl& decl) -> void
     {
-
-        if (decl.GetDeclarator().declTok.IsIdentifier()) {
-            TryAddSymbol(decl.GetDeclarator().declTok, decl);
+        if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+            TryAddSymbol(decl.GetDeclarator()->declTok, decl);
         }
     }
 
@@ -90,95 +95,86 @@ namespace glsld
         return DeclView{};
     }
 
-    auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes) const
+    auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool exactMatch) const
         -> const AstFunctionDecl*
     {
         // First pass: filter out candidates that's invocable with the given argument types
         std::vector<const FunctionSymbolEntry*> candidateList;
         for (auto level : GetGlobalLevels()) {
             for (auto candidate : level->FindFunctionCandidate(name)) {
-                if (candidate->paramTypes.size() == argTypes.size()) {
+                if (candidate->paramEntries.size() == argTypes.size()) {
                     // Fast path for exact match
-                    if (std::ranges::equal(candidate->paramTypes, argTypes)) {
+                    if (std::ranges::equal(candidate->paramEntries, argTypes,
+                                           [](const FunctionParamSymbolEntry& entry, const Type* argType) {
+                                               return entry.type->IsSameWith(argType);
+                                           })) {
                         return candidate->decl;
                     }
 
                     auto convertible = true;
                     for (size_t i = 0; i < argTypes.size(); ++i) {
-                        if (!argTypes[i]->IsConvertibleTo(candidate->paramTypes[i])) {
+                        if (candidate->paramEntries[i].isInput &&
+                            !argTypes[i]->IsConvertibleTo(candidate->paramEntries[i].type)) {
+                            convertible = false;
+                            break;
+                        }
+                        if (candidate->paramEntries[i].isOutput &&
+                            !candidate->paramEntries[i].type->IsConvertibleTo(argTypes[i])) {
                             convertible = false;
                             break;
                         }
                     }
 
-                    if (convertible) {
+                    if (convertible && !exactMatch) {
                         candidateList.push_back(candidate);
                     }
                 }
             }
         }
 
-        if (candidateList.empty()) {
-            return nullptr;
-        }
-        else if (candidateList.size() == 1) {
-            return candidateList[0]->decl;
-        }
-
-        // Second pass: select the best match with partial order
-        std::vector<const FunctionSymbolEntry*> currentBestList;
-        std::vector<const FunctionSymbolEntry*> nextBestList;
-        currentBestList.reserve(candidateList.size());
-        nextBestList.reserve(candidateList.size());
-
+        // Second pass: find the single best candidate if any
+        const AstFunctionDecl* bestCandidate = nullptr;
         for (auto candidate : candidateList) {
-            auto pickedCandidate = false;
-            for (auto currentBest : currentBestList) {
-                ArrayView<const Type*> candidateParamTypes   = candidate->paramTypes;
-                ArrayView<const Type*> currentBestParamTypes = currentBest->paramTypes;
-                int numCandidateBetter                       = 0;
-                int numCurrentBetter                         = 0;
-                for (size_t i = 0; i < argTypes.size(); ++i) {
-                    if (argTypes[i]->HasBetterConversion(candidateParamTypes[i], currentBestParamTypes[i])) {
-                        numCandidateBetter += 1;
-                    }
-                    if (argTypes[i]->HasBetterConversion(candidateParamTypes[i], currentBestParamTypes[i])) {
-                        numCurrentBetter += 1;
-                    }
+            bool isAlwaysBetter = true;
+            for (auto otherCandidate : candidateList) {
+                if (candidate == otherCandidate) {
+                    continue;
                 }
 
+                // FIXME: Do we need special handling for output parameters?
                 // F1 is better than F2 if:
                 // 1. No conversion in F1 is worse than F2
                 // 2. At least one conversion in F1 is better than F2
-                if (numCandidateBetter > 0 && numCurrentBetter == 0) {
-                    // Candidate is better, but we still have to deduplicate
-                    if (!pickedCandidate) {
-                        pickedCandidate = true;
-                        nextBestList.push_back(candidate);
+                int numCandidateBetter      = 0;
+                int numOtherCandidateBetter = 0;
+                for (size_t i = 0; i < argTypes.size(); ++i) {
+                    if (argTypes[i]->HasBetterConversion(candidate->paramEntries[i].type,
+                                                         otherCandidate->paramEntries[i].type)) {
+                        numCandidateBetter += 1;
+                    }
+                    if (argTypes[i]->HasBetterConversion(otherCandidate->paramEntries[i].type,
+                                                         candidate->paramEntries[i].type)) {
+                        numOtherCandidateBetter += 1;
                     }
                 }
-                else if (numCurrentBetter > 0 && numCandidateBetter == 0) {
-                    // Current is better
-                    nextBestList.push_back(currentBest);
+                if (numCandidateBetter == 0 || numOtherCandidateBetter > 0) {
+                    isAlwaysBetter = false;
+                    break;
                 }
             }
 
-            if (nextBestList.empty()) {
-                // No better could be determined
-                std::ranges::copy(currentBestList, std::back_inserter(nextBestList));
-                nextBestList.push_back(candidate);
+            if (isAlwaysBetter) {
+                if (bestCandidate) {
+                    // Ambiguous
+                    bestCandidate = nullptr;
+                    break;
+                }
+                else {
+                    bestCandidate = candidate->decl;
+                }
             }
-
-            // swap buffer
-            std::swap(currentBestList, nextBestList);
-            nextBestList.clear();
         }
 
-        if (currentBestList.size() == 1) {
-            return currentBestList[0]->decl;
-        }
-        else {
-            return nullptr;
-        }
+        return bestCandidate;
     }
 } // namespace glsld

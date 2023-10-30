@@ -695,14 +695,9 @@ namespace glsld
                 break;
             }
 
-            Declarator declarator;
+            std::optional<Declarator> declarator;
             if (TryTestToken(TokenKlass::Identifier)) {
                 declarator = ParseDeclarator();
-            }
-            else if (!TryTestToken(TokenKlass::RParen) && TryTestToken(TokenKlass::Comma, 1)) {
-                // This is a special handling to permissively parse construct like the following:
-                // `foo(int int, int y)`
-                ConsumeToken();
             }
 
             result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));

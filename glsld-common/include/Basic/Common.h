@@ -5,8 +5,6 @@
 #include <string_view>
 #include <ranges>
 
-#include <fmt/format.h>
-
 #include "StringView.h"
 
 #define GLSLD_ASSERT(EXPR) assert(EXPR)

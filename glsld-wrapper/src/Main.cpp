@@ -1,4 +1,5 @@
 #include "Basic/CommandLine.h"
+#include "Basic/Print.h"
 #include "Compiler/CompilerObject.h"
 
 #include <nlohmann/json.hpp>
@@ -13,7 +14,7 @@ namespace glsld
     auto DoMain() -> void
     {
         if (!intputFile.HasValue()) {
-            fmt::print("need a input file\n");
+            Print("need a input file\n");
             return;
         }
 
@@ -29,7 +30,7 @@ namespace glsld
         }
         compiler.CompileFromFile(intputFile.GetValue(), nullptr, nullptr);
 
-        fmt::print("succussfully parsed input file\n");
+        Print("succussfully parsed input file\n");
     }
 } // namespace glsld
 

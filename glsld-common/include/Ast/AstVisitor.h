@@ -3,7 +3,6 @@
 #include "Ast/Stmt.h"
 #include "Ast/Decl.h"
 #include "Ast/Misc.h"
-#include "Compiler/AstContext.h"
 
 #include <type_traits>
 

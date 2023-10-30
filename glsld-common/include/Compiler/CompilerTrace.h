@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
 
 #include <chrono>
@@ -47,21 +48,21 @@ namespace glsld
         StringView sourceName;
         switch (source) {
         case CompilerTraceSource::Lexer:
-            fmt::print(stderr, "[Lexer] ");
+            DebugPrint("[Lexer] ");
             break;
         case CompilerTraceSource::Preprocessor:
-            fmt::print(stderr, "[Preprocessor] ");
+            DebugPrint("[Preprocessor] ");
             break;
         case CompilerTraceSource::Parser:
-            fmt::print(stderr, "[Parser] ");
+            DebugPrint("[Parser] ");
             break;
         case CompilerTraceSource::Compiler:
-            fmt::print(stderr, "[Compiler] ");
+            DebugPrint("[Compiler] ");
             break;
         }
 
-        fmt::print(stderr, fmt, std::forward<Ts>(args)...);
-        fmt::print(stderr, "\n");
+        DebugPrint(fmt, std::forward<Ts>(args)...);
+        DebugPrint("\n");
     }
 
     inline auto TracePPTokenLexed(const PPToken& tok) -> void

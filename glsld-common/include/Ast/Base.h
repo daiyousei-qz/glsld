@@ -288,6 +288,7 @@ namespace glsld
         }
 
         auto Print() const -> void;
+        auto DebugPrint() const -> void;
     };
 
     template <typename AstType>

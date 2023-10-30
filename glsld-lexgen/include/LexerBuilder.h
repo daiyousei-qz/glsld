@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/Print.h"
 
 #include <fmt/format.h>
 #include <vector>
@@ -137,22 +138,22 @@ namespace glsld
             return states[index];
         }
 
-        auto Print() -> void
+        auto PrintAutomata() -> void
         {
             for (auto src : states) {
                 if (src->GetAcceptId() != -1) {
-                    fmt::print("[{}] @{}\n", src->GetIndex(), src->GetAcceptId());
+                    Print("[{}] @{}\n", src->GetIndex(), src->GetAcceptId());
                 }
                 else {
-                    fmt::print("[{}]\n", src->GetIndex());
+                    Print("[{}]\n", src->GetIndex());
                 }
 
                 for (auto [ch, target] : src->GetTransition()) {
                     if (ch == EpsilonCodepoint) {
-                        fmt::print("      -> {}\n", target->GetIndex());
+                        Print("      -> {}\n", target->GetIndex());
                     }
                     else {
-                        fmt::print("    {} -> {}\n", static_cast<char>(ch), target->GetIndex());
+                        Print("    {} -> {}\n", static_cast<char>(ch), target->GetIndex());
                     }
                 }
             }

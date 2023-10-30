@@ -56,21 +56,21 @@ namespace glsld
                         //         // FIXME: this is a MSVC ICE workaround
                         //         .triggerCharacters = std::move(signatureHelpTriggerCharacters),
                         //     },
-                        // .declarationProvider    = true,
-                        // .definitionProvider     = true,
-                        // .referenceProvider      = true,
+                        .declarationProvider    = true,
+                        .definitionProvider     = true,
+                        .referenceProvider      = true,
                         .documentSymbolProvider = true,
-                        // .semanticTokensProvider =
-                        //     lsp::SemanticTokenOptions{
-                        //         .legend = GetTokenLegend(),
-                        //         .range  = false,
-                        //         .full   = true,
-                        //         .delta  = false,
-                        //     },
-                        // .inlayHintProvider =
-                        //     lsp::InlayHintOptions{
-                        //         .resolveProvider = false,
-                        //     },
+                        .semanticTokensProvider =
+                            lsp::SemanticTokenOptions{
+                                .legend = GetTokenLegend(),
+                                .range  = false,
+                                .full   = true,
+                                .delta  = false,
+                            },
+                        .inlayHintProvider =
+                            lsp::InlayHintOptions{
+                                .resolveProvider = false,
+                            },
                         // .colorProvider  = false,
                         // .renameProvider = std::nullopt,
                     },
@@ -143,11 +143,11 @@ namespace glsld
 
         auto SemanticTokensFull(int requestId, lsp::SemanticTokensParam params) -> void
         {
-            // auto uri = params.textDocument.uri;
-            // ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
-            //     lsp::SemanticTokens result = ComputeSemanticTokens(provider);
-            //     server->HandleServerResponse(requestId, result, false);
-            // });
+            auto uri = params.textDocument.uri;
+            ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
+                lsp::SemanticTokens result = ComputeSemanticTokens(provider);
+                server->HandleServerResponse(requestId, result, false);
+            });
         }
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
@@ -182,47 +182,47 @@ namespace glsld
 
         auto Declaration(int requestId, lsp::DeclarationParams params) -> void
         {
-            // auto uri = params.baseParams.textDocument.uri;
-            // ScheduleLanguageQuery(
-            //     uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-            //         std::vector<lsp::Location> result =
-            //             ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
-            //         server->HandleServerResponse(requestId, result, false);
-            //     });
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
+                });
         }
 
         auto Definition(int requestId, lsp::DefinitionParams params) -> void
         {
-            // auto uri = params.baseParams.textDocument.uri;
-            // ScheduleLanguageQuery(
-            //     uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-            //         std::vector<lsp::Location> result =
-            //             ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
-            //         server->HandleServerResponse(requestId, result, false);
-            //     });
+            // FIXME: compute definition properly
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
+                });
         }
 
         auto References(int requestId, lsp::ReferenceParams params) -> void
         {
-            // auto uri = params.baseParams.textDocument.uri;
-            // ScheduleLanguageQuery(
-            //     uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-            //         std::vector<lsp::Location> result =
-            //             ComputeReferences(provider, params.baseParams.textDocument.uri, params.baseParams.position,
-            //                               params.context.includeDeclaration);
-            //         server->HandleServerResponse(requestId, result, false);
-            //     });
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeReferences(provider, params.baseParams.textDocument.uri, params.baseParams.position,
+                                          params.context.includeDeclaration);
+                    server->HandleServerResponse(requestId, result, false);
+                });
         }
 
         auto InlayHint(int requestId, lsp::InlayHintParams params) -> void
         {
-            // auto uri = params.textDocument.uri;
-            // ScheduleLanguageQuery(uri,
-            //                       [this, requestId, params = std::move(params)](const LanguageQueryProvider&
-            //                       provider) {
-            //                           std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, params.range);
-            //                           server->HandleServerResponse(requestId, result, false);
-            //                       });
+            auto uri = params.textDocument.uri;
+            ScheduleLanguageQuery(uri,
+                                  [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                                      std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, params.range);
+                                      server->HandleServerResponse(requestId, result, false);
+                                  });
         }
 
 #pragma endregion

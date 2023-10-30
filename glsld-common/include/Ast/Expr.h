@@ -1,6 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Ast/Base.h"
+#include "Ast/Decl.h"
 #include "Language/ConstValue.h"
 
 #include <vector>
@@ -74,6 +75,12 @@ namespace glsld
     protected:
         AstExpr() = default;
 
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return true;
+        }
+
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
@@ -110,6 +117,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -139,6 +150,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -180,9 +195,30 @@ namespace glsld
             return resolvedDecl;
         }
 
+        auto IsVariable() const noexcept -> bool
+        {
+            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstVariableDecl>();
+        }
+        auto IsParameter() const noexcept -> bool
+        {
+            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstParamDecl>();
+        }
+        auto IsInterfaceBlockInstance() const noexcept -> bool
+        {
+            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstInterfaceBlockDecl>();
+        }
+        auto IsInterfaceBlockMember() const noexcept -> bool
+        {
+            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstFieldDecl>();
+        }
+
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return true;
         }
 
@@ -235,6 +271,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*lhsExpr);
         }
 
@@ -288,6 +328,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*lhsExpr);
         }
 
@@ -328,6 +372,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*baseExpr)) {
                 return false;
             }
@@ -374,6 +422,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*operand);
         }
 
@@ -421,6 +473,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*lhsOperand)) {
                 return false;
             }
@@ -476,6 +532,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*condition)) {
                 return false;
             }
@@ -521,6 +581,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             return visitor.Traverse(*operand);
         }
 
@@ -572,6 +636,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             for (auto arg : args) {
                 if (!visitor.Traverse(*arg)) {
                     return false;
@@ -620,6 +688,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstExpr::DoTraverse(visitor)) {
+                return false;
+            }
+
             if (!visitor.Traverse(*constructedType)) {
                 return false;
             }

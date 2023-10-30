@@ -1,11 +1,11 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/Print.h"
 
 #include <charconv>
 #include <functional>
 #include <unordered_map>
 #include <optional>
-#include <span>
 #include <algorithm>
 
 // LLVM-style command line parsing facility
@@ -184,17 +184,17 @@ namespace glsld::cl
     {
         [[noreturn]] inline auto ExitOnBadConfig(StringView optionKey) -> void
         {
-            fmt::print("bad config {}", optionKey);
+            Print("bad config {}", optionKey);
             exit(-1);
         }
         [[noreturn]] inline auto ExitOnUnknownOption(StringView optionKey) -> void
         {
-            fmt::print("unknown option {}", optionKey);
+            Print("unknown option {}", optionKey);
             exit(-1);
         }
         [[noreturn]] inline auto ExitOnBadValue(StringView optionKey, StringView typeName, StringView value) -> void
         {
-            fmt::print("{} is invalid for option {} with type {}", value, optionKey, typeName);
+            Print("{} is invalid for option {} with type {}", value, optionKey, typeName);
             exit(-1);
         }
 
@@ -251,12 +251,12 @@ namespace glsld::cl
                             return argValue;
                         }
                         else {
-                            fmt::print("missing required arg value\n");
+                            Print("missing required arg value\n");
                             exit(-1);
                         }
                     case ValueDisallowed:
                         if (inlineValue) {
-                            fmt::print("arg value is disallowed\n");
+                            Print("arg value is disallowed\n");
                             exit(-1);
                         }
                         return std::nullopt;
@@ -299,7 +299,7 @@ namespace glsld::cl
                             option->ParseValue(argValue);
                         }
                         else {
-                            fmt::print("additional positional option");
+                            Print("additional positional option");
                             exit(-1);
                         }
                         ++positionalIndex;
@@ -309,14 +309,14 @@ namespace glsld::cl
 
             auto PrintHelp(StringView appName, bool showHidden) -> void
             {
-                fmt::print("{} [options...]", appName);
+                Print("{} [options...]", appName);
                 for (const Option* option : positionalOptionRegistry) {
-                    fmt::print(" <{}>", !option->GetValueDesc().Empty() ? option->GetValueDesc() : "?");
+                    Print(" <{}>", !option->GetValueDesc().Empty() ? option->GetValueDesc() : "?");
                 }
-                fmt::print("\n\n");
+                Print("\n\n");
 
-                fmt::print("Options:\n");
-                fmt::print("  -h, -help  Print this help message.\n");
+                Print("Options:\n");
+                Print("  -h, -help  Print this help message.\n");
                 for (auto [optionKey, option] : optionRegistry) {
                     if (option->GetOptionHidden() == ReallyHidden) {
                         // Never print help for really hidden options
@@ -327,7 +327,7 @@ namespace glsld::cl
                         continue;
                     }
 
-                    fmt::print("  -{}  {}\n", optionKey, option->GetDesc());
+                    Print("  -{}  {}\n", optionKey, option->GetDesc());
                 }
 
                 exit(-1);

@@ -193,7 +193,7 @@ namespace glsld
 
         auto IsValid() const -> bool
         {
-            return index != InvalidTokenIndex;
+            return klass != TokenKlass::Invalid;
         }
         auto IsUnknown() const -> bool
         {

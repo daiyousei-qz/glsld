@@ -289,13 +289,13 @@ namespace glsld
     class AstParamDecl final : public AstDecl
     {
     private:
-        AstQualType* qualType;
-        Declarator declarator;
+        NotNull<AstQualType*> qualType;
+        std::optional<Declarator> declarator;
 
         const Type* resolvedType = nullptr;
 
     public:
-        AstParamDecl(AstQualType* type, Declarator declarator) : qualType(type), declarator(declarator)
+        AstParamDecl(AstQualType* type, std::optional<Declarator> declarator) : qualType(type), declarator(declarator)
         {
         }
 
@@ -303,7 +303,7 @@ namespace glsld
         {
             return qualType;
         }
-        auto GetDeclarator() const noexcept -> const Declarator&
+        auto GetDeclarator() const noexcept -> const std::optional<Declarator>&
         {
             return declarator;
         }
@@ -326,11 +326,13 @@ namespace glsld
             if (!visitor.Traverse(*qualType)) {
                 return false;
             }
-            if (declarator.arraySize && !visitor.Traverse(*declarator.arraySize)) {
-                return false;
-            }
-            if (declarator.initializer && !visitor.Traverse(*declarator.initializer)) {
-                return false;
+            if (declarator) {
+                if (declarator->arraySize && !visitor.Traverse(*declarator->arraySize)) {
+                    return false;
+                }
+                if (declarator->initializer && !visitor.Traverse(*declarator->initializer)) {
+                    return false;
+                }
             }
 
             return true;
@@ -341,7 +343,9 @@ namespace glsld
         {
             AstDecl::DoDump(d);
             d.DumpChildNode("QualType", *qualType);
-            declarator.DoDump(d);
+            if (declarator) {
+                declarator->DoDump(d);
+            }
             d.DumpAttribute("ResolvedType", resolvedType->GetDebugName());
         }
     };
@@ -350,10 +354,21 @@ namespace glsld
     class AstFunctionDecl final : public AstDecl
     {
     private:
+        // [Node]
         NotNull<AstQualType*> returnType;
+
+        // [Node]
         SyntaxToken declTok;
+
+        // [Node]
         std::vector</*NotNull*/ AstParamDecl*> params;
+
+        // [Node]
         AstStmt* body;
+
+        // [Payload]
+        // The first declaration of this function. Used to determine whether this is a redeclaration.
+        AstFunctionDecl* firstDeclaration = nullptr;
 
     public:
         AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params, AstStmt* body)
@@ -376,6 +391,15 @@ namespace glsld
         auto GetBody() const noexcept -> const AstStmt*
         {
             return body;
+        }
+
+        auto SetFirstDeclaration(AstFunctionDecl* decl) -> void
+        {
+            this->firstDeclaration = decl;
+        }
+        auto GetFirstDeclaration() const noexcept -> const AstFunctionDecl*
+        {
+            return firstDeclaration;
         }
 
         template <AstVisitorT Visitor>
@@ -485,10 +509,10 @@ namespace glsld
                 }
             }
             if (declarator) {
-                if (declarator->arraySize && visitor.Traverse(*declarator->arraySize)) {
+                if (declarator->arraySize && !visitor.Traverse(*declarator->arraySize)) {
                     return false;
                 }
-                if (declarator->initializer && visitor.Traverse(*declarator->initializer)) {
+                if (declarator->initializer && !visitor.Traverse(*declarator->initializer)) {
                     return false;
                 }
             }

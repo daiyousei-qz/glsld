@@ -884,7 +884,7 @@ namespace glsld
                 argTypes.push_back(arg->GetDeducedType());
             }
 
-            if (auto function = symbolTable.FindFunction(functionName.text.StrView(), argTypes)) {
+            if (auto function = symbolTable.FindFunction(functionName.text.StrView(), argTypes, false)) {
                 // FIXME: result of some function call can be const
                 isConst          = false;
                 deducedType      = function->GetReturnType()->GetResolvedType();
@@ -1066,14 +1066,15 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, Declarator declarator) -> AstParamDecl*
+    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, std::optional<Declarator> declarator)
+        -> AstParamDecl*
     {
         GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsFunctionScope());
         auto result = CreateAstNode<AstParamDecl>(range, qualType, declarator);
 
         result->SetScope(DeclScope::Function);
-        result->SetResolvedType(
-            compilerObject.GetTypeContext().GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
+        result->SetResolvedType(compilerObject.GetTypeContext().GetArrayType(
+            qualType->GetResolvedType(), declarator ? declarator->arraySize : nullptr));
 
         symbolTable.GetCurrentLevel()->AddParamDecl(*result);
         return result;
@@ -1085,7 +1086,9 @@ namespace glsld
         // GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
         auto result = CreateAstNode<AstFunctionDecl>(range, returnType, declTok, std::move(params), body);
 
+        // FIXME: set the correct first declaration
         result->SetScope(DeclScope::Global);
+        result->SetFirstDeclaration(result);
 
         symbolTable.GetCurrentLevel()->AddFunctionDecl(*result);
         return result;

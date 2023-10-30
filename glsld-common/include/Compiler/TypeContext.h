@@ -64,6 +64,7 @@ namespace glsld
             structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
                                                                .name    = decl.GetDeclTok() ? typeName.Str() : "",
                                                                .members = std::move(memberDesc),
+                                                               .decl    = &decl,
                                                            }));
 
             std::unordered_map<std::string, DeclView> memberLookup;
@@ -99,6 +100,7 @@ namespace glsld
             structTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
                                                                .name    = typeName.Str(),
                                                                .members = std::move(memberDesc),
+                                                               .decl    = &decl,
                                                            }));
             std::unordered_map<std::string, DeclView> memberLookup;
             for (auto memberDecl : decl.GetMembers()) {
@@ -148,10 +150,13 @@ namespace glsld
 
         // TODO: To ensure Type of the same type always uses a single pointer, we need a common context for
         // different module compile?
-        auto GetArrayType(const Type* elementType, const std::vector<size_t>& dimSizes) -> const Type*
+        auto GetArrayType(const Type* elementType, ArrayView<size_t> dimSizes) -> const Type*
         {
             if (elementType->IsError()) {
                 // We cannot construct arrays upon error type
+                return elementType;
+            }
+            if (dimSizes.empty()) {
                 return elementType;
             }
 
@@ -162,20 +167,13 @@ namespace glsld
             if (auto arrayTypeDesc = elementType->GetArrayDesc()) {
                 realElementType = arrayTypeDesc->elementType;
                 realDimSizes    = arrayTypeDesc->dimSizes;
-                std::ranges::copy(dimSizes, std::back_inserter(realDimSizes));
             }
-            else {
-                realDimSizes = dimSizes;
-            }
+            realDimSizes.insert(realDimSizes.end(), dimSizes.begin(), dimSizes.end());
 
             GLSLD_ASSERT(!realElementType->IsArray());
 
-            if (realDimSizes.empty()) {
-                return elementType;
-            }
-
             // Find and cache the type desc if needed
-            auto cachedItem = arrayTypes[std::pair{realElementType, realDimSizes}];
+            auto& cachedItem = arrayTypes[std::pair{realElementType, realDimSizes}];
             if (cachedItem == nullptr) {
                 std::string debugName = realElementType->GetDebugName().Str();
                 for (auto dimSize : realDimSizes) {

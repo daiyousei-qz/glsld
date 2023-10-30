@@ -11,11 +11,18 @@
 
 namespace glsld
 {
+    struct FunctionParamSymbolEntry
+    {
+        const Type* type;
+        bool isInput;
+        bool isOutput;
+    };
+
     struct FunctionSymbolEntry
     {
         const AstFunctionDecl* decl;
 
-        std::vector<const Type*> paramTypes;
+        std::vector<FunctionParamSymbolEntry> paramEntries;
     };
 
     class SymbolTableLevel
@@ -166,6 +173,7 @@ namespace glsld
         auto FindSymbol(StringView name) const -> DeclView;
 
         // Find a function declaration by name and argument types
-        auto FindFunction(StringView name, const std::vector<const Type*>& argTypes) const -> const AstFunctionDecl*;
+        auto FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool exactMatch) const
+            -> const AstFunctionDecl*;
     };
 } // namespace glsld

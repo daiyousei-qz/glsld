@@ -275,8 +275,10 @@ namespace glsld
     inline auto ReconstructSourceText(std::string& buffer, const AstParamDecl& decl) -> void
     {
         ReconstructSourceText(buffer, *decl.GetQualType());
-        buffer += " ";
-        ReconstructSourceText(buffer, decl.GetDeclarator());
+        if (decl.GetDeclarator()) {
+            buffer += " ";
+            ReconstructSourceText(buffer, *decl.GetDeclarator());
+        }
     }
     inline auto ReconstructSourceText(std::string& buffer, const AstFunctionDecl& decl) -> void
     {

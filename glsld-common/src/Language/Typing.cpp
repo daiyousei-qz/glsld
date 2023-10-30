@@ -191,20 +191,14 @@ namespace glsld
 
     // FIXME: This is the explicit arithmetic type extension logic
     //        maybe we should follow the core glsl.
-    constexpr auto HasBetterConversionAux(const ScalarTypeDesc& from, const ScalarTypeDesc& lhsTo,
-                                          const ScalarTypeDesc& rhsTo) -> bool
+    constexpr auto HasBetterConversionAux(ScalarKind from, ScalarKind lhsTo, ScalarKind rhsTo) -> bool
     {
-        // 1. Exact match
-        if (from.type == lhsTo.type) {
-            return from.type != rhsTo.type;
-        }
-        if (from.type == rhsTo.type) {
-            return false;
-        }
+        // Exact match should have been handled earlier
+        GLSLD_ASSERT(from != lhsTo && from != rhsTo);
 
         // 2. Promotion
-        auto isPromotionLhs = IsScalarPromotion(from.type, lhsTo.type);
-        auto isPromotionRhs = IsScalarPromotion(from.type, rhsTo.type);
+        auto isPromotionLhs = IsScalarPromotion(from, lhsTo);
+        auto isPromotionRhs = IsScalarPromotion(from, rhsTo);
         if (isPromotionLhs) {
             return !isPromotionRhs;
         }
@@ -213,8 +207,8 @@ namespace glsld
         }
 
         // 3. Conversion (no FP-Integral)
-        auto isConversionLhs = IsIntegralConversion(from.type, lhsTo.type) || IsFPConversion(from.type, lhsTo.type);
-        auto isConversionRhs = IsIntegralConversion(from.type, rhsTo.type) || IsFPConversion(from.type, rhsTo.type);
+        auto isConversionLhs = IsIntegralConversion(from, lhsTo) || IsFPConversion(from, lhsTo);
+        auto isConversionRhs = IsIntegralConversion(from, rhsTo) || IsFPConversion(from, rhsTo);
 
         if (isConversionLhs) {
             return !isConversionRhs;
@@ -224,12 +218,12 @@ namespace glsld
         }
 
         // 4. FP-Integral
-        auto isFPIntegralConversionLhs = IsFPIntegralConversion(from.type, lhsTo.type);
-        auto isFPIntegralConversionRhs = IsFPIntegralConversion(from.type, lhsTo.type);
+        auto isFPIntegralConversionLhs = IsFPIntegralConversion(from, lhsTo);
+        auto isFPIntegralConversionRhs = IsFPIntegralConversion(from, lhsTo);
 
         if (isFPIntegralConversionLhs && isFPIntegralConversionRhs) {
             // float is better
-            return lhsTo.type == ScalarKind::Float && rhsTo.type != ScalarKind::Float;
+            return lhsTo == ScalarKind::Float && rhsTo != ScalarKind::Float;
         }
 
         // FIXME: optimize the logic
@@ -435,7 +429,7 @@ namespace glsld
     auto Type::IsConvertibleTo(const Type* to) const -> bool
     {
         // Exact match
-        if (this->IsSameWith(to)) {
+        if (IsSameWith(to)) {
             return true;
         }
 
@@ -470,26 +464,36 @@ namespace glsld
 
     auto Type::HasBetterConversion(const Type* lhsTo, const Type* rhsTo) const -> bool
     {
+        // Exact match is always better than conversion
+        if (IsSameWith(lhsTo)) {
+            return !IsSameWith(rhsTo);
+        }
+        else if (IsSameWith(rhsTo)) {
+            return false;
+        }
+
         // Error never has a better conversion to anything
         if (IsError()) {
             return false;
         }
 
         // Assuming this type is convertible to both `lhsTo` and `rhsTo`
-        GLSLD_ASSERT(descPayload.index() == lhsTo->descPayload.index() &&
-                     descPayload.index() == rhsTo->descPayload.index());
+        GLSLD_ASSERT(IsConvertibleTo(lhsTo) && IsConvertibleTo(rhsTo));
 
         if (auto scalarDesc = GetScalarDesc()) {
-            return HasBetterConversionAux(*scalarDesc, *lhsTo->GetScalarDesc(), *rhsTo->GetScalarDesc());
+            return HasBetterConversionAux(scalarDesc->type, lhsTo->GetScalarDesc()->type, rhsTo->GetScalarDesc()->type);
+        }
+        else if (auto vectorDesc = GetVectorDesc()) {
+            return HasBetterConversionAux(vectorDesc->scalarType, lhsTo->GetVectorDesc()->scalarType,
+                                          rhsTo->GetVectorDesc()->scalarType);
+        }
+        else if (auto matrixDesc = GetMatrixDesc()) {
+            return HasBetterConversionAux(matrixDesc->scalarType, lhsTo->GetMatrixDesc()->scalarType,
+                                          rhsTo->GetMatrixDesc()->scalarType);
         }
         else {
             // FIXME: implement other type conversion
-            if (this->IsSameWith(lhsTo)) {
-                return !this->IsSameWith(rhsTo);
-            }
-            else {
-                return false;
-            }
+            return false;
         }
     }
 

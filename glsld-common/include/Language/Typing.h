@@ -161,9 +161,10 @@ namespace glsld
 
     struct ArrayTypeDesc
     {
+        // Note this should not be an array type.
         const Type* elementType;
 
-        // NOTE dim size of 0 means unsized/error-sized dimension
+        // Note dim size of 0 means unsized/error-sized dimension
         std::vector<size_t> dimSizes;
     };
 

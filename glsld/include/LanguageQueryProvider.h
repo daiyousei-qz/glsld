@@ -39,16 +39,25 @@ namespace glsld
         // The symbol is a type name, either in a type declaration or a type specifier.
         Type,
 
-        InterfaceBlockType,
-
+        // The symbol is a block name. e.g. `Block` in `uniform Block { ... }`
         InterfaceBlock,
+
+        // The symbol is a block instance name. e.g. `block` in `uniform Block { ... } block;`
+        InterfaceBlockInstance,
     };
 
     struct SymbolAccessInfo
     {
+        // The token that the cursor is on.
         SyntaxToken token;
+
+        // The declaration of the symbol that the token is accessing.
         DeclView symbolDecl;
+
+        // The type of the symbol that the token is accessing.
         SymbolAccessType symbolType;
+
+        // True if the token is from the declaration. e.g. `a` in `int a;`
         bool isDeclName = false;
     };
 

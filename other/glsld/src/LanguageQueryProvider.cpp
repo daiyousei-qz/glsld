@@ -87,7 +87,7 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
             {
                 if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::InterfaceBlock);
+                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::InterfaceBlockInstance);
                 }
             }
 

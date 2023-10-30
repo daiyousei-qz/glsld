@@ -157,7 +157,8 @@ namespace glsld
         auto BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
                              std::vector<AstFieldDecl*> members) -> AstStructDecl*;
 
-        auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, Declarator declarator) -> AstParamDecl*;
+        auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, std::optional<Declarator> declarator)
+            -> AstParamDecl*;
 
         auto BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, SyntaxToken declTok,
                                std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*;

@@ -1,5 +1,7 @@
-#include "LexerBuilder.h"
+#include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
+
+#include "LexerBuilder.h"
 
 using namespace glsld;
 
@@ -129,13 +131,13 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
 int main(int argc, const char** argv)
 {
     if (argc != 2) {
-        fmt::print("Usage: {} <output file>\n", argv[0]);
+        Print("Usage: {} <output file>\n", argv[0]);
         return -1;
     }
 
     auto file = fopen(argv[1], "wb");
     if (!file) {
-        fmt::print("Failed to open file {}\n", argv[1]);
+        Print("Failed to open file {}\n", argv[1]);
         return -1;
     }
 
