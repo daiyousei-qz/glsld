@@ -1,4 +1,5 @@
 #pragma once
+#include "Basic/StringView.h"
 #include "Compiler/PPCallback.h"
 
 #include "Protocol.h"

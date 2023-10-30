@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 #include "Basic/AtomTable.h"
 #include "Basic/SourceInfo.h"
 #include "Compiler/SourceContext.h"

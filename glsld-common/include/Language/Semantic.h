@@ -1,7 +1,8 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
+
 #include <algorithm>
-#include <string_view>
 #include <array>
 
 namespace glsld

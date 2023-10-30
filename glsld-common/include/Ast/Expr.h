@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 #include "Ast/Base.h"
 #include "Ast/Decl.h"
 #include "Language/ConstValue.h"

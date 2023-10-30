@@ -1,7 +1,5 @@
 #pragma once
-
-#include "Basic/Common.h"
-#include "Protocol.h"
+#include "Basic/StringView.h"
 #include "LanguageServerInterface.h"
 
 #include <cstdio>

@@ -4,7 +4,6 @@ namespace glsld
 {
     static auto ReadLine(std::string& buf, FILE* inputFile) -> bool
     {
-        // FIXME: do not use std::cin
         buf.clear();
 
         while (true) {
@@ -47,7 +46,7 @@ namespace glsld
             if (headerView.StartWith("Content-Length: ")) {
                 headerView = headerView.Drop(16);
 
-                // TODO: handle error
+                // FIXME: handle error
                 std::from_chars(headerView.data(), headerView.data() + headerView.Size(), payloadLength);
             }
             else if (headerView.StartWith("Content-Type: ")) {

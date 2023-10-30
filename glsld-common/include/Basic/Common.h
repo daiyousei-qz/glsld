@@ -1,11 +1,7 @@
 #pragma once
 #include <cassert>
 #include <span>
-#include <string>
-#include <string_view>
 #include <ranges>
-
-#include "StringView.h"
 
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 #define GLSLD_REQUIRE(EXPR) assert(EXPR)

@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 #include "Basic/Print.h"
 
 #include <fmt/format.h>

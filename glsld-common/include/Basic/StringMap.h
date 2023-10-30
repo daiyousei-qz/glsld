@@ -1,6 +1,6 @@
 #pragma once
+#include "Basic/StringView.h"
 
-#include "Basic/Common.h"
 #include <map>
 #include <unordered_map>
 #include <string>

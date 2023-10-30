@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 #include "Compiler/SyntaxToken.h"
 
 namespace glsld
