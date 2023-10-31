@@ -12,7 +12,7 @@ namespace glsld
         std::string message;
     };
 
-    class DiagnosticContext
+    class DiagnosticStream
     {
     private:
         std::vector<DiagnosticMessage> errorStream;

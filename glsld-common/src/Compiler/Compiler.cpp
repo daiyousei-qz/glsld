@@ -1,10 +1,9 @@
 #include "Ast/AstDumper.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/SourceContext.h"
-#include "Compiler/DiagnosticContext.h"
+#include "Compiler/DiagnosticStream.h"
 #include "Compiler/LexContext.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/TypeContext.h"
 #include "Compiler/Tokenizer.h"
 #include "Compiler/Parser.h"
 
@@ -30,14 +29,11 @@ namespace glsld
     auto CompilerObject::Reset() -> void
     {
         compiled = false;
-        moduleId = -1;
 
         sourceContext = nullptr;
-        diagContext   = nullptr;
+        diagStream    = nullptr;
         lexContext    = nullptr;
-        ppContext     = nullptr;
         astContext    = nullptr;
-        typeContext   = nullptr;
         symbolTable   = nullptr;
     }
 
@@ -46,13 +42,11 @@ namespace glsld
         // FIXME: actually it has to be a successful compilation
         GLSLD_REQUIRE(compiled);
 
-        auto result         = std::make_shared<CompiledPreamble>();
-        result->moduleId    = moduleId;
-        result->lexContext  = std::move(lexContext);
-        result->ppContext   = std::move(ppContext);
-        result->astContext  = std::move(astContext);
-        result->typeContext = std::move(typeContext);
-        result->symbolTable = std::move(symbolTable);
+        auto result           = std::make_shared<CompiledPreamble>();
+        result->sourceContext = std::move(sourceContext);
+        result->lexContext    = std::move(lexContext);
+        result->astContext    = std::move(astContext);
+        result->symbolTable   = std::move(symbolTable);
 
         Reset();
         return std::move(result);
@@ -83,14 +77,13 @@ namespace glsld
     auto CompilerObject::InitializeCompilation(std::shared_ptr<CompiledPreamble> preamble) -> void
     {
         // Initialize context for compilation
-        this->moduleId      = GetNextCompileId();
-        this->preamble      = std::move(preamble);
-        this->sourceContext = std::make_unique<SourceContext>(GetFileSystemProvider());
-        this->diagContext   = std::make_unique<DiagnosticContext>();
-        this->lexContext    = std::make_unique<LexContext>();
-        this->ppContext     = std::make_unique<PreprocessContext>();
-        this->astContext    = std::make_unique<AstContext>();
-        this->typeContext   = std::make_unique<TypeContext>();
+        this->sourceContext = std::make_unique<SourceContext>(preamble ? &preamble->GetSourceContext() : nullptr,
+                                                              GetFileSystemProvider());
+        this->lexContext = std::make_unique<LexContext>(preamble ? &preamble->GetLexContext() : nullptr);
+        this->astContext = std::make_unique<AstContext>(preamble ? &preamble->GetAstContext() : nullptr);
+        this->diagStream = std::make_unique<DiagnosticStream>();
+
+        this->preamble = std::move(preamble);
     }
 
     auto CompilerObject::DoCompile(PPCallback* ppCallback) -> void

@@ -5,7 +5,6 @@
 #include "Ast/Misc.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/TypeContext.h"
 #include "Compiler/SymbolTable.h"
 
 namespace glsld

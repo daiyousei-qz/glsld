@@ -24,7 +24,9 @@ namespace glsld
         -> void
     {
         const auto& lexContext = provider.GetLexContext();
-        for (const auto& tok : lexContext.GetAllTokenView()) {
+        for (SyntaxTokenIndex tokIndex = lexContext.GetTokenIndexOffset(); tokIndex < lexContext.GetTotalTokenCount();
+             ++tokIndex) {
+            auto tok = lexContext.GetTUToken(tokIndex);
             std::optional<SemanticTokenType> type;
 
             // Only collect tokens from the main file.

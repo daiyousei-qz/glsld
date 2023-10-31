@@ -27,6 +27,19 @@ namespace glsld
             this->Traverse(*provider.GetAstContext().GetTranslationUnit());
         }
 
+        auto TraverseNodeContains(const AstNode& node, TextPosition position) -> AstVisitPolicy
+        {
+            if (GetProvider().ContainsPositionExtended(node, position)) {
+                return AstVisitPolicy::Traverse;
+            }
+            else if (GetProvider().PrecedesPosition(node, position)) {
+                return AstVisitPolicy::Leave;
+            }
+            else {
+                return AstVisitPolicy::Halt;
+            }
+        }
+
         // auto TraverseGlobalDeclUntil(TextPosition position)
         // {
         //     for (AstDecl* decl : provider.GetAstContext().GetGlobalDecls()) {

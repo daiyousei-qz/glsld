@@ -1,5 +1,0 @@
-
-namespace glsld
-{
-
-};

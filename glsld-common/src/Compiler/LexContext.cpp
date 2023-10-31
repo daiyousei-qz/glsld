@@ -1,4 +1,5 @@
 #include "Compiler/LexContext.h"
+#include "Compiler/MacroExpansion.h"
 
 namespace glsld
 {
@@ -44,9 +45,16 @@ namespace glsld
 
     } // namespace
 
-    LexContext::LexContext()
+    LexContext::LexContext(const LexContext* preambleContext) : CompilerContextBase(preambleContext)
     {
-        atomTable.Import(GetLanguageAtomTable());
+        if (preambleContext) {
+            atomTable.Import(preambleContext->atomTable);
+            tokenIndexOffset = preambleContext->tokenIndexOffset + preambleContext->tokens.size();
+            macroLookup      = preambleContext->macroLookup;
+        }
+        else {
+            atomTable.Import(GetLanguageAtomTable());
+        }
     }
     LexContext::~LexContext()
     {
@@ -67,23 +75,35 @@ namespace glsld
         }
     }
 
-    auto LexContext::GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+    auto LexContext::GetLastTUToken() const -> SyntaxToken
     {
-        GLSLD_ASSERT(tokIndex < tokens.size());
         return SyntaxToken{
-            .index = tokIndex,
-            .klass = tokens[tokIndex].klass,
-            .text  = tokens[tokIndex].text,
+            .index = static_cast<SyntaxTokenIndex>(tokenIndexOffset + tokens.size() - 1),
+            .klass = tokens.back().klass,
+            .text  = tokens.back().text,
         };
     }
 
-    auto LexContext::GetTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+    auto LexContext::GetTUToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
     {
-        if (tokIndex < tokens.size()) {
-            return GetToken(tokIndex);
+        GLSLD_ASSERT(tokIndex >= tokenIndexOffset && tokIndex - tokenIndexOffset < tokens.size());
+
+        return SyntaxToken{
+            .index = tokIndex,
+            .klass = tokens[tokIndex - tokenIndexOffset].klass,
+            .text  = tokens[tokIndex - tokenIndexOffset].text,
+        };
+    }
+
+    auto LexContext::GetTUTokenSafe(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+    {
+        GLSLD_ASSERT(tokIndex >= tokenIndexOffset);
+
+        if (tokIndex < tokenIndexOffset + tokens.size()) {
+            return GetTUToken(tokIndex);
         }
         else {
-            return GetToken(GetTokenCount() - 1);
+            return GetLastTUToken();
         }
     }
 
@@ -100,7 +120,129 @@ namespace glsld
             };
         }
         else {
-            return GetToken(GetTokenCount() - 1);
+            return GetLastTUToken();
         }
+    }
+
+    auto LexContext::LookupSpelledFile(const SyntaxToken& tok) const -> FileID
+    {
+        return LookupSpelledFile(tok.index);
+    }
+
+    auto LexContext::LookupSpelledFile(SyntaxTokenIndex tokIndex) const -> FileID
+    {
+        if (tokIndex < tokenIndexOffset) {
+            GLSLD_ASSERT(GetPreambleContext());
+            return GetPreambleContext()->LookupSpelledFile(tokIndex);
+        }
+
+        GLSLD_ASSERT(tokIndex < tokenIndexOffset + tokens.size());
+        return tokens[tokIndex - tokenIndexOffset].spelledFile;
+    }
+
+    auto LexContext::LookupSpelledTextRange(const SyntaxToken& tok) const -> FileTextRange
+    {
+        return LookupSpelledTextRange(tok.index);
+    }
+
+    auto LexContext::LookupSpelledTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange
+    {
+        if (tokIndex < tokenIndexOffset) {
+            GLSLD_ASSERT(GetPreambleContext());
+            return GetPreambleContext()->LookupSpelledTextRange(tokIndex);
+        }
+
+        GLSLD_ASSERT(tokIndex < tokenIndexOffset + tokens.size());
+        return FileTextRange{
+            .fileID = tokens[tokIndex - tokenIndexOffset].spelledFile,
+            .range  = tokens[tokIndex - tokenIndexOffset].spelledRange,
+        };
+    }
+
+    auto LexContext::LookupExpandedTextRange(const SyntaxToken& tok) const -> FileTextRange
+    {
+        return LookupExpandedTextRange(tok.index);
+    }
+
+    auto LexContext::LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange
+    {
+        if (tokIndex < tokenIndexOffset) {
+            GLSLD_ASSERT(GetPreambleContext());
+            return GetPreambleContext()->LookupExpandedTextRange(tokIndex);
+        }
+
+        GLSLD_ASSERT(tokIndex < tokenIndexOffset + tokens.size());
+        return FileTextRange{
+            .fileID = mainFileID,
+            .range  = tokens[tokIndex - tokenIndexOffset].expandedRange,
+        };
+    }
+
+    auto LexContext::LookupExpandedTextRange(AstSyntaxRange range) const -> TextRange
+    {
+        // FIXME: some preamble may not get expanded in the main file
+        GLSLD_ASSERT(range.startTokenIndex >= tokenIndexOffset &&
+                     range.endTokenIndex < tokenIndexOffset + tokens.size());
+        if (range.endTokenIndex > range.startTokenIndex) {
+            return TextRange{
+                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
+                tokens[range.endTokenIndex - tokenIndexOffset - 1].expandedRange.end,
+            };
+        }
+        else {
+            return TextRange{
+                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
+                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
+            };
+        }
+    }
+
+    auto LexContext::EnterIncludeFile() -> void
+    {
+        includeDepth += 1;
+    }
+
+    auto LexContext::ExitIncludeFile() -> void
+    {
+        includeDepth -= 1;
+    }
+
+    auto LexContext::DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void
+    {
+        macroLookup.insert(std::make_pair(
+            defToken.text, MacroDefinition::CreateObjectLikeMacro(defToken, std::move(expansionTokens))));
+    }
+
+    auto LexContext::DefineFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,
+                                             std::vector<PPToken> expansionTokens) -> void
+    {
+        macroLookup.insert(
+            std::make_pair(defToken.text, MacroDefinition::CreateFunctionLikeMacro(defToken, std::move(paramTokens),
+                                                                                   std::move(expansionTokens))));
+    }
+
+    auto LexContext::UndefineMacro(AtomString macroName) -> void
+    {
+        macroLookup.erase(macroName);
+    }
+
+    auto LexContext::FindMacroDefinition(AtomString macroName) const -> const MacroDefinition*
+    {
+        auto it = macroLookup.find(macroName);
+        if (it != macroLookup.end()) {
+            return &it->second;
+        }
+        return nullptr;
+    }
+
+    auto LexContext::FindEnabledMacroDefinition(AtomString macroName) -> MacroDefinition*
+    {
+        auto it = macroLookup.find(macroName);
+        if (it != macroLookup.end()) {
+            if (it->second.IsEnabled()) {
+                return &it->second;
+            }
+        }
+        return nullptr;
     }
 } // namespace glsld

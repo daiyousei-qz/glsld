@@ -28,13 +28,13 @@ namespace glsld
 
             if (preprocessor.InActiveRegion()) {
                 GLSLD_TRACE_TOKEN_LEXED(token);
-                preprocessor.IssueToken(token);
+                preprocessor.IssuePPToken(token);
             }
             else {
                 // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
                 if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
                     GLSLD_TRACE_TOKEN_LEXED(token);
-                    preprocessor.IssueToken(token);
+                    preprocessor.IssuePPToken(token);
                 }
             }
 
@@ -88,7 +88,7 @@ namespace glsld
             }
         }
 
-        AtomString text     = compilerObject.GetLexContext().GetLexString(StringView{tokenTextBuffer});
+        AtomString text     = compilerObject.GetLexContext().GetAtomString(StringView{tokenTextBuffer});
         TextPosition endPos = srcScanner.GetTextPosition();
 
         return PPToken{

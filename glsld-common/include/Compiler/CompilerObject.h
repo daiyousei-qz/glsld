@@ -4,7 +4,6 @@
 #include "Basic/FileSystemProvider.h"
 
 #include <memory>
-#include <string>
 #include <vector>
 #include <filesystem>
 
@@ -13,20 +12,18 @@ namespace glsld
     class PPCallback;
 
     class SourceContext;
-    class DiagnosticContext;
+    class DiagnosticStream;
     class LexContext;
-    class PreprocessContext;
     class AstContext;
-    class TypeContext;
     class SymbolTable;
 
     struct CompilerConfig
     {
+        // Dumps the token stream in stdout.
         bool dumpTokens = false;
 
+        // Dumps the parsed AST in stdout.
         bool dumpAst = false;
-
-        bool noStdLib = false;
 
         // Whether the compiler should skip tokens in the preamble.
         // The user preamble is defined as all tokens before any non-comment valid tokens in the main file.
@@ -44,13 +41,9 @@ namespace glsld
     private:
         friend class CompilerObject;
 
-        int moduleId;
-
         std::unique_ptr<const SourceContext> sourceContext;
         std::unique_ptr<const LexContext> lexContext;
-        std::unique_ptr<const PreprocessContext> ppContext;
         std::unique_ptr<const AstContext> astContext;
-        std::unique_ptr<const TypeContext> typeContext;
         std::unique_ptr<const SymbolTable> symbolTable;
 
     public:
@@ -67,19 +60,11 @@ namespace glsld
             return *lexContext;
         }
 
-        auto GetPreprocessContext() const noexcept -> const PreprocessContext&
-        {
-            return *ppContext;
-        }
-
         auto GetAstContext() const noexcept -> const AstContext&
         {
             return *astContext;
         }
-        auto GetTypeContext() const noexcept -> const TypeContext&
-        {
-            return *typeContext;
-        }
+
         auto GetSymbolTable() const noexcept -> const SymbolTable&
         {
             return *symbolTable;
@@ -90,38 +75,29 @@ namespace glsld
     {
     private:
         bool compiled;
-        int moduleId;
 
         CompilerConfig config;
 
         std::shared_ptr<CompiledPreamble> preamble;
 
         std::unique_ptr<SourceContext> sourceContext;
-        std::unique_ptr<DiagnosticContext> diagContext;
+        std::unique_ptr<DiagnosticStream> diagStream;
         std::unique_ptr<LexContext> lexContext;
-        std::unique_ptr<PreprocessContext> ppContext;
         std::unique_ptr<AstContext> astContext;
-        std::unique_ptr<TypeContext> typeContext;
         std::unique_ptr<SymbolTable> symbolTable;
 
     public:
         CompilerObject();
         ~CompilerObject();
 
-        // A CompilerObject is move only
         CompilerObject(const CompilerObject&)                    = delete;
         auto operator=(const CompilerObject&) -> CompilerObject& = delete;
-        CompilerObject(CompilerObject&&)                         = default;
-        auto operator=(CompilerObject&&) -> CompilerObject&      = default;
+        CompilerObject(CompilerObject&&)                         = delete;
+        auto operator=(CompilerObject&&) -> CompilerObject&      = delete;
 
         auto IsCompiled() const -> bool
         {
             return compiled;
-        }
-
-        auto GetId() const -> int
-        {
-            return moduleId;
         }
 
         auto GetConfig() const noexcept -> const CompilerConfig&
@@ -143,13 +119,13 @@ namespace glsld
             return *sourceContext;
         }
 
-        auto GetDiagnosticContext() const noexcept -> const DiagnosticContext&
+        auto GetDiagnosticContext() const noexcept -> const DiagnosticStream&
         {
-            return *diagContext;
+            return *diagStream;
         }
-        auto GetDiagnosticContext() noexcept -> DiagnosticContext&
+        auto GetDiagnosticContext() noexcept -> DiagnosticStream&
         {
-            return *diagContext;
+            return *diagStream;
         }
 
         auto GetLexContext() const noexcept -> const LexContext&
@@ -161,15 +137,6 @@ namespace glsld
             return *lexContext;
         }
 
-        auto GetPreprocessContext() const noexcept -> const PreprocessContext&
-        {
-            return *ppContext;
-        }
-        auto GetPreprocessContext() noexcept -> PreprocessContext&
-        {
-            return *ppContext;
-        }
-
         auto GetAstContext() const noexcept -> const AstContext&
         {
             return *astContext;
@@ -177,15 +144,6 @@ namespace glsld
         auto GetAstContext() noexcept -> AstContext&
         {
             return *astContext;
-        }
-
-        auto GetTypeContext() const noexcept -> const TypeContext&
-        {
-            return *typeContext;
-        }
-        auto GetTypeContext() noexcept -> TypeContext&
-        {
-            return *typeContext;
         }
 
         auto Reset() -> void;
@@ -210,6 +168,7 @@ namespace glsld
 
         auto CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble, PPCallback* ppCallback)
             -> void;
+
         auto CompileFromBuffer(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
                                PPCallback* ppCallback) -> void;
 

@@ -11,7 +11,7 @@
 #include "Compiler/SyntaxToken.h"
 #include "Language/Typing.h"
 
-#include "DiagnosticContext.h"
+#include "DiagnosticStream.h"
 
 #include <memory>
 #include <optional>
@@ -637,7 +637,7 @@ namespace glsld
 
         auto PeekToken(size_t lookahead) const noexcept -> SyntaxToken
         {
-            return compilerObject.GetLexContext().GetTokenSafe(currentTok.index + lookahead);
+            return compilerObject.GetLexContext().GetTUTokenSafe(currentTok.index + lookahead);
         }
 
         auto GetTokenIndex() const noexcept -> SyntaxTokenIndex
@@ -648,7 +648,7 @@ namespace glsld
         // FIXME: need to restore brace depth tracker
         auto RestoreTokenIndex(size_t index) -> void
         {
-            currentTok = compilerObject.GetLexContext().GetToken(index);
+            currentTok = compilerObject.GetLexContext().GetTUToken(index);
         }
 
         auto TryTestToken(TokenKlass klass) -> bool

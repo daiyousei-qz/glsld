@@ -1,6 +1,7 @@
 #include "Basic/CommandLine.h"
 #include "Basic/Print.h"
 #include "Compiler/CompilerObject.h"
+#include "Compiler/CompilerTrace.h"
 
 #include <nlohmann/json.hpp>
 
@@ -10,6 +11,7 @@ namespace glsld
 
     cl::Opt<bool> dumpTokens("dump-tokens", cl::Desc("Dumping result of the lexing and preprocessing only."));
     cl::Opt<bool> dumpAst("dump-ast", cl::Desc("Dumping result of the parsing only."));
+    // cl::Opt<bool> noStdlib("no-stdlib", cl::Desc("Don't link standard library module."));
 
     auto DoMain() -> void
     {
@@ -20,6 +22,8 @@ namespace glsld
 
         std::filesystem::path inputFilePath = intputFile.GetValue();
 
+        auto stdlibPreamble = GetStandardLibraryModule();
+
         CompilerObject compiler;
         compiler.AddIncludePath(inputFilePath.parent_path());
         if (dumpTokens.HasValue()) {
@@ -28,7 +32,7 @@ namespace glsld
         if (dumpAst.HasValue()) {
             compiler.SetDumpAst(dumpAst.GetValue());
         }
-        compiler.CompileFromFile(intputFile.GetValue(), nullptr, nullptr);
+        compiler.CompileFromFile(intputFile.GetValue(), stdlibPreamble, nullptr);
 
         Print("succussfully parsed input file\n");
     }

@@ -76,14 +76,14 @@ namespace glsld
 
         if (auto glslType = GetGlslBuiltinType(typeName.klass)) {
             result->SetResolvedType(
-                compilerObject.GetTypeContext().GetArrayType(Type::GetBuiltinType(*glslType), arraySpec));
+                compilerObject.GetAstContext().GetArrayType(Type::GetBuiltinType(*glslType), arraySpec));
         }
         else if (typeName.IsIdentifier()) {
             auto symbol = symbolTable.FindSymbol(typeName.text.Str());
             if (symbol.IsValid()) {
                 if (auto structDecl = symbol.GetDecl()->As<AstStructDecl>()) {
                     result->SetResolvedType(
-                        compilerObject.GetTypeContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
+                        compilerObject.GetAstContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
                 }
             }
         }
@@ -95,7 +95,7 @@ namespace glsld
     {
         auto result = CreateAstNode<AstQualType>(range, qualifiers, structDecl, arraySpec);
 
-        result->SetResolvedType(compilerObject.GetTypeContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
+        result->SetResolvedType(compilerObject.GetAstContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
         return result;
     }
 
@@ -267,7 +267,7 @@ namespace glsld
             result->SetResolvedDecl({});
 
             if (idToken.IsIdentifier()) {
-                if (auto structRecord = compilerObject.GetTypeContext().FindStructTypeDecl(baseType)) {
+                if (auto structRecord = compilerObject.GetAstContext().FindStructTypeDecl(baseType)) {
                     if (auto it = structRecord->memberLookup.find(idToken.text.Str());
                         it != structRecord->memberLookup.end()) {
                         auto memberDecl = it->second;
@@ -1010,12 +1010,11 @@ namespace glsld
         return CreateAstNode<AstEmptyDecl>(range);
     }
 
-    static auto ComputeDeclaratorTypes(TypeContext& typeContext, AstQualType* qualType,
-                                       ArrayView<Declarator> declarators)
+    static auto ComputeDeclaratorTypes(AstContext& astContext, AstQualType* qualType, ArrayView<Declarator> declarators)
     {
         std::vector<const Type*> types;
         for (const auto& declarator : declarators) {
-            types.push_back(typeContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
+            types.push_back(astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
         }
         return types;
     }
@@ -1023,7 +1022,7 @@ namespace glsld
     auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
         -> AstVariableDecl*
     {
-        auto resolvedTypes = ComputeDeclaratorTypes(compilerObject.GetTypeContext(), qualType, declarators);
+        auto resolvedTypes = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
 
         for (size_t i = 0; i < declarators.size(); ++i) {
             auto& declarator = declarators[i];
@@ -1045,7 +1044,7 @@ namespace glsld
     auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
         -> AstFieldDecl*
     {
-        auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetTypeContext(), qualType, declarators);
+        auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
 
         // Note for an AstFieldDecl, initializer is not allowed.
 
@@ -1060,7 +1059,7 @@ namespace glsld
         auto result = CreateAstNode<AstStructDecl>(range, declTok, std::move(members));
 
         result->SetScope(symbolTable.GetCurrentLevel()->GetScope());
-        result->SetDeclaredType(compilerObject.GetTypeContext().CreateStructType(*result));
+        result->SetDeclaredType(compilerObject.GetAstContext().CreateStructType(*result));
 
         symbolTable.GetCurrentLevel()->AddStructDecl(*result);
         return result;
@@ -1073,7 +1072,7 @@ namespace glsld
         auto result = CreateAstNode<AstParamDecl>(range, qualType, declarator);
 
         result->SetScope(DeclScope::Function);
-        result->SetResolvedType(compilerObject.GetTypeContext().GetArrayType(
+        result->SetResolvedType(compilerObject.GetAstContext().GetArrayType(
             qualType->GetResolvedType(), declarator ? declarator->arraySize : nullptr));
 
         symbolTable.GetCurrentLevel()->AddParamDecl(*result);
@@ -1102,12 +1101,12 @@ namespace glsld
         auto result =
             CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, std::move(members), std::move(declarator));
 
-        auto blockType = compilerObject.GetTypeContext().CreateInterfaceBlockType(*result);
+        auto blockType = compilerObject.GetAstContext().CreateInterfaceBlockType(*result);
         result->SetScope(DeclScope::Global);
         result->SetResolvedBlockType(blockType);
         if (declarator) {
             result->SetResolvedInstanceType(
-                compilerObject.GetTypeContext().GetArrayType(blockType, declarator->arraySize));
+                compilerObject.GetAstContext().GetArrayType(blockType, declarator->arraySize));
         }
         else {
             result->SetResolvedInstanceType(Type::GetErrorType());

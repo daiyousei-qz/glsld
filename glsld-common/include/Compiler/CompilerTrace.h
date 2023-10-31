@@ -16,7 +16,7 @@ namespace glsld
     {
         bool traceCompiler = false;
 
-        static auto Get() -> const CompilerTraceConfig&
+        static auto Get() -> CompilerTraceConfig&
         {
             static CompilerTraceConfig config = []() {
                 CompilerTraceConfig result;

@@ -44,13 +44,13 @@ namespace glsld
                                 .openClose = true,
                                 .change    = lsp::TextDocumentSyncKind::Incremental,
                             },
-                        // .completionProvider =
-                        //     lsp::CompletionOptions{
-                        //         // FIXME: this is a MSVC ICE workaround
-                        //         .triggerCharacters   = std::move(completionTriggerCharacters),
-                        //         .allCommitCharacters = {},
-                        //         .resolveProvider     = false,
-                        //     },
+                        .completionProvider =
+                            lsp::CompletionOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters   = std::move(completionTriggerCharacters),
+                                .allCommitCharacters = {},
+                                .resolveProvider     = false,
+                            },
                         .hoverProvider = true,
                         // .signatureHelpProvider =
                         //     lsp::SignatureHelpOptions{
@@ -153,12 +153,12 @@ namespace glsld
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
         {
-            // auto uri = params.baseParams.textDocument.uri;
-            // ScheduleLanguageQuery(
-            //     uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-            //         std::vector<lsp::CompletionItem> result = ComputeCompletion(provider,
-            //         params.baseParams.position); server->HandleServerResponse(requestId, result, false);
-            //     });
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::CompletionItem> result = ComputeCompletion(provider, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
+                });
         }
 
         auto SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void

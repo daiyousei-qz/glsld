@@ -3,35 +3,53 @@
 #include "Ast/Base.h"
 #include "Ast/Dispatch.h"
 #include "Compiler/SyntaxToken.h"
+#include "Compiler/CompilerContextBase.h"
 
+#include <map>
 #include <vector>
-#include <type_traits>
 
 namespace glsld
 {
-    // This class holds all AST nodes in a translation unit
-    class AstContext
+    struct StructDeclRecord
+    {
+        const AstDecl* structDecl;
+
+        std::unordered_map<std::string, DeclView> memberLookup;
+    };
+
+    // This class manages everything related to parsing of a translation unit.
+    class AstContext final : CompilerContextBase<AstContext>
     {
     private:
         // FIXME: optimize memory layout
-        std::vector<AstNode*> nodes;
+        std::vector<const AstNode*> nodes;
 
-        const AstTranslationUnit* translationUnit;
+        const AstTranslationUnit* translationUnit = nullptr;
+
+        // FIXME: optimize memory layout
+        std::vector<const Type*> compositeTypes;
+
+        std::unordered_map<const Type*, StructDeclRecord> structDeclLookup;
+
+        std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
     public:
-        AstContext() = default;
-
+        AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
+        {
+            if (preambleContext) {
+                structDeclLookup = preambleContext->structDeclLookup;
+                arrayTypes       = preambleContext->arrayTypes;
+            }
+        }
         ~AstContext()
         {
             for (auto node : nodes) {
-                InvokeAstDispatched(*node, [](auto& dispatchedNode) { delete &dispatchedNode; });
+                InvokeAstDispatched(*node, [](const auto& dispatchedNode) { delete &dispatchedNode; });
+            }
+            for (auto type : compositeTypes) {
+                delete type;
             }
         }
-
-        AstContext(const AstContext&)                    = delete;
-        AstContext(AstContext&&)                         = delete;
-        auto operator=(const AstContext&) -> AstContext& = delete;
-        auto operator=(AstContext&&) -> AstContext&      = delete;
 
         auto SetTranslationUnit(const AstTranslationUnit* tu)
         {
@@ -52,5 +70,24 @@ namespace glsld
             nodes.push_back(result);
             return result;
         }
+
+        auto FindStructTypeDecl(const Type* type) const -> const StructDeclRecord*
+        {
+            if (auto it = structDeclLookup.find(type); it != structDeclLookup.end()) {
+                return &it->second;
+            }
+
+            return nullptr;
+        }
+
+        auto CreateStructType(AstStructDecl& decl) -> const Type*;
+
+        auto CreateInterfaceBlockType(AstInterfaceBlockDecl& decl) -> const Type*;
+
+        auto GetArrayType(const Type* elementType, const AstArraySpec* arraySpec) -> const Type*;
+
+        // TODO: To ensure Type of the same type always uses a single pointer, we need a common context for
+        // different module compile?
+        auto GetArrayType(const Type* elementType, ArrayView<size_t> dimSizes) -> const Type*;
     };
 } // namespace glsld

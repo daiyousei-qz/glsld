@@ -5,6 +5,8 @@
 
 namespace glsld
 {
+    using FileID = int;
+
     // A position in a text document expressed as (zero-based) line and character offset.
     struct TextPosition
     {
@@ -69,5 +71,11 @@ namespace glsld
 
         auto operator==(const TextRange&) const noexcept -> bool                  = default;
         auto operator<=>(const TextRange&) const noexcept -> std::strong_ordering = delete;
+    };
+
+    struct FileTextRange
+    {
+        FileID fileID;
+        TextRange range;
     };
 } // namespace glsld

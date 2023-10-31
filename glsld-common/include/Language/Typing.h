@@ -172,8 +172,11 @@ namespace glsld
     class AstDecl;
     struct StructTypeDesc
     {
+        // The linkage name of the struct type.
         std::string name;
+
         std::vector<std::pair<std::string, const Type*>> members;
+
         const AstDecl* decl;
     };
 

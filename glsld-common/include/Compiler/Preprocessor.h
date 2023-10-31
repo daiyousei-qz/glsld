@@ -3,7 +3,6 @@
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/LexContext.h"
-#include "Compiler/PreprocessContext.h"
 #include "Compiler/MacroExpansion.h"
 #include "Compiler/CompilerTrace.h"
 
@@ -43,8 +42,7 @@ namespace glsld
 
     // The preprocessor acts as a state machine which accepts PP tokens from the Tokenizer and
     // transforms them according to the current state. The fully preproccessed tokens are then
-    // converted to RawSyntaxTokens and registered to the LexContext.
-    //
+    // piped into the LexContext as a part of the token stream.
     class Preprocessor final
     {
     private:
@@ -123,7 +121,7 @@ namespace glsld
         Preprocessor(CompilerObject& compilerObject, PPCallback* callback,
                      std::optional<TextRange> includeExpansionRange)
             : compilerObject(compilerObject), callback(callback), state(PreprocessorState::Default),
-              macroExpansionProcessor(compilerObject.GetPreprocessContext(), ExpandToLexContextCallback{*this}),
+              macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this}),
               includeExpansionRange(includeExpansionRange), directiveToken(), directiveArgBuffer(), conditionalStack()
         {
         }
@@ -151,7 +149,7 @@ namespace glsld
         }
 
         // Issue a PP token to the preprocessor. The token will be processed according to the current state.
-        auto IssueToken(const PPToken& token) -> void
+        auto IssuePPToken(const PPToken& token) -> void
         {
             DispatchTokenToHandler(token);
         }

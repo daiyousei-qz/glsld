@@ -112,7 +112,7 @@ namespace glsld
         }
         else if (token.klass == TokenKlass::Eof) {
             macroExpansionProcessor.Finalize();
-            if (compilerObject.GetPreprocessContext().GetIncludeDepth() == 0) {
+            if (compilerObject.GetLexContext().GetIncludeDepth() == 0) {
                 // We are done with the main file. Insert an EOF token.
                 compilerObject.GetLexContext().AddToken(token, token.spelledRange);
             }
@@ -249,7 +249,7 @@ namespace glsld
     auto Preprocessor::HandleIncludeDirective(PPTokenScanner& scanner) -> void
     {
         const auto& compilerConfig = compilerObject.GetConfig();
-        if (compilerObject.GetPreprocessContext().GetIncludeDepth() >= compilerConfig.maxIncludeDepth) {
+        if (compilerObject.GetLexContext().GetIncludeDepth() >= compilerConfig.maxIncludeDepth) {
             // FIXME: report error, too many nested include files
             return;
         }
@@ -279,7 +279,7 @@ namespace glsld
 
                 // We create a new preprocessor and lexer to process the included file.
                 GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
-                compilerObject.GetPreprocessContext().EnterIncludeFile();
+                compilerObject.GetLexContext().EnterIncludeFile();
                 if (callback) {
                     callback->OnEnterIncludedFile();
                 }
@@ -291,7 +291,7 @@ namespace glsld
                 if (callback) {
                     callback->OnExitIncludedFile();
                 }
-                compilerObject.GetPreprocessContext().ExitIncludeFile();
+                compilerObject.GetLexContext().ExitIncludeFile();
                 GLSLD_TRACE_EXIT_INCLUDE_FILE(headerName);
             }
             else {
@@ -317,7 +317,7 @@ namespace glsld
 
         if (scanner.CursorAtEnd()) {
             // Fast path for empty macro definitions.
-            compilerObject.GetPreprocessContext().DefineObjectLikeMacro(macroName, {});
+            compilerObject.GetLexContext().DefineObjectLikeMacro(macroName, {});
             return;
         }
 
@@ -373,11 +373,11 @@ namespace glsld
 
         // Register the macro
         if (isFunctionLike) {
-            compilerObject.GetPreprocessContext().DefineFunctionLikeMacro(macroName, std::move(paramTokens),
-                                                                          std::move(expansionTokens));
+            compilerObject.GetLexContext().DefineFunctionLikeMacro(macroName, std::move(paramTokens),
+                                                                   std::move(expansionTokens));
         }
         else {
-            compilerObject.GetPreprocessContext().DefineObjectLikeMacro(macroName, std::move(expansionTokens));
+            compilerObject.GetLexContext().DefineObjectLikeMacro(macroName, std::move(expansionTokens));
         }
     }
 
@@ -404,7 +404,7 @@ namespace glsld
 
         // Undefine the macro
         // FIXME: report error if the macro is not defined. Where do we want this check to be placed?
-        compilerObject.GetPreprocessContext().UndefineMacro(macroName.text);
+        compilerObject.GetLexContext().UndefineMacro(macroName.text);
     }
 
     auto Preprocessor::HandleIfDirective(PPTokenScanner& scanner) -> void
@@ -432,7 +432,7 @@ namespace glsld
             callback->OnIfDefDirective(macroName, isNDef);
         }
 
-        auto macroDef = compilerObject.GetPreprocessContext().FindMacroDefinition(macroName.text);
+        auto macroDef = compilerObject.GetLexContext().FindMacroDefinition(macroName.text);
         bool active   = (macroDef != nullptr) != isNDef;
         conditionalStack.push_back(PPConditionalInfo{
             .active           = active,

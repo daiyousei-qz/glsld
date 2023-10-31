@@ -121,7 +121,7 @@ namespace glsld
         // Returns the text range of the specified syntax token, including the trailing whitespace and comments.
         auto GetExtendedTokenTextRange(SyntaxTokenIndex tokenIndex) const -> TextRange
         {
-            auto nextTokenIndex = std::min<SyntaxTokenIndex>(tokenIndex + 1, GetLexContext().GetTokenCount() - 1);
+            auto nextTokenIndex = std::min<SyntaxTokenIndex>(tokenIndex + 1, GetLexContext().GetTotalTokenCount() - 1);
 
             TextPosition startPosition = GetLexContext().LookupSpelledTextRange(tokenIndex).start;
             TextPosition endPosition   = GetLexContext().LookupSpelledTextRange(nextTokenIndex).start;
@@ -164,6 +164,11 @@ namespace glsld
         auto ContainsPositionExtended(const SyntaxToken& token, TextPosition position) const -> bool
         {
             return GetExtendedTokenTextRange(token.index).ContainsExtended(position);
+        }
+
+    private:
+        auto MapExpandedTextRangeToMainFile() const -> TextRange
+        {
         }
     };
 

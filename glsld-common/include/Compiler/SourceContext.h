@@ -1,6 +1,8 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Basic/FileSystemProvider.h"
+#include "Basic/SourceInfo.h"
+#include "Compiler/CompilerContextBase.h"
 
 #include <unordered_map>
 #include <filesystem>
@@ -8,7 +10,6 @@
 
 namespace glsld
 {
-    using FileID = int;
 
     class SourceFileEntry final
     {
@@ -51,24 +52,34 @@ namespace glsld
         std::optional<StringView> sourceText;
     };
 
-    // This class manages views of all source files in a translation unit
-    class SourceContext final
+    // This class manages everything related the source files/buffers when compiling a translation unit.
+    class SourceContext final : CompilerContextBase<SourceContext>
     {
+    private:
+        FileSystemProvider& fileSystemProvider;
+
+        const SourceFileEntry* mainFileEntry;
+
+        std::vector<std::unique_ptr<SourceFileEntry>> entries;
+
+        std::unordered_map<std::filesystem::path, SourceFileEntry*> lookupPathToEntries;
+
+        std::unordered_map<std::filesystem::path, SourceFileEntry*> canonicalPathToEntries;
+
+        std::vector<const FileRef*> openedFiles;
+
     public:
-        SourceContext(FileSystemProvider& fileSystemProvider) : fileSystemProvider(fileSystemProvider)
+        SourceContext(const SourceContext* preambleContext, FileSystemProvider& fileSystemProvider)
+            : CompilerContextBase(preambleContext), fileSystemProvider(fileSystemProvider)
         {
+            if (preambleContext) {
+            }
         }
 
         ~SourceContext()
         {
             Finalize();
         }
-
-        // A SourceContext cannot be copied or moved
-        SourceContext(const SourceContext&)                    = delete;
-        SourceContext(SourceContext&&)                         = delete;
-        auto operator=(const SourceContext&) -> SourceContext& = delete;
-        auto operator=(SourceContext&&) -> SourceContext&      = delete;
 
         auto GetSourceFileEntry(FileID fileId) -> SourceFileEntry*
         {
@@ -141,18 +152,5 @@ namespace glsld
                 fileSystemProvider.Close(fileRef);
             }
         }
-
-    private:
-        FileSystemProvider& fileSystemProvider;
-
-        const SourceFileEntry* mainFileEntry;
-
-        std::vector<std::unique_ptr<SourceFileEntry>> entries;
-
-        std::unordered_map<std::filesystem::path, SourceFileEntry*> lookupPathToEntries;
-
-        std::unordered_map<std::filesystem::path, SourceFileEntry*> canonicalPathToEntries;
-
-        std::vector<const FileRef*> openedFiles;
     };
 } // namespace glsld
