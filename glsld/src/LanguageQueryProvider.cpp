@@ -143,8 +143,7 @@ namespace glsld
                 -> void
             {
                 if (token.IsIdentifier()) {
-                    auto tokRange = GetProvider().GetLexContext().LookupExpandedTextRange(token);
-                    if (tokRange.Contains(cursorPos)) {
+                    if (GetProvider().ContainsPosition(token, cursorPos)) {
                         GLSLD_ASSERT(!result);
                         result = SymbolAccessInfo{
                             .token      = token,

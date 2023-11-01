@@ -3,7 +3,6 @@
 #include "Compiler/SyntaxToken.h"
 
 #include <vector>
-#include <ranges>
 
 namespace glsld
 {
@@ -18,7 +17,8 @@ namespace glsld
         // The first token index of this translation unit in the global token stream.
         SyntaxTokenIndex tokenIndexOffset = 0;
 
-        // The token stream that is lexed from the source text, including from included files and macro expansion.
+        // Tokens of the translation unit lexed from the source text, including those from included files and macro
+        // expansion. It is guaranteed that the last token is always an EOF token spelled in the main file.
         std::vector<RawSyntaxTokenEntry> tokens;
         // std::vector<RawSyntaxToken> commentTokens;
 
@@ -36,8 +36,11 @@ namespace glsld
             return atomTable.GetAtom(text);
         }
 
+        // Add a new token to the token stream of this translation unit.
+        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
+
         // Get the first token index of this translation unit in the global token stream.
-        auto GetTokenIndexOffset() const noexcept -> SyntaxTokenIndex
+        auto GetTUTokenIndexOffset() const noexcept -> SyntaxTokenIndex
         {
             return tokenIndexOffset;
         }
@@ -48,14 +51,16 @@ namespace glsld
             return tokens.size();
         }
 
+        auto GetTUMainFileID() const noexcept -> FileID
+        {
+            return tokens.back().spelledFile;
+        }
+
         // Get the number of tokens in the global token stream.
         auto GetTotalTokenCount() const noexcept -> size_t
         {
             return tokenIndexOffset + tokens.size();
         }
-
-        // Add a new token to the token stream of this translation unit.
-        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
 
         // Get the last syntax token from this translation unit.
         auto GetLastTUToken() const -> SyntaxToken;
@@ -73,22 +78,16 @@ namespace glsld
         // Both token A should be returned
         auto FindTokenByTextPosition(TextPosition position) const -> SyntaxToken;
 
-        auto LookupSpelledFile(const SyntaxToken& tok) const -> FileID;
-
+        // Find out the file that the specified token is spelled in.
         auto LookupSpelledFile(SyntaxTokenIndex tokIndex) const -> FileID;
 
-        auto LookupSpelledTextRange(const SyntaxToken& tok) const -> FileTextRange;
-
+        // Find out the file and text range that the specified token is spelled in.
         auto LookupSpelledTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange;
 
-        auto LookupExpandedTextRange(const SyntaxToken& tok) const -> FileTextRange;
+        // Find out the file and text range that the specified token is expanded to.
+        auto LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> TextRange;
 
-        auto LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange;
-
-        // NOTE we could only get the expanded range of an AstSyntaxRange because tokens could be spelled across
-        // different files.
-        auto LookupExpandedTextRange(AstSyntaxRange range) const -> std::optional<FileTextRange>;
-
+        // FIXME: this temp variable shouldn't be in lex context
         auto GetIncludeDepth() const noexcept -> int
         {
             return includeDepth;

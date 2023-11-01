@@ -75,13 +75,17 @@ namespace glsld
 
         auto TryAddSymbol(std::vector<lsp::DocumentSymbol>& buffer, SyntaxToken token, lsp::SymbolKind kind) -> bool
         {
-            if (token.IsIdentifier() && GetProvider().InMainFile(token)) {
-                auto tokRange = ToLspRange(GetProvider().GetLexContext().LookupSpelledTextRange(token));
+            if (token.IsIdentifier()) {
+                return false;
+            }
+
+            if (auto spelledRange = GetProvider().GetSpelledTextRangeInMainFile(token)) {
+                auto lspSpelledRange = ToLspRange(*spelledRange);
                 buffer.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),
                     .kind           = kind,
-                    .range          = tokRange,
-                    .selectionRange = tokRange,
+                    .range          = lspSpelledRange,
+                    .selectionRange = lspSpelledRange,
                     .children       = {},
                 });
 

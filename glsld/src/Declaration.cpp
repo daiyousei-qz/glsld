@@ -43,11 +43,13 @@ namespace glsld
             }
 
             // FIXME: Support goto declaration in included files
-            if (accessedDeclTok && provider.InMainFile(*accessedDeclTok)) {
-                return {lsp::Location{
-                    .uri   = uri,
-                    .range = ToLspRange(lexContext.LookupSpelledTextRange(*accessedDeclTok)),
-                }};
+            if (accessedDeclTok && provider.IsSpelledInMainFile(*accessedDeclTok)) {
+                if (auto spelledRange = provider.GetSpelledTextRangeInMainFile(*accessedDeclTok)) {
+                    return {lsp::Location{
+                        .uri   = uri,
+                        .range = ToLspRange(*spelledRange),
+                    }};
+                }
             }
         }
 

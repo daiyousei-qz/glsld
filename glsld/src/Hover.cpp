@@ -188,7 +188,7 @@ namespace glsld
             }
 
             if (auto hoverContent = CreateHoverContent(*accessInfo)) {
-                auto hoverRange = compilerObject.GetLexContext().LookupExpandedTextRange(accessInfo->token);
+                auto hoverRange = provider.GetExpandedTextRange(accessInfo->token);
                 return lsp::Hover{
                     .contents = ComputeHoverText(*hoverContent),
                     .range    = ToLspRange(hoverRange),

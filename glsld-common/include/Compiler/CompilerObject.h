@@ -44,7 +44,6 @@ namespace glsld
         std::unique_ptr<const SourceContext> sourceContext;
         std::unique_ptr<const LexContext> lexContext;
         std::unique_ptr<const AstContext> astContext;
-        std::unique_ptr<const SymbolTable> symbolTable;
 
     public:
         CompiledPreamble();
@@ -64,11 +63,6 @@ namespace glsld
         {
             return *astContext;
         }
-
-        auto GetSymbolTable() const noexcept -> const SymbolTable&
-        {
-            return *symbolTable;
-        }
     };
 
     class CompilerObject final
@@ -84,7 +78,6 @@ namespace glsld
         std::unique_ptr<DiagnosticStream> diagStream;
         std::unique_ptr<LexContext> lexContext;
         std::unique_ptr<AstContext> astContext;
-        std::unique_ptr<SymbolTable> symbolTable;
 
     public:
         CompilerObject();

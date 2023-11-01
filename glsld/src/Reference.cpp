@@ -108,9 +108,8 @@ namespace glsld
         auto AddReferenceToken(const SyntaxToken& token) -> void
         {
             // FIXME: Support reference from included files
-            if (GetProvider().InMainFile(token)) {
-                output.push_back(lsp::Location{
-                    documentUri, ToLspRange(GetProvider().GetLexContext().LookupExpandedTextRange(token))});
+            if (GetProvider().IsSpelledInMainFile(token)) {
+                output.push_back(lsp::Location{documentUri, ToLspRange(GetProvider().GetExpandedTextRange(token))});
             }
         }
     };

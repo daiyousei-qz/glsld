@@ -34,7 +34,6 @@ namespace glsld
         diagStream    = nullptr;
         lexContext    = nullptr;
         astContext    = nullptr;
-        symbolTable   = nullptr;
     }
 
     auto CompilerObject::CreatePreamble() -> std::shared_ptr<CompiledPreamble>
@@ -46,7 +45,6 @@ namespace glsld
         result->sourceContext = std::move(sourceContext);
         result->lexContext    = std::move(lexContext);
         result->astContext    = std::move(astContext);
-        result->symbolTable   = std::move(symbolTable);
 
         Reset();
         return std::move(result);

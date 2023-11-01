@@ -11,7 +11,7 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        auto beginTokIndex = compilerObject.GetLexContext().GetTokenIndexOffset();
+        auto beginTokIndex = compilerObject.GetLexContext().GetTUTokenIndexOffset();
         RestoreTokenIndex(beginTokIndex);
 
         std::vector<AstDecl*> decls;
@@ -1734,6 +1734,7 @@ namespace glsld
 
 #pragma endregion
 
+    // FIXME: really need to carefully review this function
     auto Parser::RecoverFromError(RecoveryMode mode) -> void
     {
         GLSLD_TRACE_PARSER();
@@ -1755,7 +1756,6 @@ namespace glsld
         // We may close a pair of parenthsis without the closing delimitor
         auto removeDepthIfUnclosed = [&]() {
             switch (mode) {
-            case RecoveryMode::Comma:
             case RecoveryMode::Paren:
                 if (!TryTestToken(TokenKlass::RParen)) {
                     GLSLD_ASSERT(initParenDepth != 0);
@@ -1769,6 +1769,7 @@ namespace glsld
                 }
                 break;
             case RecoveryMode::Brace:
+            case RecoveryMode::IListBrace:
                 if (!TryTestToken(TokenKlass::RBrace)) {
                     GLSLD_ASSERT(initBraceDepth != 0);
                     braceDepth -= 1;

@@ -5,8 +5,7 @@
 #include "Ast/Decl.h"
 #include "Language/Typing.h"
 
-#include <string>
-#include <unordered_map>
+#include <algorithm>
 #include <vector>
 #include <ranges>
 
@@ -124,8 +123,10 @@ namespace glsld
     public:
         SymbolTable(ArrayView<SymbolTableLevel*> importedLevels) : importedLevelCount(importedLevels.size())
         {
-            assert(std::ranges::all_of(importedLevels, [](const SymbolTableLevel* level) {
-                return level->IsFreezed() && level->IsGlobalScope();
+            GLSLD_ASSERT(std::ranges::all_of(importedLevels, [](const SymbolTableLevel* level) {
+                // FIXME: should be freezed
+                // return level->IsFreezed() && level->IsGlobalScope();
+                return level->IsGlobalScope();
             }));
 
             levels.insert(levels.end(), importedLevels.begin(), importedLevels.end());

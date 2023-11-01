@@ -20,13 +20,14 @@ namespace glsld
     private:
         CompilerObject& compilerObject;
 
-        SymbolTable symbolTable;
+        SymbolTable& symbolTable;
 
         // Return type of the current function. `nullptr` if we are not in a function.
         const Type* returnType;
 
     public:
-        AstBuilder(CompilerObject& compilerObject) : compilerObject(compilerObject)
+        AstBuilder(CompilerObject& compilerObject)
+            : compilerObject(compilerObject), symbolTable(compilerObject.GetAstContext().GetSymbolTable())
         {
         }
 

@@ -95,80 +95,125 @@ namespace glsld
             return ppInfoCache;
         }
 
-        // True if the specified token is in the main file.
-        auto InMainFile(const SyntaxToken& token) const -> bool
+        // True if the specified token is spelled in the main file.
+        auto IsSpelledInMainFile(const SyntaxToken& token) const -> bool
         {
-            return GetLexContext().LookupSpelledFile(token) == GetSourceContext().GetMainFile()->GetID();
+            return GetLexContext().LookupSpelledFile(token.index) == GetLexContext().GetTUMainFileID();
         }
 
-        // Returns the text range of the specified AST node.
-        auto GetAstTextRange(const AstNode& node) const -> TextRange
+        auto GetSpelledTextRange(const SyntaxToken& token) const -> FileTextRange
         {
-            return GetLexContext().LookupExpandedTextRange(node.GetSyntaxRange());
+            return GetLexContext().LookupSpelledTextRange(token.index);
         }
 
-        // Returns the text range of the specified AST node, including the trailing whitespace and comments.
-        auto GetExtendedAstTextRange(const AstNode& node) const -> TextRange
+        auto GetSpelledTextRangeInMainFile(const SyntaxToken& token) const -> std::optional<TextRange>
         {
-            const auto& lexContext = GetLexContext();
-            auto range             = node.GetSyntaxRange();
+            if (!IsSpelledInMainFile(token)) {
+                return std::nullopt;
+            }
 
-            TextPosition startPosition = lexContext.LookupSpelledTextRange(range.startTokenIndex).start;
-            TextPosition endPosition   = lexContext.LookupSpelledTextRange(range.endTokenIndex).start;
+            return GetLexContext().LookupSpelledTextRange(token.index).range;
+        }
+
+        // Returns the text range of the token being expanded to in the main file.
+        auto GetExpandedTextRange(const SyntaxToken& token) const -> TextRange
+        {
+            return GetLexContext().LookupExpandedTextRange(token.index);
+        }
+
+        // Returns the text range of the AST node being expanded to in the main file.
+        auto GetExpandedTextRange(const AstNode& node) const -> TextRange
+        {
+            auto range = node.GetSyntaxRange();
+            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex);
+
+            if (range.endTokenIndex == range.startTokenIndex) {
+                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+                return TextRange{firstTokenRange.start, firstTokenRange.start};
+            }
+            else {
+                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
+                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex - 1).end;
+                return TextRange{startPosition, endPosition};
+            }
+        }
+
+        // Returns the text range of the token being expanded to in the main file, including the trailing whitespace and
+        // comments.
+        auto GetExpandedTextRangeExtended(const SyntaxToken& token) const -> TextRange
+        {
+            auto nextTokenIndex = std::min<SyntaxTokenIndex>(token.index + 1, GetLexContext().GetTotalTokenCount() - 1);
+
+            TextPosition startPosition = GetLexContext().LookupExpandedTextRange(token.index).start;
+            TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(nextTokenIndex).start;
             return TextRange{startPosition, endPosition};
         }
 
-        // Returns the text range of the specified syntax token, including the trailing whitespace and comments.
-        auto GetExtendedTokenTextRange(SyntaxTokenIndex tokenIndex) const -> TextRange
+        // Returns the text range of the AST node being expanded to in the main file, including the trailing whitespace
+        // and comments.
+        auto GetExpandedTextRangeExtended(const AstNode& node) const -> TextRange
         {
-            auto nextTokenIndex = std::min<SyntaxTokenIndex>(tokenIndex + 1, GetLexContext().GetTotalTokenCount() - 1);
+            auto range = node.GetSyntaxRange();
+            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex);
 
-            TextPosition startPosition = GetLexContext().LookupSpelledTextRange(tokenIndex).start;
-            TextPosition endPosition   = GetLexContext().LookupSpelledTextRange(nextTokenIndex).start;
-            return TextRange{startPosition, endPosition};
+            if (range.endTokenIndex == range.startTokenIndex) {
+                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+                return TextRange{firstTokenRange.start, firstTokenRange.start};
+            }
+            else {
+                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
+                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex).start;
+                return TextRange{startPosition, endPosition};
+            }
         }
 
         // Returns the related information if the cursor position hits an identifier that's accessing a symbol.
         auto LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>;
 
-        // True if the range of an AST node precedes the specified position.
+        // True if the expanded range of an AST node precedes the specified position in the main file.
         auto PrecedesPosition(const AstNode& node, TextPosition position) const -> bool
         {
-            return GetLexContext().LookupExpandedTextRange(node.GetLastTokenIndex()).end <= position;
+            return GetExpandedTextRange(node).end <= position;
         }
 
-        // True if the range of an AST node succedes the specified position.
+        // True if the expanded range of an AST node succedes the specified position in the main file.
         auto SucceedsPosition(const AstNode& node, TextPosition position) const -> bool
         {
-            return GetLexContext().LookupExpandedTextRange(node.GetFirstTokenIndex()).start > position;
+            return GetExpandedTextRange(node).start > position;
         }
 
-        // True if the range of an AST node contains the specified position.
+        // True if the expanded range of an AST node contains the specified position in the main file.
         auto ContainsPosition(const AstNode& node, TextPosition position) const -> bool
         {
-            return GetAstTextRange(node).Contains(position);
+            return GetExpandedTextRange(node).Contains(position);
         }
 
-        // Returns true if the range of an AST node and trailing whitespaces contains the specified position.
+        auto ContainsPosition(const SyntaxToken& token, TextPosition position) const -> bool
+        {
+            return GetExpandedTextRange(token).Contains(position);
+        }
+
+        // True if the expanded range of an AST node including trailing whitespaces contains the specified position in
+        // the main file.
         auto ContainsPositionExtended(const AstNode& node, TextPosition position) const -> bool
         {
-            return GetExtendedAstTextRange(node).ContainsExtended(position);
+            return GetExpandedTextRangeExtended(node).ContainsExtended(position);
         }
 
-        auto ContainsPositionExtended(SyntaxTokenIndex tokenIndex, TextPosition position) const -> bool
-        {
-            return GetExtendedTokenTextRange(tokenIndex).ContainsExtended(position);
-        }
-
-        // Returns true if the range of a syntax token and trailing whitespaces contains the specified position.
+        // True if the expanded range of a token including trailing whitespaces contains the specified position in the
+        // main file.
         auto ContainsPositionExtended(const SyntaxToken& token, TextPosition position) const -> bool
         {
-            return GetExtendedTokenTextRange(token.index).ContainsExtended(position);
+            return GetExpandedTextRangeExtended(token).ContainsExtended(position);
         }
 
-    private:
-        auto MapExpandedTextRangeToMainFile() const -> TextRange
+        // True if the expanded range of a token including trailing whitespaces contains the specified position in the
+        // main file.
+        auto ContainsPositionExtended(SyntaxTokenIndex tokIndex, TextPosition position) const -> bool
         {
+            // FIXME: implement properly
+            return GetExpandedTextRangeExtended(SyntaxToken{tokIndex, TokenKlass::Invalid, {}})
+                .ContainsExtended(position);
         }
     };
 

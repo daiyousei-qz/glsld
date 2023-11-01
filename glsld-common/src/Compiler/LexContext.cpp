@@ -1,6 +1,8 @@
 #include "Compiler/LexContext.h"
 #include "Compiler/MacroExpansion.h"
 
+#include <algorithm>
+
 namespace glsld
 {
     namespace
@@ -124,11 +126,6 @@ namespace glsld
         }
     }
 
-    auto LexContext::LookupSpelledFile(const SyntaxToken& tok) const -> FileID
-    {
-        return LookupSpelledFile(tok.index);
-    }
-
     auto LexContext::LookupSpelledFile(SyntaxTokenIndex tokIndex) const -> FileID
     {
         if (tokIndex < tokenIndexOffset) {
@@ -138,11 +135,6 @@ namespace glsld
 
         GLSLD_ASSERT(tokIndex < tokenIndexOffset + tokens.size());
         return tokens[tokIndex - tokenIndexOffset].spelledFile;
-    }
-
-    auto LexContext::LookupSpelledTextRange(const SyntaxToken& tok) const -> FileTextRange
-    {
-        return LookupSpelledTextRange(tok.index);
     }
 
     auto LexContext::LookupSpelledTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange
@@ -159,42 +151,22 @@ namespace glsld
         };
     }
 
-    auto LexContext::LookupExpandedTextRange(const SyntaxToken& tok) const -> FileTextRange
-    {
-        return LookupExpandedTextRange(tok.index);
-    }
-
-    auto LexContext::LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> FileTextRange
+    auto LexContext::LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> TextRange
     {
         if (tokIndex < tokenIndexOffset) {
             GLSLD_ASSERT(GetPreambleContext());
-            return GetPreambleContext()->LookupExpandedTextRange(tokIndex);
+            if (GetPreambleContext()->GetTUMainFileID() == GetTUMainFileID()) {
+                return GetPreambleContext()->LookupExpandedTextRange(tokIndex);
+            }
+            else {
+                // If the preamble has a different main file, we assume it's expanded to the beginning of this
+                // translation unit.
+                return TextRange{};
+            }
         }
 
         GLSLD_ASSERT(tokIndex < tokenIndexOffset + tokens.size());
-        return FileTextRange{
-            .fileID = mainFileID,
-            .range  = tokens[tokIndex - tokenIndexOffset].expandedRange,
-        };
-    }
-
-    auto LexContext::LookupExpandedTextRange(AstSyntaxRange range) const -> TextRange
-    {
-        // FIXME: some preamble may not get expanded in the main file
-        GLSLD_ASSERT(range.startTokenIndex >= tokenIndexOffset &&
-                     range.endTokenIndex < tokenIndexOffset + tokens.size());
-        if (range.endTokenIndex > range.startTokenIndex) {
-            return TextRange{
-                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
-                tokens[range.endTokenIndex - tokenIndexOffset - 1].expandedRange.end,
-            };
-        }
-        else {
-            return TextRange{
-                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
-                tokens[range.startTokenIndex - tokenIndexOffset].expandedRange.start,
-            };
-        }
+        return tokens[tokIndex - tokenIndexOffset].expandedRange;
     }
 
     auto LexContext::EnterIncludeFile() -> void

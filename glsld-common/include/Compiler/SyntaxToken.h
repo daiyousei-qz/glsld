@@ -4,12 +4,7 @@
 #include "Basic/StringView.h"
 #include "Basic/AtomTable.h"
 #include "Basic/SourceInfo.h"
-#include "Compiler/SourceContext.h"
 #include "Language/Typing.h"
-
-#include <functional>
-#include <string>
-#include <vector>
 
 namespace glsld
 {
@@ -165,7 +160,7 @@ namespace glsld
     using SyntaxTokenIndex                              = uint32_t;
     inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
 
-    struct AstSyntaxRange
+    struct AstSyntaxRange final
     {
         // The range that spells the first token for this AST node.
         SyntaxTokenIndex startTokenIndex = 0;
@@ -186,27 +181,32 @@ namespace glsld
 
     // A syntax token that is part of the source token stream.
     // It is pointing to a raw token that is managed by the LexContext.
-    struct SyntaxToken
+    struct SyntaxToken final
     {
         SyntaxTokenIndex index = InvalidTokenIndex;
         TokenKlass klass       = TokenKlass::Invalid;
         AtomString text        = {};
 
-        auto IsValid() const -> bool
+        auto IsValid() const noexcept -> bool
         {
             return klass != TokenKlass::Invalid;
         }
-        auto IsUnknown() const -> bool
+        auto IsUnknown() const noexcept -> bool
         {
             return klass == TokenKlass::Unknown;
         }
-        auto IsIdentifier() const -> bool
+        auto IsIdentifier() const noexcept -> bool
         {
             return klass == TokenKlass::Identifier;
         }
-        auto IsKeyword() const -> bool
+        auto IsKeyword() const noexcept -> bool
         {
             return IsKeywordToken(klass);
+        }
+
+        auto GetSyntaxRange() const noexcept -> AstSyntaxRange
+        {
+            return AstSyntaxRange(index, index + 1);
         }
     };
 

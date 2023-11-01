@@ -3,20 +3,24 @@
 
 namespace glsld
 {
-    auto CreateSemanticTokenInfo(const LexContext& lexContext, SyntaxToken token, SemanticTokenType type,
-                                 SemanticTokenModifier modifier = SemanticTokenModifier::None) -> SemanticTokenInfo
+    auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryProvider& provider,
+                                 SyntaxToken token, SemanticTokenType type,
+                                 SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
     {
         // FIXME: how to handle multi-line token
         //            a\
         //            b
-        auto tokRange = lexContext.LookupSpelledTextRange(token);
-        return SemanticTokenInfo{
-            .line      = tokRange.start.line,
-            .character = tokRange.start.character,
-            .length    = tokRange.end.character - tokRange.start.character,
-            .type      = type,
-            .modifier  = modifier,
-        };
+        if (auto tokRange = provider.GetSpelledTextRangeInMainFile(token)) {
+            if (!tokRange->IsEmpty()) {
+                tokenBuffer.push_back(SemanticTokenInfo{
+                    .line      = tokRange->start.line,
+                    .character = tokRange->start.character,
+                    .length    = tokRange->end.character - tokRange->start.character,
+                    .type      = type,
+                    .modifier  = modifier,
+                });
+            }
+        }
     }
 
     // Collect semantic tokens from token stream, including keywords, numbers, etc.
@@ -24,22 +28,11 @@ namespace glsld
         -> void
     {
         const auto& lexContext = provider.GetLexContext();
-        for (SyntaxTokenIndex tokIndex = lexContext.GetTokenIndexOffset(); tokIndex < lexContext.GetTotalTokenCount();
+        for (SyntaxTokenIndex tokIndex = lexContext.GetTUTokenIndexOffset(); tokIndex < lexContext.GetTotalTokenCount();
              ++tokIndex) {
             auto tok = lexContext.GetTUToken(tokIndex);
+
             std::optional<SemanticTokenType> type;
-
-            // Only collect tokens from the main file.
-            if (!provider.InMainFile(tok)) {
-                continue;
-            }
-
-            // Only collect tokens that have a valid range.
-            auto textRange = lexContext.LookupSpelledTextRange(tok);
-            if (textRange.IsEmpty()) {
-                continue;
-            }
-
             if (IsKeywordToken(tok.klass)) {
                 if (!GetGlslBuiltinType(tok.klass)) {
                     // Type keyword would be handled by traversing Ast
@@ -51,7 +44,7 @@ namespace glsld
             }
 
             if (type) {
-                tokenBuffer.push_back(CreateSemanticTokenInfo(lexContext, tok, *type));
+                CreateSemanticTokenInfo(tokenBuffer, provider, tok, *type);
             }
         }
     }
@@ -209,18 +202,8 @@ namespace glsld
             auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
-                if (token.IsValid() && GetProvider().InMainFile(token)) {
-                    // FIXME: how to handle multi-line token
-                    //            a\
-                    //            b
-                    auto range = GetProvider().GetLexContext().LookupSpelledTextRange(token);
-                    output.push_back(SemanticTokenInfo{
-                        .line      = range.start.line,
-                        .character = range.start.character,
-                        .length    = range.end.character - range.start.character,
-                        .type      = type,
-                        .modifier  = modifier,
-                    });
+                if (token.IsValid()) {
+                    CreateSemanticTokenInfo(output, GetProvider(), token, type, modifier);
                 }
             }
         };

@@ -3,6 +3,7 @@
 #include "Ast/Base.h"
 #include "Ast/Dispatch.h"
 #include "Compiler/SyntaxToken.h"
+#include "Compiler/SymbolTable.h"
 #include "Compiler/CompilerContextBase.h"
 
 #include <map>
@@ -33,12 +34,18 @@ namespace glsld
 
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
+        std::unique_ptr<SymbolTable> symbolTable;
+
     public:
         AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
         {
             if (preambleContext) {
                 structDeclLookup = preambleContext->structDeclLookup;
                 arrayTypes       = preambleContext->arrayTypes;
+                symbolTable      = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
+            }
+            else {
+                symbolTable = std::make_unique<SymbolTable>();
             }
         }
         ~AstContext()
@@ -59,6 +66,11 @@ namespace glsld
         auto GetTranslationUnit() const noexcept
         {
             return translationUnit;
+        }
+
+        auto GetSymbolTable() -> SymbolTable&
+        {
+            return *symbolTable;
         }
 
         template <typename T, typename... Args>
