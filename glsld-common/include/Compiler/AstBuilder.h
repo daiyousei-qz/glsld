@@ -9,7 +9,7 @@
 
 namespace glsld
 {
-    // A stateful builder to construct AST from parsed nodes.
+    // A stateful builder to construct AST from parsed nodes. AST nodes leaving this builder should be immutable.
     // This class also computes and fills payload, including:
     // - Name resolution
     // - Type deduction
@@ -55,8 +55,6 @@ namespace glsld
         {
             symbolTable.PopLevel();
         }
-        auto EnterInitializeList() -> void;
-        auto LeaveInitializeList() -> void;
 
 #pragma region Misc
 

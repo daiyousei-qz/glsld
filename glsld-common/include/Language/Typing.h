@@ -1,6 +1,8 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Basic/StringView.h"
+#include "Basic/StringMap.h"
+#include "Ast/Base.h"
 
 #include <optional>
 #include <variant>
@@ -9,8 +11,6 @@
 namespace glsld
 {
     class Type;
-
-    class AstStructDecl;
 
     enum class ScalarKind
     {
@@ -30,50 +30,6 @@ namespace glsld
         Uint64,
         Float16,
     };
-
-    inline auto GetLeastPromotedScalarType(ScalarKind lhs, ScalarKind rhs) -> std::optional<ScalarKind>
-    {
-        if (lhs == rhs) {
-            return lhs;
-        }
-
-        if (lhs == ScalarKind::Double || rhs == ScalarKind::Double) {
-            return ScalarKind::Double;
-        }
-        else if (lhs == ScalarKind::Float || rhs == ScalarKind::Float) {
-            return ScalarKind::Float;
-        }
-        else if (lhs == ScalarKind::Int64 || rhs == ScalarKind::Int64) {
-            return ScalarKind::Int64;
-        }
-        else if (lhs == ScalarKind::Uint64 || rhs == ScalarKind::Uint64) {
-            return ScalarKind::Uint64;
-        }
-        else if (lhs == ScalarKind::Int || rhs == ScalarKind::Int) {
-            return ScalarKind::Int;
-        }
-        else if (lhs == ScalarKind::Uint || rhs == ScalarKind::Uint) {
-            return ScalarKind::Uint;
-        }
-        else if (lhs == ScalarKind::Int16 || rhs == ScalarKind::Int16) {
-            return ScalarKind::Int16;
-        }
-        else if (lhs == ScalarKind::Uint16 || rhs == ScalarKind::Uint16) {
-            return ScalarKind::Uint16;
-        }
-        else if (lhs == ScalarKind::Int8 || rhs == ScalarKind::Int8) {
-            return ScalarKind::Int8;
-        }
-        else if (lhs == ScalarKind::Uint8 || rhs == ScalarKind::Uint8) {
-            return ScalarKind::Uint8;
-        }
-        else if (lhs == ScalarKind::Float16 || rhs == ScalarKind::Float16) {
-            return ScalarKind::Float16;
-        }
-        else {
-            return std::nullopt;
-        }
-    }
 
     // Excluding bool type
     inline auto IsIntegralScalarType(ScalarKind type) -> bool
@@ -104,14 +60,6 @@ namespace glsld
             return false;
         }
     }
-
-    // An enum of all builtin types in glsl language
-    enum class GlslBuiltinType
-    {
-#define DECL_BUILTIN_TYPE(GLSL_TYPE, ...) Ty_##GLSL_TYPE,
-#include "GlslType.inc"
-#undef DECL_BUILTIN_TYPE
-    };
 
     // Bottom type
     struct ErrorTypeDesc
@@ -178,6 +126,8 @@ namespace glsld
         std::vector<std::pair<std::string, const Type*>> members;
 
         const AstDecl* decl;
+
+        UnorderedStringMap<DeclView> memberDeclLookup;
     };
 
     struct FunctionTypeDesc

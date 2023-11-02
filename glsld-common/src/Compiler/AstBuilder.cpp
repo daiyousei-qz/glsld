@@ -267,9 +267,9 @@ namespace glsld
             result->SetResolvedDecl({});
 
             if (idToken.IsIdentifier()) {
-                if (auto structRecord = compilerObject.GetAstContext().FindStructTypeDecl(baseType)) {
-                    if (auto it = structRecord->memberLookup.find(idToken.text.Str());
-                        it != structRecord->memberLookup.end()) {
+                if (auto structDesc = baseType->GetStructDesc()) {
+                    if (auto it = structDesc->memberDeclLookup.Find(idToken.text.Str());
+                        it != structDesc->memberDeclLookup.end()) {
                         auto memberDecl = it->second;
                         GLSLD_ASSERT(memberDecl.IsValid());
 

@@ -75,9 +75,10 @@ namespace glsld
         std::shared_ptr<CompiledPreamble> preamble;
 
         std::unique_ptr<SourceContext> sourceContext;
-        std::unique_ptr<DiagnosticStream> diagStream;
         std::unique_ptr<LexContext> lexContext;
         std::unique_ptr<AstContext> astContext;
+
+        std::unique_ptr<DiagnosticStream> diagStream;
 
     public:
         CompilerObject();
@@ -112,11 +113,11 @@ namespace glsld
             return *sourceContext;
         }
 
-        auto GetDiagnosticContext() const noexcept -> const DiagnosticStream&
+        auto GetDiagnosticStream() const noexcept -> const DiagnosticStream&
         {
             return *diagStream;
         }
-        auto GetDiagnosticContext() noexcept -> DiagnosticStream&
+        auto GetDiagnosticStream() noexcept -> DiagnosticStream&
         {
             return *diagStream;
         }

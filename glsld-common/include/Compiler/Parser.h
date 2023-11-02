@@ -772,7 +772,7 @@ namespace glsld
         // Report an error at the given token.
         auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
         {
-            compilerObject.GetDiagnosticContext().ReportError(AstSyntaxRange{tokIndex}, std::move(message));
+            compilerObject.GetDiagnosticStream().ReportError(AstSyntaxRange{tokIndex}, std::move(message));
         }
 
         // Report an error at the current token.

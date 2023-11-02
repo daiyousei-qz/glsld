@@ -112,7 +112,7 @@ namespace glsld
         }
         else if (token.klass == TokenKlass::Eof) {
             macroExpansionProcessor.Finalize();
-            if (compilerObject.GetLexContext().GetIncludeDepth() == 0) {
+            if (includeDepth == 0) {
                 // We are done with the main file. Insert an EOF token.
                 compilerObject.GetLexContext().AddToken(token, token.spelledRange);
             }
@@ -249,7 +249,7 @@ namespace glsld
     auto Preprocessor::HandleIncludeDirective(PPTokenScanner& scanner) -> void
     {
         const auto& compilerConfig = compilerObject.GetConfig();
-        if (compilerObject.GetLexContext().GetIncludeDepth() >= compilerConfig.maxIncludeDepth) {
+        if (includeDepth >= compilerConfig.maxIncludeDepth) {
             // FIXME: report error, too many nested include files
             return;
         }
@@ -279,19 +279,18 @@ namespace glsld
 
                 // We create a new preprocessor and lexer to process the included file.
                 GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
-                compilerObject.GetLexContext().EnterIncludeFile();
                 if (callback) {
                     callback->OnEnterIncludedFile();
                 }
                 Preprocessor nextPP{compilerObject, callback,
                                     includeExpansionRange ? includeExpansionRange
-                                                          : TextRange{headerNameToken->spelledRange.start}};
+                                                          : TextRange{headerNameToken->spelledRange.start},
+                                    includeDepth + 1};
                 Tokenizer{compilerObject, nextPP, sourceFileEntry->GetID(), *sourceFileEntry->GetSourceText()}
                     .DoTokenize();
                 if (callback) {
                     callback->OnExitIncludedFile();
                 }
-                compilerObject.GetLexContext().ExitIncludeFile();
                 GLSLD_TRACE_EXIT_INCLUDE_FILE(headerName);
             }
             else {

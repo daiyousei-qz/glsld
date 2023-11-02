@@ -15,6 +15,17 @@ namespace glsld
     // is encountered.
     class Tokenizer final
     {
+    private:
+        CompilerObject& compilerObject;
+
+        Preprocessor& preprocessor;
+
+        FileID sourceFile;
+
+        SourceScanner srcScanner;
+
+        std::vector<char> tokenTextBuffer;
+
     public:
         Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile, StringView sourceText);
 
@@ -38,15 +49,5 @@ namespace glsld
 
         // Assuming we are seeing "<", parse the header name and return the token klass.
         auto ParseAngleString() -> TokenKlass;
-
-        CompilerObject& compilerObject;
-
-        Preprocessor& preprocessor;
-
-        FileID sourceFile;
-
-        SourceScanner srcScanner;
-
-        std::vector<char> tokenTextBuffer;
     };
 } // namespace glsld

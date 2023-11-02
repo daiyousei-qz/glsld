@@ -1,5 +1,6 @@
 #pragma once
 #include "Ast/Base.h"
+#include "Language/Typing.h"
 #include "Compiler/SyntaxToken.h"
 #include <optional>
 

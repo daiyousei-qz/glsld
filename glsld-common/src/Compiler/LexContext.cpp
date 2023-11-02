@@ -169,16 +169,6 @@ namespace glsld
         return tokens[tokIndex - tokenIndexOffset].expandedRange;
     }
 
-    auto LexContext::EnterIncludeFile() -> void
-    {
-        includeDepth += 1;
-    }
-
-    auto LexContext::ExitIncludeFile() -> void
-    {
-        includeDepth -= 1;
-    }
-
     auto LexContext::DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void
     {
         macroLookup.insert(std::make_pair(

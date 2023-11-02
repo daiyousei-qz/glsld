@@ -75,7 +75,7 @@ namespace glsld
 
         auto TryAddSymbol(std::vector<lsp::DocumentSymbol>& buffer, SyntaxToken token, lsp::SymbolKind kind) -> bool
         {
-            if (token.IsIdentifier()) {
+            if (!token.IsIdentifier()) {
                 return false;
             }
 

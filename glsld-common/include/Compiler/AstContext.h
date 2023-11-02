@@ -11,13 +11,6 @@
 
 namespace glsld
 {
-    struct StructDeclRecord
-    {
-        const AstDecl* structDecl;
-
-        std::unordered_map<std::string, DeclView> memberLookup;
-    };
-
     // This class manages everything related to parsing of a translation unit.
     class AstContext final : CompilerContextBase<AstContext>
     {
@@ -30,8 +23,6 @@ namespace glsld
         // FIXME: optimize memory layout
         std::vector<const Type*> compositeTypes;
 
-        std::unordered_map<const Type*, StructDeclRecord> structDeclLookup;
-
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
         std::unique_ptr<SymbolTable> symbolTable;
@@ -40,9 +31,8 @@ namespace glsld
         AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
         {
             if (preambleContext) {
-                structDeclLookup = preambleContext->structDeclLookup;
-                arrayTypes       = preambleContext->arrayTypes;
-                symbolTable      = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
+                arrayTypes  = preambleContext->arrayTypes;
+                symbolTable = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
             }
             else {
                 symbolTable = std::make_unique<SymbolTable>();
@@ -81,15 +71,6 @@ namespace glsld
             result->Initialize(AstNodeTrait<T>::tag, range);
             nodes.push_back(result);
             return result;
-        }
-
-        auto FindStructTypeDecl(const Type* type) const -> const StructDeclRecord*
-        {
-            if (auto it = structDeclLookup.find(type); it != structDeclLookup.end()) {
-                return &it->second;
-            }
-
-            return nullptr;
         }
 
         auto CreateStructType(AstStructDecl& decl) -> const Type*;

@@ -17,24 +17,23 @@ namespace glsld
         if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
             typeName = decl.GetDeclTok()->text.StrView();
         }
-        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                              .name    = decl.GetDeclTok() ? typeName.Str() : "",
-                                                              .members = std::move(memberDesc),
-                                                              .decl    = &decl,
-                                                          }));
 
-        std::unordered_map<std::string, DeclView> memberLookup;
+        UnorderedStringMap<DeclView> memberLookup;
         for (auto memberDecl : decl.GetMembers()) {
             size_t declIndex = 0;
             for (const auto& declarator : memberDecl->GetDeclarators()) {
                 if (declarator.declTok.IsIdentifier()) {
-                    memberLookup[declarator.declTok.text.Str()] = DeclView{memberDecl, declIndex};
+                    memberLookup.Insert({declarator.declTok.text.Str(), DeclView{memberDecl, declIndex}});
                 }
                 declIndex += 1;
             }
         }
-        structDeclLookup[compositeTypes.back()] =
-            StructDeclRecord{.structDecl = &decl, .memberLookup = std::move(memberLookup)};
+        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
+                                                              .name    = decl.GetDeclTok() ? typeName.Str() : "",
+                                                              .members = std::move(memberDesc),
+                                                              .decl    = &decl,
+                                                              .memberDeclLookup = std::move(memberLookup),
+                                                          }));
 
         return compositeTypes.back();
     }
@@ -53,23 +52,23 @@ namespace glsld
         if (decl.GetDeclTok().IsIdentifier()) {
             typeName = decl.GetDeclTok().text.StrView();
         }
-        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                              .name    = typeName.Str(),
-                                                              .members = std::move(memberDesc),
-                                                              .decl    = &decl,
-                                                          }));
-        std::unordered_map<std::string, DeclView> memberLookup;
+
+        UnorderedStringMap<DeclView> memberLookup;
         for (auto memberDecl : decl.GetMembers()) {
             size_t declIndex = 0;
             for (const auto& declarator : memberDecl->GetDeclarators()) {
                 if (declarator.declTok.IsIdentifier()) {
-                    memberLookup[declarator.declTok.text.Str()] = DeclView{memberDecl, declIndex};
+                    memberLookup.Insert({declarator.declTok.text.Str(), DeclView{memberDecl, declIndex}});
                 }
                 declIndex += 1;
             }
         }
-        structDeclLookup[compositeTypes.back()] =
-            StructDeclRecord{.structDecl = &decl, .memberLookup = std::move(memberLookup)};
+        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
+                                                              .name             = typeName.Str(),
+                                                              .members          = std::move(memberDesc),
+                                                              .decl             = &decl,
+                                                              .memberDeclLookup = std::move(memberLookup),
+                                                          }));
 
         return compositeTypes.back();
     }

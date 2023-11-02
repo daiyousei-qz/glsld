@@ -1,5 +1,6 @@
 #pragma once
-#include "Common.h"
+#include "Basic/Common.h"
+#include "Basic/Print.h"
 
 #include <array>
 #include <type_traits>

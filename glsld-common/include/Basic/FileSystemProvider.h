@@ -2,19 +2,14 @@
 #include "Basic/Common.h"
 #include "Basic/StringView.h"
 
-#include <mutex>
-#include <string>
-#include <memory>
-#include <optional>
-#include <unordered_map>
-
 namespace glsld
 {
-    class FileRef
+    //
+    class FileHandle
     {
     public:
-        FileRef()          = default;
-        virtual ~FileRef() = default;
+        FileHandle()          = default;
+        virtual ~FileHandle() = default;
 
         virtual auto GetData() const -> const char* = 0;
         virtual auto GetSize() const -> size_t      = 0;
@@ -30,16 +25,16 @@ namespace glsld
 
         // Open a file and return a FileEntry object. The returned FileEntry object needs to be closed by calling Close.
         // If the file cannot be opened, the function returns nullptr.
-        virtual auto Open(StringView path) -> const FileRef* = 0;
+        virtual auto Open(StringView path) -> const FileHandle* = 0;
 
         // Close a file entry. The file entry must have been returned by calling Open of this file system provider.
-        virtual auto Close(const FileRef* fileEntry) -> void = 0;
+        virtual auto Close(const FileHandle* file) -> void = 0;
     };
 
-    class DefaultFileRef : public FileRef
+    class DefaultFileHandle : public FileHandle
     {
     public:
-        DefaultFileRef(const char* data, size_t size) : data(data), size(size)
+        DefaultFileHandle(const char* data, size_t size) : data(data), size(size)
         {
         }
 
@@ -66,8 +61,8 @@ namespace glsld
 
         static auto GetInstance() -> DefaultFileSystemProvider&;
 
-        auto Open(StringView uri) -> const FileRef* override;
-        auto Close(const FileRef* fileEntry) -> void override;
+        auto Open(StringView uri) -> const FileHandle* override;
+        auto Close(const FileHandle* file) -> void override;
     };
 
 } // namespace glsld

@@ -52,11 +52,11 @@ namespace glsld
                                 .resolveProvider     = false,
                             },
                         .hoverProvider = true,
-                        // .signatureHelpProvider =
-                        //     lsp::SignatureHelpOptions{
-                        //         // FIXME: this is a MSVC ICE workaround
-                        //         .triggerCharacters = std::move(signatureHelpTriggerCharacters),
-                        //     },
+                        .signatureHelpProvider =
+                            lsp::SignatureHelpOptions{
+                                // FIXME: this is a MSVC ICE workaround
+                                .triggerCharacters = std::move(signatureHelpTriggerCharacters),
+                            },
                         .declarationProvider    = true,
                         .definitionProvider     = true,
                         .referenceProvider      = true,
@@ -163,12 +163,12 @@ namespace glsld
 
         auto SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
         {
-            // auto uri = params.baseParams.textDocument.uri;
-            // ScheduleLanguageQuery(uri, [this, requestId,
-            //                             params = std::move(params)](const LanguageQueryProvider& provider) {
-            //     std::optional<lsp::SignatureHelp> result = ComputeSignatureHelp(provider,
-            //     params.baseParams.position); server->HandleServerResponse(requestId, result, false);
-            // });
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(uri, [this, requestId,
+                                        params = std::move(params)](const LanguageQueryProvider& provider) {
+                std::optional<lsp::SignatureHelp> result = ComputeSignatureHelp(provider, params.baseParams.position);
+                server->HandleServerResponse(requestId, result, false);
+            });
         }
 
         auto Hover(int requestId, lsp::HoverParams params) -> void

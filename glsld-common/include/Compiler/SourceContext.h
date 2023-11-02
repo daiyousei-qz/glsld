@@ -10,7 +10,6 @@
 
 namespace glsld
 {
-
     class SourceFileEntry final
     {
     public:
@@ -28,6 +27,7 @@ namespace glsld
             return canonicalPath;
         }
 
+        // FIXME: make source text retrival a part of SourceContext instead.
         auto GetSourceText() const noexcept -> std::optional<StringView>
         {
             return sourceText;
@@ -58,27 +58,46 @@ namespace glsld
     private:
         FileSystemProvider& fileSystemProvider;
 
-        const SourceFileEntry* mainFileEntry;
+        const SourceFileEntry* mainFileEntry = nullptr;
+
+        FileID nextFileID = 0;
 
         std::vector<std::unique_ptr<SourceFileEntry>> entries;
 
+        //
         std::unordered_map<std::filesystem::path, SourceFileEntry*> lookupPathToEntries;
 
+        //
         std::unordered_map<std::filesystem::path, SourceFileEntry*> canonicalPathToEntries;
 
-        std::vector<const FileRef*> openedFiles;
+        std::vector<const FileHandle*> openedFiles;
 
     public:
         SourceContext(const SourceContext* preambleContext, FileSystemProvider& fileSystemProvider)
             : CompilerContextBase(preambleContext), fileSystemProvider(fileSystemProvider)
         {
             if (preambleContext) {
+                nextFileID             = preambleContext->nextFileID;
+                canonicalPathToEntries = preambleContext->canonicalPathToEntries;
             }
         }
 
         ~SourceContext()
         {
             Finalize();
+        }
+
+        // Release all opened files from the file system provider and user buffers.
+        // However, the source file entries remain to be valid.
+        auto Finalize() -> void
+        {
+            for (const auto& entry : entries) {
+                entry->ClearSourceText();
+            }
+
+            for (const auto& handle : openedFiles) {
+                fileSystemProvider.Close(handle);
+            }
         }
 
         auto GetSourceFileEntry(FileID fileId) -> SourceFileEntry*
@@ -97,60 +116,14 @@ namespace glsld
             return mainFileEntry;
         }
 
-        auto OpenFromBuffer(StringView sourceText) -> const SourceFileEntry*
+        auto OpenFromBuffer(StringView sourceText) -> const SourceFileEntry*;
+
+        auto OpenFromFile(const std::filesystem::path& path) -> const SourceFileEntry*;
+
+    private:
+        auto AllocateFileID() -> FileID
         {
-            auto result =
-                entries.emplace_back(std::make_unique<SourceFileEntry>(static_cast<FileID>(entries.size()), "")).get();
-            result->SetSourceText(sourceText);
-            return result;
-        }
-
-        auto OpenFromFile(const std::filesystem::path& path) -> const SourceFileEntry*
-        {
-            if (auto it = lookupPathToEntries.find(path); it != lookupPathToEntries.end()) {
-                return it->second;
-            }
-
-            std::error_code ec;
-            auto canonicalPath = std::filesystem::canonical(path, ec);
-            if (ec) {
-                lookupPathToEntries[path] = nullptr;
-                return nullptr;
-            }
-            if (auto it = canonicalPathToEntries.find(canonicalPath); it != canonicalPathToEntries.end()) {
-                lookupPathToEntries[path] = it->second;
-                return it->second;
-            }
-
-            auto canonicalPathStr = canonicalPath.string();
-            auto fileRef          = fileSystemProvider.Open(canonicalPathStr);
-            if (!fileRef) {
-                lookupPathToEntries[path]             = nullptr;
-                canonicalPathToEntries[canonicalPath] = nullptr;
-                return nullptr;
-            }
-
-            auto result = entries
-                              .emplace_back(std::make_unique<SourceFileEntry>(static_cast<FileID>(entries.size()),
-                                                                              std::move(canonicalPathStr)))
-                              .get();
-            result->SetSourceText(StringView{fileRef->GetData(), fileRef->GetSize()});
-            lookupPathToEntries[path]             = result;
-            canonicalPathToEntries[canonicalPath] = result;
-            return result;
-        }
-
-        // Release all opened files from the file system provider and user buffers.
-        // However, the source file entries remain to be valid.
-        auto Finalize() -> void
-        {
-            for (const auto& entry : entries) {
-                entry->ClearSourceText();
-            }
-
-            for (const auto& fileRef : openedFiles) {
-                fileSystemProvider.Close(fileRef);
-            }
+            return nextFileID++;
         }
     };
 } // namespace glsld

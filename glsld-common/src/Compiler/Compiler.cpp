@@ -1,4 +1,3 @@
-#include "Ast/AstDumper.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/SourceContext.h"
 #include "Compiler/DiagnosticStream.h"
@@ -100,7 +99,7 @@ namespace glsld
         // Lexing
         {
             GLSLD_TRACE_COMPILE_TIME("Lexing");
-            Preprocessor pp{*this, ppCallback, std::nullopt};
+            Preprocessor pp{*this, ppCallback, std::nullopt, 0};
             Tokenizer{*this, pp, mainFileEntry->GetID(), *mainFileEntry->GetSourceText()}.DoTokenize();
         }
         if (config.dumpTokens) {

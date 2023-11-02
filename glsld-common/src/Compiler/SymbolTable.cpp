@@ -17,7 +17,7 @@ namespace glsld
                 auto quals = paramDecl->GetQualType()->GetQualifiers();
                 paramEntries.push_back(FunctionParamSymbolEntry{
                     .type     = paramDecl->GetResolvedType(),
-                    .isInput  = quals == nullptr || (quals->GetQualGroup().qIn || quals->GetQualGroup().qInout),
+                    .isInput  = quals == nullptr || !quals->GetQualGroup().qOut,
                     .isOutput = quals != nullptr && (quals->GetQualGroup().qOut || quals->GetQualGroup().qInout),
                 });
             }

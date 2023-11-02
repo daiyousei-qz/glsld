@@ -15,14 +15,13 @@ namespace glsld
         AtomTable atomTable;
 
         // The first token index of this translation unit in the global token stream.
+        // When compiling with a preamble, the first token in this translation unit doesn't have the id 0.
         SyntaxTokenIndex tokenIndexOffset = 0;
 
         // Tokens of the translation unit lexed from the source text, including those from included files and macro
         // expansion. It is guaranteed that the last token is always an EOF token spelled in the main file.
         std::vector<RawSyntaxTokenEntry> tokens;
         // std::vector<RawSyntaxToken> commentTokens;
-
-        int includeDepth = 0;
 
         std::unordered_map<AtomString, MacroDefinition> macroLookup;
 
@@ -86,16 +85,6 @@ namespace glsld
 
         // Find out the file and text range that the specified token is expanded to.
         auto LookupExpandedTextRange(SyntaxTokenIndex tokIndex) const -> TextRange;
-
-        // FIXME: this temp variable shouldn't be in lex context
-        auto GetIncludeDepth() const noexcept -> int
-        {
-            return includeDepth;
-        }
-
-        auto EnterIncludeFile() -> void;
-
-        auto ExitIncludeFile() -> void;
 
         auto DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void;
 

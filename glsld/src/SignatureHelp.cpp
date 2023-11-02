@@ -9,7 +9,7 @@ namespace glsld
     private:
         TextPosition position;
 
-        AstFunctionCallExpr* invokeExpr = nullptr;
+        const AstFunctionCallExpr* functionCallExpr = nullptr;
 
     public:
         SignatureHelpVisitor(const LanguageQueryProvider& provider, TextPosition position)
@@ -17,25 +17,20 @@ namespace glsld
         {
         }
 
-        auto Execute() -> AstFunctionCallExpr*
+        auto Execute() -> const AstFunctionCallExpr*
         {
-            TraverseAllGlobalDecl();
-            return invokeExpr;
+            TraverseTranslationUnit();
+            return functionCallExpr;
         }
 
-        auto EnterAstNodeBase(AstNode& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
         {
-            if (GetProvider().ContainsPosition(node, position)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
+            return TraverseNodeContains(node, position);
         }
 
-        auto VisitAstInvokeExpr(AstFunctionCallExpr& expr) -> void
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
         {
-            invokeExpr = &expr;
+            functionCallExpr = &expr;
         }
     };
 
@@ -46,16 +41,15 @@ namespace glsld
         auto expr = SignatureHelpVisitor{provider, FromLspPosition(position)}.Execute();
 
         if (expr) {
-            auto funcExpr = expr->GetInvokedExpr()->As<AstNameAccessExpr>();
-            if (funcExpr && funcExpr->GetAccessType() == NameAccessType::Function) {
-                auto funcName = funcExpr->GetAccessName().text.StrView();
+            auto funcName = expr->GetFunctionName().text.StrView();
 
-                std::vector<lsp::SignatureInformation> result;
+            std::vector<lsp::SignatureInformation> result;
 
-                // For function in the default library
-                for (auto funcDecl : GetStandardLibraryModule()->GetAstContext().functionDecls) {
+            // For function in the default library
+            for (auto decl : GetStandardLibraryModule()->GetAstContext().GetTranslationUnit()->GetGlobalDecls()) {
+                if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetName().text.StrView() == funcName) {
+                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
                         std::string documentation = QueryFunctionDocumentation(funcName).Str();
@@ -66,11 +60,13 @@ namespace glsld
                         });
                     }
                 }
+            }
 
-                // For function in this module
-                for (auto funcDecl : provider.GetAstContext().functionDecls) {
+            // For function in this module
+            for (auto decl : provider.GetAstContext().GetTranslationUnit()->GetGlobalDecls()) {
+                if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetName().text.StrView() == funcName) {
+                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
 
@@ -80,11 +76,11 @@ namespace glsld
                         });
                     }
                 }
-
-                return lsp::SignatureHelp{
-                    .signatures = std::move(result),
-                };
             }
+
+            return lsp::SignatureHelp{
+                .signatures = std::move(result),
+            };
         }
 
         return std::nullopt;

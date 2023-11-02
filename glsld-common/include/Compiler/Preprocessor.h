@@ -108,6 +108,8 @@ namespace glsld
         // - If we are at the main file, this should always be std::nullopt.
         std::optional<TextRange> includeExpansionRange;
 
+        size_t includeDepth = 0;
+
         // The current PP directive token being processed.
         std::optional<PPToken> directiveToken;
 
@@ -119,10 +121,11 @@ namespace glsld
 
     public:
         Preprocessor(CompilerObject& compilerObject, PPCallback* callback,
-                     std::optional<TextRange> includeExpansionRange)
+                     std::optional<TextRange> includeExpansionRange, size_t includeDepth)
             : compilerObject(compilerObject), callback(callback), state(PreprocessorState::Default),
               macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this}),
-              includeExpansionRange(includeExpansionRange), directiveToken(), directiveArgBuffer(), conditionalStack()
+              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth), directiveToken(),
+              directiveArgBuffer(), conditionalStack()
         {
         }
 
