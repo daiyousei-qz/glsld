@@ -4,7 +4,7 @@
 #include "Basic/StringView.h"
 #include "Basic/AtomTable.h"
 #include "Basic/SourceInfo.h"
-#include "Language/BuiltinType.h"
+#include "Language/Typing.h"
 
 #include <optional>
 

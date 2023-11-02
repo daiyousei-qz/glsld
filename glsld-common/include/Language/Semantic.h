@@ -277,7 +277,7 @@ namespace glsld
                 buffer += "xyzw"[i];
             }
 
-            return buffer.empty() ? "<InvalidSwizzle>" : buffer;
+            return buffer.empty() ? "__InvalidSwizzle" : buffer;
         }
 
     private:

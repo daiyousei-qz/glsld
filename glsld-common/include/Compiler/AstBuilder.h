@@ -31,27 +31,27 @@ namespace glsld
         {
         }
 
-        auto IsTypeName(StringView name) const
+        auto IsTypeName(StringView name) const -> bool
         {
-            auto symbol = symbolTable.FindSymbol(name.Str());
+            auto symbol = symbolTable.FindSymbol(name);
             return symbol.IsValid() && symbol.GetDecl()->Is<AstStructDecl>();
         }
 
-        auto EnterFunction(const Type* returnType) -> void
+        auto EnterFunctionScope(const Type* returnType) -> void
         {
             this->returnType = returnType;
             symbolTable.PushLevel(DeclScope::Function);
         }
-        auto LeaveFunction() -> void
+        auto LeaveFunctionScope() -> void
         {
             this->returnType = nullptr;
             symbolTable.PopLevel();
         }
-        auto EnterLexicalBlock() -> void
+        auto EnterLexicalBlockScope() -> void
         {
             symbolTable.PushLevel(DeclScope::Block);
         }
-        auto LeaveLexicalBlock() -> void
+        auto LeaveLexicalBlockScope() -> void
         {
             symbolTable.PopLevel();
         }

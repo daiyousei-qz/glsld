@@ -85,86 +85,22 @@ namespace glsld
 
     public:
         AtomTable() = default;
-        ~AtomTable()
-        {
-            for (const auto& page : pagedBuffers) {
-                delete[] page.bufferBegin;
-            }
-            for (const auto& buffer : largeBuffers) {
-                delete[] buffer;
-            }
-        }
+        ~AtomTable();
 
         // Import all atoms from another AtomTable.
-        // NOTE when importing, we must make sure the lifetime of the other AtomTable is longer than this one.
-        auto Import(const AtomTable& other) -> void
-        {
-            for (const auto& [key, value] : other.atomLookup) {
-                atomLookup[key] = value;
-            }
-        }
+        // NOTE caller must make sure the lifetime of the other AtomTable is longer than this one.
+        auto Import(const AtomTable& other) -> void;
 
-        auto GetAtom(StringView s) -> AtomString
-        {
-            if (auto it = atomLookup.find(s); it != atomLookup.end()) {
-                return it->second;
-            }
-            else {
-                AtomString result = AddAtom(s);
+        // Get an atom string from the table that matches the given string.
+        // If the string is not found, a new atom string will be created and added to the table.
+        auto GetAtom(StringView s) -> AtomString;
 
-                // NOTE here we cannot use parameter `s` directly, because its lifetime is not guaranteed.
-                return atomLookup[result.StrView()] = result;
-            }
-        }
-
-        auto GetAtom(StringView s) const -> AtomString
-        {
-            if (auto it = atomLookup.find(s); it != atomLookup.end()) {
-                return it->second;
-            }
-            else {
-                return {};
-            }
-        }
+        // Get an atom string from the table that matches the given string.
+        // If the string is not found, an empty atom string will be returned.
+        auto GetAtom(StringView s) const -> AtomString;
 
     private:
-        auto AddAtom(StringView s) -> AtomString
-        {
-            char* atomPtr = nullptr;
-            if (s.Size() < LargeStringThresholdSize) {
-                BufferPage* currentPage = nullptr;
-                if (pagedBuffers.empty()) {
-                    currentPage = &pagedBuffers.emplace_back(AllocateBufferPage());
-                }
-                else {
-                    currentPage = &pagedBuffers.back();
-                }
-
-                if (currentPage->bufferEnd - currentPage->bufferCursor < s.Size() + 1) {
-                    currentPage = &pagedBuffers.emplace_back(AllocateBufferPage());
-                }
-
-                GLSLD_ASSERT(currentPage->bufferEnd - currentPage->bufferCursor >= s.Size() + 1);
-                atomPtr = currentPage->bufferCursor;
-                currentPage->bufferCursor += s.Size() + 1;
-            }
-            else {
-                atomPtr = largeBuffers.emplace_back(new char[s.Size() + 1]);
-            }
-
-            std::ranges::copy(s, atomPtr);
-            atomPtr[s.Size()] = '\0';
-            return AtomString{atomPtr};
-        }
-
-        auto AllocateBufferPage() -> BufferPage
-        {
-            char* data = new char[BufferPageSize];
-            return BufferPage{
-                .bufferBegin  = data,
-                .bufferEnd    = data + BufferPageSize,
-                .bufferCursor = data,
-            };
-        }
+        auto AddAtom(StringView s) -> AtomString;
+        auto AllocateBufferPage() -> BufferPage;
     };
 } // namespace glsld

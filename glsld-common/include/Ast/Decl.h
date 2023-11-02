@@ -1,6 +1,7 @@
 #pragma once
 #include "Ast/Base.h"
-#include "Language/Typing.h"
+#include "Ast/Misc.h"
+#include "Ast/Type.h"
 #include "Compiler/SyntaxToken.h"
 #include <optional>
 
@@ -316,6 +317,26 @@ namespace glsld
         auto GetResolvedType() const noexcept -> const Type*
         {
             return resolvedType;
+        }
+
+        // True if this parameter is a const parameter.
+        auto IsConstParam() const noexcept -> bool
+        {
+            return qualType->GetQualifiers() && qualType->GetQualifiers()->GetQualGroup().qConst;
+        }
+
+        // True if this parameter is an input parameter.
+        auto IsInputParam() const noexcept -> bool
+        {
+            // Note by default, all parameters without any qualifier are input.
+            return !qualType->GetQualifiers() || !qualType->GetQualifiers()->GetQualGroup().qOut;
+        }
+
+        // True if this parameter is an output parameter.
+        auto IsOutputParam() const noexcept -> bool
+        {
+            return qualType->GetQualifiers() &&
+                   (qualType->GetQualifiers()->GetQualGroup().qOut || qualType->GetQualifiers()->GetQualGroup().qInout);
         }
 
         template <AstVisitorT Visitor>

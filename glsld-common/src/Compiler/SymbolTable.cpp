@@ -17,8 +17,8 @@ namespace glsld
                 auto quals = paramDecl->GetQualType()->GetQualifiers();
                 paramEntries.push_back(FunctionParamSymbolEntry{
                     .type     = paramDecl->GetResolvedType(),
-                    .isInput  = quals == nullptr || !quals->GetQualGroup().qOut,
-                    .isOutput = quals != nullptr && (quals->GetQualGroup().qOut || quals->GetQualGroup().qInout),
+                    .isInput  = paramDecl->IsInputParam(),
+                    .isOutput = paramDecl->IsOutputParam(),
                 });
             }
             funcDeclLookup.Insert(
@@ -84,6 +84,23 @@ namespace glsld
         return success;
     }
 
+    auto SymbolTable::PushLevel(DeclScope scope) -> void
+    {
+        assert(scope != DeclScope::Global && "Global scope is not allowed to be pushed");
+        levels.push_back(new SymbolTableLevel(scope));
+    }
+
+    auto SymbolTable::PopLevel() -> void
+    {
+        if (levels.size() > GetGlobalLevels().size()) {
+            delete levels.back();
+            levels.pop_back();
+        }
+        else {
+            assert(false && "Poping global scope is not allowed");
+        }
+    }
+
     auto SymbolTable::FindSymbol(StringView name) const -> DeclView
     {
         for (auto level : std::views::reverse(levels)) {
@@ -95,8 +112,8 @@ namespace glsld
         return DeclView{};
     }
 
-    auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool exactMatch) const
-        -> const AstFunctionDecl*
+    auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes,
+                                   bool requireExactMatch) const -> const AstFunctionDecl*
     {
         // First pass: filter out candidates that's invocable with the given argument types
         std::vector<const FunctionSymbolEntry*> candidateList;
@@ -125,7 +142,7 @@ namespace glsld
                         }
                     }
 
-                    if (convertible && !exactMatch) {
+                    if (convertible && !requireExactMatch) {
                         candidateList.push_back(candidate);
                     }
                 }

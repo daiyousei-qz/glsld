@@ -1,20 +1,13 @@
-#include "LexerBuilder.h"
-#include "FlatSet.h"
+#include "Basic/FlatSet.h"
 
-#include <array>
-#include <functional>
+#include "LexerBuilder.h"
+
 #include <vector>
 #include <map>
 #include <set>
 #include <unordered_map>
-#include <unordered_set>
 #include <string_view>
-#include <numeric>
 #include <algorithm>
-#include <ranges>
-#include <exception>
-
-#include <fmt/format.h>
 
 namespace glsld
 {

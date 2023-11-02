@@ -17,6 +17,12 @@ namespace glsld
     protected:
         AstInitializer() = default;
 
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return true;
+        }
+
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
@@ -43,6 +49,10 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
+            if (!AstInitializer::DoTraverse(visitor)) {
+                return false;
+            }
+
             for (auto item : items) {
                 if (!visitor.Traverse(*item)) {
                     return false;
@@ -79,7 +89,7 @@ namespace glsld
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return true;
+            return AstInitializer::DoTraverse(visitor);
         }
 
         template <AstDumperT Dumper>
@@ -136,6 +146,7 @@ namespace glsld
     class AstLiteralExpr final : public AstExpr
     {
     private:
+        // [Node]
         ConstValue value;
 
     public:

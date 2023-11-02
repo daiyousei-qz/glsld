@@ -3,6 +3,26 @@
 
 namespace glsld
 {
+    AstContext::AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
+    {
+        if (preambleContext) {
+            arrayTypes  = preambleContext->arrayTypes;
+            symbolTable = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
+        }
+        else {
+            symbolTable = std::make_unique<SymbolTable>();
+        }
+    }
+    AstContext::~AstContext()
+    {
+        for (auto node : nodes) {
+            InvokeAstDispatched(*node, [](const auto& dispatchedNode) { delete &dispatchedNode; });
+        }
+        for (auto type : compositeTypes) {
+            delete type;
+        }
+    }
+
     auto AstContext::CreateStructType(AstStructDecl& decl) -> const Type*
     {
         std::vector<std::pair<std::string, const Type*>> memberDesc;

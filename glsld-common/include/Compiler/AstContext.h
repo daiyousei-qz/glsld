@@ -28,25 +28,8 @@ namespace glsld
         std::unique_ptr<SymbolTable> symbolTable;
 
     public:
-        AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
-        {
-            if (preambleContext) {
-                arrayTypes  = preambleContext->arrayTypes;
-                symbolTable = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
-            }
-            else {
-                symbolTable = std::make_unique<SymbolTable>();
-            }
-        }
-        ~AstContext()
-        {
-            for (auto node : nodes) {
-                InvokeAstDispatched(*node, [](const auto& dispatchedNode) { delete &dispatchedNode; });
-            }
-            for (auto type : compositeTypes) {
-                delete type;
-            }
-        }
+        AstContext(const AstContext* preambleContext);
+        ~AstContext();
 
         auto SetTranslationUnit(const AstTranslationUnit* tu)
         {

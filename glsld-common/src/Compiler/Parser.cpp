@@ -725,7 +725,7 @@ namespace glsld
         // Parse function name
         auto declTok = ParseDeclIdHelper();
 
-        astBuilder.EnterFunction(returnType->GetResolvedType());
+        astBuilder.EnterFunctionScope(returnType->GetResolvedType());
 
         // Parse function parameter list
         auto params = ParseFunctionParamList();
@@ -747,7 +747,7 @@ namespace glsld
             }
         }
 
-        astBuilder.LeaveFunction();
+        astBuilder.LeaveFunctionScope();
         return astBuilder.BuildFunctionDecl(CreateAstSyntaxRange(beginTokIndex), returnType, declTok, std::move(params),
                                             body);
     }
@@ -1317,9 +1317,9 @@ namespace glsld
         case TokenKlass::LBrace:
         {
             // compound stmt
-            astBuilder.EnterLexicalBlock();
+            astBuilder.EnterLexicalBlockScope();
             auto stmt = ParseCompoundStmt();
-            astBuilder.LeaveLexicalBlock();
+            astBuilder.LeaveLexicalBlockScope();
             return stmt;
         }
         case TokenKlass::K_if:
@@ -1576,9 +1576,9 @@ namespace glsld
         // Parse switch body
         AstStmt* switchBody = nullptr;
         if (TryTestToken(TokenKlass::LBrace)) {
-            astBuilder.EnterLexicalBlock();
+            astBuilder.EnterLexicalBlockScope();
             switchBody = ParseCompoundStmt();
-            astBuilder.LeaveLexicalBlock();
+            astBuilder.LeaveLexicalBlockScope();
         }
         else {
             switchBody = CreateErrorStmt();
@@ -1835,4 +1835,43 @@ namespace glsld
             ConsumeToken();
         }
     }
+
+    auto Parser::ConsumeToken() -> void
+    {
+        if (!Eof()) {
+            GLSLD_TRACE_TOKEN_CONSUMED(PeekToken());
+
+            switch (PeekToken().klass) {
+            case TokenKlass::LParen:
+                parenDepth += 1;
+                break;
+            case TokenKlass::LBracket:
+                bracketDepth += 1;
+                break;
+            case TokenKlass::LBrace:
+                braceDepth += 1;
+                break;
+            case TokenKlass::RParen:
+                if (parenDepth > 0) {
+                    parenDepth -= 1;
+                }
+                break;
+            case TokenKlass::RBracket:
+                if (bracketDepth > 0) {
+                    bracketDepth -= 1;
+                }
+                break;
+            case TokenKlass::RBrace:
+                if (braceDepth > 0) {
+                    braceDepth -= 1;
+                }
+                break;
+            default:
+                break;
+            }
+
+            RestoreTokenIndex(currentTok.index + 1);
+        }
+    }
+
 } // namespace glsld

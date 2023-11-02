@@ -12,6 +12,14 @@ namespace glsld
 {
     class SourceFileEntry final
     {
+    private:
+        FileID id;
+
+        // The absolute path of file. Could be empty if the file is not on disk.
+        std::string canonicalPath;
+
+        std::optional<StringView> sourceText;
+
     public:
         SourceFileEntry(FileID id, std::string canonicalPath) : id(id), canonicalPath(std::move(canonicalPath))
         {
@@ -42,14 +50,6 @@ namespace glsld
         {
             sourceText = std::nullopt;
         }
-
-    private:
-        FileID id;
-
-        // The absolute path of file. Could be empty if the file is not on disk.
-        std::string canonicalPath;
-
-        std::optional<StringView> sourceText;
     };
 
     // This class manages everything related the source files/buffers when compiling a translation unit.

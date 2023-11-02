@@ -2,10 +2,9 @@
 #include "Language/Semantic.h"
 #include "Language/Typing.h"
 
-#include <array>
 #include <cstdint>
+#include <optional>
 #include <functional>
-#include <variant>
 #include <type_traits>
 
 namespace glsld

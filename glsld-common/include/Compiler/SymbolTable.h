@@ -154,28 +154,14 @@ namespace glsld
             return {levels.data(), importedLevelCount + 1};
         }
 
-        auto PushLevel(DeclScope scope) -> void
-        {
-            assert(scope != DeclScope::Global && "Global scope is not allowed to be pushed");
-            levels.push_back(new SymbolTableLevel(scope));
-        }
-
-        auto PopLevel() -> void
-        {
-            if (levels.size() > GetGlobalLevels().size()) {
-                delete levels.back();
-                levels.pop_back();
-            }
-            else {
-                assert(false && "Poping global scope is not allowed");
-            }
-        }
+        auto PushLevel(DeclScope scope) -> void;
+        auto PopLevel() -> void;
 
         // Find a declaration by name
         auto FindSymbol(StringView name) const -> DeclView;
 
         // Find a function declaration by name and argument types
-        auto FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool exactMatch) const
+        auto FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool requireExactMatch) const
             -> const AstFunctionDecl*;
     };
 } // namespace glsld

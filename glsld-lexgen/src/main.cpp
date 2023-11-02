@@ -69,11 +69,10 @@ auto CreateLexingAutomata() -> NfaAutomata
 auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
 {
     auto printToFile = [file]<typename... Ts>(fmt::format_string<Ts...> format, Ts&&... args) constexpr {
-        fmt::print(file, format, std::forward<Ts>(args)...);
+        Print(file, format, std::forward<Ts>(args)...);
     };
 
     printToFile("// clang-format off\n");
-    printToFile("#include <optional>\n");
     printToFile("#include <vector>\n");
     printToFile("#include \"Compiler/SyntaxToken.h\"\n");
     printToFile("#include \"Compiler/SourceScanner.h\"\n\n");

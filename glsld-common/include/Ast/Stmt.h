@@ -49,6 +49,7 @@ namespace glsld
         }
     };
 
+    // Represents an empty statement, .e.g. ";"
     class AstEmptyStmt final : public AstStmt
     {
     public:
@@ -73,9 +74,11 @@ namespace glsld
         }
     };
 
+    // Represents a compound statement, .e.g. "{ ... }"
     class AstCompoundStmt final : public AstStmt
     {
     private:
+        // [Payload]
         std::vector</*NotNull*/ AstStmt*> children;
 
     public:

@@ -5,16 +5,12 @@
 #include "Ast/Misc.h"
 #include "Compiler/AstBuilder.h"
 #include "Compiler/LexContext.h"
-#include "Compiler/AstContext.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/CompilerTrace.h"
 #include "Compiler/SyntaxToken.h"
-#include "Language/Typing.h"
 
 #include "DiagnosticStream.h"
 
-#include <memory>
-#include <optional>
 #include <vector>
 
 namespace glsld
@@ -687,51 +683,7 @@ namespace glsld
             return TryTestToken(TokenKlass::Eof);
         }
 
-        auto CreateRecoveryPoint() -> int
-        {
-        }
-
-        auto BacktrackToRecoveryPoint(int) -> void
-        {
-        }
-
-        auto ConsumeToken() -> void
-        {
-            if (!Eof()) {
-                GLSLD_TRACE_TOKEN_CONSUMED(PeekToken());
-
-                switch (PeekToken().klass) {
-                case TokenKlass::LParen:
-                    parenDepth += 1;
-                    break;
-                case TokenKlass::LBracket:
-                    bracketDepth += 1;
-                    break;
-                case TokenKlass::LBrace:
-                    braceDepth += 1;
-                    break;
-                case TokenKlass::RParen:
-                    if (parenDepth > 0) {
-                        parenDepth -= 1;
-                    }
-                    break;
-                case TokenKlass::RBracket:
-                    if (bracketDepth > 0) {
-                        bracketDepth -= 1;
-                    }
-                    break;
-                case TokenKlass::RBrace:
-                    if (braceDepth > 0) {
-                        braceDepth -= 1;
-                    }
-                    break;
-                default:
-                    break;
-                }
-
-                RestoreTokenIndex(currentTok.index + 1);
-            }
-        }
+        auto ConsumeToken() -> void;
 
         auto TryConsumeToken(TokenKlass klass) -> bool
         {
