@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Common.h"
+#include "Basic/Common.h"
+
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 #include "TransportService.h"
 #include "LanguageService.h"
-#include "ThreadingService.h"
 
 #include <memory>
 
@@ -33,7 +33,6 @@ namespace glsld
 
             language  = std::make_unique<LanguageService>(this);
             transport = std::make_unique<TransportService>(stdin, stdout, this);
-            threading = std::make_unique<ThreadingService>();
 
             InitializeClientMessageHandler();
         }
@@ -97,10 +96,10 @@ namespace glsld
             AddRequestHandler(lsp::LSPMethod_Completion, &LanguageService::Completion);
             AddRequestHandler(lsp::LSPMethod_SignatureHelp, &LanguageService::SignatureHelp);
             AddRequestHandler(lsp::LSPMethod_Hover, &LanguageService::Hover);
+            AddRequestHandler(lsp::LSPMethod_References, &LanguageService::References);
             AddRequestHandler(lsp::LSPMethod_Declaration, &LanguageService::Declaration);
             AddRequestHandler(lsp::LSPMethod_Definition, &LanguageService::Definition);
             AddRequestHandler(lsp::LSPMethod_InlayHint, &LanguageService::InlayHint);
-            AddRequestHandler(lsp::LSPMethod_DocumentColor, &LanguageService::DocumentColor);
 
             AddNotificationHandler(lsp::LSPMethod_DidOpenTextDocument, &LanguageService::DidOpenTextDocument);
             AddNotificationHandler(lsp::LSPMethod_DidChangeTextDocument, &LanguageService::DidChangeTextDocument);
@@ -150,6 +149,5 @@ namespace glsld
 
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TransportService> transport;
-        std::unique_ptr<ThreadingService> threading;
     };
 } // namespace glsld

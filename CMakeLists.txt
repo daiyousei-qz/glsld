@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 
+option(GLSLD_BUILD_WRAPPER "Build glsld-wrapper" ON)
+option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
+
 # Load vcpkg
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     set(GLSLD_VCPKG_TRIPLET "x64-windows-static")
@@ -70,46 +73,57 @@ find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
 
-# GLSL Common Library
-file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
-file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
-
-add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE})
-target_include_directories(glsld-common PUBLIC glsld-common/include)
-
-target_link_libraries(glsld-common PRIVATE fmt::fmt)
-
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
 file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
 
 add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
+target_include_directories(glsld-lexgen PUBLIC glsld-common/include)
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
-target_link_libraries(glsld-lexgen PRIVATE glsld-common)
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
 
+add_custom_command(
+    OUTPUT Tokenize.generated.cpp
+    COMMAND glsld-lexgen "Tokenize.generated.cpp"
+    COMMENT "Generating Tokenize.generated.cpp"
+    VERBATIM
+)
+
+# GLSL Common Library
+file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
+file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
+
+add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
+target_include_directories(glsld-common PUBLIC glsld-common/include)
+
+target_link_libraries(glsld-common PRIVATE fmt::fmt)
+
 # GLSLD
-file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)
-file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
+if(GLSLD_BUILD_LANGUAGE_SERVER)
+    file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)
+    file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
 
-add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
-target_include_directories(glsld PRIVATE glsld/include)
+    add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
+    target_include_directories(glsld PRIVATE glsld/include)
 
-target_link_libraries(glsld PRIVATE glsld-common)
+    target_link_libraries(glsld PRIVATE glsld-common)
 
-target_link_libraries(glsld PRIVATE fmt::fmt)
-target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
-target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
+    target_link_libraries(glsld PRIVATE fmt::fmt)
+    target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
+    target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
+endif()
 
 # GLSLD Wrapper
-file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
-file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
+if(GLSLD_BUILD_WRAPPER)
+    file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
+    file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
 
-add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
-target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
+    add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
+    target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
 
-target_link_libraries(glsld-wrapper PRIVATE glsld-common)
+    target_link_libraries(glsld-wrapper PRIVATE glsld-common)
 
-target_link_libraries(glsld-wrapper PRIVATE fmt::fmt)
-target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
+    target_link_libraries(glsld-wrapper PRIVATE fmt::fmt)
+    target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
+endif()

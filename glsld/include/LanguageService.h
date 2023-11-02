@@ -1,33 +1,27 @@
 #pragma once
-#include "PPCallback.h"
+#include "Basic/StringView.h"
+#include "Compiler/PPCallback.h"
+
 #include "Protocol.h"
 #include "LanguageServerInterface.h"
 #include "SourceText.h"
-#include "IntellisenseProvider.h"
+#include "LanguageQueryProvider.h"
+#include "DocumentSymbol.h"
+#include "SemanticTokens.h"
+#include "CodeCompletion.h"
+#include "Hover.h"
+#include "Declaration.h"
+#include "InlayHints.h"
+
+#include <BS_thread_pool.hpp>
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>;
-
-    auto GetTokenLegend() -> lsp::SemanticTokensLegend;
-    auto ComputeSemanticTokens(const IntellisenseProvider& provider) -> lsp::SemanticTokens;
-    auto ComputeSemanticTokensDelta(const CompilerObject& compilerObject) -> lsp::SemanticTokensDelta;
-
-    auto ComputeCompletion(const CompilerObject& compilerObject, lsp::Position position)
-        -> std::vector<lsp::CompletionItem>;
-
-    auto ComputeSignatureHelp(const CompilerObject& compilerObject, lsp::Position position)
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>;
 
-    auto ComputeHover(const CompilerObject& compilerObject, lsp::Position position) -> std::optional<lsp::Hover>;
-
-    // we assume single source file for now
-    auto ComputeDeclaration(const CompilerObject& compilerObject, const lsp::DocumentUri& uri, lsp::Position position)
-        -> std::vector<lsp::Location>;
-
-    auto ComputeInlayHint(const CompilerObject& compilerObject, lsp::Range range) -> std::vector<lsp::InlayHint>;
-
-    auto ComputeDocumentColor(const CompilerObject& compilerObject) -> std::vector<lsp::ColorInformation>;
+    auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
+                           bool includeDeclaration) -> std::vector<lsp::Location>;
 
     class LanguageService
     {
@@ -44,6 +38,7 @@ namespace glsld
             auto result = lsp::InitializedResult{
                 .capabilities =
                     {
+                        .positionEncoding = "utf-16",
                         .textDocumentSync =
                             {
                                 .openClose = true,
@@ -64,6 +59,7 @@ namespace glsld
                             },
                         .declarationProvider    = true,
                         .definitionProvider     = true,
+                        .referenceProvider      = true,
                         .documentSymbolProvider = true,
                         .semanticTokensProvider =
                             lsp::SemanticTokenOptions{
@@ -76,7 +72,8 @@ namespace glsld
                             lsp::InlayHintOptions{
                                 .resolveProvider = false,
                             },
-                        .colorProvider = true,
+                        // .colorProvider  = false,
+                        // .renameProvider = std::nullopt,
                     },
                 .serverInfo =
                     {
@@ -97,9 +94,9 @@ namespace glsld
                 return;
             }
 
-            providerEntry = std::make_shared<IntellisenseProvider>(params.textDocument.version,
-                                                                   UnescapeHttp(params.textDocument.uri),
-                                                                   std::move(params.textDocument.text));
+            providerEntry = std::make_shared<PendingLanguageQueryProvider>(params.textDocument.version,
+                                                                           UnescapeHttp(params.textDocument.uri),
+                                                                           std::move(params.textDocument.text));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
         }
@@ -122,7 +119,7 @@ namespace glsld
                     sourceBuffer = std::move(change.text);
                 }
             }
-            providerEntry = std::make_shared<IntellisenseProvider>(
+            providerEntry = std::make_shared<PendingLanguageQueryProvider>(
                 params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
             ScheduleTask([provider = providerEntry]() { provider->Setup(); });
@@ -138,127 +135,95 @@ namespace glsld
 
         auto DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
         {
-            auto provider = providerLookup[params.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        auto result = ComputeDocumentSymbol(provider->GetCompilerObject());
-                        server->HandleServerResponse(requestId, result, false);
-                    }
-                });
-            }
+            auto uri = params.textDocument.uri;
+            ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
+                auto result = ComputeDocumentSymbol(provider);
+                server->HandleServerResponse(requestId, result, false);
+            });
         }
 
         auto SemanticTokensFull(int requestId, lsp::SemanticTokensParam params) -> void
         {
-            auto provider = providerLookup[params.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        lsp::SemanticTokens result = ComputeSemanticTokens(*provider);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
-                });
-            }
+            auto uri = params.textDocument.uri;
+            ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
+                lsp::SemanticTokens result = ComputeSemanticTokens(provider);
+                server->HandleServerResponse(requestId, result, false);
+            });
         }
 
         auto Completion(int requestId, lsp::CompletionParams params) -> void
         {
-            auto provider = providerLookup[params.baseParams.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::vector<lsp::CompletionItem> result =
-                            ComputeCompletion(provider->GetCompilerObject(), params.baseParams.position);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::CompletionItem> result = ComputeCompletion(provider, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
                 });
-            }
         }
 
         auto SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
         {
-            auto provider = providerLookup[params.baseParams.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::optional<lsp::SignatureHelp> result =
-                            ComputeSignatureHelp(provider->GetCompilerObject(), params.baseParams.position);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
-                });
-            }
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(uri, [this, requestId,
+                                        params = std::move(params)](const LanguageQueryProvider& provider) {
+                std::optional<lsp::SignatureHelp> result = ComputeSignatureHelp(provider, params.baseParams.position);
+                server->HandleServerResponse(requestId, result, false);
+            });
         }
 
         auto Hover(int requestId, lsp::HoverParams params) -> void
         {
-            auto provider = providerLookup[params.baseParams.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::optional<lsp::Hover> result =
-                            ComputeHover(provider->GetCompilerObject(), params.baseParams.position);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::optional<lsp::Hover> result = ComputeHover(provider, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
                 });
-            }
         }
 
         auto Declaration(int requestId, lsp::DeclarationParams params) -> void
         {
-            auto provider = providerLookup[params.baseParams.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result =
-                            ComputeDeclaration(provider->GetCompilerObject(), params.baseParams.textDocument.uri,
-                                               params.baseParams.position);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
                 });
-            }
         }
 
         auto Definition(int requestId, lsp::DefinitionParams params) -> void
         {
-            auto provider = providerLookup[params.baseParams.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::vector<lsp::Location> result =
-                            ComputeDeclaration(provider->GetCompilerObject(), params.baseParams.textDocument.uri,
-                                               params.baseParams.position);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
+            // FIXME: compute definition properly
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
+                    server->HandleServerResponse(requestId, result, false);
                 });
-            }
+        }
+
+        auto References(int requestId, lsp::ReferenceParams params) -> void
+        {
+            auto uri = params.baseParams.textDocument.uri;
+            ScheduleLanguageQuery(
+                uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                    std::vector<lsp::Location> result =
+                        ComputeReferences(provider, params.baseParams.textDocument.uri, params.baseParams.position,
+                                          params.context.includeDeclaration);
+                    server->HandleServerResponse(requestId, result, false);
+                });
         }
 
         auto InlayHint(int requestId, lsp::InlayHintParams params) -> void
         {
-            auto provider = providerLookup[params.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, params = std::move(params), provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        std::vector<lsp::InlayHint> result =
-                            ComputeInlayHint(provider->GetCompilerObject(), params.range);
-                        server->HandleServerResponse(requestId, result, false);
-                    }
-                });
-            }
-        }
-
-        auto DocumentColor(int requestId, lsp::DocumentColorParams params) -> void
-        {
-            auto provider = providerLookup[params.textDocument.uri];
-            if (provider != nullptr) {
-                ScheduleTask([this, requestId, provider = std::move(provider)] {
-                    if (provider->WaitAvailable()) {
-                        auto result = ComputeDocumentColor(provider->GetCompilerObject());
-                        server->HandleServerResponse(requestId, result, false);
-                    }
-                });
-            }
+            auto uri = params.textDocument.uri;
+            ScheduleLanguageQuery(uri,
+                                  [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                                      std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, params.range);
+                                      server->HandleServerResponse(requestId, result, false);
+                                  });
         }
 
 #pragma endregion
@@ -273,16 +238,31 @@ namespace glsld
 #pragma endregion
 
     private:
+        auto ScheduleLanguageQuery(const std::string& uri,
+                                   std::function<auto(const LanguageQueryProvider&)->void> callback) -> void
+        {
+            // NOTE we need to make a copy of the provider here so it doesn't get released while in analysis
+            auto provider = providerLookup[uri];
+            if (provider != nullptr) {
+                ScheduleTask([this, provider = std::move(provider), callback = std::move(callback)] {
+                    if (provider->WaitAvailable()) {
+                        callback(provider->GetProvider());
+                    }
+                });
+            }
+        }
+
         template <typename F, typename... Args>
         auto ScheduleTask(F&& f, Args&&... args) -> void
         {
-            std::thread thd{std::forward<F>(f), std::forward<Args>(args)...};
-            thd.detach();
+            threadPool.push_task(std::forward<F>(f), std::forward<Args>(args)...);
         }
 
         // uri -> provider
-        std::map<std::string, std::shared_ptr<IntellisenseProvider>> providerLookup;
+        std::map<std::string, std::shared_ptr<PendingLanguageQueryProvider>> providerLookup;
 
         LanguageServerCallback* server;
+
+        BS::thread_pool threadPool;
     };
 } // namespace glsld

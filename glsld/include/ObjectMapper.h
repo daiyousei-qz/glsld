@@ -1,4 +1,6 @@
 #pragma once
+#include "Basic/Common.h"
+
 #include <nlohmann/json.hpp>
 
 #include <optional>
@@ -10,8 +12,8 @@ namespace glsld::lsp
     template <typename T>
     struct JsonSerializer;
 
-    class JsonToObjectMapper;
-    class JsonFromObjectMapper;
+    class ObjectFromJsonMapper;
+    class ObjectToJsonMapper;
 
     enum class JsonMappingMode
     {
@@ -25,7 +27,7 @@ namespace glsld::lsp
     template <>
     struct JsonMappingTrait<JsonMappingMode::FromJson>
     {
-        using MapperType = JsonToObjectMapper;
+        using MapperType = ObjectFromJsonMapper;
 
         template <typename T>
         using ReferenceType = T&;
@@ -33,7 +35,7 @@ namespace glsld::lsp
     template <>
     struct JsonMappingTrait<JsonMappingMode::ToJson>
     {
-        using MapperType = JsonFromObjectMapper;
+        using MapperType = ObjectToJsonMapper;
 
         template <typename T>
         using ReferenceType = const T&;
@@ -237,16 +239,16 @@ namespace glsld::lsp
         Mapper* mapper = nullptr;
     };
 
-    class JsonToObjectMapper
+    class ObjectFromJsonMapper
     {
     public:
-        JsonToObjectMapper(const JsonObject& root) : root(&root), traversalStack({&root})
+        ObjectFromJsonMapper(const JsonObject& root) : root(&root), traversalStack({&root})
         {
         }
 
-        auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonToObjectMapper>
+        [[nodiscard]] auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<ObjectFromJsonMapper>
         {
-            return JsonObjectMapperScope<JsonToObjectMapper>{this, key};
+            return JsonObjectMapperScope<ObjectFromJsonMapper>{this, key};
         }
         auto EnterObject(const char* key) -> void
         {
@@ -268,7 +270,7 @@ namespace glsld::lsp
         }
 
         template <typename T>
-        auto Map(const char* key, T& value) -> bool
+        [[nodiscard]] auto Map(const char* key, T& value) -> bool
         {
             // json[key] = JsonSerializer<T>::ToJson(value);
             auto currentNode = GetCurrentNode();
@@ -286,7 +288,7 @@ namespace glsld::lsp
 
         // TODO: refactor redundant code
         template <typename T>
-        auto Map(const char* key, std::optional<T>& value) -> bool
+        [[nodiscard]] auto Map(const char* key, std::optional<T>& value) -> bool
         {
             // json[key] = JsonSerializer<T>::ToJson(value);
             auto currentNode = GetCurrentNode();
@@ -312,17 +314,17 @@ namespace glsld::lsp
         std::vector<const JsonObject*> traversalStack;
     };
 
-    class JsonFromObjectMapper
+    class ObjectToJsonMapper
     {
     public:
-        JsonFromObjectMapper()
+        ObjectToJsonMapper()
         {
             traversalStack.push_back(&root);
         }
 
-        [[nodiscard]] auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<JsonFromObjectMapper>
+        [[nodiscard]] auto EnterObjectScoped(const char* key) -> JsonObjectMapperScope<ObjectToJsonMapper>
         {
-            return JsonObjectMapperScope<JsonFromObjectMapper>{this, key};
+            return JsonObjectMapperScope<ObjectToJsonMapper>{this, key};
         }
         auto EnterObject(const char* key) -> void
         {
@@ -366,16 +368,29 @@ namespace glsld::lsp
         template <typename T>
         auto ObjectFromJson(const JsonObject& j, T& value) -> bool
         {
-            JsonToObjectMapper mapper{j};
-            MapJson(mapper, value);
-            return true;
+            ObjectFromJsonMapper mapper{j};
+            if constexpr (requires { MapJson(mapper, value); }) {
+                return MapJson(mapper, value);
+            }
+            else {
+                static_assert(
+                    AlwaysFalse<T>,
+                    "Cannot find MapJson function for type. Please define a MapJson(ObjectFromJsonMapper&, T&).");
+            }
         }
         template <typename T>
         auto ObjectToJson(const T& value) -> JsonObject
         {
-            JsonFromObjectMapper mapper;
-            MapJson(mapper, value);
-            return mapper.ExportJson();
+            ObjectToJsonMapper mapper;
+            if constexpr (requires { MapJson(mapper, value); }) {
+                MapJson(mapper, value);
+                return mapper.ExportJson();
+            }
+            else {
+                static_assert(
+                    AlwaysFalse<T>,
+                    "Cannot find MapJson function for type. Please define a MapJson(ObjectToJsonMapper&, const T&).");
+            }
         }
 
     } // namespace detail

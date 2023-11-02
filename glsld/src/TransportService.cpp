@@ -4,12 +4,11 @@ namespace glsld
 {
     static auto ReadLine(std::string& buf, FILE* inputFile) -> bool
     {
-        // FIXME: do not use std::cin
         buf.clear();
 
         while (true) {
-            int ch = std::cin.get();
-            if (std::cin.eof()) {
+            int ch = fgetc(inputFile);
+            if (ch == EOF) {
                 return false;
             }
             else {
@@ -47,8 +46,8 @@ namespace glsld
             if (headerView.StartWith("Content-Length: ")) {
                 headerView = headerView.Drop(16);
 
-                // TODO: handle error
-                std::from_chars(headerView.Data(), headerView.Data() + headerView.Size(), payloadLength);
+                // FIXME: handle error
+                std::from_chars(headerView.data(), headerView.data() + headerView.Size(), payloadLength);
             }
             else if (headerView.StartWith("Content-Type: ")) {
                 // headerView.remove_prefix(14);
@@ -87,7 +86,7 @@ namespace glsld
         std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
 
         fwrite(header.data(), sizeof(char), header.size(), outFile);
-        fwrite(payload.Data(), sizeof(char), payload.Size(), outFile);
+        fwrite(payload.data(), sizeof(char), payload.Size(), outFile);
         fflush(outFile);
     }
 

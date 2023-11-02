@@ -1,64 +1,55 @@
 #include "LanguageService.h"
 #include "StandardDocumentation.h"
-#include "ModuleVisitor.h"
+#include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
-    class SignatureHelpVisitor : public AstVisitor<SignatureHelpVisitor>
+    class SignatureHelpVisitor : public LanguageQueryVisitor<SignatureHelpVisitor>
     {
-    public:
-        SignatureHelpVisitor(const LexContext& lexContext, TextPosition position)
-            : lexContext(lexContext), position(position)
-        {
-        }
-
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
-        {
-            auto nodeRange = lexContext.LookupExpandedTextRange(node.GetSyntaxRange());
-            if (nodeRange.Contains(position)) {
-                return AstVisitPolicy::Traverse;
-            }
-            else {
-                return AstVisitPolicy::Leave;
-            }
-        }
-
-        auto VisitAstInvokeExpr(AstInvokeExpr& expr) -> void
-        {
-            invokeExpr = &expr;
-        }
-
-        auto Export() -> AstInvokeExpr*
-        {
-            return invokeExpr;
-        }
-
     private:
-        const LexContext& lexContext;
         TextPosition position;
 
-        AstInvokeExpr* invokeExpr = nullptr;
+        const AstFunctionCallExpr* functionCallExpr = nullptr;
+
+    public:
+        SignatureHelpVisitor(const LanguageQueryProvider& provider, TextPosition position)
+            : LanguageQueryVisitor(provider), position(position)
+        {
+        }
+
+        auto Execute() -> const AstFunctionCallExpr*
+        {
+            TraverseTranslationUnit();
+            return functionCallExpr;
+        }
+
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+        {
+            return TraverseNodeContains(node, position);
+        }
+
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+        {
+            functionCallExpr = &expr;
+        }
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(const CompilerObject& compilerObject, lsp::Position position)
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
         -> std::optional<lsp::SignatureHelp>
     {
-        SignatureHelpVisitor visitor{compilerObject.GetLexContext(), FromLspPosition(position)};
-        visitor.TraverseAst(compilerObject.GetAstContext());
-        auto expr = visitor.Export();
+        auto expr = SignatureHelpVisitor{provider, FromLspPosition(position)}.Execute();
 
         if (expr) {
-            auto funcExpr = expr->GetInvokedExpr()->As<AstNameAccessExpr>();
-            if (funcExpr && funcExpr->GetAccessType() == NameAccessType::Function) {
-                auto funcName = funcExpr->GetAccessName().text.StrView();
+            auto funcName = expr->GetFunctionName().text.StrView();
 
-                std::vector<lsp::SignatureInformation> result;
+            std::vector<lsp::SignatureInformation> result;
 
-                // For function in the default library
-                for (auto funcDecl : GetStandardLibraryModule()->GetAstContext().functionDecls) {
+            // For function in the default library
+            for (auto decl : GetStandardLibraryModule()->GetAstContext().GetTranslationUnit()->GetGlobalDecls()) {
+                if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetName().text.StrView() == funcName) {
+                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
                         std::string documentation = QueryFunctionDocumentation(funcName).Str();
@@ -69,11 +60,13 @@ namespace glsld
                         });
                     }
                 }
+            }
 
-                // For function in this module
-                for (auto funcDecl : compilerObject.GetAstContext().functionDecls) {
+            // For function in this module
+            for (auto decl : provider.GetAstContext().GetTranslationUnit()->GetGlobalDecls()) {
+                if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetName().text.StrView() == funcName) {
+                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
 
@@ -83,11 +76,11 @@ namespace glsld
                         });
                     }
                 }
-
-                return lsp::SignatureHelp{
-                    .signatures = std::move(result),
-                };
             }
+
+            return lsp::SignatureHelp{
+                .signatures = std::move(result),
+            };
         }
 
         return std::nullopt;

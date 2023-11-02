@@ -1,3 +1,2 @@
 Checks:
     - clang-analyzer-*
-    - cppcoreguidelines-*

@@ -1,20 +1,20 @@
 #pragma once
-#include "FileSystemProvider.h"
+#include "Basic/FileSystemProvider.h"
 
 namespace glsld
 {
-    class GlsldFileEntry : public FileRef
+    class GlsldFileEntry : public FileHandle
     {
     };
 
     class GlsldFileSystemProvider : public FileSystemProvider
     {
     public:
-        virtual auto Open(StringView path) -> const FileRef* override
+        virtual auto Open(StringView path) -> const FileHandle* override
         {
         }
 
-        virtual auto Close(const FileRef* fileEntry) -> void override
+        virtual auto Close(const FileHandle* fileEntry) -> void override
         {
         }
 

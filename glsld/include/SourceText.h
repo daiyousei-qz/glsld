@@ -1,8 +1,9 @@
 #pragma once
-#include "Ast.h"
-#include "Common.h"
+#include "Basic/Common.h"
+#include "Ast/Dispatch.h"
+#include "Compiler/AstEval.h"
+#include "Compiler/SyntaxToken.h"
 #include "Protocol.h"
-#include "SyntaxToken.h"
 #include <iterator>
 #include <vector>
 #include <string_view>
@@ -83,25 +84,42 @@ namespace glsld
     }
 
     // FIXME: where to put these functions?
-    inline auto ReconstructSourceText(std::string& buffer, const VariableDeclarator& declarator) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const Declarator& declarator) -> void
     {
-        buffer += declarator.declTok.text.StrView();
-        if (declarator.arraySize) {
-            for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
-                if (dimSizeExpr && dimSizeExpr->GetConstValue().IsScalarInt32()) {
-                    buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetInt32Value());
-                }
-                else {
-                    buffer += "[]";
+        if (declarator.declTok.IsIdentifier()) {
+            buffer += declarator.declTok.text.StrView();
+            if (declarator.arraySize) {
+                for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
+                    if (dimSizeExpr) {
+                        auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                        if (dimSizeExprValue.IsScalarInt32()) {
+                            buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
+                        }
+                        else {
+                            buffer += "[__error]";
+                        }
+                    }
+                    else {
+                        buffer += "[]";
+                    }
                 }
             }
+        }
+        else {
+            buffer += "<error>";
         }
     }
     inline auto ReconstructSourceText(std::string& buffer, const AstArraySpec& arraySpec) -> void
     {
         for (auto dimSizeExpr : arraySpec.GetSizeList()) {
-            if (dimSizeExpr && dimSizeExpr->GetConstValue().IsScalarInt32()) {
-                buffer += fmt::format("[{}]", dimSizeExpr->GetConstValue().GetInt32Value());
+            if (dimSizeExpr) {
+                auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                if (dimSizeExprValue.IsScalarInt32()) {
+                    buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
+                }
+                else {
+                    buffer += "[__error]";
+                }
             }
             else {
                 buffer += "[]";
@@ -112,7 +130,7 @@ namespace glsld
     {
         // Reconstruct qualfiers
         if (type.GetQualifiers()) {
-            const auto quals = type.GetQualifiers()->GetQualfierGroup();
+            const auto quals = type.GetQualifiers()->GetQualGroup();
             // Precision Qualifier
             if (quals.qHighp) {
                 buffer += "highp ";
@@ -223,8 +241,8 @@ namespace glsld
         // FIXME: reconstruct from Type
         if (auto structDecl = type.GetStructDecl()) {
             buffer += "struct ";
-            if (structDecl->GetDeclToken()) {
-                buffer += structDecl->GetDeclToken()->text.StrView();
+            if (structDecl->GetDeclTok()) {
+                buffer += structDecl->GetDeclTok()->text.StrView();
             }
             buffer += " { ... }";
         }
@@ -236,39 +254,38 @@ namespace glsld
             ReconstructSourceText(buffer, *type.GetArraySpec());
         }
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstStructMemberDecl& decl, size_t index) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstVariableDecl& decl, size_t index) -> void
     {
-        // FIXME: this is exactly the same implementation with AstVariableDecl
         GLSLD_ASSERT(index < decl.GetDeclarators().size());
 
-        ReconstructSourceText(buffer, *decl.GetType());
+        ReconstructSourceText(buffer, *decl.GetQualType());
         buffer += " ";
 
         ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstVariableDecl& decl, size_t index) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstFieldDecl& decl, size_t index) -> void
     {
         GLSLD_ASSERT(index < decl.GetDeclarators().size());
 
-        ReconstructSourceText(buffer, *decl.GetType());
+        ReconstructSourceText(buffer, *decl.GetQualType());
         buffer += " ";
 
         ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstParamDecl& decl) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstParamDecl& decl) -> void
     {
-        ReconstructSourceText(buffer, *decl.GetType());
+        ReconstructSourceText(buffer, *decl.GetQualType());
         if (decl.GetDeclarator()) {
             buffer += " ";
             ReconstructSourceText(buffer, *decl.GetDeclarator());
         }
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstFunctionDecl& decl) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstFunctionDecl& decl) -> void
     {
         ReconstructSourceText(buffer, *decl.GetReturnType());
         buffer += " ";
 
-        buffer += decl.GetName().text.StrView();
+        buffer += decl.GetDeclTok().text.StrView();
 
         buffer += "(";
         for (auto paramDecl : decl.GetParams()) {
@@ -281,12 +298,12 @@ namespace glsld
         }
         buffer += ")";
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstStructDecl& decl) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstStructDecl& decl) -> void
     {
         buffer += "struct";
-        if (decl.GetDeclToken()) {
+        if (decl.GetDeclTok()) {
             buffer += " ";
-            buffer += decl.GetDeclToken()->text.StrView();
+            buffer += decl.GetDeclTok()->text.StrView();
         }
 
         buffer += " {\n";
@@ -301,9 +318,9 @@ namespace glsld
 
         buffer += "}\n";
     }
-    inline auto ReconstructSourceText(std::string& buffer, AstInterfaceBlockDecl& decl) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstInterfaceBlockDecl& decl) -> void
     {
-        QualifierGroup qual = decl.GetQualifiers()->GetQualfierGroup();
+        QualifierGroup qual = decl.GetQuals()->GetQualGroup();
         if (qual.qUniform) {
             buffer += "uniform ";
         }
@@ -332,7 +349,7 @@ namespace glsld
             buffer += "callableDataInEXT ";
         }
 
-        buffer += decl.GetDeclToken().text.StrView();
+        buffer += decl.GetDeclTok().text.StrView();
         buffer += " {\n";
 
         for (auto member : decl.GetMembers()) {

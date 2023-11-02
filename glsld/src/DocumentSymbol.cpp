@@ -1,37 +1,48 @@
-#include "LanguageService.h"
-#include "ModuleVisitor.h"
+#include "DocumentSymbol.h"
+#include "LanguageQueryVisitor.h"
+#include "SourceText.h"
 
 namespace glsld
 {
-    // FIXME: Support struct member
-    class DocumentSymbolCollector : public ModuleVisitor<DocumentSymbolCollector>
+    class DocumentSymbolCollector : public LanguageQueryVisitor<DocumentSymbolCollector>
     {
+    private:
+        std::vector<lsp::DocumentSymbol> result;
+
     public:
-        using ModuleVisitor::ModuleVisitor;
+        DocumentSymbolCollector(const LanguageQueryProvider& provider) : LanguageQueryVisitor(provider)
+        {
+        }
 
         auto Execute() -> std::vector<lsp::DocumentSymbol>
         {
-            this->Traverse();
-
+            TraverseTranslationUnit();
             return std::move(result);
         }
 
-        auto EnterAstNodeBase(AstNodeBase& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
         {
             // Only visit global decl
             return AstVisitPolicy::Visit;
         }
 
-        auto VisitAstFunctionDecl(AstFunctionDecl& decl) -> void
+        auto EnterAstTranslationUnit(const AstTranslationUnit& tu) -> AstVisitPolicy
         {
-            TryAddSymbol(decl.GetName(), lsp::SymbolKind::Function);
+            return AstVisitPolicy::Traverse;
         }
 
-        auto VisitAstVariableDecl(AstVariableDecl& decl) -> void
+        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
         {
-            if (auto structDecl = decl.GetType()->GetStructDecl()) {
-                if (structDecl->GetDeclToken()) {
-                    TryAddSymbol(*structDecl->GetDeclToken(), lsp::SymbolKind::Struct);
+            TryAddSymbol(decl.GetDeclTok(), lsp::SymbolKind::Function);
+        }
+
+        auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
+        {
+            if (auto structDecl = decl.GetQualType()->GetStructDecl()) {
+                if (structDecl->GetDeclTok()) {
+                    if (TryAddSymbol(*structDecl->GetDeclTok(), lsp::SymbolKind::Struct)) {
+                        TryAddStructMembers(result.back().children, structDecl->GetMembers(), lsp::SymbolKind::Field);
+                    }
                 }
             }
 
@@ -40,44 +51,64 @@ namespace glsld
             }
         }
 
-        auto VisitAstInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
+        auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
         {
             if (decl.GetDeclarator()) {
                 // Named block
-                TryAddSymbol(decl.GetDeclarator()->declTok, lsp::SymbolKind::Variable);
+                // FIXME: should block name be added as a symbol?
+                if (TryAddSymbol(decl.GetDeclarator()->declTok, lsp::SymbolKind::Variable)) {
+                    TryAddStructMembers(result.back().children, decl.GetMembers(), lsp::SymbolKind::Field);
+                }
             }
             else {
-                // Anonymous block
-                for (auto blockMember : decl.GetMembers()) {
-                    for (const auto& declarator : blockMember->GetDeclarators()) {
-                        TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
-                    }
-                }
+                // Unnamed block.
+                // We add members to global scope as if they are global variables.
+                TryAddStructMembers(result, decl.GetMembers(), lsp::SymbolKind::Variable);
             }
         }
 
     private:
-        auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> void
+        auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> bool
         {
-            if (token.IsIdentifier() &&
-                GetLexContext().LookupSpelledFile(token) == GetSourceContext().GetMainFile()->GetID()) {
-                auto tokRange = ToLspRange(GetLexContext().LookupSpelledTextRange(token));
-                result.push_back(lsp::DocumentSymbol{
-                    .name           = token.text.Str(),
-                    .kind           = kind,
-                    .range          = tokRange,
-                    .selectionRange = tokRange,
-                    .children       = {},
-                });
-            }
+            return TryAddSymbol(result, token, kind);
         }
 
-        std::vector<lsp::DocumentSymbol> result;
+        auto TryAddSymbol(std::vector<lsp::DocumentSymbol>& buffer, SyntaxToken token, lsp::SymbolKind kind) -> bool
+        {
+            if (!token.IsIdentifier()) {
+                return false;
+            }
+
+            if (auto spelledRange = GetProvider().GetSpelledTextRangeInMainFile(token)) {
+                auto lspSpelledRange = ToLspRange(*spelledRange);
+                buffer.push_back(lsp::DocumentSymbol{
+                    .name           = token.text.Str(),
+                    .kind           = kind,
+                    .range          = lspSpelledRange,
+                    .selectionRange = lspSpelledRange,
+                    .children       = {},
+                });
+
+                return true;
+            }
+
+            return false;
+        }
+
+        auto TryAddStructMembers(std::vector<lsp::DocumentSymbol>& buffer, ArrayView<const AstFieldDecl*> memberDecls,
+                                 lsp::SymbolKind kind) -> void
+        {
+            for (auto memberDecl : memberDecls) {
+                for (const auto& declarator : memberDecl->GetDeclarators()) {
+                    TryAddSymbol(buffer, declarator.declTok, kind);
+                }
+            }
+        }
     };
 
-    auto ComputeDocumentSymbol(const CompilerObject& compilerObject) -> std::vector<lsp::DocumentSymbol>
+    auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>
     {
-        return DocumentSymbolCollector{compilerObject}.Execute();
+        return DocumentSymbolCollector{provider}.Execute();
     }
 
 } // namespace glsld

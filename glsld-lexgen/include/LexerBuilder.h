@@ -1,5 +1,7 @@
 #pragma once
-#include "Common.h"
+#include "Basic/Common.h"
+#include "Basic/StringView.h"
+#include "Basic/Print.h"
 
 #include <fmt/format.h>
 #include <vector>
@@ -137,22 +139,22 @@ namespace glsld
             return states[index];
         }
 
-        auto Print() -> void
+        auto PrintAutomata() -> void
         {
             for (auto src : states) {
                 if (src->GetAcceptId() != -1) {
-                    fmt::print("[{}] @{}\n", src->GetIndex(), src->GetAcceptId());
+                    Print("[{}] @{}\n", src->GetIndex(), src->GetAcceptId());
                 }
                 else {
-                    fmt::print("[{}]\n", src->GetIndex());
+                    Print("[{}]\n", src->GetIndex());
                 }
 
                 for (auto [ch, target] : src->GetTransition()) {
                     if (ch == EpsilonCodepoint) {
-                        fmt::print("      -> {}\n", target->GetIndex());
+                        Print("      -> {}\n", target->GetIndex());
                     }
                     else {
-                        fmt::print("    {} -> {}\n", static_cast<char>(ch), target->GetIndex());
+                        Print("    {} -> {}\n", static_cast<char>(ch), target->GetIndex());
                     }
                 }
             }
@@ -164,14 +166,14 @@ namespace glsld
 
     template <typename T>
     concept RegexT = requires(const T& regex, NfaAutomata& nfa, NfaState& start) {
-                         {
-                             regex.BuildNfa(nfa, start)
-                             } -> std::convertible_to<NfaState*>;
-                     };
+        {
+            regex.BuildNfa(nfa, start)
+        } -> std::convertible_to<NfaState*>;
+    };
 
     struct RegexTextSeq
     {
-        RegexTextSeq(std::string_view data) : data(data)
+        RegexTextSeq(StringView data) : data(data)
         {
         }
 
@@ -187,12 +189,12 @@ namespace glsld
             return cur;
         }
 
-        std::string_view data;
+        StringView data;
     };
 
     struct RegexTextChoice
     {
-        RegexTextChoice(std::string_view data) : data(data)
+        RegexTextChoice(StringView data) : data(data)
         {
         }
 
@@ -206,7 +208,7 @@ namespace glsld
             return out;
         }
 
-        std::string_view data;
+        StringView data;
     };
 
     struct RegexTextRange

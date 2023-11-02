@@ -1,9 +1,11 @@
-#include "CommandLine.h"
+#include "Basic/CommandLine.h"
 #include "LanguageServer.h"
 
-#include <string_view>
+#if defined(GLSLD_OS_WIN)
+// #include <debugapi.h>
+#endif
+
 #include <vector>
-#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
 namespace glsld
@@ -17,7 +19,7 @@ namespace glsld
     auto HasDebuggerAttached() -> bool
     {
 #if defined(GLSLD_OS_WIN)
-        return IsDebuggerPresent() != FALSE;
+        return false;
 #elif defined(GLSLD_OS_LINUX)
         return false;
 #else
@@ -28,16 +30,14 @@ namespace glsld
     auto WaitDebuggerToAttach() -> void
     {
         using namespace std::literals;
-        // std::this_thread::sleep_for(10s);
+        std::this_thread::sleep_for(10s);
     }
 #endif
 
     auto DoMain() -> void
     {
 #if defined(GLSLD_DEBUG)
-        if (WaitDebugger.HasValue() && WaitDebugger.GetValue()) {
-            WaitDebuggerToAttach();
-        }
+        // WaitDebuggerToAttach();
 #endif
 
         glsld::LanguageServer{}.Run();
