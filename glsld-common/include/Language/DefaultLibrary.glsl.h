@@ -1,3 +1,4 @@
+// clang-format off
 "float radians(float degrees);"
 "vec2 radians(vec2 degrees);"
 "vec3 radians(vec3 degrees);"
@@ -989,9 +990,12 @@
 "ivec2 textureSize(usamplerCube sampler, int lod);"
 "int textureSize(sampler1DShadow sampler, int lod);"
 "ivec2 textureSize(sampler2DShadow sampler, int lod);"
-"ivec2 textureSize(samplerCubeShadow sampler, int lod) ivec3 textureSize(samplerCubeArray sampler, int lod);"
-"ivec2 textureSize(samplerCubeShadow sampler, int lod) ivec3 textureSize(isamplerCubeArray sampler, int lod);"
-"ivec2 textureSize(samplerCubeShadow sampler, int lod) ivec3 textureSize(usamplerCubeArray sampler, int lod);"
+"ivec2 textureSize(samplerCubeShadow sampler, int lod);"
+"ivec3 textureSize(samplerCubeArray sampler, int lod);"
+"ivec2 textureSize(samplerCubeShadow sampler, int lod);"
+"ivec3 textureSize(isamplerCubeArray sampler, int lod);"
+"ivec2 textureSize(samplerCubeShadow sampler, int lod);"
+"ivec3 textureSize(usamplerCubeArray sampler, int lod);"
 "ivec3 textureSize(samplerCubeArrayShadow sampler, int lod);"
 "ivec2 textureSize(sampler2DRect sampler);"
 "ivec2 textureSize(isampler2DRect sampler);"
@@ -4246,3 +4250,4 @@
 "bool anyInvocation(bool value);"
 "bool allInvocations(bool value);"
 "bool allInvocationsEqual(bool value);"
+    // clang-format on

@@ -2907,11 +2907,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DidCloseTextDocumentParams& value) -> bool
     {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument)) {
-                return false;
-            }
+        if (!mapper.Map("textDocument", value.textDocument)) {
+            return false;
         }
 
         return true;

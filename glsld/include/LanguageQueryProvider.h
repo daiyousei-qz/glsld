@@ -118,53 +118,27 @@ namespace glsld
         // Returns the text range of the token being expanded to in the main file.
         auto GetExpandedTextRange(const SyntaxToken& token) const -> TextRange
         {
-            return GetLexContext().LookupExpandedTextRange(token.index);
+            return GetExpandedTextRangeImpl(token.GetSyntaxRange());
         }
 
         // Returns the text range of the AST node being expanded to in the main file.
         auto GetExpandedTextRange(const AstNode& node) const -> TextRange
         {
-            auto range = node.GetSyntaxRange();
-            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex);
-
-            if (range.endTokenIndex == range.startTokenIndex) {
-                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
-                return TextRange{firstTokenRange.start, firstTokenRange.start};
-            }
-            else {
-                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
-                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex - 1).end;
-                return TextRange{startPosition, endPosition};
-            }
+            return GetExpandedTextRangeImpl(node.GetSyntaxRange());
         }
 
         // Returns the text range of the token being expanded to in the main file, including the trailing whitespace and
         // comments.
         auto GetExpandedTextRangeExtended(const SyntaxToken& token) const -> TextRange
         {
-            auto nextTokenIndex = std::min<SyntaxTokenIndex>(token.index + 1, GetLexContext().GetTotalTokenCount() - 1);
-
-            TextPosition startPosition = GetLexContext().LookupExpandedTextRange(token.index).start;
-            TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(nextTokenIndex).start;
-            return TextRange{startPosition, endPosition};
+            return GetExpandedTextRangeExtendedImpl(token.GetSyntaxRange());
         }
 
         // Returns the text range of the AST node being expanded to in the main file, including the trailing whitespace
         // and comments.
         auto GetExpandedTextRangeExtended(const AstNode& node) const -> TextRange
         {
-            auto range = node.GetSyntaxRange();
-            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex);
-
-            if (range.endTokenIndex == range.startTokenIndex) {
-                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
-                return TextRange{firstTokenRange.start, firstTokenRange.start};
-            }
-            else {
-                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
-                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex).start;
-                return TextRange{startPosition, endPosition};
-            }
+            return GetExpandedTextRangeExtendedImpl(node.GetSyntaxRange());
         }
 
         // Returns the related information if the cursor position hits an identifier that's accessing a symbol.
@@ -214,6 +188,37 @@ namespace glsld
             // FIXME: implement properly
             return GetExpandedTextRangeExtended(SyntaxToken{tokIndex, TokenKlass::Invalid, {}})
                 .ContainsExtended(position);
+        }
+
+    private:
+        auto GetExpandedTextRangeImpl(AstSyntaxRange range) const -> TextRange
+        {
+            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex &&
+                         range.endTokenIndex < GetLexContext().GetTotalTokenCount());
+            if (range.endTokenIndex == range.startTokenIndex) {
+                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+                return TextRange{firstTokenRange.start, firstTokenRange.start};
+            }
+            else {
+                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
+                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex - 1).end;
+                return TextRange{startPosition, endPosition};
+            }
+        }
+
+        auto GetExpandedTextRangeExtendedImpl(AstSyntaxRange range) const -> TextRange
+        {
+            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex &&
+                         range.endTokenIndex < GetLexContext().GetTotalTokenCount());
+            if (range.endTokenIndex == range.startTokenIndex) {
+                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+                return TextRange{firstTokenRange.start, firstTokenRange.start};
+            }
+            else {
+                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
+                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex).start;
+                return TextRange{startPosition, endPosition};
+            }
         }
     };
 

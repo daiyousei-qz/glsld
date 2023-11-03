@@ -186,7 +186,7 @@ namespace glsld
         //      - type_spec := 'ID'
         //      - type_spec := 'K_???'
         //
-        // RECOVERY: ^'EOF' or ^'}' or ^';'
+        // RECOVERY: unknown
         auto ParseTypeSpec(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // Parse a qualfied type specifier.
@@ -194,7 +194,7 @@ namespace glsld
         // PARSE: qualified_type_spec
         //      - qualified_type_spec := [qual_seq] type_spec
         //
-        // RECOVERY: ^'EOF' or ^'}' or ^';'
+        // RECOVERY: unknown
         auto ParseQualType() -> AstQualType*;
 
 #pragma endregion

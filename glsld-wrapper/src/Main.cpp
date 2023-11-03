@@ -23,7 +23,7 @@ namespace glsld
         std::filesystem::path inputFilePath = intputFile.GetValue();
 
         std::shared_ptr<CompiledPreamble> stdlibPreamble;
-        if (!noStdlib.HasValue() && !noStdlib.GetValue()) {
+        if (!noStdlib.HasValue() || !noStdlib.GetValue()) {
             stdlibPreamble = GetStandardLibraryModule();
         }
 

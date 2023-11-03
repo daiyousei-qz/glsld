@@ -79,7 +79,7 @@ namespace glsld
         }
         auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
         {
-            // FIXME: a.b.c.d
+            // FIXME: `a.b.c.d`. We need implement this correctly
             if (GetProvider().ContainsPositionExtended(expr.GetLastTokenIndex(), cursorPosition)) {
                 accessChainExpr = expr.GetLhsExpr();
             }

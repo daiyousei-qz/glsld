@@ -449,7 +449,6 @@ namespace glsld
         }
         else {
             EnterRecoveryMode();
-            RecoverFromError(RecoveryMode::Semi);
             return astBuilder.BuildQualType(CreateAstSyntaxRange(beginTokIndex), quals, SyntaxToken{}, nullptr);
         }
     }
@@ -513,27 +512,28 @@ namespace glsld
         }
 
         // function/variable decl
-        auto type = ParseTypeSpec(quals);
+        auto typeSpec = ParseTypeSpec(quals);
         if (InRecoveryMode()) {
             // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
             ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
             return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
         }
 
+        // FIXME: should we parse function decl in function body? This is bad in language server.
         if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
             // function decl
-            return ParseFunctionDecl(beginTokIndex, type);
+            return ParseFunctionDecl(beginTokIndex, typeSpec);
         }
         else if (TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier)) {
             // type/variable decl
-            return ParseTypeOrVariableDecl(beginTokIndex, type);
+            return ParseTypeOrVariableDecl(beginTokIndex, typeSpec);
         }
         else {
             // This would always fail. We are just trying to infer the ';' for better diagnostic.
             ParseOrInferSemicolonHelper();
 
             // We just see this declaration as a variable decl without declarator.
-            return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), type, {});
+            return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), typeSpec, {});
         }
     }
 
@@ -688,22 +688,23 @@ namespace glsld
 
         // Parse parameters
         std::vector<AstParamDecl*> result;
-        while (!TryTestToken(TokenKlass::Eof)) {
+        while (!Eof()) {
             auto beginTokIndex = GetTokenIndex();
 
             auto type = ParseQualType();
-            if (InRecoveryMode()) {
+            if (!InRecoveryMode()) {
+                std::optional<Declarator> declarator;
+                if (TryTestToken(TokenKlass::Identifier)) {
+                    declarator = ParseDeclarator();
+                }
+
+                result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));
+            }
+
+            if (TryTestToken(TokenKlass::RParen)) {
                 break;
             }
-
-            std::optional<Declarator> declarator;
-            if (TryTestToken(TokenKlass::Identifier)) {
-                declarator = ParseDeclarator();
-            }
-
-            result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));
-
-            if (!TryConsumeToken(TokenKlass::Comma)) {
+            else if (!TryConsumeToken(TokenKlass::Comma)) {
                 ReportError("expect ',' or ')'");
 
                 // We try to search for a ',' to recover first.
@@ -1158,6 +1159,8 @@ namespace glsld
 
         auto beginTokIndex = GetTokenIndex();
         auto typeSpec      = ParseTypeSpec(nullptr);
+        GLSLD_ASSERT(!InRecoveryMode());
+
         std::vector<AstExpr*> args;
         if (TryTestToken(TokenKlass::LParen)) {
             args = ParseFunctionArgumentList();
@@ -1289,7 +1292,10 @@ namespace glsld
         while (!Eof()) {
             result.push_back(ParseAssignmentExpr());
 
-            if (!TryConsumeToken(TokenKlass::Comma)) {
+            if (TryTestToken(TokenKlass::RParen)) {
+                break;
+            }
+            else if (!TryConsumeToken(TokenKlass::Comma)) {
                 ReportError("expect ',' or ')'");
 
                 // We try to search for a ',' to recover first.
