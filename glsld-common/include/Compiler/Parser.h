@@ -85,6 +85,14 @@ namespace glsld
         // ACCEPT: null
         auto ParseOrInferSemicolonHelper() -> void;
 
+        // Parse a ',' inside a parenthesis pair. Returns true if a ',' is parsed, meaning we should continue parsing
+        // the next item.
+        //
+        // PARSE: ','
+        //
+        // ACCEPT: ??? ',' or ??? ^')'
+        auto ParseCommaSeperatorHelper(size_t leftParenDepth) -> bool;
+
         // Parse a closing ')' with the assumption that a balanced '(' has been parsed.
         //
         // PARSE: ')'
@@ -92,7 +100,7 @@ namespace glsld
         // ACCEPT: ??? ')'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingParenHelper() -> void;
+        auto ParseClosingParenHelper(size_t leftParenDepth) -> void;
 
         // Parse a closing ']' with the assumption that a balanced '[' has been parsed.
         //
@@ -101,7 +109,7 @@ namespace glsld
         // ACCEPT: ??? ']'
         //
         // RECOVERY: ^'EOF' or '}' or ';'
-        auto ParseClosingBracketHelper() -> void;
+        auto ParseClosingBracketHelper(size_t leftBracketDepth) -> void;
 
         // Try to parse an identifier token as a symbol name if available, otherwise returns an error token
         //
@@ -570,32 +578,32 @@ namespace glsld
             // 4. 'EOF'
             Comma,
 
-            // Assuming a preceding '(', skip until we see
+            // Assuming a preceding '(', skip until we see:
             // 1. ')' that ends the leading '('
             // 2. ';' in this scope
             // 3. '}' that ends this scope (N/A in the global scope)
             // 4. 'EOF'
             Paren,
 
-            // Assuming a preceding '[', skip until we see
+            // Assuming a preceding '[', skip until we see:
             // 1. ']' that ends the leading '['
             // 2. ';' in this scope
             // 3. '}' that ends this scope (N/A in the global scope)
             // 4. 'EOF'
             Bracket,
 
-            // Assuming a preceding '{', skip until we see
+            // Assuming a preceding '{', skip until we see:
             // 1. '}' that ends the leading '{'
             // 2. 'EOF'
             Brace,
 
-            // Assuming a preceding '{', skip until we see
+            // Assuming a preceding '{', skip until we see:
             // 1. '}' that ends the leading '{'
             // 2. ';' in this scope
             // 2. 'EOF'
             IListBrace,
 
-            // Skip until we see
+            // Assuming NO preceding '(' and '[', skip until we see:
             // 1. ';' in this scope
             // 2. '}' that ends this scope (N/A in the global scope)
             // 3. 'EOF'

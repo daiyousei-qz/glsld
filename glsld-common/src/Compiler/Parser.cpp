@@ -34,8 +34,36 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseClosingParenHelper() -> void
+    auto Parser::ParseCommaSeperatorHelper(size_t leftParenDepth) -> bool
     {
+        if (parenDepth < leftParenDepth) {
+            // The closing ')' is already consumed, probably by another recovery process.
+            return false;
+        }
+
+        if (TryTestToken(TokenKlass::RParen)) {
+            return false;
+        }
+        else if (!TryConsumeToken(TokenKlass::Comma)) {
+            ReportError("expect ',' or ')'");
+
+            // We try to search for a ',' to recover first.
+            RecoverFromError(RecoveryMode::Comma);
+            if (!TryConsumeToken(TokenKlass::Comma)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    auto Parser::ParseClosingParenHelper(size_t leftParenDepth) -> void
+    {
+        if (parenDepth < leftParenDepth) {
+            // The closing ')' is already consumed, probably by another recovery process.
+            return;
+        }
+
         if (TryConsumeToken(TokenKlass::RParen)) {
             if (InRecoveryMode()) {
                 ExitRecoveryMode();
@@ -57,8 +85,13 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseClosingBracketHelper() -> void
+    auto Parser::ParseClosingBracketHelper(size_t leftBracketDepth) -> void
     {
+        if (bracketDepth < leftBracketDepth) {
+            // The closing ']' is already consumed, probably by another recovery process.
+            return;
+        }
+
         if (TryConsumeToken(TokenKlass::RBracket)) {
             if (InRecoveryMode()) {
                 ExitRecoveryMode();
@@ -120,6 +153,7 @@ namespace glsld
             EnterRecoveryMode();
             return;
         }
+        size_t initParenDepth = parenDepth;
 
         while (!Eof()) {
             auto idToken = ParseDeclIdHelper();
@@ -131,17 +165,12 @@ namespace glsld
 
             items.push_back(LayoutItem{idToken, value});
 
-            if (!TryConsumeToken(TokenKlass::Comma)) {
+            if (!ParseCommaSeperatorHelper(initParenDepth)) {
                 break;
-            }
-
-            // We'll continue parsing regardless if a ',' has been consumed
-            if (InRecoveryMode()) {
-                ExitRecoveryMode();
             }
         }
 
-        ParseClosingParenHelper();
+        ParseClosingParenHelper(initParenDepth);
     }
 
     auto Parser::ParseTypeQualifierSeq() -> AstTypeQualifierSeq*
@@ -402,6 +431,7 @@ namespace glsld
 
         std::vector<AstExpr*> sizes;
         while (TryConsumeToken(TokenKlass::LBracket)) {
+            size_t initBracketDepth = bracketDepth;
 
             // Parse empty/unsized specifier
             if (TryConsumeToken(TokenKlass::RBracket)) {
@@ -412,7 +442,7 @@ namespace glsld
             // Parse the array size/index expression
             sizes.push_back(ParseExpr());
 
-            ParseClosingBracketHelper();
+            ParseClosingBracketHelper(initBracketDepth);
             if (InRecoveryMode()) {
                 break;
             }
@@ -673,6 +703,7 @@ namespace glsld
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
+        size_t initParenDepth = parenDepth;
 
         // Empty parameter list
         if (TryConsumeToken(TokenKlass::RParen)) {
@@ -701,21 +732,12 @@ namespace glsld
                 result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));
             }
 
-            if (TryTestToken(TokenKlass::RParen)) {
+            if (!ParseCommaSeperatorHelper(initParenDepth)) {
                 break;
-            }
-            else if (!TryConsumeToken(TokenKlass::Comma)) {
-                ReportError("expect ',' or ')'");
-
-                // We try to search for a ',' to recover first.
-                RecoverFromError(RecoveryMode::Comma);
-                if (!TryConsumeToken(TokenKlass::Comma)) {
-                    break;
-                }
             }
         }
 
-        ParseClosingParenHelper();
+        ParseClosingParenHelper(initParenDepth);
         return std::move(result);
     }
 
@@ -1056,8 +1078,8 @@ namespace glsld
             auto beginTokIndex = GetTokenIndex();
             ConsumeToken();
             // TODO: avoid recursion
-            auto childExpr = ParseUnaryExpr();
-            return astBuilder.BuildUnaryExpr(CreateAstSyntaxRange(beginTokIndex), childExpr, *parsedOp);
+            auto operandExpr = ParseUnaryExpr();
+            return astBuilder.BuildUnaryExpr(CreateAstSyntaxRange(beginTokIndex), operandExpr, *parsedOp);
         }
         else {
             return ParsePostfixExpr();
@@ -1260,13 +1282,14 @@ namespace glsld
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
+        size_t initParenDepth = parenDepth;
 
         if (TryConsumeToken(TokenKlass::RParen)) {
             return CreateErrorExpr();
         }
 
         auto result = ParseExpr();
-        ParseClosingParenHelper();
+        ParseClosingParenHelper(initParenDepth);
 
         return result;
     };
@@ -1277,6 +1300,7 @@ namespace glsld
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ConsumeToken();
+        size_t initParenDepth = parenDepth;
 
         if (TryConsumeToken(TokenKlass::RParen)) {
             return {};
@@ -1292,21 +1316,12 @@ namespace glsld
         while (!Eof()) {
             result.push_back(ParseAssignmentExpr());
 
-            if (TryTestToken(TokenKlass::RParen)) {
+            if (!ParseCommaSeperatorHelper(initParenDepth)) {
                 break;
-            }
-            else if (!TryConsumeToken(TokenKlass::Comma)) {
-                ReportError("expect ',' or ')'");
-
-                // We try to search for a ',' to recover first.
-                RecoverFromError(RecoveryMode::Comma);
-                if (!TryConsumeToken(TokenKlass::Comma)) {
-                    break;
-                }
             }
         }
 
-        ParseClosingParenHelper();
+        ParseClosingParenHelper(initParenDepth);
         return result;
     }
 
@@ -1450,6 +1465,7 @@ namespace glsld
             return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), CreateErrorStmt(), CreateErrorExpr(),
                                            CreateErrorExpr(), CreateErrorStmt());
         }
+        size_t initParenDepth = parenDepth;
 
         // Parse init clause
         // FIXME: must be simple stmt (non-compound)
@@ -1479,7 +1495,7 @@ namespace glsld
         }
 
         // FIXME: is the recovery correct?
-        ParseClosingParenHelper();
+        ParseClosingParenHelper(initParenDepth);
         if (InRecoveryMode()) {
             return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, condExpr, iterExpr,
                                            CreateErrorStmt());
@@ -1752,10 +1768,10 @@ namespace glsld
         if (mode == RecoveryMode::Comma || mode == RecoveryMode::Paren) {
             GLSLD_ASSERT(initParenDepth > 0);
         }
-        if (mode == RecoveryMode::Bracket) {
+        else if (mode == RecoveryMode::Bracket) {
             GLSLD_ASSERT(initBracketDepth > 0);
         }
-        if (mode == RecoveryMode::Brace) {
+        else if (mode == RecoveryMode::Brace) {
             GLSLD_ASSERT(initBraceDepth > 0);
         }
 
