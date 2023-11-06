@@ -95,6 +95,29 @@ namespace glsld
             return ppInfoCache;
         }
 
+        auto GetDotTokenIndex(const AstFieldAccessExpr& expr) const -> std::optional<SyntaxTokenIndex>
+        {
+            auto range = expr.GetSyntaxRange();
+            if (range.endTokenIndex > range.startTokenIndex &&
+                GetToken(range.endTokenIndex - 1).klass == TokenKlass::Dot) {
+                // CASE 1: `a.b`
+                return range.endTokenIndex - 1;
+            }
+            else if (range.endTokenIndex - 1 > range.startTokenIndex &&
+                     GetToken(range.endTokenIndex - 2).klass == TokenKlass::Dot) {
+                // CASE 2: `a. `
+                return range.endTokenIndex - 2;
+            }
+            else {
+                return std::nullopt;
+            }
+        }
+
+        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+        {
+            return GetLexContext().GetToken(tokIndex);
+        }
+
         // True if the specified token is spelled in the main file.
         auto IsSpelledInMainFile(const SyntaxToken& token) const -> bool
         {

@@ -16,6 +16,13 @@ namespace glsld
     // handles jsonrpc
     class LanguageServer : public LanguageServerCallback
     {
+    private:
+        using MessageDispatcherType = std::function<void(LanguageServer& server, const lsp::JsonObject& rpcBlob)>;
+        std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
+
+        std::unique_ptr<LanguageService> language;
+        std::unique_ptr<TransportService> transport;
+
     public:
         auto Run() -> void
         {
@@ -143,11 +150,5 @@ namespace glsld
                 });
             GLSLD_ASSERT(inserted);
         }
-
-        using MessageDispatcherType = std::function<void(LanguageServer& server, const lsp::JsonObject& rpcBlob)>;
-        std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
-
-        std::unique_ptr<LanguageService> language;
-        std::unique_ptr<TransportService> transport;
     };
 } // namespace glsld

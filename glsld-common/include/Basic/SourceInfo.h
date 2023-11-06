@@ -49,6 +49,11 @@ namespace glsld
             return start == end;
         }
 
+        auto GetNumLines() const noexcept -> int
+        {
+            return end.line - start.line + 1;
+        }
+
         auto Contains(TextPosition position) const noexcept -> bool
         {
             return start <= position && position < end;

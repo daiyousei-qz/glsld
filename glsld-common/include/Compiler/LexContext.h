@@ -61,6 +61,15 @@ namespace glsld
             return tokenIndexOffset + tokens.size();
         }
 
+        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+        {
+            if (tokIndex < tokenIndexOffset) {
+                return GetPreambleContext()->GetToken(tokIndex);
+            }
+
+            return GetTUTokenSafe(tokIndex);
+        }
+
         // Get the last syntax token from this translation unit.
         auto GetLastTUToken() const -> SyntaxToken;
 

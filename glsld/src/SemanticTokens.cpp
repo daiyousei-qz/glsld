@@ -103,13 +103,17 @@ namespace glsld
 
             auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
             {
-                // FIXME: const variable should be readonly
                 if (expr.GetAccessName().IsIdentifier()) {
+                    auto modifier = SemanticTokenModifier::None;
+                    if (expr.IsConstNameAccess()) {
+                        modifier |= SemanticTokenModifier::Readonly;
+                    }
+
                     if (expr.IsParameter()) {
-                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Parameter);
+                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Parameter, modifier);
                     }
                     else {
-                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable);
+                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable, modifier);
                     }
                 }
             }

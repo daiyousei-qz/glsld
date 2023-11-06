@@ -224,6 +224,25 @@ namespace glsld
             return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstFieldDecl>();
         }
 
+        // True if this name is declared with a `const` qualifier in the declaration.
+        auto IsConstNameAccess() const noexcept -> bool
+        {
+            if (resolvedDecl.IsValid()) {
+                if (auto paramDecl = resolvedDecl.GetDecl()->As<AstParamDecl>()) {
+                    if (paramDecl->IsConstParam()) {
+                        return true;
+                    }
+                }
+                else if (auto varDecl = resolvedDecl.GetDecl()->As<AstVariableDecl>()) {
+                    if (varDecl->IsConstVariable()) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {

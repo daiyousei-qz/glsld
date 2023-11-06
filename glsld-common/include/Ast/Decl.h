@@ -186,6 +186,11 @@ namespace glsld
         {
         }
 
+        auto IsConstVariable() const -> bool
+        {
+            return GetQualType()->GetQualifiers() && GetQualType()->GetQualifiers()->GetQualGroup().qConst;
+        }
+
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {

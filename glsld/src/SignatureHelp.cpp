@@ -1,4 +1,5 @@
 #include "LanguageService.h"
+#include "SourceText.h"
 #include "StandardDocumentation.h"
 #include "LanguageQueryVisitor.h"
 

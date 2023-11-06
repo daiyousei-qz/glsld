@@ -79,9 +79,11 @@ namespace glsld
         }
         auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
         {
-            // FIXME: `a.b.c.d`. We need implement this correctly
-            if (GetProvider().ContainsPositionExtended(expr.GetLastTokenIndex(), cursorPosition)) {
-                accessChainExpr = expr.GetLhsExpr();
+            if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
+                if (GetProvider().ContainsPositionExtended(*dotTokIndex, cursorPosition)) {
+                    // FIXME: this also includes "^.xxx", which is not a valid position.
+                    accessChainExpr = expr.GetLhsExpr();
+                }
             }
         }
 
@@ -330,7 +332,7 @@ namespace glsld
                     .kind  = lsp::CompletionItemKind::Method,
                 }});
             }
-            if (auto structDesc = type->GetStructDesc()) {
+            else if (auto structDesc = type->GetStructDesc()) {
                 for (const auto& [memberName, memberType] : structDesc->members) {
                     result.push_back({lsp::CompletionItem{
                         .label = memberName,
