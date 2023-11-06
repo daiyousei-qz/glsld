@@ -56,6 +56,34 @@ namespace glsld
         size_t bracketDepth = 0;
         size_t braceDepth   = 0;
 
+        class ParsingBalancedParenGuard
+        {
+        private:
+            Parser& parser;
+            size_t leftParenDepth;
+
+        public:
+            ParsingBalancedParenGuard(Parser& parser) : parser(parser)
+            {
+                GLSLD_ASSERT(parser.TryTestToken(TokenKlass::LParen));
+                parser.ConsumeToken();
+                leftParenDepth = parser.parenDepth;
+            }
+
+            ~ParsingBalancedParenGuard()
+            {
+                parser.ParseClosingParenHelper(leftParenDepth);
+            }
+
+            ParsingBalancedParenGuard(const ParsingBalancedParenGuard&)            = delete;
+            ParsingBalancedParenGuard& operator=(const ParsingBalancedParenGuard&) = delete;
+
+            auto GetLeftParenDepth() const noexcept -> size_t
+            {
+                return leftParenDepth;
+            }
+        };
+
         SyntaxToken currentTok = {};
 
     public:
@@ -97,7 +125,7 @@ namespace glsld
         //
         // PARSE: ')'
         //
-        // ACCEPT: ??? ')'
+        // ACCEPT: ??? ')' or null
         //
         // RECOVERY: ^'EOF' or '}' or ';'
         auto ParseClosingParenHelper(size_t leftParenDepth) -> void;
@@ -106,12 +134,12 @@ namespace glsld
         //
         // PARSE: ']'
         //
-        // ACCEPT: ??? ']'
+        // ACCEPT: ??? ']' or null
         //
         // RECOVERY: ^'EOF' or '}' or ';'
         auto ParseClosingBracketHelper(size_t leftBracketDepth) -> void;
 
-        // Try to parse an identifier token as a symbol name if available, otherwise returns an error token
+        // Try to parse an identifier token as a symbol name if available, otherwise returns an invalid token.
         //
         // PARSE: 'ID'
         //
@@ -143,7 +171,7 @@ namespace glsld
         //
         // ACCEPT: 'K_layout' '(' ??? ')'
         //
-        // RECOVERY: ^'EOF' or ^';'
+        // RECOVERY: unknown
         auto ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void;
 
         // Try to parse a sequence of qualifiers. Returns nullptr if no qualifier is parsed.
@@ -218,11 +246,6 @@ namespace glsld
         // ACCEPT: ??? ';'
         // FIXME: fill declaration BNF
         //
-        // - global (in/out/uniform)
-        //   - type-qual? type-spec;
-        //   - type-qual? type-spec id = init;
-        //   - type-qual? type-spec id[N] = init;
-        //   - type-qual? type-spec id = init, ...;
         // - precision settings
         //   - precision precision-qual type;
         // - other settings
@@ -230,9 +253,16 @@ namespace glsld
         //   - type-qual id;
         //   - type-qual id, ...;
         // - block {in/out/uniform/buffer}
-        //   - type-qual id { ... };
-        //   - type-qual id { ... } id;
-        //   - type-qual id { ... } id[N];
+        //   - qualifiers id { ... };
+        //   - qualifiers id { ... } id;
+        //   - qualifiers id { ... } id[N];
+        auto ParseDeclaration() -> AstDecl*;
+
+        // - global (in/out/uniform)
+        //   - type-qual? type-spec;
+        //   - type-qual? type-spec id = init;
+        //   - type-qual? type-spec id[N] = init;
+        //   - type-qual? type-spec id = init, ...;
         // - struct
         //   - struct id? { ... };
         //   - struct id? { ... } id;
@@ -240,7 +270,7 @@ namespace glsld
         // - function
         //   - type-qual? type-spec id(...);
         //   - type-qual? type-spec id(...) { ... }
-        auto ParseDeclaration() -> AstDecl*;
+        auto ParseDeclarationWithTypeSpec(AstQualType* type) -> AstDecl*;
 
         // PARSE: decl
         //

@@ -149,11 +149,12 @@ namespace glsld
         auto beginTokIndex = GetTokenIndex();
         ConsumeToken();
 
-        if (!TryConsumeToken(TokenKlass::LParen)) {
+        if (!TryTestToken(TokenKlass::LParen)) {
             EnterRecoveryMode();
             return;
         }
-        size_t initParenDepth = parenDepth;
+
+        ParsingBalancedParenGuard parenGuard(*this);
 
         while (!Eof()) {
             auto idToken = ParseDeclIdHelper();
@@ -165,12 +166,10 @@ namespace glsld
 
             items.push_back(LayoutItem{idToken, value});
 
-            if (!ParseCommaSeperatorHelper(initParenDepth)) {
+            if (!ParseCommaSeperatorHelper(parenGuard.GetLeftParenDepth())) {
                 break;
             }
         }
-
-        ParseClosingParenHelper(initParenDepth);
     }
 
     auto Parser::ParseTypeQualifierSeq() -> AstTypeQualifierSeq*
@@ -544,10 +543,20 @@ namespace glsld
         // function/variable decl
         auto typeSpec = ParseTypeSpec(quals);
         if (InRecoveryMode()) {
-            // Parser is currently in a unknown state. Return nullptr since no valuable information can be parsed
+            // Parser is currently in a unknown state.
             ReportError(beginTokIndex, "expect a qualified type but failed to parse one");
             return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
         }
+
+        return ParseDeclarationWithTypeSpec(typeSpec);
+    }
+
+    auto Parser::ParseDeclarationWithTypeSpec(AstQualType* typeSpec) -> AstDecl*
+    {
+        GLSLD_TRACE_PARSER();
+        GLSLD_ASSERT(typeSpec);
+
+        auto beginTokIndex = typeSpec->GetSyntaxRange().startTokenIndex;
 
         // FIXME: should we parse function decl in function body? This is bad in language server.
         if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LParen, 1)) {
@@ -702,17 +711,15 @@ namespace glsld
         GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
-        ConsumeToken();
-        size_t initParenDepth = parenDepth;
+        ParsingBalancedParenGuard parenGuard(*this);
 
         // Empty parameter list
-        if (TryConsumeToken(TokenKlass::RParen)) {
+        if (TryTestToken(TokenKlass::RParen)) {
             return {};
         }
 
         // TODO: Needed? spec doesn't include this grammar.
         if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
-            ConsumeToken();
             ConsumeToken();
             return {};
         }
@@ -732,12 +739,11 @@ namespace glsld
                 result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokIndex), type, declarator));
             }
 
-            if (!ParseCommaSeperatorHelper(initParenDepth)) {
+            if (!ParseCommaSeperatorHelper(parenGuard.GetLeftParenDepth())) {
                 break;
             }
         }
 
-        ParseClosingParenHelper(initParenDepth);
         return std::move(result);
     }
 
@@ -859,24 +865,102 @@ namespace glsld
         return expr;
     }
 
-    static auto TryParsePrefixUnaryOp(TokenKlass klass) -> std::optional<UnaryOp>
+    auto Parser::ParseCommaExpr() -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        auto beginTokIndex = GetTokenIndex();
+        auto lhsResult     = ParseAssignmentExpr();
+
+        while (TryConsumeToken(TokenKlass::Comma)) {
+            auto rhsResult = ParseAssignmentExpr();
+
+            lhsResult =
+                astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokIndex), lhsResult, rhsResult, BinaryOp::Comma);
+        }
+
+        return lhsResult;
+    }
+
+    static auto TryParseAssignmentOp(TokenKlass klass) -> std::optional<BinaryOp>
     {
         switch (klass) {
-        case TokenKlass::Plus:
-            return UnaryOp::Identity;
-        case TokenKlass::Dash:
-            return UnaryOp::Negate;
-        case TokenKlass::Tilde:
-            return UnaryOp::BitwiseNot;
-        case TokenKlass::Bang:
-            return UnaryOp::LogicalNot;
-        case TokenKlass::Increment:
-            return UnaryOp::PrefixInc;
-        case TokenKlass::Decrement:
-            return UnaryOp::PrefixDec;
+        case TokenKlass::Assign:
+            return BinaryOp::Assign;
+        case TokenKlass::MulAssign:
+            return BinaryOp::MulAssign;
+        case TokenKlass::DivAssign:
+            return BinaryOp::DivAssign;
+        case TokenKlass::ModAssign:
+            return BinaryOp::ModAssign;
+        case TokenKlass::AddAssign:
+            return BinaryOp::AddAssign;
+        case TokenKlass::SubAssign:
+            return BinaryOp::SubAssign;
+        case TokenKlass::LShiftAssign:
+            return BinaryOp::LShiftAssign;
+        case TokenKlass::RShiftAssign:
+            return BinaryOp::RShiftAssign;
+        case TokenKlass::AndAssign:
+            return BinaryOp::AndAssign;
+        case TokenKlass::XorAssign:
+            return BinaryOp::XorAssign;
+        case TokenKlass::OrAssign:
+            return BinaryOp::OrAssign;
         default:
             return std::nullopt;
         }
+    }
+
+    auto Parser::ParseAssignmentExpr() -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        auto beginTokIndex = GetTokenIndex();
+        auto lhsResult     = ParseUnaryExpr();
+
+        AstExpr* result = nullptr;
+        auto parsedOp   = TryParseAssignmentOp(PeekToken().klass);
+        if (parsedOp) {
+            ConsumeToken();
+            GLSLD_ASSERT(InParsingMode());
+            auto rhsResult = ParseAssignmentExpr();
+
+            result = astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokIndex), lhsResult, rhsResult, *parsedOp);
+        }
+        else {
+            result = ParseBinaryOrConditionalExpr(beginTokIndex, lhsResult);
+        }
+
+        return result;
+    }
+
+    auto Parser::ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        auto predicateOrExprResult = ParseBinaryExpr(beginTokIndex, firstTerm, 0);
+
+        if (!TryConsumeToken(TokenKlass::Question)) {
+            return predicateOrExprResult;
+        }
+
+        auto trueExpr = ParseCommaExpr();
+
+        if (!TryConsumeToken(TokenKlass::Colon)) {
+            if (InRecoveryMode()) {
+                // we cannot infer a ':' in recovery mode, so just return early
+                return astBuilder.BuildSelectExpr(CreateAstSyntaxRange(beginTokIndex), predicateOrExprResult, trueExpr,
+                                                  CreateErrorExpr());
+            }
+
+            ReportError("expecting ':'");
+        }
+
+        // Even if ':' is missing, we'll continue parsing the nenative part
+        auto falseExpr = ParseAssignmentExpr();
+        return astBuilder.BuildSelectExpr(CreateAstSyntaxRange(beginTokIndex), predicateOrExprResult, trueExpr,
+                                          falseExpr);
     }
 
     // These are all left-associative operators
@@ -931,104 +1015,6 @@ namespace glsld
         }
     };
 
-    static auto TryParseAssignmentOp(TokenKlass klass) -> std::optional<BinaryOp>
-    {
-        switch (klass) {
-        case TokenKlass::Assign:
-            return BinaryOp::Assign;
-        case TokenKlass::MulAssign:
-            return BinaryOp::MulAssign;
-        case TokenKlass::DivAssign:
-            return BinaryOp::DivAssign;
-        case TokenKlass::ModAssign:
-            return BinaryOp::ModAssign;
-        case TokenKlass::AddAssign:
-            return BinaryOp::AddAssign;
-        case TokenKlass::SubAssign:
-            return BinaryOp::SubAssign;
-        case TokenKlass::LShiftAssign:
-            return BinaryOp::LShiftAssign;
-        case TokenKlass::RShiftAssign:
-            return BinaryOp::RShiftAssign;
-        case TokenKlass::AndAssign:
-            return BinaryOp::AndAssign;
-        case TokenKlass::XorAssign:
-            return BinaryOp::XorAssign;
-        case TokenKlass::OrAssign:
-            return BinaryOp::OrAssign;
-        default:
-            return std::nullopt;
-        }
-    }
-
-    auto Parser::ParseCommaExpr() -> AstExpr*
-    {
-        GLSLD_TRACE_PARSER();
-
-        auto beginTokIndex = GetTokenIndex();
-        auto lhsResult     = ParseAssignmentExpr();
-
-        while (TryConsumeToken(TokenKlass::Comma)) {
-            auto rhsResult = ParseAssignmentExpr();
-
-            lhsResult =
-                astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokIndex), lhsResult, rhsResult, BinaryOp::Comma);
-        }
-
-        return lhsResult;
-    }
-
-    auto Parser::ParseAssignmentExpr() -> AstExpr*
-    {
-        GLSLD_TRACE_PARSER();
-
-        auto beginTokIndex = GetTokenIndex();
-        auto lhsResult     = ParseUnaryExpr();
-
-        AstExpr* result = nullptr;
-        auto parsedOp   = TryParseAssignmentOp(PeekToken().klass);
-        if (parsedOp) {
-            ConsumeToken();
-            GLSLD_ASSERT(InParsingMode());
-            auto rhsResult = ParseAssignmentExpr();
-
-            result = astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokIndex), lhsResult, rhsResult, *parsedOp);
-        }
-        else {
-            result = ParseBinaryOrConditionalExpr(beginTokIndex, lhsResult);
-        }
-
-        return result;
-    }
-
-    auto Parser::ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*
-    {
-        GLSLD_TRACE_PARSER();
-
-        auto predicateOrExprResult = ParseBinaryExpr(beginTokIndex, firstTerm, 0);
-
-        if (!TryConsumeToken(TokenKlass::Question)) {
-            return predicateOrExprResult;
-        }
-
-        auto trueExpr = ParseCommaExpr();
-
-        if (!TryConsumeToken(TokenKlass::Colon)) {
-            if (InRecoveryMode()) {
-                // we cannot infer a ':' in recovery mode, so just return early
-                return astBuilder.BuildSelectExpr(CreateAstSyntaxRange(beginTokIndex), predicateOrExprResult, trueExpr,
-                                                  CreateErrorExpr());
-            }
-
-            ReportError("expecting ':'");
-        }
-
-        // Even if ':' is missing, we'll continue parsing the nenative part
-        auto falseExpr = ParseAssignmentExpr();
-        return astBuilder.BuildSelectExpr(CreateAstSyntaxRange(beginTokIndex), predicateOrExprResult, trueExpr,
-                                          falseExpr);
-    }
-
     auto Parser::ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*
     {
         GLSLD_TRACE_PARSER();
@@ -1069,6 +1055,26 @@ namespace glsld
         return lhs;
     }
 
+    static auto TryParsePrefixUnaryOp(TokenKlass klass) -> std::optional<UnaryOp>
+    {
+        switch (klass) {
+        case TokenKlass::Plus:
+            return UnaryOp::Identity;
+        case TokenKlass::Dash:
+            return UnaryOp::Negate;
+        case TokenKlass::Tilde:
+            return UnaryOp::BitwiseNot;
+        case TokenKlass::Bang:
+            return UnaryOp::LogicalNot;
+        case TokenKlass::Increment:
+            return UnaryOp::PrefixInc;
+        case TokenKlass::Decrement:
+            return UnaryOp::PrefixDec;
+        default:
+            return std::nullopt;
+        }
+    }
+
     auto Parser::ParseUnaryExpr() -> AstExpr*
     {
         GLSLD_TRACE_PARSER();
@@ -1102,7 +1108,7 @@ namespace glsld
             if (TryTestToken(TokenKlass::Identifier)) {
                 // Could still be constructor call if it's a type name
                 // Though we are conservative here and need to peek a following '(' or '[' to confirm.
-                // This means we'll parse a isolated type identifier as a name access.
+                // This means we'll parse a isolated type identifier as a bad name access.
                 if (astBuilder.IsTypeName(PeekToken().text.StrView()) &&
                     TryTestToken(TokenKlass::LParen, TokenKlass::LBracket, 1)) {
                     result = ParseConstructorCallExpr();
@@ -1181,11 +1187,13 @@ namespace glsld
 
         auto beginTokIndex = GetTokenIndex();
         auto typeSpec      = ParseTypeSpec(nullptr);
-        GLSLD_ASSERT(!InRecoveryMode());
 
         std::vector<AstExpr*> args;
         if (TryTestToken(TokenKlass::LParen)) {
             args = ParseFunctionArgumentList();
+        }
+        else {
+            ReportError("expect '(' after constructor name");
         }
         return astBuilder.BuildConstructorCallExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
     }
@@ -1251,18 +1259,18 @@ namespace glsld
         auto tok = PeekToken();
         switch (PeekToken().klass) {
         case TokenKlass::Identifier:
-            // variable/function name
+            // Variable name
             ConsumeToken();
             return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokIndex), tok);
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
-            // nermeric literal
+            // Number literal
             ConsumeToken();
             return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokIndex),
                                                ParseNumberLiteral(tok.text.StrView()));
         case TokenKlass::K_true:
         case TokenKlass::K_false:
-            // boolean literal
+            // Boolean literal
             ConsumeToken();
             return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokIndex),
                                                ConstValue::FromValue(tok.klass == TokenKlass::K_true));
@@ -1281,17 +1289,14 @@ namespace glsld
         GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
-        ConsumeToken();
-        size_t initParenDepth = parenDepth;
+        ParsingBalancedParenGuard parenGuard(*this);
 
-        if (TryConsumeToken(TokenKlass::RParen)) {
+        // A special case of empty parenthesis "()"
+        if (TryTestToken(TokenKlass::RParen)) {
             return CreateErrorExpr();
         }
 
-        auto result = ParseExpr();
-        ParseClosingParenHelper(initParenDepth);
-
-        return result;
+        return ParseExpr();
     };
 
     auto Parser::ParseFunctionArgumentList() -> std::vector<AstExpr*>
@@ -1299,15 +1304,13 @@ namespace glsld
         GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
-        ConsumeToken();
-        size_t initParenDepth = parenDepth;
+        ParsingBalancedParenGuard parenGuard(*this);
 
-        if (TryConsumeToken(TokenKlass::RParen)) {
+        if (TryTestToken(TokenKlass::RParen)) {
             return {};
         }
 
         if (TryTestToken(TokenKlass::K_void) && TryTestToken(TokenKlass::RParen, 1)) {
-            ConsumeToken();
             ConsumeToken();
             return {};
         }
@@ -1316,12 +1319,11 @@ namespace glsld
         while (!Eof()) {
             result.push_back(ParseAssignmentExpr());
 
-            if (!ParseCommaSeperatorHelper(initParenDepth)) {
+            if (!ParseCommaSeperatorHelper(parenGuard.GetLeftParenDepth())) {
                 break;
             }
         }
 
-        ParseClosingParenHelper(initParenDepth);
         return result;
     }
 
@@ -1459,51 +1461,51 @@ namespace glsld
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_for));
         ConsumeToken();
 
-        // Parse '('
-        if (!TryConsumeToken(TokenKlass::LParen)) {
+        if (!TryTestToken(TokenKlass::LParen)) {
             EnterRecoveryMode();
             return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), CreateErrorStmt(), CreateErrorExpr(),
                                            CreateErrorExpr(), CreateErrorStmt());
         }
-        size_t initParenDepth = parenDepth;
 
-        // Parse init clause
-        // FIXME: must be simple stmt (non-compound)
-        auto initClause = ParseStmt();
-        if (InRecoveryMode()) {
-            // FIXME: how to recover?
-            return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, CreateErrorExpr(),
-                                           CreateErrorExpr(), CreateErrorStmt());
-        }
+        // Parse for loop header
+        AstStmt* initClause    = nullptr;
+        AstExpr* conditionExpr = nullptr;
+        AstExpr* iterExpr      = nullptr;
+        do {
+            ParsingBalancedParenGuard parenGuard(*this);
 
-        // Parse test clause
-        AstExpr* condExpr = nullptr;
-        if (!TryConsumeToken(TokenKlass::Semicolon)) {
-            condExpr = ParseExpr();
+            // Parse init clause
+            // FIXME: must be simple stmt (non-compound)
+            initClause = ParseStmt();
 
-            if (!TryConsumeToken(TokenKlass::Semicolon)) {
-                EnterRecoveryMode();
-                return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, condExpr,
-                                               CreateErrorExpr(), CreateErrorStmt());
+            // Parse test clause
+            if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Semicolon)) {
+                conditionExpr = CreateErrorExpr();
+                iterExpr      = CreateErrorExpr();
+                break;
             }
-        }
+            conditionExpr = ParseExpr();
 
-        // Parse proceed clause
-        AstExpr* iterExpr = nullptr;
-        if (!TryTestToken(TokenKlass::RParen)) {
+            // Parse proceed clause
+            if (!TryConsumeToken(TokenKlass::Semicolon)) {
+                iterExpr = CreateErrorExpr();
+                break;
+            }
             iterExpr = ParseExpr();
-        }
+        } while (false);
 
         // FIXME: is the recovery correct?
-        ParseClosingParenHelper(initParenDepth);
+        GLSLD_ASSERT(initClause && conditionExpr && iterExpr);
         if (InRecoveryMode()) {
-            return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, condExpr, iterExpr,
+            // Meaning we cannot parse the closing ')'. We cannot assume the following tokens form the loop body.
+            return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, conditionExpr, iterExpr,
                                            CreateErrorStmt());
         }
 
         // Parse loop body
         auto loopBody = ParseStmt();
-        return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, condExpr, iterExpr, loopBody);
+        return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, conditionExpr, iterExpr,
+                                       loopBody);
     }
 
     auto Parser::ParseDoWhileStmt() -> AstStmt*
@@ -1544,8 +1546,13 @@ namespace glsld
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_while));
         ConsumeToken();
 
-        // Parse condition expr
-        AstExpr* conditionExpr = ParseParenWrappedExprOrErrorHelper();
+        if (!TryTestToken(TokenKlass::LParen)) {
+            EnterRecoveryMode();
+            return astBuilder.BuildWhileStmt(CreateAstSyntaxRange(beginTokIndex), CreateErrorExpr(), CreateErrorStmt());
+        }
+
+        // Parse while loop header
+        AstExpr* conditionExpr = ParseParenWrappedExpr();
 
         if (InRecoveryMode()) {
             return astBuilder.BuildWhileStmt(CreateAstSyntaxRange(beginTokIndex), conditionExpr, CreateErrorStmt());
@@ -1592,8 +1599,14 @@ namespace glsld
         GLSLD_ASSERT(TryTestToken(TokenKlass::K_switch));
         ConsumeToken();
 
+        if (!TryTestToken(TokenKlass::LParen)) {
+            EnterRecoveryMode();
+            return astBuilder.BuildSwitchStmt(CreateAstSyntaxRange(beginTokIndex), CreateErrorExpr(),
+                                              CreateErrorStmt());
+        }
+
         // Parse switched expr
-        AstExpr* testExpr = ParseParenWrappedExprOrErrorHelper();
+        AstExpr* testExpr = ParseParenWrappedExpr();
 
         // Parse switch body
         AstStmt* switchBody = nullptr;
@@ -1603,8 +1616,10 @@ namespace glsld
             astBuilder.LeaveLexicalBlockScope();
         }
         else {
+            EnterRecoveryMode();
             switchBody = CreateErrorStmt();
         }
+
         return astBuilder.BuildSwitchStmt(CreateAstSyntaxRange(beginTokIndex), testExpr, switchBody);
     }
 
@@ -1696,59 +1711,47 @@ namespace glsld
         case TokenKlass::XorAssign:
         case TokenKlass::OrAssign:
         case TokenKlass::SubAssign:
+            // Binary expr
+        case TokenKlass::Or:
+        case TokenKlass::Xor:
+        case TokenKlass::And:
+        case TokenKlass::VerticalBar:
+        case TokenKlass::Caret:
+        case TokenKlass::Ampersand:
+        case TokenKlass::Equal:
+        case TokenKlass::NotEqual:
+        case TokenKlass::LAngle:
+        case TokenKlass::RAngle:
+        case TokenKlass::LessEq:
+        case TokenKlass::GreaterEq:
+        case TokenKlass::LShift:
+        case TokenKlass::RShift:
+        // case TokenKlass::Plus:
+        // case TokenKlass::Dash:
+        case TokenKlass::Star:
+        case TokenKlass::Slash:
+        case TokenKlass::Percent:
             // Comma expr
         case TokenKlass::Comma:
             return ParseExprStmt();
             // Declaration
         case TokenKlass::K_const:
+        case TokenKlass::K_lowp:
+        case TokenKlass::K_mediump:
+        case TokenKlass::K_highp:
             // FIXME: what about other qualifiers?
             return ParseDeclStmt();
         default:
-            // FIXME: this is really hacky, we should do better
-            if (TryTestToken(TokenKlass::Identifier) || PeekToken().IsKeyword()) {
-                if (TryTestToken(TokenKlass::Identifier, 1)) {
-                    // Case: `S x;`
+            // FIXME: what about a constructor call expression?
+            if (TryTestToken(TokenKlass::Identifier)) {
+                if (astBuilder.IsTypeName(PeekToken().text.StrView())) {
                     return ParseDeclStmt();
                 }
-                else if (TryTestToken(TokenKlass::LBracket, 1)) {
-                    // Case: `S[1] x;` or `S[1] = x;`
-
-                    // We scan ahead to see the next token after ']'
-                    size_t nextLookahead = 2;
-                    int bracketDepth     = 1;
-                    while (!Eof()) {
-                        const auto lookaheadTok = PeekToken(nextLookahead);
-                        nextLookahead += 1;
-
-                        if (lookaheadTok.klass == TokenKlass::LBracket) {
-                            bracketDepth += 1;
-                        }
-                        else if (lookaheadTok.klass == TokenKlass::RBracket) {
-                            bracketDepth -= 1;
-                            if (bracketDepth == 0) {
-                                break;
-                            }
-                        }
-                        else if (lookaheadTok.klass == TokenKlass::Eof || lookaheadTok.klass == TokenKlass::Semicolon) {
-                            break;
-                        }
-                    }
-
-                    if (bracketDepth == 0 && TryTestToken(TokenKlass::Identifier, nextLookahead)) {
-                        return ParseDeclStmt();
-                    }
-                    else {
-                        return ParseExprStmt();
-                    }
-                }
                 else {
-                    // Other cases
-                    // FIXME: could we assume this?
                     return ParseExprStmt();
                 }
             }
             else {
-                // FIXME: need we recover here?
                 return ParseDeclStmt();
             }
         }
