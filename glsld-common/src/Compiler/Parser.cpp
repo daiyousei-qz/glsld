@@ -1337,6 +1337,9 @@ namespace glsld
 
         auto beginTokIndex = GetTokenIndex();
         switch (PeekToken().klass) {
+        case glsld::TokenKlass::Semicolon:
+            ConsumeToken();
+            return astBuilder.BuildEmptyStmt(beginTokIndex);
         case TokenKlass::LBrace:
         {
             // compound stmt
@@ -1467,6 +1470,8 @@ namespace glsld
                                            CreateErrorExpr(), CreateErrorStmt());
         }
 
+        astBuilder.EnterLexicalBlockScope();
+
         // Parse for loop header
         AstStmt* initClause    = nullptr;
         AstExpr* conditionExpr = nullptr;
@@ -1478,8 +1483,8 @@ namespace glsld
             // FIXME: must be simple stmt (non-compound)
             initClause = ParseStmt();
 
-            // Parse test clause
-            if (InRecoveryMode() || !TryConsumeToken(TokenKlass::Semicolon)) {
+            // Parse test expression, noting ';' is already parsed.
+            if (InRecoveryMode()) {
                 conditionExpr = CreateErrorExpr();
                 iterExpr      = CreateErrorExpr();
                 break;
@@ -1494,16 +1499,19 @@ namespace glsld
             iterExpr = ParseExpr();
         } while (false);
 
+        // Parse loop body
         // FIXME: is the recovery correct?
         GLSLD_ASSERT(initClause && conditionExpr && iterExpr);
+        AstStmt* loopBody = nullptr;
         if (InRecoveryMode()) {
             // Meaning we cannot parse the closing ')'. We cannot assume the following tokens form the loop body.
-            return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, conditionExpr, iterExpr,
-                                           CreateErrorStmt());
+            loopBody = CreateErrorStmt();
+        }
+        else {
+            loopBody = ParseStmt();
         }
 
-        // Parse loop body
-        auto loopBody = ParseStmt();
+        astBuilder.LeaveLexicalBlockScope();
         return astBuilder.BuildForStmt(CreateAstSyntaxRange(beginTokIndex), initClause, conditionExpr, iterExpr,
                                        loopBody);
     }
