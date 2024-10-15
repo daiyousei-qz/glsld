@@ -237,7 +237,7 @@ namespace glsld
         else if (directiveToken.text == "undef") {
             HandleUndefDirective(scanner);
         }
-        else if (directiveToken.text == builtinAtoms.builtin_if) {
+        else if (directiveToken.text == "if") {
             HandleIfDirective(scanner);
         }
         else if (directiveToken.text == "ifdef") {
