@@ -3,8 +3,6 @@
 #include "Ast/Base.h"
 #include "Language/Semantic.h"
 
-#include <vector>
-
 namespace glsld
 {
     // Base class for all AST nodes that could be used as a statement.
@@ -79,10 +77,10 @@ namespace glsld
     {
     private:
         // [Payload]
-        std::vector</*NotNull*/ AstStmt*> children;
+        ArrayView</*NotNull*/ AstStmt*> children;
 
     public:
-        AstCompoundStmt(std::vector<AstStmt*> children) : children(std::move(children))
+        AstCompoundStmt(ArrayView<AstStmt*> children) : children(children)
         {
         }
 

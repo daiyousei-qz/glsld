@@ -10,10 +10,10 @@ namespace glsld
     private:
         // [Node]
         // Global declarations in the source program.
-        std::vector</*NotNull*/ AstDecl*> globalDecls;
+        ArrayView</*NotNull*/ AstDecl*> globalDecls;
 
     public:
-        AstTranslationUnit(std::vector<AstDecl*> globalDecls) : globalDecls(std::move(globalDecls))
+        AstTranslationUnit(ArrayView<AstDecl*> globalDecls) : globalDecls(std::move(globalDecls))
         {
         }
 
@@ -50,10 +50,10 @@ namespace glsld
     private:
         // [Node]
         // Sizes are expressions, but they can also be nullptr for unsized array like "[]".
-        std::vector<AstExpr*> sizes;
+        ArrayView<AstExpr*> sizes;
 
     public:
-        AstArraySpec(std::vector<AstExpr*> sizes) : sizes(std::move(sizes))
+        AstArraySpec(ArrayView<AstExpr*> sizes) : sizes(sizes)
         {
         }
 
@@ -104,11 +104,11 @@ namespace glsld
     {
     private:
         QualifierGroup quals;
-        std::vector<LayoutItem> layoutQuals;
+        ArrayView<LayoutItem> layoutQuals;
 
     public:
-        AstTypeQualifierSeq(QualifierGroup quals, std::vector<LayoutItem> layoutQuals)
-            : quals(quals), layoutQuals(std::move(layoutQuals))
+        AstTypeQualifierSeq(QualifierGroup quals, ArrayView<LayoutItem> layoutQuals)
+            : quals(quals), layoutQuals(layoutQuals)
         {
         }
 

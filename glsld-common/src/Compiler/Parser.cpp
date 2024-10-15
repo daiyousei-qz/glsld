@@ -11,12 +11,15 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        auto beginTokIndex = compilerObject.GetLexContext().GetTUTokenIndexOffset();
-        RestoreTokenIndex(beginTokIndex);
-
         std::vector<AstDecl*> decls;
-        while (!Eof()) {
-            decls.push_back(ParseDeclAndTryRecover());
+        auto beginTokIndex = compilerObject.GetLexContext().GetTUTokenIndexOffset();
+
+        if (compilerObject.GetLexContext().GetTotalTokenCount() != 0) {
+            RestoreTokenIndex(beginTokIndex);
+
+            while (!Eof()) {
+                decls.push_back(ParseDeclAndTryRecover());
+            }
         }
 
         return astBuilder.BuildTranslationUnit(CreateAstSyntaxRange(beginTokIndex), std::move(decls));
@@ -1196,58 +1199,6 @@ namespace glsld
             ReportError("expect '(' after constructor name");
         }
         return astBuilder.BuildConstructorCallExpr(CreateAstSyntaxRange(beginTokIndex), typeSpec, std::move(args));
-    }
-
-    static auto ParseNumberLiteral(StringView literalText) -> ConstValue
-    {
-        if (literalText.EndWith("u") || literalText.EndWith("U")) {
-            auto literalTextNoSuffix = literalText.DropBack(1);
-
-            uint32_t value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<uint32_t>(value);
-            }
-        }
-        else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
-            auto literalTextNoSuffix = literalText.DropBack(2);
-
-            double value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<double>(value);
-            }
-        }
-        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
-            auto literalTextNoSuffix = literalText.DropBack(1);
-
-            float value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<float>(value);
-            }
-        }
-        else {
-            if (literalText.Contains('.') || literalText.Contains('e')) {
-                float value;
-                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::FromValue<float>(value);
-                }
-            }
-            else {
-                int32_t value;
-                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::FromValue<int32_t>(value);
-                }
-            }
-        }
-
-        return ConstValue{};
     }
 
     auto Parser::ParsePrimaryExpr() -> AstExpr*

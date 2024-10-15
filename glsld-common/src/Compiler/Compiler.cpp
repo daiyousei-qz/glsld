@@ -1,9 +1,9 @@
 #include "Compiler/CompilerObject.h"
+#include "Compiler/Preprocessor.h"
 #include "Compiler/SourceContext.h"
 #include "Compiler/DiagnosticStream.h"
 #include "Compiler/LexContext.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/Tokenizer.h"
 #include "Compiler/Parser.h"
 
 #include <atomic>
@@ -99,8 +99,7 @@ namespace glsld
         // Lexing
         {
             GLSLD_TRACE_COMPILE_TIME("Lexing");
-            Preprocessor pp{*this, ppCallback, std::nullopt, 0};
-            Tokenizer{*this, pp, mainFileEntry->GetID(), *mainFileEntry->GetSourceText()}.DoTokenize();
+            Preprocessor{*this, ppCallback, std::nullopt, 0}.PreprocessSourceFile(*mainFileEntry);
         }
         if (config.dumpTokens) {
             // FIXME:

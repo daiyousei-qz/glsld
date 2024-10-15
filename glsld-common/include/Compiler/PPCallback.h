@@ -16,7 +16,19 @@ namespace glsld
         virtual auto OnUndefDirective(const PPToken& macroName) -> void
         {
         }
+        virtual auto OnIfDirective(bool evalToTrue) -> void
+        {
+        }
+        virtual auto OnElifDirective(bool evalToTrue) -> void
+        {
+        }
         virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void
+        {
+        }
+        virtual auto OnElseDirective() -> void
+        {
+        }
+        virtual auto OnEndifDirective() -> void
         {
         }
 

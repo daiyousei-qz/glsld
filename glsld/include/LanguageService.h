@@ -80,7 +80,7 @@ namespace glsld
         template <typename F, typename... Args>
         auto ScheduleTask(F&& f, Args&&... args) -> void
         {
-            threadPool.push_task(std::forward<F>(f), std::forward<Args>(args)...);
+            threadPool.detach_task(std::forward<F>(f), std::forward<Args>(args)...);
         }
     };
 } // namespace glsld

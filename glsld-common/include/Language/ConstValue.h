@@ -974,4 +974,6 @@ namespace glsld
     auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue;
     auto EvalSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
                              const ConstValue& elseBranchVal) -> ConstValue;
+
+    auto ParseNumberLiteral(StringView literalText) -> ConstValue;
 } // namespace glsld

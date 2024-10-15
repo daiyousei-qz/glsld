@@ -224,7 +224,7 @@ namespace glsld
 
         AstSyntaxRange range;
 
-        friend class AstContext;
+        friend class AstBuilder;
 
         // This must be called upon creation of a new AstNode.
         // Proper tag must be set as it is used to identify the type of this node.

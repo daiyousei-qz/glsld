@@ -20,6 +20,8 @@ namespace glsld
     private:
         CompilerObject& compilerObject;
 
+        MemoryArena& arena;
+
         SymbolTable& symbolTable;
 
         // Return type of the current function. `nullptr` if we are not in a function.
@@ -27,7 +29,8 @@ namespace glsld
 
     public:
         AstBuilder(CompilerObject& compilerObject)
-            : compilerObject(compilerObject), symbolTable(compilerObject.GetAstContext().GetSymbolTable())
+            : compilerObject(compilerObject), arena(compilerObject.GetAstContext().GetArena()),
+              symbolTable(compilerObject.GetAstContext().GetSymbolTable())
         {
         }
 
@@ -168,6 +171,22 @@ namespace glsld
 #pragma endregion
 
     private:
+        template <typename T>
+        auto CopyArray(const std::vector<T>& array) -> ArrayView<T>
+        {
+            T* buffer = arena.Construct<T[]>(array.size());
+            std::ranges::copy(array, buffer);
+            return ArrayView<T>(buffer, array.size());
+        }
+
+        template <AstNodeT T, typename... Args>
+        auto CreateAstNode(AstSyntaxRange range, Args&&... args) -> T*
+        {
+            auto result = arena.Construct<T>(std::forward<Args>(args)...);
+            result->Initialize(AstNodeTrait<T>::tag, range);
+            return result;
+        }
+
         auto TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*
         {
             if (expr->GetDeducedType()->IsSameWith(contextType) || expr->GetDeducedType()->IsError()) {
@@ -176,12 +195,6 @@ namespace glsld
 
             GLSLD_ASSERT(!contextType->IsError());
             return BuildImplicitCastExpr(expr->GetSyntaxRange(), expr, contextType);
-        }
-
-        template <AstNodeT T, typename... Args>
-        auto CreateAstNode(AstSyntaxRange range, Args&&... args) -> T*
-        {
-            return compilerObject.GetAstContext().CreateAstNode<T>(range, std::forward<Args>(args)...);
         }
     };
 } // namespace glsld

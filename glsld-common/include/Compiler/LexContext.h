@@ -1,18 +1,58 @@
 #pragma once
 #include "Compiler/CompilerContextBase.h"
 #include "Compiler/SyntaxToken.h"
+#include "Compiler/MacroDefinition.h"
 
 #include <vector>
 
 namespace glsld
 {
-    class MacroDefinition;
+    struct BuiltinAtoms
+    {
+        AtomString builtin_define;
+        AtomString builtin_undef;
+        // AtomString builtin_if;
+        AtomString builtin_ifdef;
+        AtomString builtin_ifndef;
+        AtomString builtin_elif;
+        // AtomString builtin_else;
+        AtomString builtin_endif;
+        AtomString builtin_include;
+        AtomString builtin_pragma;
+        AtomString builtin_defined;
+
+#define DECL_KEYWORD(KEYWORD) AtomString builtin_##KEYWORD;
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+
+        BuiltinAtoms() = default;
+        BuiltinAtoms(AtomTable& atomTable)
+        {
+            builtin_define = atomTable.GetAtom("define");
+            builtin_undef  = atomTable.GetAtom("undef");
+            // builtin_if      = atomTable.GetAtom("if");
+            builtin_ifdef  = atomTable.GetAtom("ifdef");
+            builtin_ifndef = atomTable.GetAtom("ifndef");
+            builtin_elif   = atomTable.GetAtom("elif");
+            // builtin_else   = atomTable.GetAtom("else");
+            builtin_endif   = atomTable.GetAtom("endif");
+            builtin_include = atomTable.GetAtom("include");
+            builtin_pragma  = atomTable.GetAtom("pragma");
+            builtin_defined = atomTable.GetAtom("defined");
+
+#define DECL_KEYWORD(KEYWORD) builtin_##KEYWORD = atomTable.GetAtom(#KEYWORD);
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+        }
+    };
 
     // This class manages everything related to lexing/preprocessing of a translation unit.
     class LexContext final : CompilerContextBase<LexContext>
     {
     private:
         AtomTable atomTable;
+
+        BuiltinAtoms builtinAtoms;
 
         // The first token index of this translation unit in the global token stream.
         // When compiling with a preamble, the first token in this translation unit doesn't have the id 0.
@@ -28,6 +68,11 @@ namespace glsld
     public:
         LexContext(const LexContext* preambleContext);
         ~LexContext();
+
+        auto GetBuiltinAtoms() const noexcept -> const BuiltinAtoms&
+        {
+            return builtinAtoms;
+        }
 
         // Get the AtomString of the given text in the atom table.
         auto GetAtomString(StringView text) -> AtomString
@@ -101,6 +146,8 @@ namespace glsld
                                      std::vector<PPToken> expansionTokens) -> void;
 
         auto UndefineMacro(AtomString macroName) -> void;
+
+        auto IsMacroDefined(AtomString macroName) const -> bool;
 
         auto FindMacroDefinition(AtomString macroName) const -> const MacroDefinition*;
 

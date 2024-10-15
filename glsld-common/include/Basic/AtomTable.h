@@ -1,8 +1,8 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/MemoryArena.h"
 #include "Basic/StringView.h"
 
-#include <vector>
 #include <unordered_map>
 
 namespace glsld
@@ -65,27 +65,22 @@ namespace glsld
         return lhs.Get() == rhs.Get();
     }
 
-    class AtomTable
+    class AtomTable final
     {
     private:
-        struct BufferPage
-        {
-            char* bufferBegin;
-            char* bufferEnd;
-            char* bufferCursor;
-        };
-
-        static constexpr size_t BufferPageSize           = 4096;
-        static constexpr size_t LargeStringThresholdSize = 64;
-
-        std::vector<BufferPage> pagedBuffers;
-        std::vector<char*> largeBuffers;
+        BasicMemoryArena<false> arena;
 
         std::unordered_map<StringView, AtomString> atomLookup;
 
     public:
-        AtomTable() = default;
-        ~AtomTable();
+        AtomTable()  = default;
+        ~AtomTable() = default;
+
+        AtomTable(const AtomTable&)            = delete;
+        AtomTable& operator=(const AtomTable&) = delete;
+
+        AtomTable(AtomTable&&)            = default;
+        AtomTable& operator=(AtomTable&&) = default;
 
         // Import all atoms from another AtomTable.
         // NOTE caller must make sure the lifetime of the other AtomTable is longer than this one.
@@ -101,6 +96,5 @@ namespace glsld
 
     private:
         auto AddAtom(StringView s) -> AtomString;
-        auto AllocateBufferPage() -> BufferPage;
     };
 } // namespace glsld

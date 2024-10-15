@@ -75,13 +75,10 @@ namespace glsld
 
         std::vector<std::pair<std::string, const Type*>> members;
 
+        // The AST node of the (first) declaration of this type.
         const AstDecl* decl;
 
         UnorderedStringMap<DeclView> memberDeclLookup;
-    };
-
-    struct FunctionTypeDesc
-    {
     };
 
     struct ValueDimension
@@ -107,7 +104,7 @@ namespace glsld
 
     private:
         // FIXME: is this for debug only?
-        std::string debugName = "<FIXME>";
+        std::string debugName = "__FIXME";
 
         DescPayloadType descPayload;
 

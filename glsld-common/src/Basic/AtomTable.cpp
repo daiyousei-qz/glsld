@@ -2,16 +2,6 @@
 
 namespace glsld
 {
-    AtomTable::~AtomTable()
-    {
-        for (const auto& page : pagedBuffers) {
-            delete[] page.bufferBegin;
-        }
-        for (const auto& buffer : largeBuffers) {
-            delete[] buffer;
-        }
-    }
-
     auto AtomTable::Import(const AtomTable& other) -> void
     {
         for (const auto& [key, value] : other.atomLookup) {
@@ -44,40 +34,10 @@ namespace glsld
 
     auto AtomTable::AddAtom(StringView s) -> AtomString
     {
-        char* atomPtr = nullptr;
-        if (s.Size() < LargeStringThresholdSize) {
-            BufferPage* currentPage = nullptr;
-            if (pagedBuffers.empty()) {
-                currentPage = &pagedBuffers.emplace_back(AllocateBufferPage());
-            }
-            else {
-                currentPage = &pagedBuffers.back();
-            }
-
-            if (currentPage->bufferEnd - currentPage->bufferCursor < s.Size() + 1) {
-                currentPage = &pagedBuffers.emplace_back(AllocateBufferPage());
-            }
-
-            GLSLD_ASSERT(currentPage->bufferEnd - currentPage->bufferCursor >= s.Size() + 1);
-            atomPtr = currentPage->bufferCursor;
-            currentPage->bufferCursor += s.Size() + 1;
-        }
-        else {
-            atomPtr = largeBuffers.emplace_back(new char[s.Size() + 1]);
-        }
-
+        char* atomPtr = reinterpret_cast<char*>(arena.Allocate(s.Size() + 1));
         std::ranges::copy(s, atomPtr);
         atomPtr[s.Size()] = '\0';
-        return AtomString{atomPtr};
-    }
 
-    auto AtomTable::AllocateBufferPage() -> BufferPage
-    {
-        char* data = new char[BufferPageSize];
-        return BufferPage{
-            .bufferBegin  = data,
-            .bufferEnd    = data + BufferPageSize,
-            .bufferCursor = data,
-        };
+        return AtomString{atomPtr};
     }
 } // namespace glsld

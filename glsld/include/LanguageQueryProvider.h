@@ -1,4 +1,5 @@
 #pragma once
+#include "Ast/Expr.h"
 #include "Basic/Common.h"
 #include "Compiler/LexContext.h"
 #include "Compiler/AstContext.h"
@@ -15,13 +16,13 @@ namespace glsld
 {
     enum class SymbolAccessType
     {
-        // The symbol is an identifier with non of the following categoty.
+        // The symbol is an identifier with none of the following categoty.
         Unknown,
 
         // The symbol is a key in the layout qualifier. e.g. `location` in `layout(location = 0) in vec4 a;`
         LayoutQualifier,
 
-        // The symbol is variable name. either in a variable declaration or accessing of a variable.
+        // The symbol is a variable name. either in a variable declaration or accessing of a variable.
         Variable,
 
         // The symbol is a swizzle name. e.g. `xyz` in `vec3 v; v.xyz;`
@@ -30,7 +31,7 @@ namespace glsld
         // The symbol is accessing of a struct member. e.g. `x` in `s.x;`
         MemberVariable,
 
-        // The symbol is accessing of a function parameter.
+        // The symbol is a function parameter name.
         Parameter,
 
         // The symbol is a function name, either in a function call or a function declaration.
@@ -95,8 +96,9 @@ namespace glsld
             return ppInfoCache;
         }
 
-        auto GetDotTokenIndex(const AstFieldAccessExpr& expr) const -> std::optional<SyntaxTokenIndex>
+        auto GetDotTokenIndex(const AstExpr& expr) const -> std::optional<SyntaxTokenIndex>
         {
+            GLSLD_ASSERT(expr.Is<AstFieldAccessExpr>() || expr.Is<AstSwizzleAccessExpr>());
             auto range = expr.GetSyntaxRange();
             if (range.endTokenIndex > range.startTokenIndex &&
                 GetToken(range.endTokenIndex - 1).klass == TokenKlass::Dot) {

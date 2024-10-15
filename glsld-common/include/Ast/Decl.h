@@ -3,6 +3,7 @@
 #include "Ast/Misc.h"
 #include "Ast/Type.h"
 #include "Compiler/SyntaxToken.h"
+
 #include <optional>
 
 namespace glsld
@@ -117,14 +118,14 @@ namespace glsld
         NotNull<AstQualType*> qualType;
 
         // [Node]
-        std::vector<Declarator> declarators;
+        ArrayView<Declarator> declarators;
 
         // [Payload]
-        std::vector<const Type*> resolvedTypes;
+        ArrayView<const Type*> resolvedTypes;
 
     protected:
-        AstDeclaratorDecl(AstQualType* type, std::vector<Declarator> declarators)
-            : qualType(type), declarators(std::move(declarators))
+        AstDeclaratorDecl(AstQualType* type, ArrayView<Declarator> declarators)
+            : qualType(type), declarators(declarators)
         {
         }
 
@@ -181,8 +182,7 @@ namespace glsld
     class AstVariableDecl final : public AstDeclaratorDecl
     {
     public:
-        AstVariableDecl(AstQualType* type, std::vector<Declarator> declarators)
-            : AstDeclaratorDecl(type, std::move(declarators))
+        AstVariableDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
         {
         }
 
@@ -207,10 +207,24 @@ namespace glsld
     // Represents a declaration of a struct member.
     class AstFieldDecl final : public AstDeclaratorDecl
     {
+    private:
+        // [Payload]
+        AstDecl* parentDecl = nullptr;
+
     public:
-        AstFieldDecl(AstQualType* type, std::vector<Declarator> declarators)
+        AstFieldDecl(AstQualType* type, ArrayView<Declarator> declarators)
             : AstDeclaratorDecl(type, std::move(declarators))
         {
+        }
+
+        auto SetParentDecl(AstDecl* parentDecl) -> void
+        {
+            GLSLD_ASSERT(parentDecl && (parentDecl->Is<AstStructDecl>() || parentDecl->Is<AstInterfaceBlockDecl>()));
+            this->parentDecl = parentDecl;
+        }
+        auto GetParentDecl() const -> const AstDecl*
+        {
+            return parentDecl;
         }
 
         template <AstVisitorT Visitor>
@@ -234,13 +248,13 @@ namespace glsld
         std::optional<SyntaxToken> declTok;
 
         // [Node]
-        std::vector<AstFieldDecl*> members;
+        ArrayView</*NotNull*/ AstFieldDecl*> members;
 
         // [Payload]
         const Type* declaredType = nullptr;
 
     public:
-        AstStructDecl(std::optional<SyntaxToken> declTok, std::vector<AstFieldDecl*> members)
+        AstStructDecl(std::optional<SyntaxToken> declTok, ArrayView<AstFieldDecl*> members)
             : declTok(declTok), members(std::move(members))
         {
         }
@@ -388,7 +402,7 @@ namespace glsld
         SyntaxToken declTok;
 
         // [Node]
-        std::vector</*NotNull*/ AstParamDecl*> params;
+        ArrayView</*NotNull*/ AstParamDecl*> params;
 
         // [Node]
         AstStmt* body;
@@ -398,8 +412,8 @@ namespace glsld
         AstFunctionDecl* firstDeclaration = nullptr;
 
     public:
-        AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, std::vector<AstParamDecl*> params, AstStmt* body)
-            : returnType(returnType), declTok(declTok), params(std::move(params)), body(body)
+        AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, ArrayView<AstParamDecl*> params, AstStmt* body)
+            : returnType(returnType), declTok(declTok), params(params), body(body)
         {
         }
 
@@ -471,7 +485,7 @@ namespace glsld
     private:
         NotNull<AstTypeQualifierSeq*> quals;
         SyntaxToken declTok;
-        std::vector</*NotNull*/ AstFieldDecl*> members;
+        ArrayView</*NotNull*/ AstFieldDecl*> members;
         std::optional<Declarator> declarator;
 
         // Payload:
@@ -481,7 +495,7 @@ namespace glsld
         const Type* resolvedInstanceType = nullptr;
 
     public:
-        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok, std::vector<AstFieldDecl*> members,
+        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok, ArrayView<AstFieldDecl*> members,
                               std::optional<Declarator> declarator)
             : quals(quals), declTok(declTok), members(std::move(members)), declarator(declarator)
         {

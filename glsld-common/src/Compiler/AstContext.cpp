@@ -7,19 +7,12 @@ namespace glsld
     {
         if (preambleContext) {
             arrayTypes  = preambleContext->arrayTypes;
+            arena       = std::make_unique<MemoryArena>();
             symbolTable = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
         }
         else {
+            arena       = std::make_unique<MemoryArena>();
             symbolTable = std::make_unique<SymbolTable>();
-        }
-    }
-    AstContext::~AstContext()
-    {
-        for (auto node : nodes) {
-            InvokeAstDispatched(*node, [](const auto& dispatchedNode) { delete &dispatchedNode; });
-        }
-        for (auto type : compositeTypes) {
-            delete type;
         }
     }
 
@@ -48,14 +41,14 @@ namespace glsld
                 declIndex += 1;
             }
         }
-        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                              .name    = decl.GetDeclTok() ? typeName.Str() : "",
-                                                              .members = std::move(memberDesc),
-                                                              .decl    = &decl,
-                                                              .memberDeclLookup = std::move(memberLookup),
-                                                          }));
 
-        return compositeTypes.back();
+        auto result = arena->Construct<Type>(typeName.Str(), StructTypeDesc{
+                                                                 .name    = decl.GetDeclTok() ? typeName.Str() : "",
+                                                                 .members = std::move(memberDesc),
+                                                                 .decl    = &decl,
+                                                                 .memberDeclLookup = std::move(memberLookup),
+                                                             });
+        return result;
     }
 
     auto AstContext::CreateInterfaceBlockType(AstInterfaceBlockDecl& decl) -> const Type*
@@ -83,14 +76,14 @@ namespace glsld
                 declIndex += 1;
             }
         }
-        compositeTypes.push_back(new Type(typeName.Str(), StructTypeDesc{
-                                                              .name             = typeName.Str(),
-                                                              .members          = std::move(memberDesc),
-                                                              .decl             = &decl,
-                                                              .memberDeclLookup = std::move(memberLookup),
-                                                          }));
 
-        return compositeTypes.back();
+        auto result = arena->Construct<Type>(typeName.Str(), StructTypeDesc{
+                                                                 .name             = typeName.Str(),
+                                                                 .members          = std::move(memberDesc),
+                                                                 .decl             = &decl,
+                                                                 .memberDeclLookup = std::move(memberLookup),
+                                                             });
+        return result;
     }
 
     auto AstContext::GetArrayType(const Type* elementType, const AstArraySpec* arraySpec) -> const Type*
@@ -157,9 +150,9 @@ namespace glsld
                     debugName += "[]";
                 }
             }
-            compositeTypes.push_back(new Type{std::move(debugName),
-                                              ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes}});
-            cachedItem = compositeTypes.back();
+
+            cachedItem = arena->Construct<Type>(
+                std::move(debugName), ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes});
         }
         return cachedItem;
     }

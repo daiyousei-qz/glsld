@@ -1,5 +1,6 @@
 #include "Language/ConstValue.h"
 
+#include <charconv>
 #include <concepts>
 #include <functional>
 
@@ -110,5 +111,57 @@ namespace glsld
         else {
             return elseBranchVal.Clone();
         }
+    }
+
+    auto ParseNumberLiteral(StringView literalText) -> ConstValue
+    {
+        if (literalText.EndWith("u") || literalText.EndWith("U")) {
+            auto literalTextNoSuffix = literalText.DropBack(1);
+
+            uint32_t value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<uint32_t>(value);
+            }
+        }
+        else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
+            auto literalTextNoSuffix = literalText.DropBack(2);
+
+            double value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<double>(value);
+            }
+        }
+        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
+            auto literalTextNoSuffix = literalText.DropBack(1);
+
+            float value;
+            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
+                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
+            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
+                return ConstValue::FromValue<float>(value);
+            }
+        }
+        else {
+            if (literalText.Contains('.') || literalText.Contains('e')) {
+                float value;
+                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
+                if (parseResult.ptr == literalText.data() + literalText.Size()) {
+                    return ConstValue::FromValue<float>(value);
+                }
+            }
+            else {
+                int32_t value;
+                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
+                if (parseResult.ptr == literalText.data() + literalText.Size()) {
+                    return ConstValue::FromValue<int32_t>(value);
+                }
+            }
+        }
+
+        return ConstValue{};
     }
 } // namespace glsld

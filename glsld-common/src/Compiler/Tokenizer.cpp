@@ -12,19 +12,28 @@ namespace glsld::detail
 
 namespace glsld
 {
-    Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile,
-                         StringView sourceText)
-        : compilerObject(compilerObject), preprocessor(preprocessor), sourceFile(sourceFile)
+    Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFileId,
+                         StringView sourceText, bool countUtf16Characters)
+        : compilerObject(compilerObject), preprocessor(preprocessor), sourceFileId(sourceFileId)
     {
-        // FIXME: expose countUtf16 as options
-        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), true};
+        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), countUtf16Characters};
     }
 
     auto Tokenizer::DoTokenize() -> void
     {
         GLSLD_ASSERT(preprocessor.GetState() == PreprocessorState::Default);
+        std::vector<PPToken> ppLineBuffer;
         while (true) {
             PPToken token = LexPPToken();
+
+            if (token.klass == TokenKlass::Eof) {
+                preprocessor.IssuePPToken(token);
+                break;
+            }
+
+            if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+                preprocessor.IssuePPToken(token);
+            }
 
             if (preprocessor.InActiveRegion()) {
                 GLSLD_TRACE_TOKEN_LEXED(token);
@@ -54,7 +63,7 @@ namespace glsld
             // NOTE we always regard an EOF in a new line
             return PPToken{
                 .klass                = TokenKlass::Eof,
-                .spelledFile          = sourceFile,
+                .spelledFile          = sourceFileId,
                 .spelledRange         = TextRange{srcScanner.GetTextPosition()},
                 .text                 = {},
                 .isFirstTokenOfLine   = true,
@@ -93,7 +102,7 @@ namespace glsld
 
         return PPToken{
             .klass                = klass,
-            .spelledFile          = sourceFile,
+            .spelledFile          = sourceFileId,
             .spelledRange         = TextRange{beginPos, endPos},
             .text                 = text,
             .isFirstTokenOfLine   = skippedNewLine,

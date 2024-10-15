@@ -5,8 +5,6 @@
 #include "Ast/Decl.h"
 #include "Language/ConstValue.h"
 
-#include <vector>
-
 namespace glsld
 {
     // Base class of all AST nodes that could be used as an initializer, one of:
@@ -34,10 +32,10 @@ namespace glsld
     {
     private:
         // [Node]
-        std::vector</*NotNull*/ AstInitializer*> items;
+        ArrayView</*NotNull*/ AstInitializer*> items;
 
     public:
-        AstInitializerList(std::vector<AstInitializer*> items) : items(std::move(items))
+        AstInitializerList(ArrayView<AstInitializer*> items) : items(items)
         {
         }
 
@@ -267,9 +265,11 @@ namespace glsld
     {
     private:
         // [Node]
+        // The left-hand side expression of the field access.
         NotNull<AstExpr*> lhsExpr;
 
         // [Node]
+        // The identifier token of the field name or an invalid token.
         SyntaxToken accessName;
 
         // [Payload]
@@ -324,13 +324,15 @@ namespace glsld
     {
     private:
         // [Node]
+        // The left-hand side expression of the swizzle access.
         NotNull<AstExpr*> lhsExpr;
 
         // [Node]
+        // The identifier token of the swizzle name or an invalid token.
         SyntaxToken accessName;
 
         // [Payload]
-        // The swizzle description if this is a swizzle expression.
+        // The swizzle description parsed from the access name.
         SwizzleDesc swizzleDesc = {};
 
     public:
@@ -381,6 +383,7 @@ namespace glsld
     {
     private:
         // [Node]
+        // The base expression of the array access.
         NotNull<AstExpr*> baseExpr;
 
         // [Node]
@@ -635,14 +638,13 @@ namespace glsld
         SyntaxToken functionName;
 
         // [Node]
-        std::vector</*NotNull*/ AstExpr*> args;
+        ArrayView</*NotNull*/ AstExpr*> args;
 
         // [Payload]
         const AstFunctionDecl* resolvedFunction = nullptr;
 
     public:
-        AstFunctionCallExpr(SyntaxToken functionName, std::vector<AstExpr*> args)
-            : functionName(functionName), args(std::move(args))
+        AstFunctionCallExpr(SyntaxToken functionName, ArrayView<AstExpr*> args) : functionName(functionName), args(args)
         {
         }
 
@@ -699,11 +701,11 @@ namespace glsld
         NotNull<AstQualType*> constructedType;
 
         // [Node]
-        std::vector</*NotNull*/ AstExpr*> args;
+        ArrayView</*NotNull*/ AstExpr*> args;
 
     public:
-        AstConstructorCallExpr(AstQualType* constructedType, std::vector<AstExpr*> args)
-            : constructedType(constructedType), args(std::move(args))
+        AstConstructorCallExpr(AstQualType* constructedType, ArrayView<AstExpr*> args)
+            : constructedType(constructedType), args(args)
         {
         }
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "Compiler/PPCallback.h"
+#include "Compiler/SourceContext.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/CompilerObject.h"
 #include "Compiler/LexContext.h"
@@ -40,7 +41,7 @@ namespace glsld
         bool seenElse;
     };
 
-    // The preprocessor acts as a state machine which accepts PP tokens from the Tokenizer and
+    // The preprocessor acts as a state machine which accepts PP tokens issued by the Tokenizer and
     // transforms them according to the current state. The fully preproccessed tokens are then
     // piped into the LexContext as a part of the token stream.
     class Preprocessor final
@@ -55,7 +56,7 @@ namespace glsld
         // The current state of the preprocessor.
         PreprocessorState state;
 
-        struct ExpandToLexContextCallback final : public EmptyMacroExpansionCallback
+        struct ExpandToLexContextCallback final
         {
             Preprocessor& pp;
             int expansionDepth = 0;
@@ -97,6 +98,32 @@ namespace glsld
             auto OnExitMacroExpansion(const PPToken& macroUse) -> void
             {
                 expansionDepth -= 1;
+            }
+        };
+
+        struct ExpandToVectorCallback final
+        {
+            Preprocessor& pp;
+            std::vector<PPToken>& tokenBuffer;
+
+            ExpandToVectorCallback(Preprocessor& pp, std::vector<PPToken>& tokens) : pp(pp), tokenBuffer(tokens)
+            {
+            }
+
+            auto OnYieldToken(const PPToken& token) -> void
+            {
+                tokenBuffer.push_back(token);
+            }
+
+            auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
+            {
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(macroUse);
+                }
+            }
+
+            auto OnExitMacroExpansion(const PPToken& macroUse) -> void
+            {
             }
         };
 
@@ -157,10 +184,12 @@ namespace glsld
             DispatchTokenToHandler(token);
         }
 
+        auto PreprocessSourceFile(const SourceFileEntry& fileEntry) -> void;
+
     private:
         // Possible transitions:
-        // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive)
-        // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive)
+        // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
+        // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
         // - ExpectDirective -> Default (Empty directive parsed)
         // - ExpectDirective -> Inactive (Current PP directive cannot exit the inactive region)
         // - ExpectDirective -> ExpectDefaultDirectiveTail (A PP directive parsed, expect following tokens)
@@ -195,9 +224,13 @@ namespace glsld
         auto HandleUndefDirective(PPTokenScanner& scanner) -> void;
         auto HandleIfDirective(PPTokenScanner& scanner) -> void;
         auto HandleIfdefDirective(PPTokenScanner& scanner, bool isNDef) -> void;
-        auto HandleElseDirective(PPTokenScanner& scanner) -> void;
         auto HandleElifDirective(PPTokenScanner& scanner) -> void;
+        auto HandleElseDirective(PPTokenScanner& scanner) -> void;
         auto HandleEndifDirective(PPTokenScanner& scanner) -> void;
+
+        // Consumes all tokens and returns the result of the preprocessing expression.
+        // If the expression is not valid, this function will return false.
+        auto EvaluatePPExpression(PPTokenScanner& scanner) -> bool;
     };
 
 } // namespace glsld

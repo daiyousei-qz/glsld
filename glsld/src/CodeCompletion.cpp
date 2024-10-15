@@ -80,7 +80,18 @@ namespace glsld
         auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
         {
             if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
-                if (GetProvider().ContainsPositionExtended(*dotTokIndex, cursorPosition)) {
+                if (GetProvider().ContainsPositionExtended(
+                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().endTokenIndex}, cursorPosition)) {
+                    // FIXME: this also includes "^.xxx", which is not a valid position.
+                    accessChainExpr = expr.GetLhsExpr();
+                }
+            }
+        }
+        auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
+        {
+            if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
+                if (GetProvider().ContainsPositionExtended(
+                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().endTokenIndex}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
                     accessChainExpr = expr.GetLhsExpr();
                 }

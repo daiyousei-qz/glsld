@@ -44,6 +44,13 @@ namespace glsld
                 .isConst = false,
             };
         }
+        else if (auto fieldDecl = declView.GetDecl()->As<AstFieldDecl>()) {
+            GLSLD_ASSERT(fieldDecl->GetParentDecl()->Is<AstInterfaceBlockDecl>());
+            return SymbolReferenceInfo{
+                .type    = fieldDecl->GetResolvedTypes()[declView.GetIndex()],
+                .isConst = false,
+            };
+        }
         else {
             return std::nullopt;
         }
@@ -52,18 +59,18 @@ namespace glsld
 #pragma region Misc
     auto AstBuilder::BuildTranslationUnit(AstSyntaxRange range, std::vector<AstDecl*> decls) -> AstTranslationUnit*
     {
-        return CreateAstNode<AstTranslationUnit>(range, std::move(decls));
+        return CreateAstNode<AstTranslationUnit>(range, CopyArray(decls));
     }
 
     auto AstBuilder::BuildArraySpec(AstSyntaxRange range, std::vector<AstExpr*> sizes) -> AstArraySpec*
     {
-        return CreateAstNode<AstArraySpec>(range, std::move(sizes));
+        return CreateAstNode<AstArraySpec>(range, CopyArray(sizes));
     }
 
     auto AstBuilder::BuildTypeQualifierSeq(AstSyntaxRange range, QualifierGroup quals,
                                            std::vector<LayoutItem> layoutQuals) -> AstTypeQualifierSeq*
     {
-        return CreateAstNode<AstTypeQualifierSeq>(range, quals, std::move(layoutQuals));
+        return CreateAstNode<AstTypeQualifierSeq>(range, quals, CopyArray(layoutQuals));
     }
 
     auto AstBuilder::BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, SyntaxToken typeName,
@@ -102,7 +109,7 @@ namespace glsld
     auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers)
         -> AstInitializerList*
     {
-        return CreateAstNode<AstInitializerList>(range, std::move(initializers));
+        return CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
     }
 
 #pragma endregion
@@ -897,7 +904,7 @@ namespace glsld
             }
         }
 
-        auto result = CreateAstNode<AstFunctionCallExpr>(range, functionName, std::move(args));
+        auto result = CreateAstNode<AstFunctionCallExpr>(range, functionName, CopyArray(args));
         result->SetConst(isConst);
         result->SetDeducedType(deducedType);
         result->SetResolvedFunction(resolvedFunction);
@@ -916,7 +923,7 @@ namespace glsld
         }
 
         // FIXME: implicit cast
-        auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, std::move(args));
+        auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, CopyArray(args));
         result->SetConst(isConst);
         result->SetDeducedType(qualType->GetResolvedType());
         return result;
@@ -936,7 +943,7 @@ namespace glsld
 
     auto AstBuilder::BuildCompoundStmt(AstSyntaxRange range, std::vector<AstStmt*> stmts) -> AstCompoundStmt*
     {
-        return CreateAstNode<AstCompoundStmt>(range, std::move(stmts));
+        return CreateAstNode<AstCompoundStmt>(range, CopyArray(stmts));
     }
 
     auto AstBuilder::BuildExprStmt(AstSyntaxRange range, AstExpr* expr) -> AstExprStmt*
@@ -1035,7 +1042,7 @@ namespace glsld
             }
         }
 
-        auto result = CreateAstNode<AstVariableDecl>(range, qualType, std::move(declarators));
+        auto result = CreateAstNode<AstVariableDecl>(range, qualType, CopyArray(declarators));
         result->SetResolvedTypes(resolvedTypes);
         symbolTable.GetCurrentLevel()->AddVariableDecl(*result);
         return result;
@@ -1046,17 +1053,19 @@ namespace glsld
     {
         auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
 
-        // Note for an AstFieldDecl, initializer is not allowed.
-
-        auto result = CreateAstNode<AstFieldDecl>(range, qualType, std::move(declarators));
+        auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
         result->SetResolvedTypes(resolvedType);
+        // Note `AstFieldDecl::parentDecl` is resolved in parent decl build process.
         return result;
     }
 
     auto AstBuilder::BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
                                      std::vector<AstFieldDecl*> members) -> AstStructDecl*
     {
-        auto result = CreateAstNode<AstStructDecl>(range, declTok, std::move(members));
+        auto result = CreateAstNode<AstStructDecl>(range, declTok, CopyArray(members));
+        for (auto fieldDecl : members) {
+            fieldDecl->SetParentDecl(result);
+        }
 
         result->SetScope(symbolTable.GetCurrentLevel()->GetScope());
         result->SetDeclaredType(compilerObject.GetAstContext().CreateStructType(*result));
@@ -1083,7 +1092,7 @@ namespace glsld
     {
         // FIXME: don't build AST for local function decl?
         // GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
-        auto result = CreateAstNode<AstFunctionDecl>(range, returnType, declTok, std::move(params), body);
+        auto result = CreateAstNode<AstFunctionDecl>(range, returnType, declTok, CopyArray(params), body);
 
         // FIXME: set the correct first declaration
         result->SetScope(DeclScope::Global);
@@ -1098,8 +1107,10 @@ namespace glsld
         -> AstInterfaceBlockDecl*
     {
         GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
-        auto result =
-            CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, std::move(members), std::move(declarator));
+        auto result = CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, CopyArray(members), declarator);
+        for (auto fieldDecl : members) {
+            fieldDecl->SetParentDecl(result);
+        }
 
         auto blockType = compilerObject.GetAstContext().CreateInterfaceBlockType(*result);
         result->SetScope(DeclScope::Global);

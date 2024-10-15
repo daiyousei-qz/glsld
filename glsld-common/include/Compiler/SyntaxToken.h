@@ -152,7 +152,7 @@ namespace glsld
         AtomString text;
 
         // If the token is the first token of a line, this flag is set to true.
-        // NOTE if the last line is terminated by a line continuation, this flag is always set to false.
+        // NOTE if the last line is terminated by a line continuation, this flag should be set to false.
         bool isFirstTokenOfLine;
 
         // If the token has leading whitespace that's separating it from the previous token, this flag is set to true.

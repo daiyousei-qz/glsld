@@ -51,11 +51,12 @@ namespace glsld
     {
         if (preambleContext) {
             atomTable.Import(preambleContext->atomTable);
+            builtinAtoms     = preambleContext->builtinAtoms;
             tokenIndexOffset = preambleContext->tokenIndexOffset + preambleContext->tokens.size();
             macroLookup      = preambleContext->macroLookup;
         }
         else {
-            atomTable.Import(GetLanguageAtomTable());
+            builtinAtoms = BuiltinAtoms{atomTable};
         }
     }
     LexContext::~LexContext()
@@ -186,6 +187,11 @@ namespace glsld
     auto LexContext::UndefineMacro(AtomString macroName) -> void
     {
         macroLookup.erase(macroName);
+    }
+
+    auto LexContext::IsMacroDefined(AtomString macroName) const -> bool
+    {
+        return macroLookup.find(macroName) != macroLookup.end();
     }
 
     auto LexContext::FindMacroDefinition(AtomString macroName) const -> const MacroDefinition*

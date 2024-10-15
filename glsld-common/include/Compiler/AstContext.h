@@ -1,8 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/MemoryArena.h"
 #include "Ast/Base.h"
-#include "Ast/Dispatch.h"
-#include "Compiler/SyntaxToken.h"
 #include "Compiler/SymbolTable.h"
 #include "Compiler/CompilerContextBase.h"
 
@@ -11,49 +10,44 @@
 
 namespace glsld
 {
-    // This class manages everything related to parsing of a translation unit.
+    // This class manages everything related to parsing of a translation unit, primarily AST.
     class AstContext final : CompilerContextBase<AstContext>
     {
     private:
-        // FIXME: optimize memory layout
-        std::vector<const AstNode*> nodes;
-
         const AstTranslationUnit* translationUnit = nullptr;
 
-        // FIXME: optimize memory layout
-        std::vector<const Type*> compositeTypes;
-
+        // The cached array types.
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
+        // The memory arena that holds all memory allocated for AST.
+        std::unique_ptr<MemoryArena> arena;
+
+        // The current symbol table.
         std::unique_ptr<SymbolTable> symbolTable;
 
     public:
         AstContext(const AstContext* preambleContext);
-        ~AstContext();
+        ~AstContext() = default;
+
+        auto GetTranslationUnit() const noexcept
+        {
+            return translationUnit;
+        }
 
         auto SetTranslationUnit(const AstTranslationUnit* tu)
         {
             GLSLD_ASSERT(!translationUnit && "Translation unit is already set.");
             translationUnit = tu;
         }
-        auto GetTranslationUnit() const noexcept
+
+        auto GetArena() noexcept -> MemoryArena&
         {
-            return translationUnit;
+            return *arena;
         }
 
         auto GetSymbolTable() -> SymbolTable&
         {
             return *symbolTable;
-        }
-
-        template <typename T, typename... Args>
-            requires AstNodeTrait<T>::isLeafNode
-        auto CreateAstNode(AstSyntaxRange range, Args&&... args) -> T*
-        {
-            auto result = new T(std::forward<Args>(args)...);
-            result->Initialize(AstNodeTrait<T>::tag, range);
-            nodes.push_back(result);
-            return result;
         }
 
         auto CreateStructType(AstStructDecl& decl) -> const Type*;
