@@ -22,9 +22,13 @@ namespace glsld
         // ##
         HashHash,
         // <xxx>
-        AngleString,
+        SystemHeaderName,
         // "xxx"
-        QuotedString,
+        UserHeaderName,
+        // Produced by `defined(X)` where X is a defined macro.
+        DefinedYes,
+        // Produced by `defined(X)` where X is not a defined macro.
+        DefinedNo,
         IntegerConstant,
         FloatConstant,
         Identifier,
@@ -55,10 +59,14 @@ namespace glsld
             return "#";
         case TokenKlass::HashHash:
             return "##";
-        case TokenKlass::AngleString:
-            return "AngleString";
-        case TokenKlass::QuotedString:
-            return "QuotedString";
+        case TokenKlass::SystemHeaderName:
+            return "SystemHeaderName";
+        case TokenKlass::UserHeaderName:
+            return "UserHeaderName";
+        case TokenKlass::DefinedYes:
+            return "DefinedYes";
+        case TokenKlass::DefinedNo:
+            return "DefinedNo";
         case TokenKlass::IntegerConstant:
             return "IntegerConstant";
         case TokenKlass::FloatConstant:

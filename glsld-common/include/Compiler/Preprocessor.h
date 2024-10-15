@@ -135,6 +135,7 @@ namespace glsld
         // - If we are at the main file, this should always be std::nullopt.
         std::optional<TextRange> includeExpansionRange;
 
+        // The current include depth. Preprocessor should stop including headers when this value exceeds the limit.
         size_t includeDepth = 0;
 
         // The current PP directive token being processed.

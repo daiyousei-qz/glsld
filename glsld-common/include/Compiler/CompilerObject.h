@@ -27,13 +27,16 @@ namespace glsld
 
         // Whether the compiler should skip tokens in the preamble.
         // The user preamble is defined as all tokens before any non-comment valid tokens in the main file.
-        bool skipUserPreamble = false;
+        // bool skipUserPreamble = false;
 
         // The maximum number of nested include levels.
-        int maxIncludeDepth = 16;
+        int maxIncludeDepth = 32;
 
         // The include paths to search for included files.
         std::vector<std::filesystem::path> includePaths;
+
+        // The preprocessor definitions.
+        std::vector<std::string> defines;
     };
 
     class CompiledPreamble
@@ -160,8 +163,8 @@ namespace glsld
 
         auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
 
-        auto CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble, PPCallback* ppCallback)
-            -> void;
+        auto CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble,
+                             PPCallback* ppCallback) -> void;
 
         auto CompileFromBuffer(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
                                PPCallback* ppCallback) -> void;

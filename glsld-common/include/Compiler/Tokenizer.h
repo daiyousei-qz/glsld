@@ -9,8 +9,6 @@
 namespace glsld
 {
     // A tokenizer is responsible for lexing a source file and piping the tokens to preprocessor.
-    // In existance of preprocessor directives, the tokenizer will create PreprocessorHandler objects
-    // to process them.
     // NOTE the tokenization process could be recursive and new instances of Tokenizer could be created when "#include"
     // is encountered.
     class Tokenizer final
@@ -47,10 +45,7 @@ namespace glsld
         // Assuming we are seeing "/*", parse the block comment and return the token klass.
         auto ParseBlockComment() -> TokenKlass;
 
-        // Assuming we are seeing "\"", parse the quoted string and return the token klass.
-        auto ParseQuotedString() -> TokenKlass;
-
-        // Assuming we are seeing "<", parse the header name and return the token klass.
-        auto ParseAngleString() -> TokenKlass;
+        // Assuming we are seeing `quoteStart`, parse the header name closed by `quoteEnd` and return the token klass.
+        auto ParseHeaderName(char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass;
     };
 } // namespace glsld

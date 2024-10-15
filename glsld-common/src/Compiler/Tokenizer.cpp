@@ -77,6 +77,7 @@ namespace glsld
 
         // We handle comments and header names manually instead of using generated lexer. Those are only places where
         // unicode is allowed.
+        // TODO: also handle comment text for better intellisesnse feature
         if (srcScanner.TryConsumeAsciiText("//")) {
             klass = ParseLineComment();
         }
@@ -84,11 +85,11 @@ namespace glsld
             klass = ParseBlockComment();
         }
         else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('"')) {
-            klass = ParseQuotedString();
+            klass = ParseHeaderName('"', '"', TokenKlass::UserHeaderName);
         }
-        // else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
-        //     klass = ParseAngleString();
-        // }
+        else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
+            klass = ParseHeaderName('<', '>', TokenKlass::SystemHeaderName);
+        }
         else {
             klass = detail::Tokenize(srcScanner, tokenTextBuffer);
             if (klass == TokenKlass::Unknown) [[unlikely]] {
@@ -138,15 +139,18 @@ namespace glsld
         return TokenKlass::Unknown;
     }
 
-    auto Tokenizer::ParseQuotedString() -> TokenKlass
+    auto Tokenizer::ParseHeaderName(char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass
     {
-        // Assuming '"' is already consumed
-        tokenTextBuffer.push_back('"');
+        // Assuming `quoteStart` is already consumed
+        tokenTextBuffer.push_back(quoteStart);
 
         while (!srcScanner.CursorAtEnd()) {
-            if (srcScanner.TryConsumeAsciiChar('"')) {
-                tokenTextBuffer.push_back('"');
-                return TokenKlass::QuotedString;
+            if (srcScanner.PeekCodeUnit() == '\n') {
+                break;
+            }
+            if (srcScanner.TryConsumeAsciiChar(quoteEnd)) {
+                tokenTextBuffer.push_back(quoteEnd);
+                return klass;
             }
             else {
                 srcScanner.ConsumeChar(tokenTextBuffer);
@@ -154,11 +158,6 @@ namespace glsld
         }
 
         return TokenKlass::Unknown;
-    }
-
-    auto Tokenizer::ParseAngleString() -> TokenKlass
-    {
-        GLSLD_NO_IMPL();
     }
 
 } // namespace glsld

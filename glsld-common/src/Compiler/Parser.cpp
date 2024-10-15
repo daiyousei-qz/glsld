@@ -11,15 +11,12 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        std::vector<AstDecl*> decls;
         auto beginTokIndex = compilerObject.GetLexContext().GetTUTokenIndexOffset();
+        RestoreTokenIndex(beginTokIndex);
 
-        if (compilerObject.GetLexContext().GetTotalTokenCount() != 0) {
-            RestoreTokenIndex(beginTokIndex);
-
-            while (!Eof()) {
-                decls.push_back(ParseDeclAndTryRecover());
-            }
+        std::vector<AstDecl*> decls;
+        while (!Eof()) {
+            decls.push_back(ParseDeclAndTryRecover());
         }
 
         return astBuilder.BuildTranslationUnit(CreateAstSyntaxRange(beginTokIndex), std::move(decls));

@@ -227,7 +227,7 @@ namespace glsld
 
     auto Preprocessor::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
-        PPTokenScanner scanner{restTokens.data(), restTokens.data() + restTokens.size()};
+        PPTokenScanner scanner{restTokens};
         if (directiveToken.text == "include") {
             HandleIncludeDirective(scanner);
         }
@@ -269,7 +269,7 @@ namespace glsld
             return;
         }
 
-        if (auto headerNameToken = scanner.TryConsumeToken(TokenKlass::QuotedString, TokenKlass::AngleString)) {
+        if (auto headerNameToken = scanner.TryConsumeToken(TokenKlass::UserHeaderName, TokenKlass::SystemHeaderName)) {
             if (!scanner.CursorAtEnd()) {
                 // FIXME: report warning, extra tokens after the header file name
             }
@@ -495,6 +495,11 @@ namespace glsld
             return;
         }
 
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnElifDirective(evalToTrue);
+        }
+
         conditionalInfo.active           = !conditionalInfo.seenActiveBranch && evalToTrue;
         conditionalInfo.seenActiveBranch = conditionalInfo.active;
     }
@@ -516,6 +521,11 @@ namespace glsld
             return;
         }
 
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnElseDirective();
+        }
+
         conditionalInfo.active           = !conditionalInfo.seenActiveBranch;
         conditionalInfo.seenActiveBranch = true;
         conditionalInfo.seenElse         = true;
@@ -527,12 +537,17 @@ namespace glsld
             // FIXME: report warning, expected no more tokens after the directive.
         }
 
-        if (!conditionalStack.empty()) {
-            conditionalStack.pop_back();
-        }
-        else {
+        if (conditionalStack.empty()) {
             // FIXME: report warning, unmatched #endif directive
+            return;
         }
+
+        // Run PP callback event if any
+        if (callback) {
+            callback->OnEndifDirective();
+        }
+
+        conditionalStack.pop_back();
     }
 
     // See https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf, section 3.3
@@ -805,31 +820,13 @@ namespace glsld
                     }
                     expectBinaryOperator = true;
                 }
-                else if (token.klass == TokenKlass::Identifier) {
-                    if (token.text == "defined") {
-                        PPToken macroName;
-                        if (scanner.TryTestToken(TokenKlass::Identifier)) {
-                            macroName = scanner.ConsumeToken();
-                        }
-                        else if (scanner.TryTestToken(TokenKlass::LParen) &&
-                                 scanner.TryTestToken(TokenKlass::Identifier, 1) &&
-                                 scanner.TryTestToken(TokenKlass::RParen, 2)) {
-                            scanner.ConsumeToken();
-                            macroName = scanner.ConsumeToken();
-                            scanner.ConsumeToken();
-                        }
-                        else {
-                            // FIXME: report error, expected a macro name
-                            return false;
-                        }
-
-                        bool isDefined = lexContext.IsMacroDefined(macroName.text);
-                        evalStack.push_back(isDefined ? 1 : 0);
-                    }
-                    else {
-                        // NOTE macros are already expanded at this point. Unknown identifier is treated as 0.
-                        evalStack.push_back(0);
-                    }
+                else if (token.klass == TokenKlass::DefinedYes) {
+                    evalStack.push_back(1);
+                    expectBinaryOperator = true;
+                }
+                else if (token.klass == TokenKlass::DefinedNo || token.klass == TokenKlass::Identifier) {
+                    // NOTE macros are already expanded at this point. Unknown identifier is treated as 0.
+                    evalStack.push_back(0);
                     expectBinaryOperator = true;
                 }
                 else if (token.klass == TokenKlass::LParen) {
@@ -884,8 +881,40 @@ namespace glsld
         std::vector<PPToken> tokenBuffer;
         MacroExpansionProcessor<ExpandToVectorCallback> processor{compilerObject.GetLexContext(),
                                                                   ExpandToVectorCallback{*this, tokenBuffer}};
+
+        // Our approach handling defined(X) is going to conflict with the macro expansion.
+        // However, it is not a problem since it's a UB.
         while (!scanner.CursorAtEnd()) {
-            processor.Feed(scanner.ConsumeToken());
+            auto token = scanner.ConsumeToken();
+            if (token.klass == TokenKlass::Identifier && token.text == "defined") {
+                PPToken macroName;
+                if (scanner.TryTestToken(TokenKlass::Identifier)) {
+                    macroName = scanner.ConsumeToken();
+                }
+                else if (scanner.TryTestToken(TokenKlass::LParen) && scanner.TryTestToken(TokenKlass::Identifier, 1) &&
+                         scanner.TryTestToken(TokenKlass::RParen, 2)) {
+                    scanner.ConsumeToken();
+                    macroName = scanner.ConsumeToken();
+                    scanner.ConsumeToken();
+                }
+                else {
+                    // FIXME: report error, expected a macro name
+                    return false;
+                }
+
+                bool isDefined = compilerObject.GetLexContext().IsMacroDefined(macroName.text);
+                processor.Feed(PPToken{
+                    .klass                = isDefined ? TokenKlass::DefinedYes : TokenKlass::DefinedNo,
+                    .spelledFile          = token.spelledFile,
+                    .spelledRange         = token.spelledRange,
+                    .text                 = {},
+                    .isFirstTokenOfLine   = token.isFirstTokenOfLine,
+                    .hasLeadingWhitespace = token.hasLeadingWhitespace,
+                });
+            }
+            else {
+                processor.Feed(scanner.ConsumeToken());
+            }
         }
         processor.Finalize();
 
