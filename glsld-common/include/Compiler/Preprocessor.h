@@ -228,6 +228,9 @@ namespace glsld
         auto HandleElifDirective(PPTokenScanner& scanner) -> void;
         auto HandleElseDirective(PPTokenScanner& scanner) -> void;
         auto HandleEndifDirective(PPTokenScanner& scanner) -> void;
+        auto HandleExtensionDirective(PPTokenScanner& scanner) -> void;
+        auto HandleVersionDirective(PPTokenScanner& scanner) -> void;
+        auto HandleLineDirective(PPTokenScanner& scanner) -> void;
 
         // Consumes all tokens and returns the result of the preprocessing expression.
         // If the expression is not valid, this function will return false.

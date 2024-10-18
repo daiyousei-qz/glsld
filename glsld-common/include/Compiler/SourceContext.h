@@ -26,9 +26,9 @@ namespace glsld
 
         FileSystemProvider& fileSystemProvider = DefaultFileSystemProvider::GetInstance();
 
-        StringView systemPreambleContent;
+        StringView systemPreamble;
 
-        StringView userPreambleContent;
+        StringView userPreamble;
 
         std::vector<SourceFileEntry> entries;
 
@@ -44,8 +44,8 @@ namespace glsld
         SourceContext(const SourceContext* preambleContext) : CompilerContextBase(preambleContext)
         {
             if (preambleContext) {
-                systemPreambleContent = preambleContext->systemPreambleContent;
-                userPreambleContent   = preambleContext->userPreambleContent;
+                systemPreamble = preambleContext->systemPreamble;
+                userPreamble   = preambleContext->userPreamble;
             }
         }
 
@@ -66,13 +66,13 @@ namespace glsld
         auto SetSystemPreamble(StringView content) -> void
         {
             GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set system preamble if already imported.");
-            systemPreambleContent = content;
+            systemPreamble = content;
         }
 
         auto SetUserPreamble(StringView content) -> void
         {
             GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set user preamble if already imported.");
-            userPreambleContent = content;
+            userPreamble = content;
         }
 
         auto GetSourceText(FileID fileId) -> StringView
@@ -81,10 +81,10 @@ namespace glsld
                 return {};
             }
             else if (fileId.IsSystemPreable()) {
-                return systemPreambleContent;
+                return systemPreamble;
             }
             else if (fileId.IsUserPreamble()) {
-                return userPreambleContent;
+                return userPreamble;
             }
             else {
                 return GetUserFileEntry(fileId).content;

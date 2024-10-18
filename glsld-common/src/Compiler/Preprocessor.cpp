@@ -3,6 +3,7 @@
 #include "Compiler/SourceContext.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/LexContext.h"
+#include "Language/ShaderProfile.h"
 #include "Language/ConstValue.h"
 
 namespace glsld
@@ -256,9 +257,23 @@ namespace glsld
         else if (directiveToken.text == "endif") {
             HandleEndifDirective(scanner);
         }
+        else if (directiveToken.text == "error") {
+            // FIXME: report error
+        }
+        else if (directiveToken.text == "pragma") {
+            // Ignore pragma directives
+        }
+        else if (directiveToken.text == "extension") {
+            HandleExtensionDirective(scanner);
+        }
+        else if (directiveToken.text == "version") {
+            HandleVersionDirective(scanner);
+        }
+        else if (directiveToken.text == "line") {
+            HandleLineDirective(scanner);
+        }
         else {
-            // We ignore other directives for now
-            // FIXME: support other directives
+            // FIXME: warn about unknown directives
         }
     }
 
@@ -547,6 +562,171 @@ namespace glsld
         }
 
         conditionalStack.pop_back();
+    }
+
+    auto Preprocessor::HandleExtensionDirective(PPTokenScanner& scanner) -> void
+    {
+        PPToken extensionName;
+        PPToken extensionToggle;
+
+        if (!scanner.TryTestToken(TokenKlass::Identifier)) {
+            // FIXME: report error, expected an extension name
+            return;
+        }
+        extensionName = scanner.ConsumeToken();
+
+        if (!scanner.TryConsumeToken(TokenKlass::Colon)) {
+            // FIXME: report error, expected a colon
+            return;
+        }
+        if (!scanner.TryTestToken(TokenKlass::Identifier)) {
+            // FIXME: report error, expected an extension toggle
+            return;
+        }
+        extensionToggle = scanner.ConsumeToken();
+
+        // TODO: validate the extension name and toggle
+        if (callback) {
+            callback->OnExtensionDirective(extensionName, extensionToggle);
+        }
+    }
+
+    auto ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>
+    {
+        if (versionNumber.klass != TokenKlass::IntegerConstant) {
+            return std::nullopt;
+        }
+
+        if (versionNumber.text == "110") {
+            return GlslVersion::Ver110;
+        }
+        else if (versionNumber.text == "120") {
+            return GlslVersion::Ver120;
+        }
+        else if (versionNumber.text == "130") {
+            return GlslVersion::Ver130;
+        }
+        else if (versionNumber.text == "140") {
+            return GlslVersion::Ver140;
+        }
+        else if (versionNumber.text == "150") {
+            return GlslVersion::Ver150;
+        }
+        else if (versionNumber.text == "330") {
+            return GlslVersion::Ver330;
+        }
+        else if (versionNumber.text == "400") {
+            return GlslVersion::Ver400;
+        }
+        else if (versionNumber.text == "410") {
+            return GlslVersion::Ver410;
+        }
+        else if (versionNumber.text == "420") {
+            return GlslVersion::Ver420;
+        }
+        else if (versionNumber.text == "430") {
+            return GlslVersion::Ver430;
+        }
+        else if (versionNumber.text == "440") {
+            return GlslVersion::Ver440;
+        }
+        else if (versionNumber.text == "450") {
+            return GlslVersion::Ver450;
+        }
+        else if (versionNumber.text == "460") {
+            return GlslVersion::Ver460;
+        }
+        else {
+            return std::nullopt;
+        }
+    }
+
+    auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslVersionProfile>
+    {
+        GLSLD_ASSERT(profile.klass == TokenKlass::Identifier);
+        if (profile.text == "core") {
+            return GlslVersionProfile::Core;
+        }
+        else if (profile.text == "compatibility") {
+            return GlslVersionProfile::Compatibility;
+        }
+        else if (profile.text == "es") {
+            return GlslVersionProfile::Es;
+        }
+        else {
+            return std::nullopt;
+        }
+    }
+
+    auto GetDefaultProfile(GlslVersion version) -> GlslVersionProfile
+    {
+        switch (version) {
+        case GlslVersion::Ver110:
+        case GlslVersion::Ver120:
+        case GlslVersion::Ver130:
+        case GlslVersion::Ver140:
+        case GlslVersion::Ver150:
+            return GlslVersionProfile::Compatibility;
+
+        case GlslVersion::Ver300:
+        case GlslVersion::Ver310:
+            return GlslVersionProfile::Compatibility;
+
+        case GlslVersion::Ver330:
+        case GlslVersion::Ver400:
+        case GlslVersion::Ver410:
+        case GlslVersion::Ver420:
+        case GlslVersion::Ver430:
+        case GlslVersion::Ver440:
+        case GlslVersion::Ver450:
+        case GlslVersion::Ver460:
+            return GlslVersionProfile::Core;
+        }
+
+        GLSLD_UNREACHABLE();
+    }
+
+    auto Preprocessor::HandleVersionDirective(PPTokenScanner& scanner) -> void
+    {
+        if (scanner.CursorAtEnd()) {
+            // FIXME: report error, expect version number
+            return;
+        }
+        PPToken versionTok                 = scanner.ConsumeToken();
+        std::optional<GlslVersion> version = ParseGlslVersion(versionTok);
+        if (!version) {
+            // FIXME: report error
+            return;
+        }
+
+        PPToken profileTok;
+        std::optional<GlslVersionProfile> profile;
+        if (!scanner.CursorAtEnd()) {
+            profileTok = scanner.ConsumeToken();
+            profile    = ParseGlslProfile(profileTok);
+            if (!profile) {
+                // FIXME: report error
+                return;
+            }
+        }
+
+        if (profile) {
+            // FIXME: check version and profile are correct
+        }
+        else {
+            profile = GetDefaultProfile(*version);
+        }
+
+        GLSLD_ASSERT(version && profile);
+        // TODO: validate the version number and profile
+        if (callback) {
+            callback->OnVersionDirective(*version, *profile);
+        }
+    }
+
+    auto Preprocessor::HandleLineDirective(PPTokenScanner& scanner) -> void
+    {
+        // FIXME: support line directive
     }
 
     // See https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf, section 3.3
