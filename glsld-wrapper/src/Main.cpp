@@ -35,7 +35,8 @@ namespace glsld
         if (dumpAst.HasValue()) {
             compiler.SetDumpAst(dumpAst.GetValue());
         }
-        compiler.CompileFromFile(intputFile.GetValue(), stdlibPreamble, nullptr);
+        compiler.SetPrecompiledPreamble(stdlibPreamble);
+        compiler.CompileFromFile(intputFile.GetValue(), nullptr);
 
         Print("succussfully parsed input file\n");
     }

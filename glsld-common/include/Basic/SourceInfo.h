@@ -5,7 +5,73 @@
 
 namespace glsld
 {
-    using FileID = int;
+    // An opaque identifier for a file.
+    // - 0: Invalid file ID.
+    // - -1: System preamble file ID.
+    // - -2: User preamble file ID.
+    // - Others: User file ID.
+    class FileID
+    {
+    private:
+        uint32_t id = 0;
+
+        static constexpr uint32_t SystemPreambleID = static_cast<uint32_t>(-1);
+        static constexpr uint32_t UserPreambleID   = static_cast<uint32_t>(-2);
+
+    public:
+        FileID() = default;
+
+        operator bool() const noexcept
+        {
+            return IsValid();
+        }
+
+        auto IsValid() const noexcept -> bool
+        {
+            return id != 0;
+        }
+        auto IsSystemPreable() const noexcept -> bool
+        {
+            return id == SystemPreambleID;
+        }
+        auto IsUserPreamble() const noexcept -> bool
+        {
+            return id == UserPreambleID;
+        }
+        auto IsPreamble() const noexcept -> bool
+        {
+            return IsSystemPreable() || IsUserPreamble();
+        }
+        auto IsUserFile() const noexcept -> bool
+        {
+            return IsValid() && !IsPreamble();
+        }
+
+        auto GetValue() const noexcept -> uint32_t
+        {
+            return id;
+        }
+
+        static auto FromIndex(uint32_t index) noexcept -> FileID
+        {
+            FileID fileID;
+            fileID.id = index;
+            return fileID;
+        }
+        static auto SystemPreamble() noexcept -> FileID
+        {
+            return FromIndex(SystemPreambleID);
+        }
+        static auto UserPreamble() noexcept -> FileID
+        {
+            return FromIndex(UserPreambleID);
+        }
+    };
+
+    inline auto operator==(const FileID& lhs, const FileID& rhs) noexcept -> bool
+    {
+        return lhs.GetValue() == rhs.GetValue();
+    }
 
     // A position in a text document expressed as (zero-based) line and character offset.
     struct TextPosition

@@ -32,7 +32,6 @@ namespace glsld
     }
     auto DefaultFileSystemProvider::Close(const FileHandle* fileEntry) -> void
     {
-        delete[] fileEntry->GetData();
         delete fileEntry;
     }
 } // namespace glsld

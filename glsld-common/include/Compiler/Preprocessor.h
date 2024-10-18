@@ -185,7 +185,7 @@ namespace glsld
             DispatchTokenToHandler(token);
         }
 
-        auto PreprocessSourceFile(const SourceFileEntry& fileEntry) -> void;
+        auto PreprocessSourceFile(FileID sourceFile) -> void;
 
     private:
         // Possible transitions:

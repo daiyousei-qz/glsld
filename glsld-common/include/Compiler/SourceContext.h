@@ -10,75 +10,42 @@
 
 namespace glsld
 {
-    class SourceFileEntry final
-    {
-    private:
-        FileID id;
-
-        // The absolute path of file. Could be empty if the file is not on disk.
-        std::string canonicalPath;
-
-        std::optional<StringView> sourceText;
-
-    public:
-        SourceFileEntry(FileID id, std::string canonicalPath) : id(id), canonicalPath(std::move(canonicalPath))
-        {
-        }
-
-        auto GetID() const noexcept -> FileID
-        {
-            return id;
-        }
-
-        auto GetCanonicalPath() const noexcept -> const std::string&
-        {
-            return canonicalPath;
-        }
-
-        // FIXME: make source text retrival a part of SourceContext instead.
-        auto GetSourceText() const noexcept -> std::optional<StringView>
-        {
-            return sourceText;
-        }
-
-        auto SetSourceText(StringView sourceText) -> void
-        {
-            this->sourceText = sourceText;
-        }
-
-        auto ClearSourceText() -> void
-        {
-            sourceText = std::nullopt;
-        }
-    };
-
     // This class manages everything related the source files/buffers when compiling a translation unit.
     class SourceContext final : CompilerContextBase<SourceContext>
     {
     private:
-        FileSystemProvider& fileSystemProvider;
+        struct SourceFileEntry
+        {
+            FileID id;
 
-        const SourceFileEntry* mainFileEntry = nullptr;
+            // The absolute path of file. Could be empty if the file is not on disk.
+            std::string canonicalPath;
 
-        FileID nextFileID = 0;
+            StringView content;
+        };
 
-        std::vector<std::unique_ptr<SourceFileEntry>> entries;
+        FileSystemProvider& fileSystemProvider = DefaultFileSystemProvider::GetInstance();
+
+        StringView systemPreambleContent;
+
+        StringView userPreambleContent;
+
+        std::vector<SourceFileEntry> entries;
 
         //
-        std::unordered_map<std::filesystem::path, SourceFileEntry*> lookupPathToEntries;
+        std::unordered_map<std::filesystem::path, FileID> lookupPathToEntries;
 
         //
-        std::unordered_map<std::filesystem::path, SourceFileEntry*> canonicalPathToEntries;
+        std::unordered_map<std::filesystem::path, FileID> canonicalPathToEntries;
 
         std::vector<const FileHandle*> openedFiles;
 
     public:
-        SourceContext(const SourceContext* preambleContext, FileSystemProvider& fileSystemProvider)
-            : CompilerContextBase(preambleContext), fileSystemProvider(fileSystemProvider)
+        SourceContext(const SourceContext* preambleContext) : CompilerContextBase(preambleContext)
         {
             if (preambleContext) {
-                nextFileID             = preambleContext->nextFileID;
-                canonicalPathToEntries = preambleContext->canonicalPathToEntries;
+                systemPreambleContent = preambleContext->systemPreambleContent;
+                userPreambleContent   = preambleContext->userPreambleContent;
             }
         }
 
@@ -91,39 +58,53 @@ namespace glsld
         // However, the source file entries remain to be valid.
         auto Finalize() -> void
         {
-            for (const auto& entry : entries) {
-                entry->ClearSourceText();
-            }
-
             for (const auto& handle : openedFiles) {
                 fileSystemProvider.Close(handle);
             }
         }
 
-        auto GetSourceFileEntry(FileID fileId) -> SourceFileEntry*
+        auto SetSystemPreamble(StringView content) -> void
         {
-            GLSLD_ASSERT(fileId >= 0 && fileId < entries.size());
-            return entries[fileId].get();
+            GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set system preamble if already imported.");
+            systemPreambleContent = content;
         }
 
-        auto SetMainFile(const SourceFileEntry* file) -> void
+        auto SetUserPreamble(StringView content) -> void
         {
-            mainFileEntry = file;
+            GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set user preamble if already imported.");
+            userPreambleContent = content;
         }
 
-        auto GetMainFile() const noexcept -> const SourceFileEntry*
+        auto GetSourceText(FileID fileId) -> StringView
         {
-            return mainFileEntry;
+            if (!fileId.IsValid()) {
+                return {};
+            }
+            else if (fileId.IsSystemPreable()) {
+                return systemPreambleContent;
+            }
+            else if (fileId.IsUserPreamble()) {
+                return userPreambleContent;
+            }
+            else {
+                return GetUserFileEntry(fileId).content;
+            }
         }
 
-        auto OpenFromBuffer(StringView sourceText) -> const SourceFileEntry*;
+        auto OpenFromBuffer(StringView sourceText) -> FileID;
 
-        auto OpenFromFile(const std::filesystem::path& path) -> const SourceFileEntry*;
+        auto OpenFromFile(const std::filesystem::path& path) -> FileID;
 
     private:
-        auto AllocateFileID() -> FileID
+        auto GetUserFileEntry(FileID fileId) -> const SourceFileEntry&
         {
-            return nextFileID++;
+            GLSLD_ASSERT(fileId.IsUserFile());
+            return entries[fileId.GetValue() - 1];
+        }
+
+        auto GetNextFileID() -> FileID
+        {
+            return FileID::FromIndex(entries.size() + 1);
         }
     };
 } // namespace glsld

@@ -56,6 +56,7 @@ namespace glsld
             macroLookup      = preambleContext->macroLookup;
         }
         else {
+            atomTable.Import(GetLanguageAtomTable());
             builtinAtoms = BuiltinAtoms{atomTable};
         }
     }
@@ -65,8 +66,6 @@ namespace glsld
 
     auto LexContext::AddToken(const PPToken& token, TextRange expandedRange) -> void
     {
-        GLSLD_ASSERT(tokens.empty() || tokens.back().klass != TokenKlass::Eof);
-
         if (token.klass != TokenKlass::Comment) {
             tokens.push_back(RawSyntaxTokenEntry{
                 .klass         = FixKeywordTokenKlass(token.klass, token.text),

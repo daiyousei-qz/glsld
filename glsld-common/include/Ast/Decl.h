@@ -168,7 +168,7 @@ namespace glsld
             return declarators;
         }
 
-        auto SetResolvedTypes(std::vector<const Type*> types) -> void
+        auto SetResolvedTypes(ArrayView<const Type*> types) -> void
         {
             this->resolvedTypes = std::move(types);
         }

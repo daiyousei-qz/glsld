@@ -14,21 +14,23 @@ namespace glsld
     {
         Invalid,
         Unknown,
+        // End of main file
         Eof,
         // Line and block comments
         Comment,
-        // #
+        // Preprocessing: #
         Hash,
-        // ##
+        // Preprocessing: ##
         HashHash,
-        // <xxx>
+        // Preprocessing: <xxx>
         SystemHeaderName,
-        // "xxx"
+        // Preprocessing: "xxx"
         UserHeaderName,
-        // Produced by `defined(X)` where X is a defined macro.
+        // Preprocessing: produced by `defined(X)` where X is a defined macro.
         DefinedYes,
-        // Produced by `defined(X)` where X is not a defined macro.
+        // Preprocessing: produced by `defined(X)` where X is not a defined macro.
         DefinedNo,
+
         IntegerConstant,
         FloatConstant,
         Identifier,

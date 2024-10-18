@@ -27,7 +27,7 @@ namespace glsld
     public:
         // If `countUtf16Characters` is set to true, the tokenizer will count the number of UTF-16 code units in column
         // counter. Otherwise, the tokenizer will count the number of UTF-8 code units.
-        Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile, StringView sourceText,
+        Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFile,
                   bool countUtf16Characters = true);
 
         // Tokenize the source file and register tokens into the LexContext.

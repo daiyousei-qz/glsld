@@ -13,10 +13,11 @@ namespace glsld::detail
 namespace glsld
 {
     Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFileId,
-                         StringView sourceText, bool countUtf16Characters)
+                         bool countUtf16Characters)
         : compilerObject(compilerObject), preprocessor(preprocessor), sourceFileId(sourceFileId)
     {
-        srcScanner = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), countUtf16Characters};
+        auto sourceText = compilerObject.GetSourceContext().GetSourceText(sourceFileId);
+        srcScanner      = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), countUtf16Characters};
     }
 
     auto Tokenizer::DoTokenize() -> void

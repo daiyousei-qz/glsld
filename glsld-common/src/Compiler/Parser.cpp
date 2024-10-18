@@ -15,8 +15,24 @@ namespace glsld
         RestoreTokenIndex(beginTokIndex);
 
         std::vector<AstDecl*> decls;
-        while (!Eof()) {
-            decls.push_back(ParseDeclAndTryRecover());
+        while (true) {
+            while (!Eof()) {
+                decls.push_back(ParseDeclAndTryRecover());
+            }
+
+            if (Exhaused()) {
+                break;
+            }
+
+            // Consumes EOF
+            // TODO: should we parses preambles into a different translation unit?
+            parsingInitializerList = false;
+            ilistBraceDepth        = 0;
+
+            parenDepth   = 0;
+            bracketDepth = 0;
+            braceDepth   = 0;
+            RestoreTokenIndex(currentTok.index + 1);
         }
 
         return astBuilder.BuildTranslationUnit(CreateAstSyntaxRange(beginTokIndex), std::move(decls));

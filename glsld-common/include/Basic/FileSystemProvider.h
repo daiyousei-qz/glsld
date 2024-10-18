@@ -11,8 +11,7 @@ namespace glsld
         FileHandle()          = default;
         virtual ~FileHandle() = default;
 
-        virtual auto GetData() const -> const char* = 0;
-        virtual auto GetSize() const -> size_t      = 0;
+        virtual auto GetContent() const -> StringView = 0;
     };
 
     // This abstract interface is used to provide file system access to the compiler, allowing downstream users to
@@ -23,11 +22,11 @@ namespace glsld
         FileSystemProvider()          = default;
         virtual ~FileSystemProvider() = default;
 
-        // Open a file and return a FileEntry object. The returned FileEntry object needs to be closed by calling Close.
+        // Open a file and return a handle object. The returned handle object needs to be closed by calling Close.
         // If the file cannot be opened, the function returns nullptr.
         virtual auto Open(StringView path) -> const FileHandle* = 0;
 
-        // Close a file entry. The file entry must have been returned by calling Open of this file system provider.
+        // Close an opened file. The file handle must have been returned by calling Open of this file system provider.
         virtual auto Close(const FileHandle* file) -> void = 0;
     };
 
@@ -37,15 +36,16 @@ namespace glsld
         DefaultFileHandle(const char* data, size_t size) : data(data), size(size)
         {
         }
-
-        virtual auto GetData() const -> const char* override
+        ~DefaultFileHandle() override
         {
-            return data;
+            if (data) {
+                delete[] data;
+            }
         }
 
-        virtual auto GetSize() const -> size_t override
+        virtual auto GetContent() const -> StringView override
         {
-            return size;
+            return StringView{data, size};
         }
 
     private:

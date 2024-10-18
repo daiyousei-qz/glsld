@@ -42,7 +42,6 @@ namespace glsld
         SourceScanner(const char* srcBegin, const char* srcEnd, bool countUtf16Characters = false)
             : srcBegin(srcBegin), srcEnd(srcEnd), srcCursor(srcBegin), countUtf16Characters(countUtf16Characters)
         {
-            GLSLD_REQUIRE(*srcEnd == '\0');
             // FIXME:
             // TryConsumeLineContinuation();
         }

@@ -88,13 +88,14 @@ namespace glsld
         }
     };
 
-    auto Preprocessor::PreprocessSourceFile(const SourceFileEntry& fileEntry) -> void
+    auto Preprocessor::PreprocessSourceFile(FileID sourceFile) -> void
     {
-        if (!fileEntry.GetSourceText().has_value()) {
+        if (!sourceFile.IsValid()) {
+            // FIXME: report error, invalid source file
             return;
         }
 
-        Tokenizer tokenizer{compilerObject, *this, fileEntry.GetID(), *fileEntry.GetSourceText()};
+        Tokenizer tokenizer{compilerObject, *this, sourceFile};
         tokenizer.DoTokenize();
     }
 
@@ -280,22 +281,20 @@ namespace glsld
             }
 
             // Search for the header file in the include paths and load the source text.
-            StringView headerName                  = headerNameToken->text.StrView().Drop(1).DropBack(1);
-            const SourceFileEntry* sourceFileEntry = nullptr;
+            StringView headerName = headerNameToken->text.StrView().Drop(1).DropBack(1);
+            FileID includeFile;
             for (const auto& includePath : compilerConfig.includePaths) {
                 // TODO: distinguish between system include and user include
-                sourceFileEntry = compilerObject.GetSourceContext().OpenFromFile(includePath / headerName.StdStrView());
-                if (sourceFileEntry) {
+                includeFile = compilerObject.GetSourceContext().OpenFromFile(includePath / headerName.StdStrView());
+                if (includeFile.IsValid()) {
                     break;
                 }
             }
 
-            if (!sourceFileEntry) {
+            if (!includeFile.IsValid()) {
                 // FIXME: report error, cannot find the header file
                 return;
             }
-
-            GLSLD_ASSERT(sourceFileEntry->GetSourceText().has_value());
 
             // We create a new preprocessor to process the included file.
             GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
@@ -306,7 +305,7 @@ namespace glsld
                                 includeExpansionRange ? includeExpansionRange
                                                       : TextRange{headerNameToken->spelledRange.start},
                                 includeDepth + 1};
-            nextPP.PreprocessSourceFile(*sourceFileEntry);
+            nextPP.PreprocessSourceFile(includeFile);
             if (callback) {
                 callback->OnExitIncludedFile();
             }

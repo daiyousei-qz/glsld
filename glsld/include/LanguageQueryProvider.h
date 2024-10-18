@@ -265,7 +265,8 @@ namespace glsld
 
             provider.compilerObject.AddIncludePath(
                 std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
-            provider.compilerObject.CompileFromBuffer(sourceString, GetStandardLibraryModule(), ppCallback.get());
+            provider.compilerObject.SetPrecompiledPreamble(GetStandardLibraryModule());
+            provider.compilerObject.CompileFromBuffer(sourceString, ppCallback.get());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

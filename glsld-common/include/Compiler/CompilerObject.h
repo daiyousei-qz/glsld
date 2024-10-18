@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/SourceInfo.h"
 #include "Basic/StringView.h"
 #include "Basic/FileSystemProvider.h"
 
@@ -44,6 +45,9 @@ namespace glsld
     private:
         friend class CompilerObject;
 
+        std::vector<char> systemPreambleContent;
+        std::vector<char> userPreambleContent;
+
         std::unique_ptr<const SourceContext> sourceContext;
         std::unique_ptr<const LexContext> lexContext;
         std::unique_ptr<const AstContext> astContext;
@@ -71,17 +75,23 @@ namespace glsld
     class CompilerObject final
     {
     private:
-        bool compiled;
+        bool compiled = false;
 
-        CompilerConfig config;
+        CompilerConfig config = {};
 
-        std::shared_ptr<CompiledPreamble> preamble;
+        std::shared_ptr<CompiledPreamble> preamble = nullptr;
 
-        std::unique_ptr<SourceContext> sourceContext;
-        std::unique_ptr<LexContext> lexContext;
-        std::unique_ptr<AstContext> astContext;
+        // Only effective when preamble is nullptr
+        StringView systemPreambleContent = "";
 
-        std::unique_ptr<DiagnosticStream> diagStream;
+        // Only effective when preamble is nullptr
+        StringView userPreambleContent = "";
+
+        std::unique_ptr<SourceContext> sourceContext = nullptr;
+        std::unique_ptr<LexContext> lexContext       = nullptr;
+        std::unique_ptr<AstContext> astContext       = nullptr;
+
+        std::unique_ptr<DiagnosticStream> diagStream = nullptr;
 
     public:
         CompilerObject();
@@ -100,11 +110,6 @@ namespace glsld
         auto GetConfig() const noexcept -> const CompilerConfig&
         {
             return config;
-        }
-
-        auto GetFileSystemProvider() noexcept -> FileSystemProvider&
-        {
-            return DefaultFileSystemProvider::GetInstance();
         }
 
         auto GetSourceContext() const noexcept -> const SourceContext&
@@ -161,19 +166,37 @@ namespace glsld
             config.includePaths.push_back(path);
         }
 
-        auto CreatePreamble() -> std::shared_ptr<CompiledPreamble>;
+        auto SetSystemPreamble(StringView content) -> void
+        {
+            systemPreambleContent = content;
+        }
 
-        auto CompileFromFile(StringView path, std::shared_ptr<CompiledPreamble> preamble,
-                             PPCallback* ppCallback) -> void;
+        auto SetUserPreamble(StringView content) -> void
+        {
+            userPreambleContent = content;
+        }
 
-        auto CompileFromBuffer(StringView sourceText, std::shared_ptr<CompiledPreamble> preamble,
-                               PPCallback* ppCallback) -> void;
+        auto SetPrecompiledPreamble(std::shared_ptr<CompiledPreamble> preamble) -> void
+        {
+            this->preamble = std::move(preamble);
+        }
+
+        auto CompilePreamble() -> std::shared_ptr<CompiledPreamble>;
+
+        auto CompileFromFile(StringView path, PPCallback* ppCallback) -> void;
+
+        auto CompileFromBuffer(StringView sourceText, PPCallback* ppCallback) -> void;
 
     private:
-        auto InitializeCompilation(std::shared_ptr<CompiledPreamble> preamble) -> void;
-        auto DoCompile(PPCallback* callback) -> void;
+        auto InitializeCompilation() -> void;
+        auto DoPreprocess(FileID file, PPCallback* callback) -> void;
+        auto DoParse() -> void;
+        auto DoTypeCheck() -> void;
         auto FinalizeCompilation() -> void;
     };
+
+    // 1. Compile with text preambles
+    // 2. Compile with pre-compiled preamble
 
     auto GetStandardLibraryModule() -> std::shared_ptr<CompiledPreamble>;
 

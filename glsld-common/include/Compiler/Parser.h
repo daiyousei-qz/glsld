@@ -716,9 +716,17 @@ namespace glsld
             return tok.klass == klass1 || tok.klass == klass2 || tok.klass == klass3;
         }
 
+        // Tests if the current token is an EOF token.
+        // Notably, this doesn't mean we are running out of tokens. We may have multiple files in the token stream.
         auto Eof() -> bool
         {
             return TryTestToken(TokenKlass::Eof);
+        }
+
+        // Tests if the parser has consumed all tokens in the token stream.
+        auto Exhaused() -> bool
+        {
+            return currentTok.index + 1 >= compilerObject.GetLexContext().GetTotalTokenCount();
         }
 
         auto ConsumeToken() -> void;

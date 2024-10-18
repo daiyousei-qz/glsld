@@ -106,8 +106,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers)
-        -> AstInitializerList*
+    auto AstBuilder::BuildInitializerList(AstSyntaxRange range,
+                                          std::vector<AstInitializer*> initializers) -> AstInitializerList*
     {
         return CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
     }
@@ -318,8 +318,8 @@ namespace glsld
         return Type::GetErrorType();
     }
 
-    auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstArraySpec* indices)
-        -> AstIndexAccessExpr*
+    auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr,
+                                          AstArraySpec* indices) -> AstIndexAccessExpr*
     {
         auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indices);
 
@@ -418,8 +418,8 @@ namespace glsld
     // Either:
     // 1. lhs is scalar, rhs is scalar
     // 2. lhs is vector, rhs is vector
-    static auto DeduceComponentWiseBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
-        -> BinaryExprTypeInfo
+    static auto DeduceComponentWiseBinaryExprType(BinaryOp op, const Type* lhsType,
+                                                  const Type* rhsType) -> BinaryExprTypeInfo
     {
         BinaryExprTypeInfo result{
             .deducedType    = Type::GetErrorType(),
@@ -530,8 +530,8 @@ namespace glsld
     // Either:
     // 1. lhs is scalar, rhs is vector/matrix
     // 2. lhs is vector/matrix, rhs is scalar
-    static auto DeduceScalarBroadcastBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
-        -> BinaryExprTypeInfo
+    static auto DeduceScalarBroadcastBinaryExprType(BinaryOp op, const Type* lhsType,
+                                                    const Type* rhsType) -> BinaryExprTypeInfo
     {
         const Type* scalarType        = lhsType->IsScalar() ? lhsType : rhsType;
         const Type* compositeType     = lhsType->IsScalar() ? rhsType : lhsType;
@@ -629,8 +629,8 @@ namespace glsld
     // 1. lhs is matrix, rhs is vector
     // 2. lhs is vector, rhs is matrix
     // 3. lhs is matrix, rhs is matrix
-    static auto DeduceMatrixOpBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
-        -> BinaryExprTypeInfo
+    static auto DeduceMatrixOpBinaryExprType(BinaryOp op, const Type* lhsType,
+                                             const Type* rhsType) -> BinaryExprTypeInfo
     {
         GLSLD_ASSERT((op != BinaryOp::Comma && !IsAssignmentOp(op)) &&
                      "Comma/Assignment should have been handled earlier.");
@@ -713,8 +713,8 @@ namespace glsld
         };
     }
 
-    static auto DeduceAssignmentBinaryExprType(std::optional<BinaryOp> baseOp, const Type* lhsType, const Type* rhsType)
-        -> BinaryExprTypeInfo
+    static auto DeduceAssignmentBinaryExprType(std::optional<BinaryOp> baseOp, const Type* lhsType,
+                                               const Type* rhsType) -> BinaryExprTypeInfo
     {
         // FIXME: need to review the behavior of this function
         auto deducedType    = lhsType;
@@ -817,8 +817,8 @@ namespace glsld
         return defaultResult;
     }
 
-    auto AstBuilder::BuildBinaryExpr(AstSyntaxRange range, AstExpr* lhs, AstExpr* rhs, BinaryOp opcode)
-        -> AstBinaryExpr*
+    auto AstBuilder::BuildBinaryExpr(AstSyntaxRange range, AstExpr* lhs, AstExpr* rhs,
+                                     BinaryOp opcode) -> AstBinaryExpr*
     {
         bool isConst      = false;
         auto exprTypeInfo = DeduceBinaryExprType(opcode, lhs->GetDeducedType(), rhs->GetDeducedType());
@@ -838,8 +838,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr, AstExpr* falseExpr)
-        -> AstSelectExpr*
+    auto AstBuilder::BuildSelectExpr(AstSyntaxRange range, AstExpr* condExpr, AstExpr* trueExpr,
+                                     AstExpr* falseExpr) -> AstSelectExpr*
     {
         bool isConst            = false;
         const Type* deducedType = Type::GetErrorType();
@@ -869,8 +869,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildImplicitCastExpr(AstSyntaxRange range, AstExpr* expr, const Type* castType)
-        -> AstImplicitCastExpr*
+    auto AstBuilder::BuildImplicitCastExpr(AstSyntaxRange range, AstExpr* expr,
+                                           const Type* castType) -> AstImplicitCastExpr*
     {
         auto result = CreateAstNode<AstImplicitCastExpr>(range, expr);
         result->SetConst(expr->IsConst());
@@ -878,8 +878,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
-        -> AstFunctionCallExpr*
+    auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName,
+                                          std::vector<AstExpr*> args) -> AstFunctionCallExpr*
     {
         bool isConst                            = false;
         const Type* deducedType                 = Type::GetErrorType();
@@ -911,8 +911,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
-        -> AstConstructorCallExpr*
+    auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType,
+                                              std::vector<AstExpr*> args) -> AstConstructorCallExpr*
     {
         bool isConst = true;
         for (auto arg : args) {
@@ -960,8 +960,8 @@ namespace glsld
     {
         return CreateAstNode<AstIfStmt>(range, condExpr, thenStmt, nullptr);
     }
-    auto AstBuilder::BuildIfStmt(AstSyntaxRange range, AstExpr* condExpr, AstStmt* thenStmt, AstStmt* elseStmt)
-        -> AstIfStmt*
+    auto AstBuilder::BuildIfStmt(AstSyntaxRange range, AstExpr* condExpr, AstStmt* thenStmt,
+                                 AstStmt* elseStmt) -> AstIfStmt*
     {
         return CreateAstNode<AstIfStmt>(range, condExpr, thenStmt, elseStmt);
     }
@@ -1026,8 +1026,8 @@ namespace glsld
         return types;
     }
 
-    auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
-        -> AstVariableDecl*
+    auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType,
+                                       std::vector<Declarator> declarators) -> AstVariableDecl*
     {
         auto resolvedTypes = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
 
@@ -1043,18 +1043,19 @@ namespace glsld
         }
 
         auto result = CreateAstNode<AstVariableDecl>(range, qualType, CopyArray(declarators));
-        result->SetResolvedTypes(resolvedTypes);
+        result->SetResolvedTypes(CopyArray(resolvedTypes));
         symbolTable.GetCurrentLevel()->AddVariableDecl(*result);
         return result;
     }
 
-    auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
-        -> AstFieldDecl*
+    auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType,
+                                    std::vector<Declarator> declarators) -> AstFieldDecl*
     {
         auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
 
+        // FIXME: mandate CopyArray call by creating wrapper types
         auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
-        result->SetResolvedTypes(resolvedType);
+        result->SetResolvedTypes(CopyArray(resolvedType));
         // Note `AstFieldDecl::parentDecl` is resolved in parent decl build process.
         return result;
     }
@@ -1074,8 +1075,8 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, std::optional<Declarator> declarator)
-        -> AstParamDecl*
+    auto AstBuilder::BuildParamDecl(AstSyntaxRange range, AstQualType* qualType,
+                                    std::optional<Declarator> declarator) -> AstParamDecl*
     {
         GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsFunctionScope());
         auto result = CreateAstNode<AstParamDecl>(range, qualType, declarator);
@@ -1103,8 +1104,8 @@ namespace glsld
     }
 
     auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, SyntaxToken declTok,
-                                             std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
-        -> AstInterfaceBlockDecl*
+                                             std::vector<AstFieldDecl*> members,
+                                             std::optional<Declarator> declarator) -> AstInterfaceBlockDecl*
     {
         GLSLD_ASSERT(symbolTable.GetCurrentLevel()->IsGlobalScope());
         auto result = CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, CopyArray(members), declarator);

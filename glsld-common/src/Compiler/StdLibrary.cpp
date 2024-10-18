@@ -9,8 +9,8 @@ namespace glsld
             ;
 
         CompilerObject compilerObject{};
-        compilerObject.CompileFromBuffer(standardLibrarySource, nullptr, nullptr);
-        return compilerObject.CreatePreamble();
+        compilerObject.SetSystemPreamble(standardLibrarySource);
+        return compilerObject.CompilePreamble();
     }
 
     auto GetStandardLibraryModule() -> std::shared_ptr<CompiledPreamble>
