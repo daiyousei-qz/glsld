@@ -155,8 +155,6 @@ namespace glsld
         }
 
         sourceContext->Finalize();
-
-        compiled = true;
     }
 
 } // namespace glsld

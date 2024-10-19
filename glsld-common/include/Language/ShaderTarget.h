@@ -32,23 +32,52 @@ namespace glsld
 
     enum class GlslShaderStage
     {
-        Unknown,
-        Vertex,
-        Fragment,
-        Geometry,
-        TessControl,
-        TessEvaluation,
-        Compute,
+        Unknown        = 0,
+        Vertex         = 1,
+        Fragment       = 2,
+        Geometry       = 3,
+        TessControl    = 4,
+        TessEvaluation = 5,
+        Compute        = 6,
 
-        RayGeneration,
-        RayIntersection,
-        RayAnyHit,
-        RayClosestHit,
-        RayMiss,
+        RayGeneration   = 7,
+        RayIntersection = 8,
+        RayAnyHit       = 9,
+        RayClosestHit   = 10,
+        RayMiss         = 11,
+        RayCallable     = 12,
 
-        Task,
-        Mesh,
+        Task = 13,
+        Mesh = 14,
     };
+
+    class GlslShaderStageBits
+    {
+    private:
+        uint32_t bits = 0;
+
+    public:
+        GlslShaderStageBits() = default;
+
+        auto TestBit(GlslShaderStage stage) const noexcept -> bool
+        {
+            return (bits & (1 << static_cast<uint32_t>(stage))) != 0;
+        }
+
+        auto SetBit(GlslShaderStage stage) noexcept -> void
+        {
+            bits |= 1 << static_cast<uint32_t>(stage);
+        }
+        auto ClearBit(GlslShaderStage stage) noexcept -> void
+        {
+            bits &= ~(1 << static_cast<uint32_t>(stage));
+        }
+        auto ClearAll() noexcept -> void
+        {
+            bits = 0;
+        }
+    };
+
     inline constexpr auto ShaderStageToString(GlslShaderStage stage) -> StringView
     {
         switch (stage) {

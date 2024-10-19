@@ -7,6 +7,57 @@ namespace glsld
         compilerObject.GetAstContext().SetTranslationUnit(ParseTranslationUnit());
     }
 
+    auto ParseSystemCommandShaderStage(StringView stageName) -> GlslShaderStage
+    {
+        if (stageName == "vertex") {
+            return GlslShaderStage::Vertex;
+        }
+        else if (stageName == "tessControl") {
+            return GlslShaderStage::TessControl;
+        }
+        else if (stageName == "tessEval") {
+            return GlslShaderStage::TessEvaluation;
+        }
+        else if (stageName == "geometry") {
+            return GlslShaderStage::Geometry;
+        }
+        else if (stageName == "fragment") {
+            return GlslShaderStage::Fragment;
+        }
+        else if (stageName == "compute") {
+            return GlslShaderStage::Compute;
+        }
+        else if (stageName == "rayGen") {
+            return GlslShaderStage::RayGeneration;
+        }
+        else if (stageName == "rayAnyHit") {
+            return GlslShaderStage::RayAnyHit;
+        }
+        else if (stageName == "rayClosestHit") {
+            return GlslShaderStage::RayClosestHit;
+        }
+        else if (stageName == "rayMiss") {
+            return GlslShaderStage::RayMiss;
+        }
+        else if (stageName == "rayIntersect") {
+            return GlslShaderStage::RayIntersection;
+        }
+        else if (stageName == "rayCallable") {
+            return GlslShaderStage::RayCallable;
+        }
+        else if (stageName == "task") {
+            return GlslShaderStage::Task;
+        }
+        else if (stageName == "mesh") {
+            return GlslShaderStage::Mesh;
+        }
+        else {
+            // System command cannot fail
+            GLSLD_UNREACHABLE();
+            return GlslShaderStage::Unknown;
+        }
+    }
+
     auto Parser::HandleSystemCommand(const SyntaxToken& cmdTok, ArrayView<SyntaxToken> args) -> void
     {
         StringView cmd = cmdTok.text.StrView();
@@ -19,8 +70,15 @@ namespace glsld
             systemSettings = std::nullopt;
         }
         else if (cmd == "__glsld_syscmd_require_target__") {
+            // TODO: implement this
         }
         else if (cmd == "__glsld_syscmd_require_stage__") {
+            systemSettings->requiredStages.ClearAll();
+            for (auto& argTok : args) {
+                GLSLD_ASSERT(argTok.IsIdentifier());
+                auto stage = ParseSystemCommandShaderStage(argTok.text.StrView());
+                systemSettings->requiredStages.SetBit(stage);
+            }
         }
         else if (cmd == "__glsld_syscmd_require_extension__") {
             GLSLD_ASSERT(systemSettings);
@@ -58,15 +116,27 @@ namespace glsld
                 break;
             }
 
-            if (systemSettings && systemSettings->needsExtension) {
-                // The following tokens require the extension to be enabled
-                // FIXME: implement this, we skip those tokens for now
-                while (!Eof()) {
-                    if (!PeekToken().IsIdentifier() || !PeekToken().text.StrView().StartWith("__glsld_syscmd_")) {
-                        ConsumeToken();
-                    }
-                    else {
-                        break;
+            if (systemSettings) {
+                bool skipMode = false;
+
+                if (compilerObject.GetTarget().stage != GlslShaderStage::Unknown &&
+                    !systemSettings->requiredStages.TestBit(compilerObject.GetTarget().stage)) {
+                    skipMode = true;
+                }
+                if (systemSettings->needsExtension) {
+                    skipMode = true;
+                }
+
+                if (skipMode) {
+                    // The following tokens require the extension to be enabled
+                    // FIXME: implement this, we skip those tokens for now
+                    while (!Eof()) {
+                        if (!PeekToken().IsIdentifier() || !PeekToken().text.StrView().StartWith("__glsld_syscmd_")) {
+                            ConsumeToken();
+                        }
+                        else {
+                            break;
+                        }
                     }
                 }
             }

@@ -285,15 +285,19 @@ namespace glsld
         // True if this type is implicitly convertible to the given type.
         auto IsConvertibleTo(const Type* to) const -> bool;
 
+        // True if this type could be tested for equality with the given type.
         auto IsEqualComparableTo(const Type* to) const -> bool
         {
             return !IsOpaque() && !to->IsOpaque() && (IsConvertibleTo(to) || to->IsConvertibleTo(this));
         }
+
+        // True if this type could be ordered with the given type.
         auto IsOrderingComparableTo(const Type* to) const -> bool
         {
             return !IsScalar() && !to->IsScalar() && (IsConvertibleTo(to) || to->IsConvertibleTo(this));
         }
 
+        // FIXME: move this out of Type. We have to handle comparing (A->B) and (C->D) case.
         // True if conversion from this type to `lhsTo` is better than that to `rhsTo`.
         auto HasBetterConversion(const Type* lhsTo, const Type* rhsTo) const -> bool;
     };

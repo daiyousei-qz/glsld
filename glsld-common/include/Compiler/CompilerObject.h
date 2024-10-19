@@ -85,8 +85,6 @@ namespace glsld
     class CompilerObject final
     {
     private:
-        bool compiled = false;
-
         CompilerConfig config = {};
 
         CompilerTarget target = {};
@@ -117,11 +115,6 @@ namespace glsld
         auto operator=(const CompilerObject&) -> CompilerObject& = delete;
         CompilerObject(CompilerObject&&)                         = delete;
         auto operator=(CompilerObject&&) -> CompilerObject&      = delete;
-
-        auto IsCompiled() const -> bool
-        {
-            return compiled;
-        }
 
         auto GetConfig() const noexcept -> const CompilerConfig&
         {

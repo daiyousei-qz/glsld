@@ -158,21 +158,25 @@ namespace glsld
                     continue;
                 }
 
-                // FIXME: Do we need special handling for output parameters?
                 // F1 is better than F2 if:
                 // 1. No conversion in F1 is worse than F2
                 // 2. At least one conversion in F1 is better than F2
                 int numCandidateBetter      = 0;
                 int numOtherCandidateBetter = 0;
                 for (size_t i = 0; i < argTypes.size(); ++i) {
-                    if (argTypes[i]->HasBetterConversion(candidate->paramEntries[i].type,
-                                                         otherCandidate->paramEntries[i].type)) {
-                        numCandidateBetter += 1;
+                    const auto& candidateParam      = candidate->paramEntries[i];
+                    const auto& otherCandidateParam = otherCandidate->paramEntries[i];
+
+                    if (candidateParam.isInput && otherCandidateParam.isInput) {
+                        if (argTypes[i]->HasBetterConversion(candidateParam.type, otherCandidateParam.type)) {
+                            numCandidateBetter += 1;
+                        }
+                        if (argTypes[i]->HasBetterConversion(otherCandidateParam.type, candidateParam.type)) {
+                            numOtherCandidateBetter += 1;
+                        }
                     }
-                    if (argTypes[i]->HasBetterConversion(otherCandidate->paramEntries[i].type,
-                                                         candidate->paramEntries[i].type)) {
-                        numOtherCandidateBetter += 1;
-                    }
+
+                    // FIXME: Do we need special handling for output parameters?
                 }
                 if (numCandidateBetter == 0 || numOtherCandidateBetter > 0) {
                     isAlwaysBetter = false;

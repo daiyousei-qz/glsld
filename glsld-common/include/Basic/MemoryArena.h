@@ -93,7 +93,7 @@ namespace glsld
         using BaseType = detail::MemoryArenaBase<EnableAutomaticDestruct>;
 
         static constexpr size_t ArenaAllocationAlignment = alignof(std::max_align_t);
-        static constexpr size_t RegularPageSize          = 4096 * 2 - 128;
+        static constexpr size_t RegularPageSize          = 4096 * 4 - 128;
         static constexpr size_t LargeObjectThreshold     = 1024;
 
         struct alignas(ArenaAllocationAlignment) BufferPageHeader
@@ -139,7 +139,7 @@ namespace glsld
         auto Allocate(size_t size) -> void*
         {
             auto allocSize = AlignAllocationSize(size);
-            if (allocSize <= LargeObjectThreshold) {
+            if (allocSize < LargeObjectThreshold) {
                 return AllocateSmall(allocSize);
             }
             else {

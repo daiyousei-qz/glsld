@@ -249,6 +249,7 @@ namespace glsld
         }
 
         // Assuming this type is convertible to both `lhsTo` and `rhsTo`
+        // FIXME: should we assume this?
         GLSLD_ASSERT(IsConvertibleTo(lhsTo) && IsConvertibleTo(rhsTo));
 
         if (auto scalarDesc = GetScalarDesc()) {

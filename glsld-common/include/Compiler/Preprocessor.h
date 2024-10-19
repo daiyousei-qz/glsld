@@ -183,6 +183,14 @@ namespace glsld
         auto IssuePPToken(const PPToken& token) -> void
         {
             DispatchTokenToHandler(token);
+
+            if (token.klass == TokenKlass::Eof) {
+                macroExpansionProcessor.Finalize();
+                if (includeDepth == 0) {
+                    // We are done with the main file. Insert an EOF token.
+                    compilerObject.GetLexContext().AddToken(token, token.spelledRange);
+                }
+            }
         }
 
         auto PreprocessSourceFile(FileID sourceFile) -> void;

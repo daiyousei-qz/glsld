@@ -54,7 +54,7 @@ namespace glsld
             // The maximum GLSL version (inclusive) required by the following tokens.
             GlslVersion maxVersion = GlslVersion::Ver460;
             // The shader stage required by the following tokens.
-            GlslShaderStage requiredStage = GlslShaderStage::Unknown;
+            GlslShaderStageBits requiredStages;
 
             // TODO: support extension
             bool needsExtension = false;

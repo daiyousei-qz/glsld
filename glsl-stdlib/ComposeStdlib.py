@@ -35,6 +35,11 @@ LoadFile("builtin-functions/VectorRationalFunctions.glsl", result)
 LoadFile("stage/ComputeShader.glsl", result)
 LoadFile("stage/FragmentShader.glsl", result)
 LoadFile("stage/VertexShader.glsl", result)
+LoadFile("stage/RayTracingShaderEXT.glsl", result)
+LoadFile("stage/RayTracingShaderNV.glsl", result)
+
+LoadFile("extension/GL_EXT_ray_query.glsl", result)
+
 
 with open(os.path.join(SCRIPT_PATH, "Stdlib.Generated.h"), "w") as file:
     file.write("// clang-format off\n")

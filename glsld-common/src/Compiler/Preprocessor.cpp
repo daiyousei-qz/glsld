@@ -127,13 +127,6 @@ namespace glsld
         if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
             state = PreprocessorState::ExpectDirective;
         }
-        else if (token.klass == TokenKlass::Eof) {
-            macroExpansionProcessor.Finalize();
-            if (includeDepth == 0) {
-                // We are done with the main file. Insert an EOF token.
-                compilerObject.GetLexContext().AddToken(token, token.spelledRange);
-            }
-        }
         else {
             if (token.klass != TokenKlass::Comment) {
                 // FIXME: we ignore comment for now.
@@ -1092,7 +1085,7 @@ namespace glsld
                 });
             }
             else {
-                processor.Feed(scanner.ConsumeToken());
+                processor.Feed(token);
             }
         }
         processor.Finalize();
