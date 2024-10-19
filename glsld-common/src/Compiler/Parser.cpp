@@ -7,6 +7,72 @@ namespace glsld
         compilerObject.GetAstContext().SetTranslationUnit(ParseTranslationUnit());
     }
 
+    auto Parser::HandleSystemCommand(const SyntaxToken& cmdTok, ArrayView<SyntaxToken> args) -> void
+    {
+        StringView cmd = cmdTok.text.StrView();
+        if (cmd == "__glsld_syscmd_begin_context__") {
+            GLSLD_ASSERT(args.empty());
+            systemSettings = SystemSettings{};
+        }
+        else if (cmd == "__glsld_syscmd_end_context__") {
+            GLSLD_ASSERT(args.empty());
+            systemSettings = std::nullopt;
+        }
+        else if (cmd == "__glsld_syscmd_require_target__") {
+        }
+        else if (cmd == "__glsld_syscmd_require_stage__") {
+        }
+        else if (cmd == "__glsld_syscmd_require_extension__") {
+            GLSLD_ASSERT(systemSettings);
+            systemSettings->needsExtension = true;
+        }
+    }
+
+    auto Parser::ParseSystemCommands() -> void
+    {
+        GLSLD_TRACE_PARSER();
+
+        std::vector<SyntaxToken> argBuffer;
+        while (!Eof()) {
+            argBuffer.clear();
+
+            auto tok = PeekToken();
+            if (tok.IsIdentifier() && tok.text.StrView().StartWith("__glsld_syscmd_")) {
+                ConsumeToken();
+
+                while (!Eof()) {
+                    argBuffer.push_back(PeekToken());
+                    ConsumeToken();
+
+                    if (argBuffer.back().klass == TokenKlass::Semicolon) {
+                        break;
+                    }
+                }
+
+                GLSLD_REQUIRE(!argBuffer.empty() && argBuffer.back().klass == TokenKlass::Semicolon);
+                argBuffer.pop_back();
+
+                HandleSystemCommand(tok, argBuffer);
+            }
+            else {
+                break;
+            }
+
+            if (systemSettings && systemSettings->needsExtension) {
+                // The following tokens require the extension to be enabled
+                // FIXME: implement this, we skip those tokens for now
+                while (!Eof()) {
+                    if (!PeekToken().IsIdentifier() || !PeekToken().text.StrView().StartWith("__glsld_syscmd_")) {
+                        ConsumeToken();
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     auto Parser::ParseTranslationUnit() -> const AstTranslationUnit*
     {
         GLSLD_TRACE_PARSER();
@@ -17,6 +83,8 @@ namespace glsld
         std::vector<AstDecl*> decls;
         while (true) {
             while (!Eof()) {
+                // FIXME: Only parse system commands in the system preamble
+                ParseSystemCommands();
                 decls.push_back(ParseDeclAndTryRecover());
             }
 

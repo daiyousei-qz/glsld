@@ -27,16 +27,23 @@ namespace glsld
             stdlibPreamble = GetStandardLibraryModule();
         }
 
-        CompilerObject compiler;
-        compiler.AddIncludePath(inputFilePath.parent_path());
+        std::unique_ptr<CompilerObject> compiler = nullptr;
+        if (!noStdlib.HasValue() || !noStdlib.GetValue()) {
+            compiler = std::make_unique<CompilerObject>(stdlibPreamble);
+        }
+        else {
+            // FIXME: support compile with no stdlib
+            GLSLD_NO_IMPL();
+        }
+
+        compiler->AddIncludePath(inputFilePath.parent_path());
         if (dumpTokens.HasValue()) {
-            compiler.SetDumpTokens(dumpTokens.GetValue());
+            compiler->SetDumpTokens(dumpTokens.GetValue());
         }
         if (dumpAst.HasValue()) {
-            compiler.SetDumpAst(dumpAst.GetValue());
+            compiler->SetDumpAst(dumpAst.GetValue());
         }
-        compiler.SetPrecompiledPreamble(stdlibPreamble);
-        compiler.CompileFromFile(intputFile.GetValue(), nullptr);
+        compiler->CompileFromFile(intputFile.GetValue(), nullptr);
 
         Print("succussfully parsed input file\n");
     }

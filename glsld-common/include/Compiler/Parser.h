@@ -47,6 +47,22 @@ namespace glsld
 
         ParsingState state = ParsingState::Parsing;
 
+        struct SystemSettings
+        {
+            // The minimum GLSL version (inclusive) required by the following tokens.
+            GlslVersion minVersion = GlslVersion::Ver110;
+            // The maximum GLSL version (inclusive) required by the following tokens.
+            GlslVersion maxVersion = GlslVersion::Ver460;
+            // The shader stage required by the following tokens.
+            GlslShaderStage requiredStage = GlslShaderStage::Unknown;
+
+            // TODO: support extension
+            bool needsExtension = false;
+            // std::vector<std::string> requiredExtensions;
+        };
+
+        std::optional<SystemSettings> systemSettings;
+
         // If we are parsing an initializer list. This flag is used to determine the outermost brace depth of nested
         // initializer list.
         bool parsingInitializerList = false;
@@ -94,6 +110,13 @@ namespace glsld
         auto DoParse() -> void;
 
     private:
+        auto HandleSystemCommand(const SyntaxToken& cmdTok, ArrayView<SyntaxToken> args) -> void;
+
+        // Parse a sequence of system commands in the global scope.
+        // System commands are `__glsld_syscmd_XXX__ <args>... ;` in the system preamble, which are used to
+        // configure the special compiler behavior for the standard library.
+        auto ParseSystemCommands() -> void;
+
         // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.

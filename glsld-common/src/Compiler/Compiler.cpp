@@ -19,7 +19,18 @@ namespace glsld
         return nextId++;
     }
 
-    CompilerObject::CompilerObject()  = default;
+    CompilerObject::CompilerObject(std::shared_ptr<CompiledPreamble> preamble)
+    {
+        this->target   = preamble->target;
+        this->preamble = std::move(preamble);
+    }
+    CompilerObject::CompilerObject(CompilerTarget target)
+    {
+        this->target = target;
+        systemPreambleContent =
+#include "Language/Stdlib.Generated.h"
+            ;
+    }
     CompilerObject::~CompilerObject() = default;
 
     auto CompilerObject::CompilePreamble() -> std::shared_ptr<CompiledPreamble>
@@ -44,6 +55,7 @@ namespace glsld
         FinalizeCompilation();
 
         auto result                   = std::make_shared<CompiledPreamble>();
+        result->target                = target;
         result->systemPreambleContent = std::move(systemPreambleContentCopy);
         result->userPreambleContent   = std::move(userPreambleContentCopy);
         result->sourceContext         = std::move(sourceContext);
@@ -59,7 +71,12 @@ namespace glsld
             DoPreprocess(FileID::SystemPreamble(), nullptr);
             DoPreprocess(FileID::UserPreamble(), nullptr);
         }
-        DoPreprocess(sourceContext->OpenFromFile(path.StdStrView()), ppCallback);
+        auto file = sourceContext->OpenFromFile(path.StdStrView());
+        if (!file.IsValid()) {
+            // FIXME: report error
+            return;
+        }
+        DoPreprocess(file, ppCallback);
         DoParse();
         DoTypeCheck();
         FinalizeCompilation();

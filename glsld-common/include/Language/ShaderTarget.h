@@ -23,7 +23,7 @@ namespace glsld
         Ver460 = 460,
     };
 
-    enum class GlslVersionProfile
+    enum class GlslProfile
     {
         Core,
         Compatibility,
@@ -84,11 +84,4 @@ namespace glsld
 
         GLSLD_UNREACHABLE();
     }
-
-    class LanguageContext
-    {
-    public:
-    private:
-        GlslVersion version = GlslVersion::Ver460;
-    };
 } // namespace glsld

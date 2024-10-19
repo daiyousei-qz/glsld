@@ -1,0 +1,12 @@
+uint atomicCounterIncrement(atomic_uint c);
+uint atomicCounterDecrement(atomic_uint c);
+uint atomicCounter(atomic_uint c);
+uint atomicCounterAdd(atomic_uint c, uint data);
+uint atomicCounterSubtract(atomic_uint c, uint data);
+uint atomicCounterMin(atomic_uint c, uint data);
+uint atomicCounterMax(atomic_uint c, uint data);
+uint atomicCounterAnd(atomic_uint c, uint data);
+uint atomicCounterOr(atomic_uint c, uint data);
+uint atomicCounterXor(atomic_uint c, uint data);
+uint atomicCounterExchange(atomic_uint c, uint data);
+uint atomicCounterCompSwap(atomic_uint c, uint compare, uint data);

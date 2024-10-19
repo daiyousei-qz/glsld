@@ -3,6 +3,7 @@
 #include "Basic/SourceInfo.h"
 #include "Basic/StringView.h"
 #include "Basic/FileSystemProvider.h"
+#include "Language/ShaderTarget.h"
 
 #include <memory>
 #include <vector>
@@ -40,10 +41,19 @@ namespace glsld
         std::vector<std::string> defines;
     };
 
+    struct CompilerTarget
+    {
+        GlslVersion version   = GlslVersion::Ver460;
+        GlslProfile profile   = GlslProfile::Core;
+        GlslShaderStage stage = GlslShaderStage::Unknown;
+    };
+
     class CompiledPreamble
     {
     private:
         friend class CompilerObject;
+
+        CompilerTarget target = {};
 
         std::vector<char> systemPreambleContent;
         std::vector<char> userPreambleContent;
@@ -79,6 +89,8 @@ namespace glsld
 
         CompilerConfig config = {};
 
+        CompilerTarget target = {};
+
         std::shared_ptr<CompiledPreamble> preamble = nullptr;
 
         // Only effective when preamble is nullptr
@@ -94,7 +106,11 @@ namespace glsld
         std::unique_ptr<DiagnosticStream> diagStream = nullptr;
 
     public:
-        CompilerObject();
+        CompilerObject(std::shared_ptr<CompiledPreamble> preamble);
+        // TODO: Support extension. Note the list of extensions should be passed to the constructor.
+        //       That means, user may need scan the source file using another CompilerObject first.
+        CompilerObject(CompilerTarget target);
+
         ~CompilerObject();
 
         CompilerObject(const CompilerObject&)                    = delete;
@@ -110,6 +126,11 @@ namespace glsld
         auto GetConfig() const noexcept -> const CompilerConfig&
         {
             return config;
+        }
+
+        auto GetTarget() const noexcept -> const CompilerTarget&
+        {
+            return target;
         }
 
         auto GetSourceContext() const noexcept -> const SourceContext&
@@ -166,19 +187,9 @@ namespace glsld
             config.includePaths.push_back(path);
         }
 
-        auto SetSystemPreamble(StringView content) -> void
-        {
-            systemPreambleContent = content;
-        }
-
         auto SetUserPreamble(StringView content) -> void
         {
             userPreambleContent = content;
-        }
-
-        auto SetPrecompiledPreamble(std::shared_ptr<CompiledPreamble> preamble) -> void
-        {
-            this->preamble = std::move(preamble);
         }
 
         auto CompilePreamble() -> std::shared_ptr<CompiledPreamble>;

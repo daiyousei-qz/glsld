@@ -3,7 +3,7 @@
 #include "Compiler/SourceContext.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/LexContext.h"
-#include "Language/ShaderProfile.h"
+#include "Language/ShaderTarget.h"
 #include "Language/ConstValue.h"
 
 namespace glsld
@@ -641,24 +641,24 @@ namespace glsld
         }
     }
 
-    auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslVersionProfile>
+    auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>
     {
         GLSLD_ASSERT(profile.klass == TokenKlass::Identifier);
         if (profile.text == "core") {
-            return GlslVersionProfile::Core;
+            return GlslProfile::Core;
         }
         else if (profile.text == "compatibility") {
-            return GlslVersionProfile::Compatibility;
+            return GlslProfile::Compatibility;
         }
         else if (profile.text == "es") {
-            return GlslVersionProfile::Es;
+            return GlslProfile::Es;
         }
         else {
             return std::nullopt;
         }
     }
 
-    auto GetDefaultProfile(GlslVersion version) -> GlslVersionProfile
+    auto GetDefaultProfile(GlslVersion version) -> GlslProfile
     {
         switch (version) {
         case GlslVersion::Ver110:
@@ -666,11 +666,11 @@ namespace glsld
         case GlslVersion::Ver130:
         case GlslVersion::Ver140:
         case GlslVersion::Ver150:
-            return GlslVersionProfile::Compatibility;
+            return GlslProfile::Compatibility;
 
         case GlslVersion::Ver300:
         case GlslVersion::Ver310:
-            return GlslVersionProfile::Compatibility;
+            return GlslProfile::Compatibility;
 
         case GlslVersion::Ver330:
         case GlslVersion::Ver400:
@@ -680,7 +680,7 @@ namespace glsld
         case GlslVersion::Ver440:
         case GlslVersion::Ver450:
         case GlslVersion::Ver460:
-            return GlslVersionProfile::Core;
+            return GlslProfile::Core;
         }
 
         GLSLD_UNREACHABLE();
@@ -700,7 +700,7 @@ namespace glsld
         }
 
         PPToken profileTok;
-        std::optional<GlslVersionProfile> profile;
+        std::optional<GlslProfile> profile;
         if (!scanner.CursorAtEnd()) {
             profileTok = scanner.ConsumeToken();
             profile    = ParseGlslProfile(profileTok);

@@ -67,28 +67,28 @@ namespace glsld
     private:
         friend class PendingLanguageQueryProvider;
 
-        CompilerObject compilerObject;
+        std::unique_ptr<CompilerObject> compilerObject = nullptr;
         PreprocessInfoCache ppInfoCache;
 
     public:
         auto GetCompilerObject() const -> const CompilerObject&
         {
-            return compilerObject;
+            return *compilerObject;
         }
 
         auto GetLexContext() const -> const LexContext&
         {
-            return compilerObject.GetLexContext();
+            return compilerObject->GetLexContext();
         }
 
         auto GetAstContext() const -> const AstContext&
         {
-            return compilerObject.GetAstContext();
+            return compilerObject->GetAstContext();
         }
 
         auto GetSourceContext() const -> const SourceContext&
         {
-            return compilerObject.GetSourceContext();
+            return compilerObject->GetSourceContext();
         }
 
         auto GetPreprocessInfoCache() const -> const PreprocessInfoCache&
@@ -263,10 +263,10 @@ namespace glsld
         {
             auto ppCallback = provider.ppInfoCache.GetCollectionCallback();
 
-            provider.compilerObject.AddIncludePath(
+            provider.compilerObject = std::make_unique<CompilerObject>(GetStandardLibraryModule());
+            provider.compilerObject->AddIncludePath(
                 std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
-            provider.compilerObject.SetPrecompiledPreamble(GetStandardLibraryModule());
-            provider.compilerObject.CompileFromBuffer(sourceString, ppCallback.get());
+            provider.compilerObject->CompileFromBuffer(sourceString, ppCallback.get());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

@@ -37,7 +37,7 @@ namespace glsld
     auto DoMain() -> void
     {
 #if defined(GLSLD_DEBUG)
-        // WaitDebuggerToAttach();
+        WaitDebuggerToAttach();
 #endif
 
         glsld::LanguageServer{}.Run();
