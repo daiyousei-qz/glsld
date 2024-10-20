@@ -2,6 +2,8 @@
 #error "missing DECL_EXTENSION macro"
 #else
 
+DECL_EXTENSION(GL_KHR_memory_scope_semantics)
+
 DECL_EXTENSION(GL_NV_shader_sm_builtins)
 DECL_EXTENSION(GL_NV_cooperative_matrix)
 DECL_EXTENSION(GL_NV_integer_cooperative_matrix)

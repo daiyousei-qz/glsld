@@ -15,12 +15,16 @@ def LoadFile(filename: str, output: list):
 
 result = []
 LoadFile("builtin-functions/AtomicCounterFunctions.glsl", result)
+LoadFile("builtin-functions/AtomicMemoryFunctions.glsl", result)
+LoadFile("builtin-functions/AtomicMemoryFunctions2.glsl", result)
 LoadFile("builtin-functions/BarrierFunctions.glsl", result)
 LoadFile("builtin-functions/CommonFunctions.glsl", result)
 LoadFile("builtin-functions/CommonFunctions2.glsl", result)
 LoadFile("builtin-functions/DerivativeFunctions.glsl", result)
 LoadFile("builtin-functions/ExponentialFunctions.glsl", result)
 LoadFile("builtin-functions/GeometricFunctions.glsl", result)
+LoadFile("builtin-functions/ImageAtomicFunctions.glsl", result)
+LoadFile("builtin-functions/ImageAtomicFunctions2.glsl", result)
 LoadFile("builtin-functions/ImageFunctions.glsl", result)
 LoadFile("builtin-functions/IntegerFunctions.glsl", result)
 LoadFile("builtin-functions/MatrixFunctions.glsl", result)
@@ -40,6 +44,7 @@ LoadFile("stage/RayTracingShaderNV.glsl", result)
 
 LoadFile("extension/GL_EXT_ray_query.glsl", result)
 LoadFile("extension/GL_NV_shader_sm_builtins.glsl", result)
+# LoadFile("extension/GL_NV_cooperative_matrix.glsl", result)
 
 
 with open(
