@@ -97,6 +97,11 @@ namespace glsld
 
     auto CompilerObject::InitializeCompilation() -> void
     {
+        // FIXME: We enable all extensions by default for now. Support properly scanning the source code for extension
+#define DECL_EXTENSION(EXTENSION_NAME) EnableExtension(ExtensionId::EXTENSION_NAME);
+#include "GlslExtension.inc"
+#undef DECL_EXTENSION
+
         // Initialize context for compilation
         this->sourceContext = std::make_unique<SourceContext>(preamble ? &preamble->GetSourceContext() : nullptr);
         if (!preamble) {
