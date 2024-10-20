@@ -73,16 +73,33 @@ namespace glsld
             // TODO: implement this
         }
         else if (cmd == "__glsld_syscmd_require_stage__") {
-            systemSettings->requiredStages.ClearAll();
-            for (auto& argTok : args) {
-                GLSLD_ASSERT(argTok.IsIdentifier());
-                auto stage = ParseSystemCommandShaderStage(argTok.text.StrView());
-                systemSettings->requiredStages.SetBit(stage);
+            GLSLD_ASSERT(systemSettings);
+            systemSettings->requiredStageDisabled = true;
+            if (compilerObject.GetTarget().stage == GlslShaderStage::Unknown) {
+                systemSettings->requiredStageDisabled = false;
+            }
+            else {
+                for (auto& argTok : args) {
+                    GLSLD_ASSERT(argTok.IsIdentifier());
+                    auto stage = ParseSystemCommandShaderStage(argTok.text.StrView());
+                    if (stage == compilerObject.GetTarget().stage) {
+                        systemSettings->requiredStageDisabled = false;
+                        break;
+                    }
+                }
             }
         }
         else if (cmd == "__glsld_syscmd_require_extension__") {
             GLSLD_ASSERT(systemSettings);
-            systemSettings->needsExtension = true;
+            systemSettings->requiredExtensionDisabled = false;
+            for (auto& argTok : args) {
+                GLSLD_ASSERT(argTok.IsIdentifier());
+                auto extensionId = ParseExtensionName(argTok.text.StrView());
+                GLSLD_ASSERT(extensionId.has_value());
+                if (!compilerObject.GetExtensionStatus().IsExtensionEnabled(*extensionId)) {
+                    systemSettings->requiredExtensionDisabled = true;
+                }
+            }
         }
     }
 
@@ -116,27 +133,17 @@ namespace glsld
                 break;
             }
 
-            if (systemSettings) {
-                bool skipMode = false;
+            if (systemSettings &&
+                (systemSettings->requiredStageDisabled || systemSettings->requiredExtensionDisabled)) {
 
-                if (compilerObject.GetTarget().stage != GlslShaderStage::Unknown &&
-                    !systemSettings->requiredStages.TestBit(compilerObject.GetTarget().stage)) {
-                    skipMode = true;
-                }
-                if (systemSettings->needsExtension) {
-                    skipMode = true;
-                }
-
-                if (skipMode) {
-                    // The following tokens require the extension to be enabled
-                    // FIXME: implement this, we skip those tokens for now
-                    while (!Eof()) {
-                        if (!PeekToken().IsIdentifier() || !PeekToken().text.StrView().StartWith("__glsld_syscmd_")) {
-                            ConsumeToken();
-                        }
-                        else {
-                            break;
-                        }
+                // The following tokens require the extension to be enabled
+                // FIXME: implement this, we skip those tokens for now
+                while (!Eof()) {
+                    if (!PeekToken().IsIdentifier() || !PeekToken().text.StrView().StartWith("__glsld_syscmd_")) {
+                        ConsumeToken();
+                    }
+                    else {
+                        break;
                     }
                 }
             }

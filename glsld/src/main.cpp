@@ -30,7 +30,7 @@ namespace glsld
     auto WaitDebuggerToAttach() -> void
     {
         using namespace std::literals;
-        std::this_thread::sleep_for(10s);
+        // std::this_thread::sleep_for(10s);
     }
 #endif
 

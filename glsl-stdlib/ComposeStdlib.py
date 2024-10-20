@@ -39,9 +39,13 @@ LoadFile("stage/RayTracingShaderEXT.glsl", result)
 LoadFile("stage/RayTracingShaderNV.glsl", result)
 
 LoadFile("extension/GL_EXT_ray_query.glsl", result)
+LoadFile("extension/GL_NV_shader_sm_builtins.glsl", result)
 
 
-with open(os.path.join(SCRIPT_PATH, "Stdlib.Generated.h"), "w") as file:
+with open(
+    os.path.join(SCRIPT_PATH, "../glsld-common/include/Language/Stdlib.Generated.h"),
+    "w",
+) as file:
     file.write("// clang-format off\n")
     for line in result:
         file.write(line + "\n")

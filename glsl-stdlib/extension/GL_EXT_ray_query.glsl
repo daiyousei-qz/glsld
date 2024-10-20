@@ -1,6 +1,21 @@
 __glsld_syscmd_begin_context__;
 __glsld_syscmd_require_extension__ GL_EXT_ray_query;
 
+const uint gl_RayFlagsNoneEXT = 0U;
+const uint gl_RayFlagsOpaqueEXT = 1U;
+const uint gl_RayFlagsNoOpaqueEXT = 2U;
+const uint gl_RayFlagsTerminateOnFirstHitEXT = 4U;
+const uint gl_RayFlagsSkipClosestHitShaderEXT = 8U;
+const uint gl_RayFlagsCullBackFacingTrianglesEXT = 16U;
+const uint gl_RayFlagsCullFrontFacingTrianglesEXT = 32U;
+const uint gl_RayFlagsCullOpaqueEXT = 64U;
+const uint gl_RayFlagsCullNoOpaqueEXT = 128U;
+const uint gl_RayFlagsSkipTrianglesEXT = 256U;
+const uint gl_RayFlagsSkipAABBEXT = 512U;
+const uint gl_RayFlagsForceOpacityMicromap2StateEXT = 1024U;
+const uint gl_HitKindFrontFacingTriangleEXT = 254U;
+const uint gl_HitKindBackFacingTriangleEXT = 255U;
+
 const uint gl_RayQueryCandidateIntersectionEXT = 0U;
 const uint gl_RayQueryCommittedIntersectionEXT = 1U;
 const uint gl_RayQueryCommittedIntersectionNoneEXT = 0U;

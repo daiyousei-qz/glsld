@@ -1,0 +1,28 @@
+#if !defined(DECL_EXTENSION)
+#error "missing DECL_EXTENSION macro"
+#else
+
+DECL_EXTENSION(GL_NV_shader_sm_builtins)
+DECL_EXTENSION(GL_NV_cooperative_matrix)
+DECL_EXTENSION(GL_NV_integer_cooperative_matrix)
+
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_int8)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_int16)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_int32)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_int64)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_float16)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_float32)
+DECL_EXTENSION(GL_EXT_shader_explicit_arithmetic_types_float64)
+DECL_EXTENSION(GL_EXT_debug_printf)
+DECL_EXTENSION(GL_EXT_ray_tracing)
+DECL_EXTENSION(GL_EXT_ray_query)
+DECL_EXTENSION(GL_EXT_ray_flags_primitive_culling)
+DECL_EXTENSION(GL_EXT_ray_cull_mask)
+DECL_EXTENSION(GL_EXT_mesh_shader)
+
+DECL_EXTENSION(GL_NV_ray_tracing)
+DECL_EXTENSION(GL_NV_ray_tracing_motion_blur)
+DECL_EXTENSION(GL_NV_mesh_shader)
+
+#endif

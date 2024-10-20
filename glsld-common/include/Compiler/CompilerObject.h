@@ -4,6 +4,7 @@
 #include "Basic/StringView.h"
 #include "Basic/FileSystemProvider.h"
 #include "Language/ShaderTarget.h"
+#include "Language/Extension.h"
 
 #include <memory>
 #include <vector>
@@ -89,6 +90,8 @@ namespace glsld
 
         CompilerTarget target = {};
 
+        ExtensionStatus extensionStatus = {};
+
         std::shared_ptr<CompiledPreamble> preamble = nullptr;
 
         // Only effective when preamble is nullptr
@@ -124,6 +127,11 @@ namespace glsld
         auto GetTarget() const noexcept -> const CompilerTarget&
         {
             return target;
+        }
+
+        auto GetExtensionStatus() const noexcept -> const ExtensionStatus&
+        {
+            return extensionStatus;
         }
 
         auto GetSourceContext() const noexcept -> const SourceContext&
@@ -178,6 +186,11 @@ namespace glsld
         {
             // FIXME: Check if path is valid
             config.includePaths.push_back(path);
+        }
+
+        auto EnableExtension(ExtensionId id) -> void
+        {
+            extensionStatus.EnableExtension(id);
         }
 
         auto SetUserPreamble(StringView content) -> void

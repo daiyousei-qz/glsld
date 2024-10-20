@@ -49,16 +49,14 @@ namespace glsld
 
         struct SystemSettings
         {
-            // The minimum GLSL version (inclusive) required by the following tokens.
-            GlslVersion minVersion = GlslVersion::Ver110;
-            // The maximum GLSL version (inclusive) required by the following tokens.
-            GlslVersion maxVersion = GlslVersion::Ver460;
-            // The shader stage required by the following tokens.
-            GlslShaderStageBits requiredStages;
+            // True if __glsld_syscmd_require_version__ is unsatisfied.
+            bool requiredVersionDisabled = false;
 
-            // TODO: support extension
-            bool needsExtension = false;
-            // std::vector<std::string> requiredExtensions;
+            // True if __glsld_syscmd_require_stage__ is unsatisfied.
+            bool requiredStageDisabled = false;
+
+            // True if __glsld_syscmd_require_extension__ is unsatisfied.
+            bool requiredExtensionDisabled = false;
         };
 
         std::optional<SystemSettings> systemSettings;
