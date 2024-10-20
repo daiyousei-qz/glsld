@@ -21,4 +21,4 @@ out gl_PerVertex {
     float gl_CullDistance[];
 };
 
-__glsld_syscmd_end_context__
+__glsld_syscmd_end_context__;

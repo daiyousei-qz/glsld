@@ -14,7 +14,7 @@ def LoadFile(filename: str, output: list):
 
 
 result = []
-LoadFile("builtin-constants.glsl", result)
+LoadFile("BuiltinConstants.glsl", result)
 
 LoadFile("builtin-functions/AtomicCounterFunctions.glsl", result)
 LoadFile("builtin-functions/AtomicMemoryFunctions.glsl", result)

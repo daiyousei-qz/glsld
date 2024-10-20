@@ -11,8 +11,8 @@ in gl_PerVertex {
     float gl_PointSize;
     float gl_ClipDistance[];
     float gl_CullDistance[];
-    vec4 gl_SecondaryPositionNV;
-    vec4 gl_PositionPerViewNV[];
+    // vec4 gl_SecondaryPositionNV;
+    // vec4 gl_PositionPerViewNV[];
 } gl_in[];
 in int gl_PrimitiveIDIn;
 out gl_PerVertex {
@@ -25,4 +25,4 @@ out int gl_PrimitiveID;
 out int gl_Layer;
 out int gl_ViewportIndex;
 
-__glsld_syscmd_end_context__
+__glsld_syscmd_end_context__;

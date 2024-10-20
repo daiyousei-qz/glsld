@@ -76,4 +76,4 @@ __glsld_syscmd_require_target__ vulkan;
 
 const highp int gl_MaxInputAttachments = 1; // only present when targeting Vulkan
 
-__glsld_syscmd_end_context__
+__glsld_syscmd_end_context__;
