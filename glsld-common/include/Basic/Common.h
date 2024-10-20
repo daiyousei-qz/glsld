@@ -6,8 +6,8 @@
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 #define GLSLD_REQUIRE(EXPR) assert(EXPR)
 
-#define GLSLD_UNREACHABLE() std::abort()
-#define GLSLD_NO_IMPL() std::abort()
+#define GLSLD_UNREACHABLE() (assert(false), std::abort())
+#define GLSLD_NO_IMPL() (assert(false), std::abort())
 
 namespace glsld
 {
@@ -16,9 +16,7 @@ namespace glsld
 
     template <typename T>
     concept Hashable = requires(T value) {
-        {
-            value.GetHashCode()
-        } -> std::convertible_to<size_t>;
+        { value.GetHashCode() } -> std::convertible_to<size_t>;
     };
 
     template <typename T, size_t Extent = std::dynamic_extent>
