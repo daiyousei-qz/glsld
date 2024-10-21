@@ -7,6 +7,14 @@
 
 namespace glsld
 {
+    enum class ExtensionBehavior
+    {
+        Disable,
+        Enable,
+        Warn,
+        Require,
+    };
+
     enum class ExtensionId
     {
 #define DECL_EXTENSION(EXTENSION_NAME) EXTENSION_NAME,

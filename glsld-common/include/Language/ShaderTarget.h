@@ -105,6 +105,8 @@ namespace glsld
             return "RayClosestHit";
         case GlslShaderStage::RayMiss:
             return "RayMiss";
+        case GlslShaderStage::RayCallable:
+            return "RayCallable";
         case GlslShaderStage::Task:
             return "Task";
         case GlslShaderStage::Mesh:

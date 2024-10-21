@@ -96,8 +96,13 @@ namespace glsld
             return;
         }
 
-        Tokenizer tokenizer{compilerObject, *this, sourceFile};
-        tokenizer.DoTokenize();
+        if (versionScanningMode) {
+            AtomTable atomTable;
+            Tokenizer{compilerObject, atomTable, *this, sourceFile}.DoTokenize();
+        }
+        else {
+            Tokenizer{compilerObject, compilerObject.GetLexContext().GetAtomTable(), *this, sourceFile}.DoTokenize();
+        }
     }
 
     auto Preprocessor::DispatchTokenToHandler(const PPToken& token) -> void
@@ -105,6 +110,10 @@ namespace glsld
         switch (state) {
         case PreprocessorState::Default:
             AcceptOnDefaultState(token);
+            break;
+
+        case glsld::PreprocessorState::Halt:
+            GLSLD_ASSERT(false);
             break;
 
         case PreprocessorState::Inactive:
@@ -125,12 +134,17 @@ namespace glsld
     auto Preprocessor::AcceptOnDefaultState(const PPToken& token) -> void
     {
         if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-            state = PreprocessorState::ExpectDirective;
+            TransitionTo(PreprocessorState::ExpectDirective);
         }
         else {
             if (token.klass != TokenKlass::Comment) {
-                // FIXME: we ignore comment for now.
-                macroExpansionProcessor.Feed(token);
+                if (versionScanningMode) {
+                    TransitionTo(PreprocessorState::Halt);
+                }
+                else {
+                    // FIXME: we ignore comment for now.
+                    macroExpansionProcessor.Feed(token);
+                }
             }
         }
     }
@@ -267,6 +281,10 @@ namespace glsld
         }
         else {
             // FIXME: warn about unknown directives
+        }
+
+        if (versionScanningMode) {
+            // FIXME: should we also halt PP in version scanning mode for directives that are not version/extension?
         }
     }
 
@@ -557,16 +575,38 @@ namespace glsld
         conditionalStack.pop_back();
     }
 
+    auto ParseExtensionBehavior(const PPToken& toggle) -> std::optional<ExtensionBehavior>
+    {
+        GLSLD_ASSERT(toggle.klass == TokenKlass::Identifier);
+        if (toggle.text == "enable") {
+            return ExtensionBehavior::Enable;
+        }
+        else if (toggle.text == "require") {
+            return ExtensionBehavior::Require;
+        }
+        else if (toggle.text == "warn") {
+            return ExtensionBehavior::Warn;
+        }
+        else if (toggle.text == "disable") {
+            return ExtensionBehavior::Disable;
+        }
+        else {
+            return std::nullopt;
+        }
+    }
+
     auto Preprocessor::HandleExtensionDirective(PPTokenScanner& scanner) -> void
     {
-        PPToken extensionName;
-        PPToken extensionToggle;
-
         if (!scanner.TryTestToken(TokenKlass::Identifier)) {
             // FIXME: report error, expected an extension name
             return;
         }
-        extensionName = scanner.ConsumeToken();
+        auto extensionNameTok = scanner.ConsumeToken();
+        auto extension        = ParseExtensionName(extensionNameTok.text.StrView());
+        if (!extension) {
+            // FIXME: report error, invalid extension name
+            return;
+        }
 
         if (!scanner.TryConsumeToken(TokenKlass::Colon)) {
             // FIXME: report error, expected a colon
@@ -576,11 +616,17 @@ namespace glsld
             // FIXME: report error, expected an extension toggle
             return;
         }
-        extensionToggle = scanner.ConsumeToken();
+        auto extensionBehaviorTok = scanner.ConsumeToken();
+        auto behavior             = ParseExtensionBehavior(extensionBehaviorTok);
+        if (!behavior) {
+            // FIXME: report error, invalid extension toggle
+            return;
+        }
 
         // TODO: validate the extension name and toggle
         if (callback) {
-            callback->OnExtensionDirective(extensionName, extensionToggle);
+            callback->OnExtensionDirective(extensionNameTok.spelledFile, extensionNameTok.spelledRange, *extension,
+                                           *behavior);
         }
     }
 
@@ -713,7 +759,7 @@ namespace glsld
         GLSLD_ASSERT(version && profile);
         // TODO: validate the version number and profile
         if (callback) {
-            callback->OnVersionDirective(*version, *profile);
+            callback->OnVersionDirective(versionTok.spelledFile, versionTok.spelledRange, *version, *profile);
         }
     }
 

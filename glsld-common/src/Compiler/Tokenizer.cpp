@@ -12,9 +12,9 @@ namespace glsld::detail
 
 namespace glsld
 {
-    Tokenizer::Tokenizer(CompilerObject& compilerObject, Preprocessor& preprocessor, FileID sourceFileId,
-                         bool countUtf16Characters)
-        : compilerObject(compilerObject), preprocessor(preprocessor), sourceFileId(sourceFileId)
+    Tokenizer::Tokenizer(CompilerObject& compilerObject, AtomTable& atomTable, Preprocessor& preprocessor,
+                         FileID sourceFileId, bool countUtf16Characters)
+        : compilerObject(compilerObject), atomTable(atomTable), preprocessor(preprocessor), sourceFileId(sourceFileId)
     {
         auto sourceText = compilerObject.GetSourceContext().GetSourceText(sourceFileId);
         srcScanner      = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), countUtf16Characters};
@@ -24,7 +24,7 @@ namespace glsld
     {
         GLSLD_ASSERT(preprocessor.GetState() == PreprocessorState::Default);
         std::vector<PPToken> ppLineBuffer;
-        while (true) {
+        while (!preprocessor.ShouldHaltLexing()) {
             PPToken token = LexPPToken();
 
             if (token.klass == TokenKlass::Eof) {
@@ -46,10 +46,6 @@ namespace glsld
                     GLSLD_TRACE_TOKEN_LEXED(token);
                     preprocessor.IssuePPToken(token);
                 }
-            }
-
-            if (token.klass == TokenKlass::Eof) {
-                break;
             }
         }
     }
@@ -99,7 +95,7 @@ namespace glsld
             }
         }
 
-        AtomString text     = compilerObject.GetLexContext().GetAtomString(StringView{tokenTextBuffer});
+        AtomString text     = atomTable.GetAtom(StringView{tokenTextBuffer});
         TextPosition endPos = srcScanner.GetTextPosition();
 
         return PPToken{

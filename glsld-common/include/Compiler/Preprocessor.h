@@ -16,6 +16,9 @@ namespace glsld
         // The lexing should be performed normally.
         Default,
 
+        // The lexing should be halted immediately.
+        Halt,
+
         // The lexing should be disabled because of conditional compilation.
         Inactive,
 
@@ -51,10 +54,10 @@ namespace glsld
         CompilerObject& compilerObject;
 
         // The callback interface for the preprocessor.
-        PPCallback* callback;
+        PPCallback* callback = nullptr;
 
         // The current state of the preprocessor.
-        PreprocessorState state;
+        PreprocessorState state = PreprocessorState::Default;
 
         struct ExpandToLexContextCallback final
         {
@@ -133,27 +136,36 @@ namespace glsld
         // The token expansion range in the main file.
         // - If we are at an included file, this is the expanded range of all tokens.
         // - If we are at the main file, this should always be std::nullopt.
-        std::optional<TextRange> includeExpansionRange;
+        std::optional<TextRange> includeExpansionRange = std::nullopt;
 
         // The current include depth. Preprocessor should stop including headers when this value exceeds the limit.
         size_t includeDepth = 0;
 
+        // If the preprocessor should do fast scanning for version/extension directive.
+        // In this mode, the preprocessor will halt the lexing when it sees the first non-comment/preprocessor token.
+        bool versionScanningMode = false;
+
         // The current PP directive token being processed.
-        std::optional<PPToken> directiveToken;
+        std::optional<PPToken> directiveToken = std::nullopt;
 
         // This buffer stores the tokens following the PP directive.
-        std::vector<PPToken> directiveArgBuffer;
+        std::vector<PPToken> directiveArgBuffer = {};
 
         // This stack stores all information about the conditional directives.
-        std::vector<PPConditionalInfo> conditionalStack;
+        std::vector<PPConditionalInfo> conditionalStack = {};
 
     public:
+        Preprocessor(CompilerObject& compilerObject, PPCallback* callback)
+            : compilerObject(compilerObject), callback(callback),
+              macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this})
+        {
+            versionScanningMode = true;
+        }
         Preprocessor(CompilerObject& compilerObject, PPCallback* callback,
                      std::optional<TextRange> includeExpansionRange, size_t includeDepth)
-            : compilerObject(compilerObject), callback(callback), state(PreprocessorState::Default),
+            : compilerObject(compilerObject), callback(callback),
               macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this}),
-              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth), directiveToken(),
-              directiveArgBuffer(), conditionalStack()
+              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
         {
         }
 
@@ -179,6 +191,12 @@ namespace glsld
             return state == PreprocessorState::ExpectIncludeDirectiveTail;
         }
 
+        // This flag instructs the tokenizer to halt lexing even if the source file is not ended.
+        auto ShouldHaltLexing() const noexcept -> bool
+        {
+            return state == PreprocessorState::Halt;
+        }
+
         // Issue a PP token to the preprocessor. The token will be processed according to the current state.
         auto IssuePPToken(const PPToken& token) -> void
         {
@@ -198,6 +216,7 @@ namespace glsld
     private:
         // Possible transitions:
         // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
+        // - Default -> Halt (See the first token that is not comment nor part of preprocessor in version scanning mode)
         // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
         // - ExpectDirective -> Default (Empty directive parsed)
         // - ExpectDirective -> Inactive (Current PP directive cannot exit the inactive region)

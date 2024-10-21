@@ -19,19 +19,35 @@ namespace glsld
         return nextId++;
     }
 
+    CompilerObject::CompilerObject() = default;
     CompilerObject::CompilerObject(std::shared_ptr<CompiledPreamble> preamble)
     {
         this->target   = preamble->target;
         this->preamble = std::move(preamble);
     }
-    CompilerObject::CompilerObject(CompilerTarget target)
-    {
-        this->target = target;
-        systemPreambleContent =
-#include "Language/Stdlib.Generated.h"
-            ;
-    }
     CompilerObject::~CompilerObject() = default;
+
+    auto CompilerObject::SetMainFileFromFile(StringView path) -> void
+    {
+        InitializeSourceContext();
+        mainFileId = sourceContext->OpenFromFile(path.StdStrView());
+    }
+
+    auto CompilerObject::SetMainFileFromBuffer(StringView sourceText) -> void
+    {
+        InitializeSourceContext();
+        mainFileId = sourceContext->OpenFromBuffer(sourceText);
+    }
+
+    auto CompilerObject::ScanVersionAndExtension(PPCallback* ppCallback) -> void
+    {
+        if (!mainFileId.IsValid()) {
+            // FIXME: report error
+            return;
+        }
+
+        Preprocessor{*this, ppCallback}.PreprocessSourceFile(mainFileId);
+    }
 
     auto CompilerObject::CompilePreamble() -> std::shared_ptr<CompiledPreamble>
     {
@@ -64,35 +80,37 @@ namespace glsld
         return std::move(result);
     }
 
-    auto CompilerObject::CompileFromFile(StringView path, PPCallback* ppCallback) -> void
+    auto CompilerObject::CompileMainFile(PPCallback* ppCallback) -> void
     {
+        if (!mainFileId.IsValid()) {
+            // FIXME: report error
+            return;
+        }
+
         InitializeCompilation();
         if (!preamble) {
             DoPreprocess(FileID::SystemPreamble(), nullptr);
             DoPreprocess(FileID::UserPreamble(), nullptr);
         }
-        auto file = sourceContext->OpenFromFile(path.StdStrView());
-        if (!file.IsValid()) {
-            // FIXME: report error
-            return;
-        }
-        DoPreprocess(file, ppCallback);
+        DoPreprocess(mainFileId, ppCallback);
         DoParse();
         DoTypeCheck();
         FinalizeCompilation();
     }
 
-    auto CompilerObject::CompileFromBuffer(StringView sourceText, PPCallback* ppCallback) -> void
+    auto CompilerObject::InitializeSourceContext() -> void
     {
-        InitializeCompilation();
-        if (!preamble) {
-            DoPreprocess(FileID::SystemPreamble(), ppCallback);
-            DoPreprocess(FileID::UserPreamble(), ppCallback);
+        if (sourceContext) {
+            return;
         }
-        DoPreprocess(sourceContext->OpenFromBuffer(sourceText), ppCallback);
-        DoParse();
-        DoTypeCheck();
-        FinalizeCompilation();
+
+        if (!preamble) {
+            systemPreambleContent =
+#include "Language/Stdlib.Generated.h"
+                ;
+        }
+
+        this->sourceContext = std::make_unique<SourceContext>(preamble ? &preamble->GetSourceContext() : nullptr);
     }
 
     auto CompilerObject::InitializeCompilation() -> void
@@ -103,7 +121,7 @@ namespace glsld
 #undef DECL_EXTENSION
 
         // Initialize context for compilation
-        this->sourceContext = std::make_unique<SourceContext>(preamble ? &preamble->GetSourceContext() : nullptr);
+        InitializeSourceContext();
         if (!preamble) {
             this->sourceContext->SetSystemPreamble(systemPreambleContent);
             this->sourceContext->SetUserPreamble(userPreambleContent);

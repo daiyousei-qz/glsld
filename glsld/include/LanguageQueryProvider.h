@@ -266,7 +266,8 @@ namespace glsld
             provider.compilerObject = std::make_unique<CompilerObject>(GetStandardLibraryModule());
             provider.compilerObject->AddIncludePath(
                 std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
-            provider.compilerObject->CompileFromBuffer(sourceString, ppCallback.get());
+            provider.compilerObject->SetMainFileFromBuffer(sourceString);
+            provider.compilerObject->CompileMainFile(ppCallback.get());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

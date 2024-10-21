@@ -74,10 +74,9 @@ namespace glsld
             return builtinAtoms;
         }
 
-        // Get the AtomString of the given text in the atom table.
-        auto GetAtomString(StringView text) -> AtomString
+        auto GetAtomTable() -> AtomTable&
         {
-            return atomTable.GetAtom(text);
+            return atomTable;
         }
 
         // Add a new token to the token stream of this translation unit.

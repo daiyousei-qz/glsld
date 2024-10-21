@@ -2,11 +2,8 @@
 #include "LanguageServer.h"
 
 #if defined(GLSLD_OS_WIN)
-// #include <debugapi.h>
+#include <windows.h>
 #endif
-
-#include <vector>
-#include <nlohmann/json.hpp>
 
 namespace glsld
 {
@@ -16,27 +13,30 @@ namespace glsld
 
 #if defined(GLSLD_DEBUG)
 
-    auto HasDebuggerAttached() -> bool
+    static auto HasDebuggerAttached() -> bool
     {
 #if defined(GLSLD_OS_WIN)
-        return false;
-#elif defined(GLSLD_OS_LINUX)
-        return false;
+        return IsDebuggerPresent() != 0;
 #else
         return false;
 #endif
     }
 
-    auto WaitDebuggerToAttach() -> void
+    static auto WaitDebuggerToAttach() -> void
     {
         using namespace std::literals;
-        // std::this_thread::sleep_for(10s);
+        for (int i = 0; i < 10; ++i) {
+            if (HasDebuggerAttached()) {
+                break;
+            }
+            std::this_thread::sleep_for(1s);
+        }
     }
 #endif
 
     auto DoMain() -> void
     {
-#if defined(GLSLD_DEBUG)
+#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
         WaitDebuggerToAttach();
 #endif
 

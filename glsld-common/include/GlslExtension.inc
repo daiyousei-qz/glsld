@@ -2,6 +2,9 @@
 #error "missing DECL_EXTENSION macro"
 #else
 
+DECL_EXTENSION(GL_GOOGLE_cpp_style_line_directive)
+DECL_EXTENSION(GL_GOOGLE_include_directive)
+
 DECL_EXTENSION(GL_KHR_memory_scope_semantics)
 
 DECL_EXTENSION(GL_NV_shader_sm_builtins)

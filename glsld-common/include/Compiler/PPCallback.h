@@ -1,6 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Compiler/SyntaxToken.h"
+#include "Language/Extension.h"
 #include "Language/ShaderTarget.h"
 
 namespace glsld
@@ -8,10 +9,11 @@ namespace glsld
     class PPCallback
     {
     public:
-        virtual auto OnVersionDirective(GlslVersion version, GlslProfile profile) -> void
+        virtual auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void
         {
         }
-        virtual auto OnExtensionDirective(const PPToken& extension, const PPToken& toggle) -> void
+        virtual auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
+                                          ExtensionBehavior behavior) -> void
         {
         }
 

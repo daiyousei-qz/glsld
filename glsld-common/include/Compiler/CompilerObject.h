@@ -86,19 +86,23 @@ namespace glsld
     class CompilerObject final
     {
     private:
+        std::shared_ptr<CompiledPreamble> preamble = nullptr;
+
         CompilerConfig config = {};
 
+        // Only effective when preamble is nullptr
         CompilerTarget target = {};
 
+        // Only effective when preamble is nullptr
         ExtensionStatus extensionStatus = {};
-
-        std::shared_ptr<CompiledPreamble> preamble = nullptr;
 
         // Only effective when preamble is nullptr
         StringView systemPreambleContent = "";
 
         // Only effective when preamble is nullptr
         StringView userPreambleContent = "";
+
+        FileID mainFileId = {};
 
         std::unique_ptr<SourceContext> sourceContext = nullptr;
         std::unique_ptr<LexContext> lexContext       = nullptr;
@@ -107,10 +111,8 @@ namespace glsld
         std::unique_ptr<DiagnosticStream> diagStream = nullptr;
 
     public:
+        CompilerObject();
         CompilerObject(std::shared_ptr<CompiledPreamble> preamble);
-        // TODO: Support extension. Note the list of extensions should be passed to the constructor.
-        //       That means, user may need scan the source file using another CompilerObject first.
-        CompilerObject(CompilerTarget target);
 
         ~CompilerObject();
 
@@ -188,23 +190,41 @@ namespace glsld
             config.includePaths.push_back(path);
         }
 
-        auto EnableExtension(ExtensionId id) -> void
+        auto SetTarget(CompilerTarget target) -> void
         {
-            extensionStatus.EnableExtension(id);
+            if (!preamble) {
+                this->target = target;
+            }
         }
 
+        auto EnableExtension(ExtensionId id) -> void
+        {
+            if (!preamble) {
+                extensionStatus.EnableExtension(id);
+            }
+        }
+
+        // User should ensure that the preamble text outlive the CompilerObject
         auto SetUserPreamble(StringView content) -> void
         {
             userPreambleContent = content;
         }
 
+        auto SetMainFileFromFile(StringView path) -> void;
+
+        // User should ensure that the source text outlive the CompilerObject
+        auto SetMainFileFromBuffer(StringView sourceText) -> void;
+
         auto CompilePreamble() -> std::shared_ptr<CompiledPreamble>;
 
-        auto CompileFromFile(StringView path, PPCallback* ppCallback) -> void;
+        // Scan the starting part of the main file to get the version and extensions.
+        // Scanning should end at the first non-comment, non-preprocessor token.
+        auto ScanVersionAndExtension(PPCallback* ppCallback) -> void;
 
-        auto CompileFromBuffer(StringView sourceText, PPCallback* ppCallback) -> void;
+        auto CompileMainFile(PPCallback* ppCallback) -> void;
 
     private:
+        auto InitializeSourceContext() -> void;
         auto InitializeCompilation() -> void;
         auto DoPreprocess(FileID file, PPCallback* callback) -> void;
         auto DoParse() -> void;

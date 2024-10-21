@@ -5,7 +5,7 @@ namespace glsld
     auto GetStandardLibraryModule() -> std::shared_ptr<CompiledPreamble>
     {
         static const std::shared_ptr<CompiledPreamble> module = [] {
-            CompilerObject compilerObject{CompilerTarget{}};
+            CompilerObject compilerObject{};
             return compilerObject.CompilePreamble();
         }();
 
