@@ -157,4 +157,14 @@ namespace glsld
         return TokenKlass::Unknown;
     }
 
+    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>
+    {
+        std::vector<char> tokenTextBuffer;
+        tokenTextBuffer.reserve(text.Size());
+
+        SourceScanner srcScanner{text.data(), text.data() + text.Size()};
+        TokenKlass klass = detail::Tokenize(srcScanner, tokenTextBuffer);
+        return {klass, srcScanner.GetScannedText(), srcScanner.GetRemainingText()};
+    }
+
 } // namespace glsld

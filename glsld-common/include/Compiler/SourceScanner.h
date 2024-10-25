@@ -58,6 +58,16 @@ namespace glsld
             return srcCursor == srcEnd;
         }
 
+        auto GetScannedText() const noexcept -> StringView
+        {
+            return StringView{srcBegin, srcCursor};
+        }
+
+        auto GetRemainingText() const noexcept -> StringView
+        {
+            return StringView{srcCursor, srcEnd};
+        }
+
         // Get the current cursor position in the source text in line number and character offset in the line.
         auto GetTextPosition() const noexcept -> TextPosition
         {

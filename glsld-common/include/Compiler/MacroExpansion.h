@@ -2,9 +2,12 @@
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/LexContext.h"
 #include "Compiler/MacroDefinition.h"
+#include "Compiler/PPTokenScanner.h"
 
 namespace glsld
 {
+    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
+
     // Flexible, could either
     // - Register token to LexContext
     // - Add token to a buffer
@@ -29,6 +32,10 @@ namespace glsld
         template <typename BaseCallback>
         class MacroArgumentExpansionCallback final : public EmptyMacroExpansionCallback
         {
+        private:
+            BaseCallback& baseCallback;
+            std::vector<PPToken>& outputBuffer;
+
         public:
             MacroArgumentExpansionCallback(BaseCallback& baseCallback, std::vector<PPToken>& outputBuffer)
                 : baseCallback(baseCallback), outputBuffer(outputBuffer)
@@ -56,10 +63,6 @@ namespace glsld
             {
                 baseCallback.OnExitMacroExpansion(macroUse);
             }
-
-        private:
-            BaseCallback& baseCallback;
-            std::vector<PPToken>& outputBuffer;
         };
 
         // This class implement a recursive feedback-driven macro expansion. Tokens that are not eligible for
@@ -206,31 +209,122 @@ namespace glsld
                 }
             }
 
+            auto FeedPastedToken(const PPToken& macroUseTok, const PPToken& lhs, const PPToken& rhs) -> void
+            {
+                std::string pastedText;
+                pastedText += lhs.text.StrView();
+                pastedText += rhs.text.StrView();
+
+                auto [klass, tokText, remText] = TokenizeOnce(pastedText);
+                if (remText.Empty()) {
+                    Feed(PPToken{
+                        .klass                = klass,
+                        .spelledFile          = macroUseTok.spelledFile,
+                        .spelledRange         = TextRange{macroUseTok.spelledRange.start},
+                        .text                 = lexContext.GetAtomTable().GetAtom(tokText),
+                        .isFirstTokenOfLine   = false,
+                        .hasLeadingWhitespace = false,
+                    });
+                }
+                else {
+                    // FIXME: report error, bad token pasting
+                }
+            }
+
+            auto FeedMacroExpansion(const PPToken& macroUseTok, const MacroDefinition& macroDefinition,
+                                    ArrayView<std::vector<PPToken>> expandedArgs) -> void
+            {
+                const auto& paramTokens = macroDefinition.GetParamTokens();
+
+                PPTokenScanner macroScanner{macroDefinition.GetExpansionTokens()};
+                while (!macroScanner.CursorAtEnd()) {
+                    // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
+                    PPToken token              = macroScanner.ConsumeToken();
+                    token.spelledFile          = macroUseTok.spelledFile;
+                    token.spelledRange         = TextRange{macroUseTok.spelledRange.start};
+                    token.isFirstTokenOfLine   = false;
+                    token.hasLeadingWhitespace = false;
+
+                    if (token.klass == TokenKlass::Hash) {
+                        if (macroScanner.TryTestToken(TokenKlass::Identifier, 1)) {
+                            // #identifier, aka. stringification
+                            // However, as GLSL doesn't have string literal, we just discard two tokens.
+                            // FIXME: report error, stringification is not supported.
+                            macroScanner.ConsumeToken();
+                            continue;
+                        }
+
+                        // Fallthrough to be handled as regular token.
+                    }
+                    else if (token.klass == TokenKlass::Identifier) {
+                        if (macroScanner.TryTestToken(TokenKlass::HashHash) &&
+                            macroScanner.TryTestToken(TokenKlass::Identifier, 1)) {
+                            // identifier##identifier, aka. token pasting
+                            macroScanner.ConsumeToken();
+                            PPToken rhsToken = macroScanner.ConsumeToken();
+
+                            ArrayView<PPToken> lhs = ArrayView<PPToken>{&token, 1};
+                            ArrayView<PPToken> rhs = ArrayView<PPToken>{&rhsToken, 1};
+                            for (size_t i = 0; i < paramTokens.size(); ++i) {
+                                if (token.text == paramTokens[i].text) {
+                                    lhs = expandedArgs[i];
+                                }
+                                if (rhsToken.text == paramTokens[i].text) {
+                                    rhs = expandedArgs[i];
+                                }
+                            }
+
+                            if (lhs.size() == 1 && rhs.size() == 1) {
+                                FeedPastedToken(macroUseTok, lhs[0], rhs[0]);
+                            }
+                            else {
+                                // Bad token pasting is ignored and discarded.
+                                // FIXME: report error, token pasting is not supported.
+                            }
+
+                            continue;
+                        }
+                        else {
+                            bool substituted = false;
+                            for (size_t i = 0; i < paramTokens.size(); ++i) {
+                                if (token.text == paramTokens[i].text) {
+                                    for (const PPToken& argToken : expandedArgs[i]) {
+                                        Feed(argToken);
+                                    }
+                                    substituted = true;
+                                    break;
+                                }
+                            }
+
+                            if (substituted) {
+                                continue;
+                            }
+                        }
+
+                        // Fallthrough to be handled as regular token.
+                    }
+
+                    Feed(token);
+                }
+            }
+
             auto ExpandObjectLikeMacro(const PPToken& macroUseTok, MacroDefinition& macroDefinition) -> void
             {
                 // Disable this macro to avoid recursive expansion during rescan.
                 macroDefinition.Disable();
-
-                // Replay the expanded tokens.
-                for (PPToken token : macroDefinition.GetExpansionTokens()) {
-                    // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
-                    token.spelledFile  = macroUseTok.spelledFile;
-                    token.spelledRange = TextRange{macroUseTok.spelledRange.start};
-                    Feed(token);
-                }
-
-                // Re-enable this macro.
+                FeedMacroExpansion(macroUseTok, macroDefinition, {});
                 macroDefinition.Enable();
             }
 
             auto ExpandFunctionLikeMacro(const PPToken& macroUseTok, MacroDefinition& macroDefinition,
                                          std::vector<PPToken> args) -> void
             {
-                const auto& paramTokens     = macroDefinition.GetParamTokens();
-                const auto& expansionTokens = macroDefinition.GetExpansionTokens();
+                const auto& paramTokens = macroDefinition.GetParamTokens();
 
-                // Collect the arguments
+                // Collect the arguments from the token stream.
                 std::vector<ArrayView<PPToken>> originalArgs;
+                originalArgs.reserve(paramTokens.size());
+
                 size_t beginIndex = 0;
                 for (size_t endIndex = 0; endIndex < args.size(); ++endIndex) {
                     if (args[endIndex].klass == TokenKlass::Comma) {
@@ -249,6 +343,7 @@ namespace glsld
                 }
 
                 // Expand the arguments completely, in case of substitution.
+                // TODO: optimize memory allocation.
                 std::vector<std::vector<PPToken>> expandedArgs;
                 for (auto argView : originalArgs) {
                     // FIXME: Handle error in argument expansion.
@@ -275,36 +370,7 @@ namespace glsld
 
                 // Disable this macro to avoid recursive expansion during rescan.
                 macroDefinition.Disable();
-
-                // Replay the expanded tokens
-                for (PPToken token : macroDefinition.GetExpansionTokens()) {
-                    // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
-                    token.spelledFile  = macroUseTok.spelledFile;
-                    token.spelledRange = TextRange{macroUseTok.spelledRange.start};
-
-                    // TODO: Handle token pasting
-                    if (token.klass == TokenKlass::Identifier) {
-                        bool substituted = false;
-                        for (size_t i = 0; i < paramTokens.size(); ++i) {
-                            if (token.text == paramTokens[i].text) {
-                                for (const PPToken& argToken : expandedArgs[i]) {
-                                    Feed(argToken);
-                                }
-                                substituted = true;
-                                break;
-                            }
-                        }
-
-                        if (!substituted) {
-                            Feed(token);
-                        }
-                    }
-                    else {
-                        Feed(token);
-                    }
-                }
-
-                // Re-enable this macro.
+                FeedMacroExpansion(macroUseTok, macroDefinition, expandedArgs);
                 macroDefinition.Enable();
             }
         };

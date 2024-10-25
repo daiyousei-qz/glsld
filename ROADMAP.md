@@ -1,12 +1,10 @@
 # Should have improvement
-- Don't read from disk for every include file
 - Proper file ID handling and jumping
 - Hover on Macro
 - Find references
-- Go to definition
-- Auto generation of lexer on compilation
 
 # Nice to have improvement
+- Don't read from disk for every include file
 - Have feature similar to PCH
 - Delta semantic tokens
 

@@ -50,4 +50,6 @@ namespace glsld
         // Assuming we are seeing `quoteStart`, parse the header name closed by `quoteEnd` and return the token klass.
         auto ParseHeaderName(char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass;
     };
+
+    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
 } // namespace glsld

@@ -6,11 +6,10 @@
 #include "Compiler/LexContext.h"
 #include "Compiler/MacroExpansion.h"
 #include "Compiler/CompilerTrace.h"
+#include "Compiler/PPTokenScanner.h"
 
 namespace glsld
 {
-    class PPTokenScanner;
-
     enum class PreprocessorState
     {
         // The lexing should be performed normally.
