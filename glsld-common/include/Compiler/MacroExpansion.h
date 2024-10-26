@@ -232,6 +232,7 @@ namespace glsld
             }
 
             auto FeedMacroExpansion(const PPToken& macroUseTok, const MacroDefinition& macroDefinition,
+                                    ArrayView<ArrayView<PPToken>> originalArgs,
                                     ArrayView<std::vector<PPToken>> expandedArgs) -> void
             {
                 const auto& paramTokens = macroDefinition.GetParamTokens();
@@ -256,49 +257,68 @@ namespace glsld
 
                         // Fallthrough to be handled as regular token.
                     }
-                    else if (token.klass == TokenKlass::Identifier) {
-                        if (macroScanner.TryTestToken(TokenKlass::HashHash) &&
-                            macroScanner.TryTestToken(TokenKlass::Identifier, 1)) {
-                            // identifier##identifier, aka. token pasting
-                            macroScanner.ConsumeToken();
-                            PPToken rhsToken = macroScanner.ConsumeToken();
-
-                            ArrayView<PPToken> lhs = ArrayView<PPToken>{&token, 1};
-                            ArrayView<PPToken> rhs = ArrayView<PPToken>{&rhsToken, 1};
-                            for (size_t i = 0; i < paramTokens.size(); ++i) {
-                                if (token.text == paramTokens[i].text) {
-                                    lhs = expandedArgs[i];
-                                }
-                                if (rhsToken.text == paramTokens[i].text) {
-                                    rhs = expandedArgs[i];
+                    else if (macroScanner.TryTestToken(TokenKlass::HashHash)) {
+                        // token##token, aka. token pasting
+                        bool pastingFailure = false;
+                        std::string pastedText;
+                        auto pasteTokenText = [&](const PPToken& tok) {
+                            if (tok.klass == TokenKlass::Identifier) {
+                                // Try substitute the parameter names with the unexpanded argument.
+                                for (size_t i = 0; i < paramTokens.size(); ++i) {
+                                    if (tok.text == paramTokens[i].text) {
+                                        if (originalArgs[i].size() == 1) {
+                                            pastedText += originalArgs[i][0].text.StrView();
+                                        }
+                                        else if (!originalArgs.empty()) {
+                                            pastingFailure = true;
+                                        }
+                                        return;
+                                    }
                                 }
                             }
 
-                            if (lhs.size() == 1 && rhs.size() == 1) {
-                                FeedPastedToken(macroUseTok, lhs[0], rhs[0]);
+                            pastedText += tok.text.StrView();
+                        };
+
+                        // Paste all token text into a single string buffer.
+                        pasteTokenText(token);
+                        while (macroScanner.TryConsumeToken(TokenKlass::HashHash)) {
+                            if (!macroScanner.CursorAtEnd()) {
+                                pasteTokenText(macroScanner.ConsumeToken());
                             }
                             else {
-                                // Bad token pasting is ignored and discarded.
-                                // FIXME: report error, token pasting is not supported.
+                                pastingFailure = true;
                             }
+                        }
 
-                            continue;
+                        // Try to tokenize the pasted text.
+                        auto [klass, tokText, remText] = TokenizeOnce(pastedText);
+                        if (!pastingFailure && remText.Empty()) {
+                            token.klass = klass;
+                            token.text  = lexContext.GetAtomTable().GetAtom(tokText);
+                            Feed(token);
                         }
                         else {
-                            bool substituted = false;
-                            for (size_t i = 0; i < paramTokens.size(); ++i) {
-                                if (token.text == paramTokens[i].text) {
-                                    for (const PPToken& argToken : expandedArgs[i]) {
-                                        Feed(argToken);
-                                    }
-                                    substituted = true;
-                                    break;
-                                }
-                            }
+                            // FIXME: report error, bad token pasting
+                        }
 
-                            if (substituted) {
-                                continue;
+                        continue;
+                    }
+                    else if (token.klass == TokenKlass::Identifier) {
+                        // Try substitute the parameter names with the expanded argument.
+                        bool substituted = false;
+                        for (size_t i = 0; i < paramTokens.size(); ++i) {
+                            if (token.text == paramTokens[i].text) {
+                                for (const PPToken& argToken : expandedArgs[i]) {
+                                    Feed(argToken);
+                                }
+                                substituted = true;
+                                break;
                             }
+                        }
+
+                        if (substituted) {
+                            continue;
                         }
 
                         // Fallthrough to be handled as regular token.
@@ -312,7 +332,7 @@ namespace glsld
             {
                 // Disable this macro to avoid recursive expansion during rescan.
                 macroDefinition.Disable();
-                FeedMacroExpansion(macroUseTok, macroDefinition, {});
+                FeedMacroExpansion(macroUseTok, macroDefinition, {}, {});
                 macroDefinition.Enable();
             }
 
@@ -370,7 +390,7 @@ namespace glsld
 
                 // Disable this macro to avoid recursive expansion during rescan.
                 macroDefinition.Disable();
-                FeedMacroExpansion(macroUseTok, macroDefinition, expandedArgs);
+                FeedMacroExpansion(macroUseTok, macroDefinition, originalArgs, expandedArgs);
                 macroDefinition.Enable();
             }
         };

@@ -1,6 +1,7 @@
 # Should have improvement
 - Proper file ID handling and jumping
 - Hover on Macro
+- Completion for Macro
 - Find references
 
 # Nice to have improvement
