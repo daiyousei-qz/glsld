@@ -1017,6 +1017,11 @@ namespace glsld
         return CreateAstNode<AstEmptyDecl>(range);
     }
 
+    auto AstBuilder::BuildPrecisionDecl(AstSyntaxRange range, AstQualType* type) -> AstPrecisionDecl*
+    {
+        return CreateAstNode<AstPrecisionDecl>(range, type);
+    }
+
     static auto ComputeDeclaratorTypes(AstContext& astContext, AstQualType* qualType, ArrayView<Declarator> declarators)
     {
         std::vector<const Type*> types;

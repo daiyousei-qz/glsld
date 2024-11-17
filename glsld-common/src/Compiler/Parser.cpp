@@ -668,10 +668,7 @@ namespace glsld
 
         if (TryTestToken(TokenKlass::K_precision)) {
             // precision decl
-            // FIXME: implement this
-            ReportError("precision decl not supported yet");
-            EnterRecoveryMode();
-            return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
+            return ParsePrecisionDecl();
         }
 
         auto quals = ParseTypeQualifierSeq();
@@ -995,7 +992,36 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        GLSLD_NO_IMPL();
+        GLSLD_ASSERT(TryTestToken(TokenKlass::K_precision));
+        auto beginTokIndex = GetTokenIndex();
+        ConsumeToken();
+
+        // Parse precision qualifier
+        QualifierGroup qualifiers;
+        auto precisionTokIndex = GetTokenIndex();
+        if (TryConsumeToken(TokenKlass::K_highp)) {
+            qualifiers.qHighp = true;
+        }
+        else if (TryConsumeToken(TokenKlass::K_mediump)) {
+            qualifiers.qMediump = true;
+        }
+        else if (TryConsumeToken(TokenKlass::K_lowp)) {
+            qualifiers.qLowp = true;
+        }
+        else {
+            ReportError("expecting precision qualifier");
+            EnterRecoveryMode();
+        }
+        auto qualifierSeq = astBuilder.BuildTypeQualifierSeq(CreateAstSyntaxRange(precisionTokIndex), qualifiers, {});
+
+        // Parse type spec
+        // FIXME: struct shouldn't be parsed here
+        auto typeSpec = ParseTypeSpec(qualifierSeq);
+
+        // Parse ';'
+        ParseOrInferSemicolonHelper();
+
+        return astBuilder.BuildPrecisionDecl(CreateAstSyntaxRange(beginTokIndex), typeSpec);
     }
 
 #pragma endregion

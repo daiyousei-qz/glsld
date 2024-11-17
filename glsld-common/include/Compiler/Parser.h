@@ -366,7 +366,7 @@ namespace glsld
 
         // EXPECT: 'K_precision'
         // PARSE: precision_decl
-        //      - precision_decl := ???
+        //      - precision_decl := 'K_precision' precision-qual type ';'
         //
         // RECOVERY: ^'EOF' or ^';'
         auto ParsePrecisionDecl() -> AstDecl*;

@@ -23,18 +23,13 @@ namespace glsld
 
         std::filesystem::path inputFilePath = inputFile.GetValue();
 
-        std::shared_ptr<CompiledPreamble> stdlibPreamble;
-        if (!noStdlib.HasValue() || !noStdlib.GetValue()) {
-            stdlibPreamble = GetStandardLibraryModule();
-        }
-
         std::unique_ptr<CompilerObject> compiler = nullptr;
         if (!noStdlib.HasValue() || !noStdlib.GetValue()) {
-            compiler = std::make_unique<CompilerObject>();
+            std::shared_ptr<CompiledPreamble> stdlibPreamble;
+            compiler = std::make_unique<CompilerObject>(stdlibPreamble);
         }
         else {
-            // FIXME: support compile with no stdlib
-            GLSLD_NO_IMPL();
+            compiler = std::make_unique<CompilerObject>();
         }
 
         compiler->AddIncludePath(inputFilePath.parent_path());

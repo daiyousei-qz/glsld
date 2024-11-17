@@ -84,6 +84,36 @@ namespace glsld
         }
     };
 
+    class AstPrecisionDecl final : public AstDecl
+    {
+    private:
+        // [Node]
+        NotNull<AstQualType*> type = nullptr;
+
+    public:
+        AstPrecisionDecl(AstQualType* type) : type(type)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return visitor.Traverse(*type);
+        }
+
+        template <AstDumperT Dumper>
+        auto DoDump(Dumper& d) const -> void
+        {
+            AstDecl::DoDump(d);
+            d.DumpChildNode("Type", *type);
+        }
+
+        auto GetType() const noexcept -> const AstQualType*
+        {
+            return type;
+        }
+    };
+
     // Represents a single declarator, including name, array specifier and initializer.
     struct Declarator
     {

@@ -8,6 +8,11 @@
 - Don't read from disk for every include file
 - Have feature similar to PCH
 - Delta semantic tokens
+- C-style casting, aka. (float)1
+
+# Known issues
+- invariant id;
+- layout(xxx) out;
 
 # Known issues
 - `Should support builtin function documentation`
@@ -24,4 +29,3 @@
 - `Test/rayQuery-global.rgen` Why does function call resolution work?
 - `Test/rayQuery-types.comp` Bad AST
 - `Test/bufferhandle2.frag` GL_EXT_buffer_reference; interface block name is a type.
-- Need to properly support UNICODE
