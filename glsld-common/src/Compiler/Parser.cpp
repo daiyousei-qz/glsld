@@ -162,7 +162,7 @@ namespace glsld
             while (!Eof()) {
                 // FIXME: Only parse system commands in the system preamble
                 ParseSystemCommands();
-                decls.push_back(ParseDeclAndTryRecover());
+                decls.push_back(ParseDeclAndTryRecover(true));
             }
 
             if (Exhaused()) {
@@ -296,6 +296,32 @@ namespace glsld
             EnterRecoveryMode();
             return CreateErrorExpr();
         }
+    }
+
+    auto Parser::ParseDeclAndTryRecover(bool atGlobalScope) -> AstDecl*
+    {
+        auto declResult = ParseDeclaration(atGlobalScope);
+        if (InRecoveryMode()) {
+            RecoverFromError(RecoveryMode::Semi);
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                ExitRecoveryMode();
+            }
+        }
+
+        return declResult;
+    }
+
+    auto Parser::ParseStmtAndTryRecover() -> AstStmt*
+    {
+        auto stmtResult = ParseStmt();
+        if (InRecoveryMode()) {
+            RecoverFromError(RecoveryMode::Semi);
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                ExitRecoveryMode();
+            }
+        }
+
+        return stmtResult;
     }
 
 #pragma endregion
@@ -655,7 +681,7 @@ namespace glsld
 
 #pragma region Parsing Decl
 
-    auto Parser::ParseDeclaration() -> AstDecl*
+    auto Parser::ParseDeclaration(bool atGlobalScope) -> AstDecl*
     {
         GLSLD_TRACE_PARSER();
 
@@ -666,15 +692,16 @@ namespace glsld
             return astBuilder.BuildEmptyDecl(CreateAstSyntaxRange(beginTokIndex));
         }
 
-        if (TryTestToken(TokenKlass::K_precision)) {
+        if (atGlobalScope && TryTestToken(TokenKlass::K_precision)) {
             // precision decl
             return ParsePrecisionDecl();
         }
 
         auto quals = ParseTypeQualifierSeq();
-        if (quals) {
+        if (atGlobalScope && quals) {
             if (TryTestToken(TokenKlass::Semicolon)) {
                 // default qualifier decl
+                // e.g. `layout(local_size_x = X​, local_size_y = Y​, local_size_z = Z​) in;`
                 // FIXME: implement this
                 ReportError("default qualifier decl not supported yet");
                 EnterRecoveryMode();
@@ -683,18 +710,20 @@ namespace glsld
 
             if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::Semicolon, TokenKlass::Comma, 1)) {
                 // qualifier overwrite decl
+                // e.g. `invariant gl_Position;`
                 // FIXME: implement this
                 ReportError("qualifier overwrite decl not supported yet");
                 EnterRecoveryMode();
                 return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokIndex));
             }
 
-            if (TryTestToken(TokenKlass::LBrace) ||
-                (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
-                // interface blocks
-                // for example, uniform UBO { ... }
-                // FIXME: only enter here if qualifier can actually start a interface block
-                return ParseInterfaceBlockDecl(beginTokIndex, quals);
+            if (quals->GetQualGroup().CanDeclareInterfaceBlock()) {
+                if (TryTestToken(TokenKlass::LBrace) ||
+                    (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
+                    // interface block decl
+                    // e.g. `uniform UBO { ... }`
+                    return ParseInterfaceBlockDecl(beginTokIndex, quals);
+                }
             }
         }
 
@@ -732,19 +761,6 @@ namespace glsld
             // We just see this declaration as a variable decl without declarator.
             return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), typeSpec, {});
         }
-    }
-
-    auto Parser::ParseDeclAndTryRecover() -> AstDecl*
-    {
-        auto declResult = ParseDeclaration();
-        if (InRecoveryMode()) {
-            RecoverFromError(RecoveryMode::Semi);
-            if (TryConsumeToken(TokenKlass::Semicolon)) {
-                ExitRecoveryMode();
-            }
-        }
-
-        return declResult;
     }
 
     auto Parser::ParseInitializer() -> AstInitializer*
@@ -1514,19 +1530,6 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseStmtAndTryRecover() -> AstStmt*
-    {
-        auto stmtResult = ParseStmt();
-        if (InRecoveryMode()) {
-            RecoverFromError(RecoveryMode::Semi);
-            if (TryConsumeToken(TokenKlass::Semicolon)) {
-                ExitRecoveryMode();
-            }
-        }
-
-        return stmtResult;
-    }
-
     auto Parser::ParseCompoundStmt() -> AstStmt*
     {
         GLSLD_TRACE_PARSER();
@@ -1819,7 +1822,7 @@ namespace glsld
     {
         auto beginTokIndex = GetTokenIndex();
 
-        return astBuilder.BuildDeclStmt(CreateAstSyntaxRange(beginTokIndex), ParseDeclAndTryRecover());
+        return astBuilder.BuildDeclStmt(CreateAstSyntaxRange(beginTokIndex), ParseDeclAndTryRecover(false));
     }
 
     auto Parser::ParseDeclOrExprStmt() -> AstStmt*

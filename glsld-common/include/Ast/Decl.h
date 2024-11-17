@@ -84,6 +84,7 @@ namespace glsld
         }
     };
 
+    // Represents a declaration of a precision qualifier, e.g. `precision highp float;`.
     class AstPrecisionDecl final : public AstDecl
     {
     private:

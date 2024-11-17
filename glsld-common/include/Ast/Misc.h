@@ -150,7 +150,7 @@ namespace glsld
     };
 
     // Represents a (qualifier, type) pair. They are grouped together just for convienience.
-    // Different from C/C++, qualifiers in GLSL are not part of the type.
+    // Different from C/C++, qualifiers in GLSL are not part of the type but are part of the declaration.
     class AstQualType : public AstNode
     {
     private:

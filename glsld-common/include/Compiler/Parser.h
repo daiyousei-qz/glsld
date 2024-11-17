@@ -254,49 +254,45 @@ namespace glsld
         // RECOVERY: unknown
         auto ParseQualType() -> AstQualType*;
 
+        // PARSE: declaration
+        //
+        // RECOVERY: ^'EOF'
+        auto ParseDeclAndTryRecover(bool atGlobalScope) -> AstDecl*;
+
+        // PARSE: stmt
+        //
+        // RECOVERY: ^'EOF'
+        auto ParseStmtAndTryRecover() -> AstStmt*;
+
 #pragma endregion
 
 #pragma region Parsing Decl
 
         // PARSE: declaration
         //      - declaration := ';'
-        //      - declaration := type_decl
-        //      - declaration := variable_decl
-        //      - declaration := function_decl
+        //      - declaration := precision_decl
+        //      - declaration := qual_seq ';' (TODO)
+        //      - declaration := qual_seq id [ ',' id ]... ';' (TODO)
+        //      - declaration := qual_seq interface_block_decl
+        //      - declaration := qual_seq? type_spec func_decl
+        //      - declaration := qual_seq? type_spec type_or_variable_decl
         //
         // ACCEPT: ??? ';'
-        // FIXME: fill declaration BNF
-        //
-        // - precision settings
-        //   - precision precision-qual type;
-        // - other settings
-        //   - type-qual;
-        //   - type-qual id;
-        //   - type-qual id, ...;
-        // - block {in/out/uniform/buffer}
-        //   - qualifiers id { ... };
-        //   - qualifiers id { ... } id;
-        //   - qualifiers id { ... } id[N];
-        auto ParseDeclaration() -> AstDecl*;
-
-        // - global (in/out/uniform)
-        //   - type-qual? type-spec;
-        //   - type-qual? type-spec id = init;
-        //   - type-qual? type-spec id[N] = init;
-        //   - type-qual? type-spec id = init, ...;
-        // - struct
-        //   - struct id? { ... };
-        //   - struct id? { ... } id;
-        //   - struct id? { ... } id[N];
-        // - function
-        //   - type-qual? type-spec id(...);
-        //   - type-qual? type-spec id(...) { ... }
-        auto ParseDeclarationWithTypeSpec(AstQualType* type) -> AstDecl*;
-
-        // PARSE: decl
         //
         // RECOVERY: ^'EOF'
-        auto ParseDeclAndTryRecover() -> AstDecl*;
+        //
+        // FIXME: seperate different path for local/global decl
+        auto ParseDeclaration(bool atGlobalScope) -> AstDecl*;
+
+        // We have already parsed a fully qualified type specifier. Now we need to parse the rest of the declaration.
+        //
+        // PARSE: declaration_with_type_spec
+        //      - declaration_with_type_spec := func_decl
+        //      - declaration_with_type_spec := type_or_variable_decl
+        //      - declaration_with_type_spec := ';'
+        //
+        // RECOVERY: ^'EOF'
+        auto ParseDeclarationWithTypeSpec(AstQualType* type) -> AstDecl*;
 
         // Parse an initializer which is either an initializer list or an assignment expression.
         //
@@ -358,13 +354,14 @@ namespace glsld
 
         // EXPECT: 'ID' '{' or '{'
         //
-        // PARSE: interface_block
-        //      - interface_block := 'ID' '{' [declartion]... '}' [declarator] ';'
+        // PARSE: interface_block_decl
+        //      - interface_block_decl := 'ID' '{' [declartion]... '}' [declarator] ';'
         //
         // RECOVERY: ^'EOF' or ^';'
         auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
         // EXPECT: 'K_precision'
+        //
         // PARSE: precision_decl
         //      - precision_decl := 'K_precision' precision-qual type ';'
         //
@@ -511,11 +508,6 @@ namespace glsld
         //
         // RECOVERY: unknown
         auto ParseStmt() -> AstStmt*;
-
-        // PARSE: stmt
-        //
-        // RECOVERY: ^'EOF'
-        auto ParseStmtAndTryRecover() -> AstStmt*;
 
         // EXPECT: '{'
         //
