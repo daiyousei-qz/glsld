@@ -2,7 +2,7 @@
 #include "Basic/Common.h"
 #include "Basic/FileSystemProvider.h"
 #include "Basic/SourceInfo.h"
-#include "Compiler/CompilerContextBase.h"
+#include "Compiler/CompilerResult.h"
 
 #include <unordered_map>
 #include <filesystem>
@@ -11,7 +11,7 @@
 namespace glsld
 {
     // This class manages everything related the source files/buffers when compiling a translation unit.
-    class SourceContext final : CompilerContextBase<SourceContext>
+    class SourceManager final
     {
     private:
         struct SourceFileEntry
@@ -41,22 +41,15 @@ namespace glsld
         std::vector<const FileHandle*> openedFiles;
 
     public:
-        SourceContext(const SourceContext* preambleContext) : CompilerContextBase(preambleContext)
+        SourceManager(const PrecompiledPreamble* preamble = nullptr)
         {
-            if (preambleContext) {
-                systemPreamble = preambleContext->systemPreamble;
-                userPreamble   = preambleContext->userPreamble;
+            if (preamble) {
+                systemPreamble = preamble->GetSystemPreamble();
+                userPreamble   = preamble->GetUserPreamble();
             }
         }
 
-        ~SourceContext()
-        {
-            Finalize();
-        }
-
-        // Release all opened files from the file system provider and user buffers.
-        // However, the source file entries remain to be valid.
-        auto Finalize() -> void
+        ~SourceManager()
         {
             for (const auto& handle : openedFiles) {
                 fileSystemProvider.Close(handle);
@@ -65,14 +58,24 @@ namespace glsld
 
         auto SetSystemPreamble(StringView content) -> void
         {
-            GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set system preamble if already imported.");
+            GLSLD_REQUIRE(systemPreamble.Empty() && "Cannot change set system preamble");
             systemPreamble = content;
         }
 
         auto SetUserPreamble(StringView content) -> void
         {
-            GLSLD_REQUIRE(GetPreambleContext() == nullptr && "Cannot set user preamble if already imported.");
+            GLSLD_REQUIRE(userPreamble.Empty() && "Cannot change set user preamble");
             userPreamble = content;
+        }
+
+        auto GetSystemPreamble() const noexcept -> StringView
+        {
+            return systemPreamble;
+        }
+
+        auto GetUserPreamble() const noexcept -> StringView
+        {
+            return userPreamble;
         }
 
         auto GetSourceText(FileID fileId) -> StringView
@@ -80,7 +83,7 @@ namespace glsld
             if (!fileId.IsValid()) {
                 return {};
             }
-            else if (fileId.IsSystemPreable()) {
+            else if (fileId.IsSystemPreamble()) {
                 return systemPreamble;
             }
             else if (fileId.IsUserPreamble()) {

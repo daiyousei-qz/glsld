@@ -1,6 +1,6 @@
 #include "Basic/CommandLine.h"
 #include "Basic/Print.h"
-#include "Compiler/CompilerObject.h"
+#include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 
 #include <nlohmann/json.hpp>
@@ -14,6 +14,33 @@ namespace glsld
     cl::Opt<bool> noStdlib("no-stdlib", cl::Desc("Don't link standard library module."));
     // cl::Opt<bool> version("version", cl::Desc("Print the version of glsld-wrapper."));
 
+    // TODO: -IXXX -DXXX
+    // TODO: -vs -fs -cs ...
+
+    class VersionExtensionCollector : public PPCallback
+    {
+    private:
+        CompilerInvocation& compiler;
+
+    public:
+        VersionExtensionCollector(CompilerInvocation& compiler) : compiler(compiler)
+        {
+        }
+
+        auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void override
+        {
+            compiler.SetGlslVersion(version, profile);
+        }
+
+        auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
+                                  ExtensionBehavior behavior) -> void override
+        {
+            if (behavior == ExtensionBehavior::Enable || behavior == ExtensionBehavior::Require) {
+                compiler.EnableExtension(extension);
+            }
+        }
+    };
+
     auto DoMain() -> void
     {
         if (!inputFile.HasValue()) {
@@ -23,13 +50,9 @@ namespace glsld
 
         std::filesystem::path inputFilePath = inputFile.GetValue();
 
-        std::unique_ptr<CompilerObject> compiler = nullptr;
-        if (!noStdlib.HasValue() || !noStdlib.GetValue()) {
-            std::shared_ptr<CompiledPreamble> stdlibPreamble;
-            compiler = std::make_unique<CompilerObject>(stdlibPreamble);
-        }
-        else {
-            compiler = std::make_unique<CompilerObject>();
+        auto compiler = std::make_unique<CompilerInvocation>();
+        if (noStdlib.HasValue() && noStdlib.GetValue()) {
+            compiler->SetNoStdlib();
         }
 
         compiler->AddIncludePath(inputFilePath.parent_path());
@@ -40,40 +63,11 @@ namespace glsld
             compiler->SetDumpAst(dumpAst.GetValue());
         }
 
+        compiler->SetShaderStage(GlslShaderStage ::Unknown);
         compiler->SetMainFileFromFile(inputFile.GetValue());
 
-        {
-            class VersionExtensionCollector : public PPCallback
-            {
-            private:
-                CompilerObject& compilerObject;
-                GlslShaderStage stage;
-
-            public:
-                VersionExtensionCollector(CompilerObject& compilerObject, GlslShaderStage stage)
-                    : compilerObject(compilerObject), stage(stage)
-                {
-                }
-
-                auto OnVersionDirective(FileID file, TextRange range, GlslVersion version,
-                                        GlslProfile profile) -> void override
-                {
-                    compilerObject.SetTarget({version, profile, stage});
-                }
-
-                auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
-                                          ExtensionBehavior behavior) -> void override
-                {
-                    if (behavior == ExtensionBehavior::Enable || behavior == ExtensionBehavior::Require) {
-                        compilerObject.EnableExtension(extension);
-                    }
-                }
-            };
-
-            VersionExtensionCollector ppCallback{*compiler, GlslShaderStage::Unknown};
-            compiler->ScanVersionAndExtension(&ppCallback);
-        }
-
+        VersionExtensionCollector ppCallback{*compiler};
+        compiler->ScanVersionAndExtension(&ppCallback);
         compiler->CompileMainFile(nullptr);
 
         Print("succussfully parsed input file\n");

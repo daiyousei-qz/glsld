@@ -1,9 +1,8 @@
 #pragma once
+#include "Ast/Misc.h"
 #include "Basic/Common.h"
 #include "Basic/MemoryArena.h"
 #include "Ast/Base.h"
-#include "Compiler/SymbolTable.h"
-#include "Compiler/CompilerContextBase.h"
 
 #include <map>
 #include <vector>
@@ -11,43 +10,38 @@
 namespace glsld
 {
     // This class manages everything related to parsing of a translation unit, primarily AST.
-    class AstContext final : CompilerContextBase<AstContext>
+    class AstContext final
     {
     private:
-        const AstTranslationUnit* translationUnit = nullptr;
+        const AstTranslationUnit* systemPreambleAst = nullptr;
+
+        const AstTranslationUnit* userPreambleAst = nullptr;
+
+        const AstTranslationUnit* mainFileAst = nullptr;
 
         // The cached array types.
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
         // The memory arena that holds all memory allocated for AST.
-        std::unique_ptr<MemoryArena> arena;
-
-        // The current symbol table.
-        std::unique_ptr<SymbolTable> symbolTable;
+        MemoryArena arena;
 
     public:
         AstContext(const AstContext* preambleContext);
-        ~AstContext() = default;
 
         auto GetTranslationUnit() const noexcept
         {
-            return translationUnit;
+            return mainFileAst;
         }
 
         auto SetTranslationUnit(const AstTranslationUnit* tu)
         {
-            GLSLD_ASSERT(!translationUnit && "Translation unit is already set.");
-            translationUnit = tu;
+            GLSLD_ASSERT(!mainFileAst && "Translation unit is already set.");
+            mainFileAst = tu;
         }
 
         auto GetArena() noexcept -> MemoryArena&
         {
-            return *arena;
-        }
-
-        auto GetSymbolTable() -> SymbolTable&
-        {
-            return *symbolTable;
+            return arena;
         }
 
         auto CreateStructType(AstStructDecl& decl) -> const Type*;

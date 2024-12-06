@@ -1,30 +1,83 @@
 #include "Compiler/Preprocessor.h"
 #include "Compiler/Tokenizer.h"
-#include "Compiler/SourceContext.h"
 #include "Compiler/SyntaxToken.h"
-#include "Compiler/LexContext.h"
 #include "Language/ShaderTarget.h"
 #include "Language/ConstValue.h"
 
 namespace glsld
 {
-    auto Preprocessor::PreprocessSourceFile(FileID sourceFile) -> void
+    auto TokenStream::AddToken(const PPToken& token, TextRange expandedRange) -> void
+    {
+        GLSLD_ASSERT(token.klass != TokenKlass::Eof && "EOF is handled separately");
+        // FIXME: why this fails?
+        // if (!tokens.empty()) {
+        //     GLSLD_ASSERT(token.spelledFile != tokens.back().spelledFile ||
+        //                  token.spelledRange.start >= tokens.back().spelledRange.start);
+        //     GLSLD_ASSERT(expandedRange.start >= tokens.back().expandedRange.start);
+        // }
+
+        if (token.klass != TokenKlass::Comment) {
+            tokens.push_back(RawSyntaxTokenEntry{
+                .klass         = token.klass,
+                .spelledFile   = token.spelledFile,
+                .spelledRange  = token.spelledRange,
+                .expandedRange = expandedRange,
+                .text          = token.text,
+            });
+        }
+        else {
+            // FIXME: make a toggle for this
+            comments.push_back(RawCommentTokenEntry{
+                .spelledFile    = token.spelledFile,
+                .spelledRange   = token.spelledRange,
+                .text           = token.text,
+                .nextTokenIndex = static_cast<uint32_t>(tokens.size()),
+            });
+        }
+    }
+
+    auto TokenStream::AddEofToken(const PPToken& token, TextRange expandedRange) -> void
+    {
+        GLSLD_ASSERT(token.klass == TokenKlass::Eof);
+        tokens.push_back(RawSyntaxTokenEntry{
+            .klass         = token.klass,
+            .spelledFile   = token.spelledFile,
+            .spelledRange  = token.spelledRange,
+            .expandedRange = expandedRange,
+            .text          = token.text,
+        });
+    }
+
+    auto PreprocessStateMachine::PreprocessSourceFile(FileID sourceFile) -> void
     {
         if (!sourceFile.IsValid()) {
             // FIXME: report error, invalid source file
             return;
         }
 
-        if (versionScanningMode) {
-            AtomTable atomTable;
-            Tokenizer{compilerObject, atomTable, *this, sourceFile}.DoTokenize();
-        }
-        else {
-            Tokenizer{compilerObject, compilerObject.GetLexContext().GetAtomTable(), *this, sourceFile}.DoTokenize();
-        }
+        auto sourceText = sourceManager.GetSourceText(sourceFile);
+        Tokenizer{compiler, *this, atomTable, sourceFile, sourceText}.DoTokenize();
     }
 
-    auto Preprocessor::DispatchTokenToHandler(const PPToken& token) -> void
+    auto PreprocessStateMachine::InitializeKeywordLookup() -> void
+    {
+#define DECL_KEYWORD(KEYWORD) keywordLookup[atomTable.GetAtom(#KEYWORD)] = TokenKlass::K_##KEYWORD;
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+    }
+
+    auto PreprocessStateMachine::FixupKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass
+    {
+        if (klass == TokenKlass::Identifier) {
+            if (auto it = keywordLookup.find(text); it != keywordLookup.end()) {
+                return it->second;
+            }
+        }
+
+        return klass;
+    }
+
+    auto PreprocessStateMachine::DispatchTokenToHandler(const PPToken& token) -> void
     {
         switch (state) {
         case PreprocessorState::Default:
@@ -50,25 +103,21 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::AcceptOnDefaultState(const PPToken& token) -> void
+    auto PreprocessStateMachine::AcceptOnDefaultState(const PPToken& token) -> void
     {
-        if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+        if (token.klass == TokenKlass::Eof) {
+            // EOF is handled by caller
+        }
+        else if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
             TransitionTo(PreprocessorState::ExpectDirective);
         }
         else {
-            if (token.klass != TokenKlass::Comment) {
-                if (versionScanningMode) {
-                    TransitionTo(PreprocessorState::Halt);
-                }
-                else {
-                    // FIXME: we ignore comment for now.
-                    macroExpansionProcessor.Feed(token);
-                }
-            }
+            // TODO: skip tokenization for version scanning mode
+            macroExpansionProcessor.Feed(token);
         }
     }
 
-    auto Preprocessor::AcceptOnInactiveState(const PPToken& token) -> void
+    auto PreprocessStateMachine::AcceptOnInactiveState(const PPToken& token) -> void
     {
         if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
             TransitionTo(PreprocessorState::ExpectDirective);
@@ -81,7 +130,7 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::AcceptOnExpectDirectiveState(const PPToken& token) -> void
+    auto PreprocessStateMachine::AcceptOnExpectDirectiveState(const PPToken& token) -> void
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Empty directive.
@@ -126,7 +175,7 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::AcceptOnExpectDirectiveTailState(const PPToken& token) -> void
+    auto PreprocessStateMachine::AcceptOnExpectDirectiveTailState(const PPToken& token) -> void
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Finish processing the directive.
@@ -153,7 +202,7 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
+    auto PreprocessStateMachine::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
         PPTokenScanner scanner{restTokens};
         if (directiveToken.text == "include") {
@@ -207,9 +256,9 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::HandleIncludeDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleIncludeDirective(PPTokenScanner& scanner) -> void
     {
-        const auto& compilerConfig = compilerObject.GetConfig();
+        const auto& compilerConfig = compiler.GetCompilerConfig();
         if (includeDepth >= compilerConfig.maxIncludeDepth) {
             // FIXME: report error, too many nested include files
             return;
@@ -230,7 +279,7 @@ namespace glsld
             FileID includeFile;
             for (const auto& includePath : compilerConfig.includePaths) {
                 // TODO: distinguish between system include and user include
-                includeFile = compilerObject.GetSourceContext().OpenFromFile(includePath / headerName.StdStrView());
+                includeFile = sourceManager.OpenFromFile(includePath / headerName.StdStrView());
                 if (includeFile.IsValid()) {
                     break;
                 }
@@ -242,26 +291,35 @@ namespace glsld
             }
 
             // We create a new preprocessor to process the included file.
-            GLSLD_TRACE_ENTER_INCLUDE_FILE(headerName);
+#if defined(GLSLD_DEBUG)
+            compiler.GetCompilerTrace().TraceEnterIncludeFile(headerName);
+#endif
             if (callback) {
                 callback->OnEnterIncludedFile();
             }
-            Preprocessor nextPP{compilerObject, callback,
-                                includeExpansionRange ? includeExpansionRange
-                                                      : TextRange{headerNameToken->spelledRange.start},
-                                includeDepth + 1};
+
+            PreprocessStateMachine nextPP{
+                compiler,
+                outputStream,
+                callback,
+                includeExpansionRange ? includeExpansionRange : TextRange{headerNameToken->spelledRange.start},
+                includeDepth + 1,
+            };
             nextPP.PreprocessSourceFile(includeFile);
+
             if (callback) {
                 callback->OnExitIncludedFile();
             }
-            GLSLD_TRACE_EXIT_INCLUDE_FILE(headerName);
+#if defined(GLSLD_DEBUG)
+            compiler.GetCompilerTrace().TraceExitIncludeFile(headerName);
+#endif
         }
         else {
             // FIXME: report error, expected a header file name
         }
     }
 
-    auto Preprocessor::HandleDefineDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleDefineDirective(PPTokenScanner& scanner) -> void
     {
         // Parse the macro name
         PPToken macroName;
@@ -275,7 +333,7 @@ namespace glsld
 
         if (scanner.CursorAtEnd()) {
             // Fast path for empty macro definitions.
-            compilerObject.GetLexContext().DefineObjectLikeMacro(macroName, {});
+            macroTable.DefineObjectLikeMacro(macroName, {});
             return;
         }
 
@@ -344,15 +402,14 @@ namespace glsld
 
         // Register the macro
         if (isFunctionLike) {
-            compilerObject.GetLexContext().DefineFunctionLikeMacro(macroName, std::move(paramTokens),
-                                                                   std::move(expansionTokens));
+            macroTable.DefineFunctionLikeMacro(macroName, std::move(paramTokens), std::move(expansionTokens));
         }
         else {
-            compilerObject.GetLexContext().DefineObjectLikeMacro(macroName, std::move(expansionTokens));
+            macroTable.DefineObjectLikeMacro(macroName, std::move(expansionTokens));
         }
     }
 
-    auto Preprocessor::HandleUndefDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleUndefDirective(PPTokenScanner& scanner) -> void
     {
         // Parse the macro name
         PPToken macroName;
@@ -376,10 +433,10 @@ namespace glsld
         // Undefine the macro
         // FIXME: report error if the macro is not defined. Where do we want this check to be placed?
         // FIXME: report error to undefine a builtin macro
-        compilerObject.GetLexContext().UndefineMacro(macroName.text);
+        macroTable.UndefineMacro(macroName.text);
     }
 
-    auto Preprocessor::HandleIfDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleIfDirective(PPTokenScanner& scanner) -> void
     {
         bool evalToTrue = EvaluatePPExpression(scanner);
 
@@ -395,7 +452,7 @@ namespace glsld
         });
     }
 
-    auto Preprocessor::HandleIfdefDirective(PPTokenScanner& scanner, bool isNDef) -> void
+    auto PreprocessStateMachine::HandleIfdefDirective(PPTokenScanner& scanner, bool isNDef) -> void
     {
         // Parse the macro name
         PPToken macroName;
@@ -416,7 +473,7 @@ namespace glsld
             callback->OnIfDefDirective(macroName, isNDef);
         }
 
-        bool active = compilerObject.GetLexContext().IsMacroDefined(macroName.text) != isNDef;
+        bool active = macroTable.IsMacroDefined(macroName.text) != isNDef;
         conditionalStack.push_back(PPConditionalInfo{
             .active           = active,
             .seenActiveBranch = active,
@@ -424,7 +481,7 @@ namespace glsld
         });
     }
 
-    auto Preprocessor::HandleElifDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleElifDirective(PPTokenScanner& scanner) -> void
     {
         bool evalToTrue = EvaluatePPExpression(scanner);
 
@@ -448,7 +505,7 @@ namespace glsld
         conditionalInfo.seenActiveBranch = conditionalInfo.active;
     }
 
-    auto Preprocessor::HandleElseDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleElseDirective(PPTokenScanner& scanner) -> void
     {
         if (!scanner.CursorAtEnd()) {
             // FIXME: report warning, expected no more tokens after the directive.
@@ -475,7 +532,7 @@ namespace glsld
         conditionalInfo.seenElse         = true;
     }
 
-    auto Preprocessor::HandleEndifDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleEndifDirective(PPTokenScanner& scanner) -> void
     {
         if (!scanner.CursorAtEnd()) {
             // FIXME: report warning, expected no more tokens after the directive.
@@ -514,7 +571,7 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::HandleExtensionDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleExtensionDirective(PPTokenScanner& scanner) -> void
     {
         if (!scanner.TryTestToken(TokenKlass::Identifier)) {
             // FIXME: report error, expected an extension name
@@ -644,7 +701,7 @@ namespace glsld
         GLSLD_UNREACHABLE();
     }
 
-    auto Preprocessor::HandleVersionDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleVersionDirective(PPTokenScanner& scanner) -> void
     {
         if (scanner.CursorAtEnd()) {
             // FIXME: report error, expect version number
@@ -682,7 +739,7 @@ namespace glsld
         }
     }
 
-    auto Preprocessor::HandleLineDirective(PPTokenScanner& scanner) -> void
+    auto PreprocessStateMachine::HandleLineDirective(PPTokenScanner& scanner) -> void
     {
         // FIXME: support line directive
     }
@@ -867,7 +924,7 @@ namespace glsld
         return 0;
     }
 
-    static auto EvaluatePPExpressionAux(const LexContext& lexContext, ArrayView<PPToken> tokens) -> bool
+    static auto EvaluatePPExpressionAux(ArrayView<PPToken> tokens) -> bool
     {
         bool expectBinaryOperator = false;
         std::vector<int64_t> evalStack;
@@ -1012,11 +1069,11 @@ namespace glsld
         return evalStack.size() == 1 && evalStack.back() != 0;
     }
 
-    auto Preprocessor::EvaluatePPExpression(PPTokenScanner& scanner) -> bool
+    auto PreprocessStateMachine::EvaluatePPExpression(PPTokenScanner& scanner) -> bool
     {
         // Expand macros and evaluate the expression.
         std::vector<PPToken> tokenBuffer;
-        MacroExpansionProcessor<ExpandToVectorCallback> processor{compilerObject.GetLexContext(),
+        MacroExpansionProcessor<ExpandToVectorCallback> processor{atomTable, macroTable,
                                                                   ExpandToVectorCallback{*this, tokenBuffer}};
 
         // Our approach handling defined(X) is going to conflict with the macro expansion.
@@ -1039,7 +1096,7 @@ namespace glsld
                     return false;
                 }
 
-                bool isDefined = compilerObject.GetLexContext().IsMacroDefined(macroName.text);
+                bool isDefined = macroTable.IsMacroDefined(macroName.text);
                 processor.Feed(PPToken{
                     .klass                = isDefined ? TokenKlass::DefinedYes : TokenKlass::DefinedNo,
                     .spelledFile          = token.spelledFile,
@@ -1055,6 +1112,6 @@ namespace glsld
         }
         processor.Finalize();
 
-        return EvaluatePPExpressionAux(compilerObject.GetLexContext(), tokenBuffer);
+        return EvaluatePPExpressionAux(tokenBuffer);
     }
 } // namespace glsld

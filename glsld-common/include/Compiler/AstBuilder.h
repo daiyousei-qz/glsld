@@ -3,8 +3,8 @@
 #include "Ast/Stmt.h"
 #include "Ast/Decl.h"
 #include "Ast/Misc.h"
-#include "Compiler/CompilerObject.h"
 #include "Compiler/AstContext.h"
+#include "Compiler/CompilerInvocationState.h"
 #include "Compiler/SymbolTable.h"
 
 namespace glsld
@@ -18,7 +18,7 @@ namespace glsld
     class AstBuilder
     {
     private:
-        CompilerObject& compilerObject;
+        AstContext& astContext;
 
         MemoryArena& arena;
 
@@ -28,10 +28,15 @@ namespace glsld
         const Type* returnType;
 
     public:
-        AstBuilder(CompilerObject& compilerObject)
-            : compilerObject(compilerObject), arena(compilerObject.GetAstContext().GetArena()),
-              symbolTable(compilerObject.GetAstContext().GetSymbolTable())
+        AstBuilder(CompilerInvocationState& compiler)
+            : astContext(compiler.GetAstContext()), arena(compiler.GetAstContext().GetArena()),
+              symbolTable(compiler.GetSymbolTable())
         {
+        }
+
+        auto GetAstContext() -> AstContext&
+        {
+            return astContext;
         }
 
         auto IsTypeName(StringView name) const -> bool

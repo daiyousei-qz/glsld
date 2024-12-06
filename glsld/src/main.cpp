@@ -5,7 +5,7 @@
 #include <windows.h>
 #endif
 
-#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
+#if defined(GLSLD_OS_WIN)
 #include <DbgHelp.h>
 #pragma comment(lib, "Dbghelp.lib")
 
@@ -87,11 +87,10 @@ namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
-#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
+#if defined(GLSLD_OS_WIN)
     SetUnhandledExceptionFilter();
 #endif
     glsld::cl::ParseArguments(argc, argv);
-    throw 0;
     glsld::DoMain();
     return 0;
 }

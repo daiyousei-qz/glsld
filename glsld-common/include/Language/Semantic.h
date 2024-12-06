@@ -267,6 +267,11 @@ namespace glsld
             return std::ranges::count_if(data, [](uint8_t x) { return x != 0xff; });
         }
 
+        auto GetIndices() const noexcept -> ArrayView<uint8_t>
+        {
+            return {data.data(), GetDimension()};
+        }
+
         auto ToString() const -> std::string
         {
             std::string buffer;

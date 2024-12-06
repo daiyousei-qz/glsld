@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Compiler/SyntaxToken.h"
+
 namespace glsld
 {
     class MacroDefinition final

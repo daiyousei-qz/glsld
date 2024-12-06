@@ -1,5 +1,4 @@
 
-#include "Compiler/CompilerObject.h"
 #include "LanguageQueryProvider.h"
 #include "LanguageQueryVisitor.h"
 #include "Protocol.h"
@@ -108,7 +107,7 @@ namespace glsld
         auto AddReferenceToken(const SyntaxToken& token) -> void
         {
             // FIXME: Support reference from included files
-            if (GetProvider().IsSpelledInMainFile(token)) {
+            if (GetProvider().IsSpelledInMainFile(token.index)) {
                 output.push_back(lsp::Location{documentUri, ToLspRange(GetProvider().GetExpandedTextRange(token))});
             }
         }

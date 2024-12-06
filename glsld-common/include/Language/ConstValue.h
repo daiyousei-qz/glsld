@@ -1,28 +1,34 @@
 #pragma once
+#include "Basic/Common.h"
 #include "Language/Semantic.h"
 #include "Language/Typing.h"
 
 #include <cstdint>
+#include <iterator>
 #include <optional>
-#include <functional>
 #include <type_traits>
+#include <vector>
 
 namespace glsld
 {
+    // Represents a compile-time constant. This can be either:
+    // - error
+    // - scalar
+    // - column vector
+    // - matrix
     class ConstValue
     {
     private:
-        // Underlying scalar type. Real type is `ScalarType`.
+        // Underlying scalar type. Real type is `ScalarKind`.
         int16_t scalarType;
-        // Flat array size. For scalar, this is 1.
+        // Flat array size. For scalar, this is 1. Also, we use array size 0 to denote error type.
         int16_t arraySize;
-        // Row size of matrix. For non-matrix, this is 1.
+        // Row dimension. For non-matrix, this is 1. For error, this is 0.
         int16_t rowSize;
-        // Column size of matrix. For non-matrix, this is 1.
+        // Column dimension. For scalar, this is 1. For error, this is 0.
         int16_t colSize;
 
         // We do small buffer optimization here. If the constant value doesn't fit the buffer, we use heap memory.
-        // Note this object is not copyable to avoid frequent heap allocation.
         union
         {
             std::byte* bufferPtr;
@@ -42,6 +48,7 @@ namespace glsld
             }
         }
 
+        // We disable copy ctor to avoid accidental heap allocation.
         ConstValue(const ConstValue& other)            = delete;
         ConstValue& operator=(const ConstValue& other) = delete;
 
@@ -111,6 +118,9 @@ namespace glsld
 
             return result;
         }
+        static auto FromBinaryBlob(ArrayView<std::byte> blob) -> ConstValue
+        {
+        }
 
         auto IsError() const noexcept -> bool
         {
@@ -138,98 +148,7 @@ namespace glsld
             return arraySize > 1;
         }
 
-        auto GetGlslType() const noexcept -> std::optional<GlslBuiltinType>
-        {
-            if (IsScalar()) {
-                switch (static_cast<ScalarKind>(scalarType)) {
-                case ScalarKind::Bool:
-                    return GlslBuiltinType::Ty_bool;
-                case ScalarKind::Int:
-                    return GlslBuiltinType::Ty_int;
-                case ScalarKind::Uint:
-                    return GlslBuiltinType::Ty_uint;
-                case ScalarKind::Float:
-                    return GlslBuiltinType::Ty_float;
-                case ScalarKind::Double:
-                    return GlslBuiltinType::Ty_double;
-                default:
-                    // FIXME: non-standard types?
-                    break;
-                }
-            }
-            else if (IsVector()) {
-                // FIXME: should we use row vector or column vector?
-                switch (static_cast<ScalarKind>(scalarType)) {
-                case ScalarKind::Bool:
-                    switch (colSize) {
-                    case 2:
-                        return GlslBuiltinType::Ty_bvec2;
-                    case 3:
-                        return GlslBuiltinType::Ty_bvec3;
-                    case 4:
-                        return GlslBuiltinType::Ty_bvec4;
-                    default:
-                        break;
-                    }
-                    break;
-                case ScalarKind::Int:
-                    switch (colSize) {
-                    case 2:
-                        return GlslBuiltinType::Ty_ivec2;
-                    case 3:
-                        return GlslBuiltinType::Ty_ivec3;
-                    case 4:
-                        return GlslBuiltinType::Ty_ivec4;
-                    default:
-                        break;
-                    }
-                    break;
-                case ScalarKind::Uint:
-                    switch (colSize) {
-                    case 2:
-                        return GlslBuiltinType::Ty_uvec2;
-                    case 3:
-                        return GlslBuiltinType::Ty_uvec3;
-                    case 4:
-                        return GlslBuiltinType::Ty_uvec4;
-                    default:
-                        break;
-                    }
-                    break;
-                case ScalarKind::Float:
-                    switch (colSize) {
-                    case 2:
-                        return GlslBuiltinType::Ty_vec2;
-                    case 3:
-                        return GlslBuiltinType::Ty_vec3;
-                    case 4:
-                        return GlslBuiltinType::Ty_vec4;
-                    default:
-                        break;
-                    }
-                    break;
-                case ScalarKind::Double:
-                    switch (colSize) {
-                    case 2:
-                        return GlslBuiltinType::Ty_dvec2;
-                    case 3:
-                        return GlslBuiltinType::Ty_dvec3;
-                    case 4:
-                        return GlslBuiltinType::Ty_dvec4;
-                    default:
-                        break;
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
-            else if (IsMatrix()) {
-                // FIXME: implement this
-            }
-
-            return std::nullopt;
-        };
+        auto GetGlslType() const noexcept -> std::optional<GlslBuiltinType>;
 
         auto GetScalarType() const noexcept -> ScalarKind
         {
@@ -350,244 +269,70 @@ namespace glsld
             return result;
         }
 
-        template <typename F>
-        struct ExcludingBool
+        auto GetElement(int index) -> ConstValue
         {
-            // Exclude bool type to avoid compiler warning
-            template <typename T>
-            auto operator()(T value) const -> T
-                requires(!std::is_same_v<T, bool> && requires(F f) { f(value); })
-            {
-                return F{}(value);
+            // FIXME: verify this is correct
+            if (colSize <= 1 || index < 0 || index >= colSize) {
+                return ConstValue{};
             }
 
-            template <typename T>
-            auto operator()(T lhs, T rhs) const -> T
-                requires(!std::is_same_v<T, bool> && requires(F f) { f(lhs, rhs); })
-            {
-                return F{}(lhs, rhs);
-            }
-        };
-
-        template <typename F>
-        struct ExcludingUnsigned
-        {
-            // Exclude unsigned type to avoid compiler warning
-            template <typename T>
-            auto operator()(T value) const -> T
-                requires(!std::is_unsigned_v<T> && requires(F f) { f(value); })
-            {
-                return F{}(value);
-            }
-
-            template <typename T>
-            auto operator()(T lhs, T rhs) const -> T
-                requires(!std::is_unsigned_v<T> && requires(F f) { f(lhs, rhs); })
-            {
-                return F{}(lhs, rhs);
-            }
-        };
-
-        auto ElemwiseNegate() const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseUnaryOp(ExcludingUnsigned<ExcludingBool<std::negate<>>>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseBitNot() const -> ConstValue
-        {
-            if (IsIntegralScalarType(GetScalarType())) {
-                return ApplyElemwiseUnaryOp(ExcludingBool<std::bit_not<>>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseLogicalNot() const -> ConstValue
-        {
-            if (GetScalarType() == ScalarKind::Bool) {
-                return ApplyElemwiseUnaryOp(std::logical_not<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto Length() const -> ConstValue
-        {
-            if (arraySize > 0) {
-                // FIXME: implement this
-                return ConstValue();
-            }
-            else {
-                return ConstValue();
-            }
+            ConstValue result;
+            auto blob          = result.InitializeAsBlob(GetScalarType(), rowSize, 1, rowSize);
+            auto elementSize   = GetBufferSize() / colSize;
+            auto elementOffset = index * elementSize;
+            std::ranges::copy(GetBufferAsBlob(), blob.begin());
+            return result;
         }
 
-        auto ElemwisePlus(const ConstValue& other) const -> ConstValue
+        auto GetSwizzle(SwizzleDesc swizzle) -> ConstValue
         {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, std::plus<>{});
+            // FIXME: verify this is correct
+            if (IsError() || !swizzle.IsValid()) {
+                return ConstValue{};
             }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseMinus(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, std::minus<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseMul(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, std::multiplies<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseDiv(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, ExcludingBool<std::divides<>>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseMod(const ConstValue& other) const -> ConstValue
-        {
-            if (IsIntegralScalarType(GetScalarType())) {
-                return ApplyElemwiseBinaryOp(other, ExcludingBool<std::modulus<>>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseBitAnd(const ConstValue& other) const -> ConstValue
-        {
-            if (IsIntegralScalarType(GetScalarType())) {
-                return ApplyElemwiseBinaryOp(other, std::bit_and<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseBitOr(const ConstValue& other) const -> ConstValue
-        {
-            if (IsIntegralScalarType(GetScalarType())) {
-                return ApplyElemwiseBinaryOp(other, std::bit_or<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseBitXor(const ConstValue& other) const -> ConstValue
-        {
-            if (IsIntegralScalarType(GetScalarType())) {
-                return ApplyElemwiseBinaryOp(other, std::bit_xor<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseLogicalAnd(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() == ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, std::logical_and<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseLogicalOr(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() == ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, std::logical_or<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseLogicalXor(const ConstValue& other) const -> ConstValue
-        {
-            struct LogicalXor
-            {
-                auto operator()(bool lhs, bool rhs) -> bool
-                {
-                    return lhs != rhs;
+
+            std::vector<std::byte> buffer;
+            for (auto index : swizzle.GetIndices()) {
+                auto elem = GetElement(index);
+                if (elem.IsError()) {
+                    return ConstValue{};
                 }
-            };
 
-            if (GetScalarType() == ScalarKind::Bool) {
-                return ApplyElemwiseBinaryOp(other, LogicalXor{});
+                std::ranges::copy(elem.GetBufferAsBlob(), std::back_inserter(buffer));
             }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseShiftLeft(const ConstValue& other) const -> ConstValue
-        {
-            // FIXME: implement this
-            return ConstValue();
-        }
-        auto ElemwiseShiftRight(const ConstValue& other) const -> ConstValue
-        {
-            // FIXME: implement this
-            return ConstValue();
+
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(GetScalarType(), rowSize * swizzle.GetDimension(), rowSize,
+                                                swizzle.GetDimension());
+            std::ranges::copy(buffer, blob.data());
+            return result;
         }
 
-        auto ElemwiseEquals(const ConstValue& other) const -> ConstValue
-        {
-            return ApplyElemwiseComparisonOp(other, std::equal_to<>{});
-        }
-        auto ElemwiseNotEquals(const ConstValue& other) const -> ConstValue
-        {
-            return ApplyElemwiseComparisonOp(other, std::not_equal_to<>{});
-        }
-        auto ElemwiseLessThan(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseComparisonOp(other, std::less<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseLessThanEq(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseComparisonOp(other, std::less_equal<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseComparisonOp(other, std::greater<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
-        auto ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue
-        {
-            if (GetScalarType() != ScalarKind::Bool) {
-                return ApplyElemwiseComparisonOp(other, std::greater_equal<>{});
-            }
-            else {
-                return ConstValue();
-            }
-        }
+        auto ElemwiseNegate() const -> ConstValue;
+        auto ElemwiseBitNot() const -> ConstValue;
+        auto ElemwiseLogicalNot() const -> ConstValue;
+        auto Length() const -> ConstValue;
+
+        auto ElemwisePlus(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseMinus(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseMul(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseDiv(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseMod(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseBitAnd(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseBitOr(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseBitXor(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseLogicalAnd(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseLogicalOr(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseLogicalXor(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseShiftLeft(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseShiftRight(const ConstValue& other) const -> ConstValue;
+
+        auto ElemwiseEquals(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseNotEquals(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseLessThan(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseLessThanEq(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue;
 
     private:
         template <typename T, typename F>
@@ -637,274 +382,118 @@ namespace glsld
         template <typename F>
         auto ApplyElemwiseUnaryOp(F f) const -> ConstValue
         {
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x); }) {                                                                     \
+        return ApplyElemwiseUnaryOpUnsafe<CPPTYPE>(f);                                                                 \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        return ConstValue();                                                                                           \
+    }
             switch (static_cast<ScalarKind>(scalarType)) {
-#if GLSLD_COMPILER_MSVC
-#pragma warning(push)
-#pragma warning(disable : 4804)
-#endif
             case ScalarKind::Bool:
-                if constexpr (requires(bool x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<bool>(f);
-                }
-                else {
-                    return ConstValue();
-                }
-#if GLSLD_COMPILER_MSVC
-#pragma warning(pop)
-#endif
+                SWITCH_CASE(bool)
             case ScalarKind::Int:
-                if constexpr (requires(int32_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<int32_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int32_t)
             case ScalarKind::Uint:
-                if constexpr (requires(uint32_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<uint32_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint32_t)
             case ScalarKind::Float:
-                if constexpr (requires(float x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<float>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(float)
             case ScalarKind::Double:
-                if constexpr (requires(double x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<double>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(double)
             case ScalarKind::Int8:
-                if constexpr (requires(int8_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<int8_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Int16:
-                if constexpr (requires(int16_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<int16_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int16_t)
             case ScalarKind::Int64:
-                if constexpr (requires(int64_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<int64_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int64_t)
             case ScalarKind::Uint8:
-                if constexpr (requires(uint8_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<uint8_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Uint16:
-                if constexpr (requires(uint16_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<uint16_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint16_t)
             case ScalarKind::Uint64:
-                if constexpr (requires(uint64_t x) { f(x); }) {
-                    return ApplyElemwiseUnaryOpUnsafe<uint64_t>(f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint64_t)
             case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
                 return ConstValue();
             }
+#undef SWITCH_CASE
         }
 
         template <typename F>
         auto ApplyElemwiseBinaryOp(const ConstValue& other, F f) const -> ConstValue
         {
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
+        return ApplyElemwiseBinaryOpUnsafe<CPPTYPE>(other, f);                                                         \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        return ConstValue();                                                                                           \
+    }
             switch (static_cast<ScalarKind>(scalarType)) {
-#if GLSLD_COMPILER_MSVC
-#pragma warning(push)
-#pragma warning(disable : 4804)
-#endif
             case ScalarKind::Bool:
-                if constexpr (requires(bool x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<bool>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
-#if GLSLD_COMPILER_MSVC
-#pragma warning(pop)
-#endif
+                SWITCH_CASE(bool)
             case ScalarKind::Int:
-                if constexpr (requires(int32_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<int32_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int32_t)
             case ScalarKind::Uint:
-                if constexpr (requires(uint32_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<uint32_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint32_t)
             case ScalarKind::Float:
-                if constexpr (requires(float x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<float>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(float)
             case ScalarKind::Double:
-                if constexpr (requires(double x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<double>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(double)
             case ScalarKind::Int8:
-                if constexpr (requires(int8_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<int8_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Int16:
-                if constexpr (requires(int16_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<int16_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int16_t)
             case ScalarKind::Int64:
-                if constexpr (requires(int64_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<int64_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int64_t)
             case ScalarKind::Uint8:
-                if constexpr (requires(uint8_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<uint8_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Uint16:
-                if constexpr (requires(uint16_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<uint16_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint16_t)
             case ScalarKind::Uint64:
-                if constexpr (requires(uint64_t x) { f(x, x); }) {
-                    return ApplyElemwiseBinaryOpUnsafe<uint64_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint64_t)
             case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
                 return ConstValue();
             }
+#undef SWITCH_CASE
         }
 
         template <typename F>
         auto ApplyElemwiseComparisonOp(const ConstValue& other, F f) const -> ConstValue
         {
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
+        return ApplyElemwiseComparisonOpUnsafe<CPPTYPE>(other, f);                                                     \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        return ConstValue();                                                                                           \
+    }
             switch (static_cast<ScalarKind>(scalarType)) {
             case ScalarKind::Bool:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<bool>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<bool>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(bool)
             case ScalarKind::Int:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int32_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<int32_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int32_t)
             case ScalarKind::Uint:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint32_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<uint32_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint32_t)
             case ScalarKind::Float:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<float>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<float>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(float)
             case ScalarKind::Double:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<double>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<double>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(double)
             case ScalarKind::Int8:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int8_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<int8_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Int16:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int16_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<int16_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int16_t)
             case ScalarKind::Int64:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<int64_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<int64_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int64_t)
             case ScalarKind::Uint8:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint8_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<uint8_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(int8_t)
             case ScalarKind::Uint16:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint16_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<uint16_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint16_t)
             case ScalarKind::Uint64:
-                if constexpr (requires { ApplyElemwiseComparisonOpUnsafe<uint64_t>(other, f); }) {
-                    return ApplyElemwiseComparisonOpUnsafe<uint64_t>(other, f);
-                }
-                else {
-                    return ConstValue();
-                }
+                SWITCH_CASE(uint64_t)
             case ScalarKind::Float16:
                 GLSLD_NO_IMPL();
             default:
@@ -917,11 +506,22 @@ namespace glsld
             return GetScalarSize() * arraySize;
         }
 
+        auto GetBufferPtr() const noexcept -> const std::byte*
+        {
+            if (UseHeapBuffer()) {
+                return bufferPtr;
+            }
+            else {
+                return &localBuffer[0];
+            }
+        }
+
         auto UseHeapBuffer() const noexcept -> bool
         {
             return GetBufferSize() > sizeof(localBuffer);
         }
 
+        // Note this doesn't release the memory of existing heap pointer
         auto InitializeAsError() -> void
         {
             scalarType = 0;
@@ -931,8 +531,9 @@ namespace glsld
             std::ranges::fill(localBuffer, std::byte(0));
         }
 
-        template <typename T>
-        auto InitializeAs(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
+        // Note this doesn't release the memory of existing heap pointer
+        auto InitializeAsBlob(ScalarKind scalarType, int16_t arraySize, int16_t rowSize,
+                              int16_t colSize) -> ArraySpan<std::byte>
         {
             GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
 
@@ -941,32 +542,37 @@ namespace glsld
             this->rowSize    = rowSize;
             this->colSize    = colSize;
 
-            GLSLD_ASSERT(GetScalarSize() == sizeof(T));
-            void* buffer = nullptr;
+            std::byte* buffer = nullptr;
             if (UseHeapBuffer()) {
                 bufferPtr = new std::byte[GetBufferSize()];
                 buffer    = bufferPtr;
             }
             else {
-                buffer = &localBuffer;
+                buffer = reinterpret_cast<std::byte*>(&localBuffer);
             }
 
-            return ArraySpan<T>(static_cast<T*>(buffer), arraySize);
+            return ArraySpan<std::byte>(buffer, arraySize);
+        }
+
+        // Note this doesn't release the memory of existing heap pointer
+        template <typename T>
+        auto InitializeAs(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
+        {
+            auto blob = InitializeAsBlob(scalarType, arraySize, rowSize, colSize);
+            GLSLD_ASSERT(GetScalarSize() == sizeof(T));
+            return ArraySpan<T>(reinterpret_cast<T*>(blob.data()), arraySize);
+        }
+
+        auto GetBufferAsBlob() const -> ArrayView<std::byte>
+        {
+            return ArrayView<std::byte>(GetBufferPtr(), GetBufferSize());
         }
 
         template <typename T>
         auto GetBufferAs() const -> ArrayView<T>
         {
             GLSLD_ASSERT(GetScalarSize() == sizeof(T));
-            const void* buffer = nullptr;
-            if (UseHeapBuffer()) {
-                buffer = bufferPtr;
-            }
-            else {
-                buffer = &localBuffer;
-            }
-
-            return ArrayView<T>(static_cast<const T*>(buffer), arraySize);
+            return ArrayView<T>(reinterpret_cast<const T*>(GetBufferPtr()), arraySize);
         }
     };
 

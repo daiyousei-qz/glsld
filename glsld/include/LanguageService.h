@@ -11,7 +11,7 @@ namespace glsld
     {
     private:
         // uri -> provider
-        std::map<std::string, std::shared_ptr<PendingLanguageQueryProvider>> providerLookup;
+        std::map<std::string, std::shared_ptr<PendingBackgroundCompilation>> providerLookup;
 
         LanguageServerCallback* server;
 

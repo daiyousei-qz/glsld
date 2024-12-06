@@ -1,7 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Ast/Dispatch.h"
-#include "Compiler/AstEval.h"
+#include "Ast/Eval.h"
 #include "Compiler/SyntaxToken.h"
 #include "Protocol.h"
 #include <iterator>
@@ -91,7 +91,7 @@ namespace glsld
             if (declarator.arraySize) {
                 for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
                     if (dimSizeExpr) {
-                        auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                        auto dimSizeExprValue = EvalAstExpr(*dimSizeExpr);
                         if (dimSizeExprValue.IsScalarInt32()) {
                             buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
                         }
@@ -113,7 +113,7 @@ namespace glsld
     {
         for (auto dimSizeExpr : arraySpec.GetSizeList()) {
             if (dimSizeExpr) {
-                auto dimSizeExprValue = EvaluateAstExpr(dimSizeExpr);
+                auto dimSizeExprValue = EvalAstExpr(*dimSizeExpr);
                 if (dimSizeExprValue.IsScalarInt32()) {
                     buffer += fmt::format("[{}]", dimSizeExprValue.GetInt32Value());
                 }

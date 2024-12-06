@@ -1,12 +1,11 @@
 #pragma once
 #include "Ast/Expr.h"
+#include "Ast/Misc.h"
 #include "Basic/Common.h"
-#include "Compiler/LexContext.h"
-#include "Compiler/AstContext.h"
-#include "Compiler/SourceContext.h"
-#include "Compiler/CompilerObject.h"
+#include "Compiler/CompilerInvocation.h"
+#include "Compiler/CompilerResult.h"
+#include "Compiler/SyntaxToken.h"
 #include "PreprocessInfoCache.h"
-
 #include "Uri.h"
 
 #include <mutex>
@@ -14,6 +13,16 @@
 
 namespace glsld
 {
+    inline auto GetStdlibModule() -> const std::shared_ptr<PrecompiledPreamble>&
+    {
+        static std::shared_ptr<PrecompiledPreamble> stdlibPreamble = []() {
+            CompilerInvocation compiler;
+            return compiler.CompilePreamble(nullptr);
+        }();
+
+        return stdlibPreamble;
+    }
+
     enum class SymbolAccessType
     {
         // The symbol is an identifier with none of the following categoty.
@@ -65,30 +74,20 @@ namespace glsld
     class LanguageQueryProvider
     {
     private:
-        friend class PendingLanguageQueryProvider;
+        friend class PendingBackgroundCompilation;
 
-        std::unique_ptr<CompilerObject> compilerObject = nullptr;
+        std::unique_ptr<CompilerResult> compilerResult = nullptr;
         PreprocessInfoCache ppInfoCache;
 
     public:
-        auto GetCompilerObject() const -> const CompilerObject&
+        auto GetCompilerResult() const -> const CompilerResult&
         {
-            return *compilerObject;
+            return *compilerResult;
         }
 
-        auto GetLexContext() const -> const LexContext&
+        auto GetUserFileAst() const -> const AstTranslationUnit&
         {
-            return compilerObject->GetLexContext();
-        }
-
-        auto GetAstContext() const -> const AstContext&
-        {
-            return compilerObject->GetAstContext();
-        }
-
-        auto GetSourceContext() const -> const SourceContext&
-        {
-            return compilerObject->GetSourceContext();
+            return *compilerResult->GetUserFileAst();
         }
 
         auto GetPreprocessInfoCache() const -> const PreprocessInfoCache&
@@ -96,61 +95,114 @@ namespace glsld
             return ppInfoCache;
         }
 
-        auto GetDotTokenIndex(const AstExpr& expr) const -> std::optional<SyntaxTokenIndex>
+        auto GetToken(SyntaxTokenID id) const -> const RawSyntaxTokenEntry*
+        {
+            ArrayView<RawSyntaxTokenEntry> tokens;
+            switch (static_cast<TranslationUnitID>(id.GetTUIndex())) {
+            case TranslationUnitID::SystemPreamble:
+                tokens = compilerResult->GetSystemPreambleTokens();
+                break;
+            case TranslationUnitID::UserPreamble:
+                tokens = compilerResult->GetUserPreambleTokens();
+                break;
+            case TranslationUnitID::UserFile:
+                tokens = compilerResult->GetUserFileTokens();
+                break;
+            }
+
+            return &tokens[id.GetTokenIndex()];
+        }
+
+        auto GetDotTokenIndex(const AstExpr& expr) const -> std::optional<SyntaxTokenID>
         {
             GLSLD_ASSERT(expr.Is<AstFieldAccessExpr>() || expr.Is<AstSwizzleAccessExpr>());
             auto range = expr.GetSyntaxRange();
-            if (range.endTokenIndex > range.startTokenIndex &&
-                GetToken(range.endTokenIndex - 1).klass == TokenKlass::Dot) {
+            if (!range.Empty() && GetToken(range.GetBackID())->klass == TokenKlass::Dot) {
                 // CASE 1: `a.b`
-                return range.endTokenIndex - 1;
+                return range.GetBackID();
             }
-            else if (range.endTokenIndex - 1 > range.startTokenIndex &&
-                     GetToken(range.endTokenIndex - 2).klass == TokenKlass::Dot) {
+            else if (range.GetTokenCount() > 1 && GetToken(range.GetBackID() - 1)->klass == TokenKlass::Dot) {
                 // CASE 2: `a. `
-                return range.endTokenIndex - 2;
+                return range.GetBackID() - 1;
             }
             else {
                 return std::nullopt;
             }
         }
 
-        auto GetToken(SyntaxTokenIndex tokIndex) const -> SyntaxToken
+        auto FindTokenByTextPosition(TextPosition position) const -> const RawSyntaxTokenEntry*
         {
-            return GetLexContext().GetToken(tokIndex);
+            auto tokens = compilerResult->GetUserFileTokens();
+            auto it     = std::ranges::lower_bound(tokens, position, {},
+                                                   [](const RawSyntaxTokenEntry& tok) { return tok.expandedRange.start; });
+            if (it != tokens.end() && it != tokens.begin()) {
+                return std::to_address(it);
+            }
+            else {
+                return &tokens.back();
+            }
+        }
+
+        // FIXME: we only support user file. is it good enough?
+        auto FindPreceedingCommentTokens(SyntaxTokenID id) const -> ArrayView<RawCommentTokenEntry>
+        {
+            if (static_cast<TranslationUnitID>(id.GetTokenIndex()) != TranslationUnitID::UserFile) {
+                return {};
+            }
+
+            auto [begin, end] =
+                std::ranges::equal_range(compilerResult->GetUserFileComments(), id.GetTokenIndex(), {},
+                                         [](const RawCommentTokenEntry& entry) { return entry.nextTokenIndex; });
+            return {std::to_address(begin), std::to_address(end)};
+        }
+
+        auto LookupSpelledFile(SyntaxTokenID id) const -> FileID
+        {
+            return GetToken(id)->spelledFile;
         }
 
         // True if the specified token is spelled in the main file.
-        auto IsSpelledInMainFile(const SyntaxToken& token) const -> bool
+        auto IsSpelledInMainFile(SyntaxTokenID id) const -> bool
         {
-            return GetLexContext().LookupSpelledFile(token.index) == GetLexContext().GetTUMainFileID();
+            if (static_cast<TranslationUnitID>(id.GetTUIndex()) != TranslationUnitID::UserFile) {
+                return false;
+            }
+
+            return LookupSpelledFile(id) == compilerResult->GetMainFileID();
         }
 
-        auto GetSpelledTextRange(const SyntaxToken& token) const -> FileTextRange
+        auto LookupSpelledTextRange(SyntaxTokenID id) const -> FileTextRange
         {
-            return GetLexContext().LookupSpelledTextRange(token.index);
+            auto token = GetToken(id);
+            return FileTextRange{
+                .fileID = token->spelledFile,
+                .range  = token->spelledRange,
+            };
         }
 
-        auto GetSpelledTextRangeInMainFile(const SyntaxToken& token) const -> std::optional<TextRange>
+        auto LookupSpelledTextRangeInMainFile(SyntaxTokenID id) const -> std::optional<TextRange>
         {
-            if (!IsSpelledInMainFile(token)) {
+            if (!IsSpelledInMainFile(id)) {
                 return std::nullopt;
             }
 
-            return GetLexContext().LookupSpelledTextRange(token.index).range;
+            return GetToken(id)->spelledRange;
+        }
+
+        auto LookupExpandedTextRange(SyntaxTokenID id) const -> TextRange
+        {
+            return GetToken(id)->expandedRange;
         }
 
         auto GetExpandedTextRange(AstSyntaxRange range) const -> TextRange
         {
-            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex &&
-                         range.endTokenIndex < GetLexContext().GetTotalTokenCount());
-            if (range.endTokenIndex == range.startTokenIndex) {
-                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+            if (range.Empty()) {
+                auto firstTokenRange = LookupExpandedTextRange(range.GetBeginID());
                 return TextRange{firstTokenRange.start, firstTokenRange.start};
             }
             else {
-                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
-                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex - 1).end;
+                TextPosition startPosition = LookupExpandedTextRange(range.GetBeginID()).start;
+                TextPosition endPosition   = LookupExpandedTextRange(range.GetBackID()).end;
                 return TextRange{startPosition, endPosition};
             }
         }
@@ -169,15 +221,13 @@ namespace glsld
 
         auto GetExpandedTextRangeExtended(AstSyntaxRange range) const -> TextRange
         {
-            GLSLD_ASSERT(range.endTokenIndex >= range.startTokenIndex &&
-                         range.endTokenIndex < GetLexContext().GetTotalTokenCount());
-            if (range.endTokenIndex == range.startTokenIndex) {
-                auto firstTokenRange = GetLexContext().LookupExpandedTextRange(range.startTokenIndex);
+            if (range.Empty()) {
+                auto firstTokenRange = LookupExpandedTextRange(range.GetBeginID());
                 return TextRange{firstTokenRange.start, firstTokenRange.start};
             }
             else {
-                TextPosition startPosition = GetLexContext().LookupExpandedTextRange(range.startTokenIndex).start;
-                TextPosition endPosition   = GetLexContext().LookupExpandedTextRange(range.endTokenIndex).start;
+                TextPosition startPosition = LookupExpandedTextRange(range.GetBeginID()).start;
+                TextPosition endPosition   = LookupExpandedTextRange(range.GetEndID()).start;
                 return TextRange{startPosition, endPosition};
             }
         }
@@ -243,7 +293,7 @@ namespace glsld
 
         // True if the expanded range of a token including trailing whitespaces contains the specified position in the
         // main file.
-        auto ContainsPositionExtended(SyntaxTokenIndex tokIndex, TextPosition position) const -> bool
+        auto ContainsPositionExtended(SyntaxTokenID tokIndex, TextPosition position) const -> bool
         {
             // FIXME: implement properly
             return GetExpandedTextRangeExtended(SyntaxToken{tokIndex, TokenKlass::Invalid, {}})
@@ -251,10 +301,24 @@ namespace glsld
         }
     };
 
-    class PendingLanguageQueryProvider
+    class PendingBackgroundCompilation
     {
+    private:
+        // Document version
+        int version;
+        std::string uri;
+        std::string sourceString;
+
+        std::unique_ptr<CompilerInvocation> compiler;
+
+        LanguageQueryProvider provider;
+
+        std::atomic<bool> available = false;
+        std::mutex mu;
+        std::condition_variable cv;
+
     public:
-        PendingLanguageQueryProvider(int version, std::string uri, std::string sourceString)
+        PendingBackgroundCompilation(int version, std::string uri, std::string sourceString)
             : version(version), uri(std::move(uri)), sourceString(std::move(sourceString))
         {
         }
@@ -263,11 +327,11 @@ namespace glsld
         {
             auto ppCallback = provider.ppInfoCache.GetCollectionCallback();
 
-            provider.compilerObject = std::make_unique<CompilerObject>(GetStandardLibraryModule());
-            provider.compilerObject->AddIncludePath(
-                std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
-            provider.compilerObject->SetMainFileFromBuffer(sourceString);
-            provider.compilerObject->CompileMainFile(ppCallback.get());
+            compiler = std::make_unique<CompilerInvocation>(GetStdlibModule());
+            compiler->SetCountUtf16Characters(true);
+            compiler->AddIncludePath(std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
+            compiler->SetMainFileFromBuffer(sourceString);
+            provider.compilerResult = compiler->CompileMainFile(ppCallback.get());
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;
@@ -302,16 +366,5 @@ namespace glsld
             GLSLD_ASSERT(available);
             return provider;
         }
-
-    private:
-        int version;
-        std::string uri;
-        std::string sourceString;
-
-        LanguageQueryProvider provider;
-
-        std::atomic<bool> available = false;
-        std::mutex mu;
-        std::condition_variable cv;
     };
 } // namespace glsld

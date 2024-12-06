@@ -39,11 +39,15 @@ namespace glsld
 
     public:
         SourceScanner() = default;
-        SourceScanner(const char* srcBegin, const char* srcEnd, bool countUtf16Characters = false)
+        SourceScanner(const char* srcBegin, const char* srcEnd, bool countUtf16Characters)
             : srcBegin(srcBegin), srcEnd(srcEnd), srcCursor(srcBegin), countUtf16Characters(countUtf16Characters)
         {
             // FIXME:
             // TryConsumeLineContinuation();
+        }
+        SourceScanner(StringView src, bool countUtf16Characters)
+            : SourceScanner(src.data(), src.data() + src.Size(), countUtf16Characters)
+        {
         }
 
         // True if the cursor is at the beginning of the source.

@@ -1,7 +1,10 @@
+#include "Basic/Common.h"
+#include "Compiler/SyntaxToken.h"
 #include "LanguageService.h"
 #include "Markdown.h"
 #include "SourceText.h"
 #include "StandardDocumentation.h"
+#include <string>
 
 namespace glsld
 {
@@ -80,7 +83,30 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto CreateHoverContent(const SymbolAccessInfo& accessInfo) -> std::optional<HoverContent>
+    static auto ComposeCommentDescription(ArrayView<const RawCommentTokenEntry> commentTokens) -> std::string
+    {
+        if (commentTokens.empty()) {
+            return "";
+        }
+
+        std::string result;
+        for (const auto& entry : commentTokens) {
+            auto commentText = entry.text.StrView();
+            if (commentText.StartWith("//")) {
+                result += commentText.Drop(2).Trim();
+            }
+            else if (commentText.StartWith("/*")) {
+                result += commentText.Drop(2).DropBack(2);
+            }
+
+            result += "\n";
+        }
+
+        return result;
+    }
+
+    static auto CreateHoverContent(const LanguageQueryProvider& provider,
+                                   const SymbolAccessInfo& accessInfo) -> std::optional<HoverContent>
     {
         if (!accessInfo.token.IsIdentifier()) {
             return std::nullopt;
@@ -101,7 +127,9 @@ namespace glsld
         }
 
         auto decl = accessInfo.symbolDecl.GetDecl();
-        std::string descriptionBuffer;
+
+        std::string description =
+            ComposeCommentDescription(provider.FindPreceedingCommentTokens(decl->GetSyntaxRange().GetBeginID()));
         std::string codeBuffer;
         if (auto funcDecl = decl->As<AstFunctionDecl>();
             funcDecl && accessInfo.symbolType == SymbolAccessType::Function) {
@@ -109,7 +137,7 @@ namespace glsld
             return HoverContent{
                 .type          = SymbolAccessType::Function,
                 .name          = name.Str(),
-                .description   = std::move(descriptionBuffer),
+                .description   = std::move(description),
                 .documentation = QueryFunctionDocumentation(name).Str(),
                 .code          = std::move(codeBuffer),
             };
@@ -120,7 +148,7 @@ namespace glsld
             return HoverContent{
                 .type        = SymbolAccessType::Parameter,
                 .name        = name.Str(),
-                .description = std::move(descriptionBuffer),
+                .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
@@ -130,7 +158,7 @@ namespace glsld
             return HoverContent{
                 .type        = SymbolAccessType::Variable,
                 .name        = name.Str(),
-                .description = std::move(descriptionBuffer),
+                .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
@@ -140,7 +168,7 @@ namespace glsld
             return HoverContent{
                 .type        = SymbolAccessType::MemberVariable,
                 .name        = name.Str(),
-                .description = std::move(descriptionBuffer),
+                .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
@@ -150,7 +178,7 @@ namespace glsld
             return HoverContent{
                 .type        = SymbolAccessType::Type,
                 .name        = name.Str(),
-                .description = std::move(descriptionBuffer),
+                .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
@@ -161,7 +189,7 @@ namespace glsld
             return HoverContent{
                 .type        = accessInfo.symbolType,
                 .name        = name.Str(),
-                .description = std::move(descriptionBuffer),
+                .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
@@ -171,7 +199,7 @@ namespace glsld
 
     auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>
     {
-        const auto& compilerObject = provider.GetCompilerObject();
+        const auto& compilerObject = provider.GetCompilerResult();
 
         auto accessInfo = provider.LookupSymbolAccess(FromLspPosition(position));
         if (accessInfo) {
@@ -187,7 +215,7 @@ namespace glsld
                 return std::nullopt;
             }
 
-            if (auto hoverContent = CreateHoverContent(*accessInfo)) {
+            if (auto hoverContent = CreateHoverContent(provider, *accessInfo)) {
                 auto hoverRange = provider.GetExpandedTextRange(accessInfo->token);
                 return lsp::Hover{
                     .contents = ComputeHoverText(*hoverContent),

@@ -1,15 +1,39 @@
 #pragma once
+#include "Basic/AtomTable.h"
+#include "Basic/SourceInfo.h"
+#include "Compiler/CompilerInvocationState.h"
+#include "Compiler/DiagnosticStream.h"
+#include "Compiler/MacroTable.h"
 #include "Compiler/PPCallback.h"
-#include "Compiler/SourceContext.h"
+#include "Compiler/SourceManager.h"
 #include "Compiler/SyntaxToken.h"
-#include "Compiler/CompilerObject.h"
-#include "Compiler/LexContext.h"
 #include "Compiler/MacroExpansion.h"
 #include "Compiler/CompilerTrace.h"
 #include "Compiler/PPTokenScanner.h"
 
+#include <unordered_map>
+
 namespace glsld
 {
+    class TokenStream
+    {
+    private:
+        std::vector<RawSyntaxTokenEntry> tokens;
+        std::vector<RawCommentTokenEntry> comments;
+
+    public:
+        // Add a new token to the token stream.
+        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
+
+        // Add an EOF token to the token stream. This indicates end of a translation unit.
+        auto AddEofToken(const PPToken& token, TextRange expandedRange) -> void;
+
+        auto Export(TranslationUnitID id) -> LexedTranslationUnit
+        {
+            return LexedTranslationUnit{id, std::move(tokens), std::move(comments)};
+        }
+    };
+
     enum class PreprocessorState
     {
         // The lexing should be performed normally.
@@ -45,12 +69,21 @@ namespace glsld
 
     // The preprocessor acts as a state machine which accepts PP tokens issued by the Tokenizer and
     // transforms them according to the current state. The fully preproccessed tokens are then
-    // piped into the LexContext as a part of the token stream.
-    class Preprocessor final
+    // piped into the token stream.
+    class PreprocessStateMachine
     {
     private:
-        // The compiler object that of the current compilation.
-        CompilerObject& compilerObject;
+        CompilerInvocationState& compiler;
+
+        SourceManager& sourceManager;
+
+        AtomTable& atomTable;
+
+        MacroTable& macroTable;
+
+        DiagnosticReportor diagReporter;
+
+        TokenStream& outputStream;
 
         // The callback interface for the preprocessor.
         PPCallback* callback = nullptr;
@@ -58,13 +91,13 @@ namespace glsld
         // The current state of the preprocessor.
         PreprocessorState state = PreprocessorState::Default;
 
-        struct ExpandToLexContextCallback final
+        struct ExpandToTokenStreamCallback final
         {
-            Preprocessor& pp;
+            PreprocessStateMachine& pp;
             int expansionDepth = 0;
             TextRange firstExpansionRange;
 
-            ExpandToLexContextCallback(Preprocessor& pp) : pp(pp)
+            ExpandToTokenStreamCallback(PreprocessStateMachine& pp) : pp(pp)
             {
             }
 
@@ -81,8 +114,10 @@ namespace glsld
                     expandedRange = &token.spelledRange;
                 }
 
-                GLSLD_TRACE_TOKEN_ISSUED(token, *expandedRange);
-                pp.compilerObject.GetLexContext().AddToken(token, *expandedRange);
+#if defined(GLSLD_ENABLE_COMPILER_TRACE)
+                pp.compiler.GetCompilerTrace().TraceLexTokenIssued(token, *expandedRange);
+#endif
+                pp.OutputToken(token, *expandedRange);
             }
 
             auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
@@ -105,10 +140,11 @@ namespace glsld
 
         struct ExpandToVectorCallback final
         {
-            Preprocessor& pp;
+            PreprocessStateMachine& pp;
             std::vector<PPToken>& tokenBuffer;
 
-            ExpandToVectorCallback(Preprocessor& pp, std::vector<PPToken>& tokens) : pp(pp), tokenBuffer(tokens)
+            ExpandToVectorCallback(PreprocessStateMachine& pp, std::vector<PPToken>& tokens)
+                : pp(pp), tokenBuffer(tokens)
             {
             }
 
@@ -130,14 +166,18 @@ namespace glsld
         };
 
         // The macro expansion processor.
-        MacroExpansionProcessor<ExpandToLexContextCallback> macroExpansionProcessor;
+        MacroExpansionProcessor<ExpandToTokenStreamCallback> macroExpansionProcessor;
+
+        // Lookup map from keyword atom to keyword klass
+        std::unordered_map<AtomString, TokenKlass> keywordLookup;
 
         // The token expansion range in the main file.
         // - If we are at an included file, this is the expanded range of all tokens.
         // - If we are at the main file, this should always be std::nullopt.
         std::optional<TextRange> includeExpansionRange = std::nullopt;
 
-        // The current include depth. Preprocessor should stop including headers when this value exceeds the limit.
+        // The current include depth. PreprocessStateMachine should stop including headers when this value exceeds the
+        // limit.
         size_t includeDepth = 0;
 
         // If the preprocessor should do fast scanning for version/extension directive.
@@ -154,16 +194,13 @@ namespace glsld
         std::vector<PPConditionalInfo> conditionalStack = {};
 
     public:
-        Preprocessor(CompilerObject& compilerObject, PPCallback* callback)
-            : compilerObject(compilerObject), callback(callback),
-              macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this})
-        {
-            versionScanningMode = true;
-        }
-        Preprocessor(CompilerObject& compilerObject, PPCallback* callback,
-                     std::optional<TextRange> includeExpansionRange, size_t includeDepth)
-            : compilerObject(compilerObject), callback(callback),
-              macroExpansionProcessor(compilerObject.GetLexContext(), ExpandToLexContextCallback{*this}),
+        PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, PPCallback* callback,
+                               std::optional<TextRange> includeExpansionRange, size_t includeDepth)
+            : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
+              macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
+              outputStream(outputStream), callback(callback),
+              macroExpansionProcessor(compiler.GetAtomTable(), compiler.GetMacroTable(),
+                                      ExpandToTokenStreamCallback{*this}),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
         {
         }
@@ -171,6 +208,11 @@ namespace glsld
         auto GetState() const noexcept -> PreprocessorState
         {
             return state;
+        }
+
+        auto IsVersionScanningMode() const noexcept -> bool
+        {
+            return versionScanningMode;
         }
 
         // This flag instructs the tokenizer that we are lexing in an active region.
@@ -197,7 +239,7 @@ namespace glsld
         }
 
         // Issue a PP token to the preprocessor. The token will be processed according to the current state.
-        auto IssuePPToken(const PPToken& token) -> void
+        auto FeedPPToken(const PPToken& token) -> void
         {
             DispatchTokenToHandler(token);
 
@@ -205,14 +247,37 @@ namespace glsld
                 macroExpansionProcessor.Finalize();
                 if (includeDepth == 0) {
                     // We are done with the main file. Insert an EOF token.
-                    compilerObject.GetLexContext().AddToken(token, token.spelledRange);
+                    outputStream.AddEofToken(token, token.spelledRange);
                 }
             }
+        }
+
+    protected:
+        auto InitializeForVersionScanning() -> void
+        {
+            versionScanningMode = true;
+        }
+        auto InitializeForPP() -> void
+        {
+            versionScanningMode = false;
+            InitializeKeywordLookup();
         }
 
         auto PreprocessSourceFile(FileID sourceFile) -> void;
 
     private:
+        auto InitializeKeywordLookup() -> void;
+        auto FixupKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass;
+
+        auto OutputToken(PPToken token, TextRange expandedRange) -> void
+        {
+            if (token.klass == TokenKlass::Identifier) {
+                token.klass = FixupKeywordTokenKlass(token.klass, token.text);
+            }
+
+            outputStream.AddToken(token, expandedRange);
+        }
+
         // Possible transitions:
         // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
         // - Default -> Halt (See the first token that is not comment nor part of preprocessor in version scanning mode)
@@ -261,6 +326,45 @@ namespace glsld
         // Consumes all tokens and returns the result of the preprocessing expression.
         // If the expression is not valid, this function will return false.
         auto EvaluatePPExpression(PPTokenScanner& scanner) -> bool;
+    };
+
+    class Preprocessor final : PreprocessStateMachine
+    {
+    private:
+        CompilerInvocationState& compiler;
+        TokenStream outputStream;
+
+    public:
+        Preprocessor(CompilerInvocationState& compiler, PPCallback* callback, bool versionScanningMode)
+            : PreprocessStateMachine(compiler, outputStream, callback, std::nullopt, 0), compiler(compiler)
+        {
+            if (versionScanningMode) {
+                InitializeForVersionScanning();
+            }
+            else {
+                InitializeForPP();
+            }
+        }
+
+        auto DoPreprocess(FileID sourceFile) -> void
+        {
+            PreprocessSourceFile(sourceFile);
+
+            if (!IsVersionScanningMode()) {
+                TranslationUnitID id;
+                if (sourceFile.IsSystemPreamble()) {
+                    id = TranslationUnitID::SystemPreamble;
+                }
+                else if (sourceFile.IsUserPreamble()) {
+                    id = TranslationUnitID::UserPreamble;
+                }
+                else {
+                    id = TranslationUnitID::UserFile;
+                }
+
+                compiler.SetLexedTranslationUnit(outputStream.Export(id));
+            }
+        }
     };
 
 } // namespace glsld

@@ -6,7 +6,7 @@
 namespace glsld
 {
     // An opaque identifier for a file.
-    // - 0: Invalid file ID.
+    // -  0: Invalid file ID.
     // - -1: System preamble file ID.
     // - -2: User preamble file ID.
     // - Others: User file ID.
@@ -30,7 +30,7 @@ namespace glsld
         {
             return id != 0;
         }
-        auto IsSystemPreable() const noexcept -> bool
+        auto IsSystemPreamble() const noexcept -> bool
         {
             return id == SystemPreambleID;
         }
@@ -40,7 +40,7 @@ namespace glsld
         }
         auto IsPreamble() const noexcept -> bool
         {
-            return IsSystemPreable() || IsUserPreamble();
+            return IsSystemPreamble() || IsUserPreamble();
         }
         auto IsUserFile() const noexcept -> bool
         {

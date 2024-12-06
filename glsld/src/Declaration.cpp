@@ -3,12 +3,9 @@
 
 namespace glsld
 {
-    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
-        -> std::vector<lsp::Location>
+    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri,
+                            lsp::Position position) -> std::vector<lsp::Location>
     {
-        const auto& compilerObject = provider.GetCompilerObject();
-        const auto& lexContext     = compilerObject.GetLexContext();
-
         auto declTokenResult = provider.LookupSymbolAccess(FromLspPosition(position));
         if (declTokenResult && declTokenResult->symbolDecl.IsValid()) {
             const AstDecl& accessedDecl = *declTokenResult->symbolDecl.GetDecl();
@@ -43,8 +40,8 @@ namespace glsld
             }
 
             // FIXME: Support goto declaration in included files
-            if (accessedDeclTok && provider.IsSpelledInMainFile(*accessedDeclTok)) {
-                if (auto spelledRange = provider.GetSpelledTextRangeInMainFile(*accessedDeclTok)) {
+            if (accessedDeclTok && provider.IsSpelledInMainFile(accessedDeclTok->index)) {
+                if (auto spelledRange = provider.LookupSpelledTextRangeInMainFile(accessedDeclTok->index)) {
                     return {lsp::Location{
                         .uri   = uri,
                         .range = ToLspRange(*spelledRange),

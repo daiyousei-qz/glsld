@@ -11,7 +11,7 @@ namespace glsld
 #define DECL_AST_BEGIN_BASE(AST_TYPE) class AST_TYPE;
 #define DECL_AST_END_BASE(AST_TYPE)
 #define DECL_AST_TYPE(AST_TYPE) class AST_TYPE;
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -26,7 +26,7 @@ namespace glsld
 #define DECL_AST_BEGIN_BASE(TYPE) AstTagBeginBase_##TYPE,
 #define DECL_AST_END_BASE(TYPE) AstTagEndBase_##TYPE,
 #define DECL_AST_TYPE(TYPE) AstTagType_##TYPE,
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -59,7 +59,7 @@ namespace glsld
     {                                                                                                                  \
         using Type = TYPE;                                                                                             \
     };
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -95,7 +95,7 @@ namespace glsld
 #define DECL_AST_TYPE(TYPE)                                                                                            \
     template <>                                                                                                        \
     inline constexpr bool IsLeafAstNodeTagValue<AstTagType_##TYPE> = true;
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -125,7 +125,7 @@ namespace glsld
         IsBeginBaseAstNodeTagValue<PrevAstNodeTagValue<AstTagType_##TYPE>>                                             \
             ? PrevAstNodeTagValue<AstTagType_##TYPE>                                                                   \
             : ParentAstNodeTagValue<PrevAstNodeTagValue<AstTagType_##TYPE>>;
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -138,7 +138,7 @@ namespace glsld
 #define DECL_AST_BEGIN_BASE(TYPE)
 #define DECL_AST_END_BASE(TYPE)
 #define DECL_AST_TYPE(TYPE) TYPE = detail::AstTagType_##TYPE,
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -154,7 +154,7 @@ namespace glsld
 #define DECL_AST_TYPE(TYPE)                                                                                            \
     case AstNodeTag::TYPE:                                                                                             \
         return #TYPE;
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -205,7 +205,7 @@ namespace glsld
         using NodeType                   = TYPE;                                                                        \
         using ParentType                 = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::AstTagType_##TYPE>>; \
     };
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_END_BASE
 #undef DECL_AST_TYPE
@@ -255,22 +255,6 @@ namespace glsld
             return range;
         }
 
-        auto GetFirstTokenIndex() const noexcept -> SyntaxTokenIndex
-        {
-            return range.startTokenIndex;
-        }
-        auto GetLastTokenIndex() const noexcept -> SyntaxTokenIndex
-        {
-            if (range.endTokenIndex == 0) {
-                // Technically this logic is incorrect as the AST node contains no token.
-                // FIXME: any better solution?
-                return 0;
-            }
-            else {
-                return range.endTokenIndex - 1;
-            }
-        }
-
         template <typename AstType>
         auto Is() const noexcept -> bool
         {
@@ -303,9 +287,7 @@ namespace glsld
 
     template <typename DumperType>
     concept AstDumperT = requires(DumperType d, StringView key, const AstNode& astNode) {
-        {
-            d.GetPointerIdentifier(static_cast<void*>(nullptr))
-        } -> std::convertible_to<uintptr_t>;
+        { d.GetPointerIdentifier(static_cast<void*>(nullptr)) } -> std::convertible_to<uintptr_t>;
         d.DumpAttribute(key, false);
         d.DumpAttribute(key, 0);
         d.DumpAttribute(key, "value");

@@ -1,13 +1,12 @@
 #pragma once
 #include <cassert>
 #include <span>
-#include <ranges>
 
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
-#define GLSLD_REQUIRE(EXPR) assert(EXPR)
+#define GLSLD_REQUIRE(EXPR) GLSLD_ASSERT(EXPR)
 
-#define GLSLD_UNREACHABLE() (assert(false), std::abort())
-#define GLSLD_NO_IMPL() (assert(false), std::abort())
+#define GLSLD_UNREACHABLE() (GLSLD_ASSERT(false), std::abort())
+#define GLSLD_NO_IMPL() (GLSLD_ASSERT(false), std::abort())
 
 namespace glsld
 {

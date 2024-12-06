@@ -82,15 +82,13 @@ namespace glsld
         result->SetResolvedType(Type::GetErrorType());
 
         if (auto glslType = GetGlslBuiltinType(typeName.klass)) {
-            result->SetResolvedType(
-                compilerObject.GetAstContext().GetArrayType(Type::GetBuiltinType(*glslType), arraySpec));
+            result->SetResolvedType(astContext.GetArrayType(Type::GetBuiltinType(*glslType), arraySpec));
         }
         else if (typeName.IsIdentifier()) {
             auto symbol = symbolTable.FindSymbol(typeName.text.Str());
             if (symbol.IsValid()) {
                 if (auto structDecl = symbol.GetDecl()->As<AstStructDecl>()) {
-                    result->SetResolvedType(
-                        compilerObject.GetAstContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
+                    result->SetResolvedType(astContext.GetArrayType(structDecl->GetDeclaredType(), arraySpec));
                 }
             }
         }
@@ -102,7 +100,7 @@ namespace glsld
     {
         auto result = CreateAstNode<AstQualType>(range, qualifiers, structDecl, arraySpec);
 
-        result->SetResolvedType(compilerObject.GetAstContext().GetArrayType(structDecl->GetDeclaredType(), arraySpec));
+        result->SetResolvedType(astContext.GetArrayType(structDecl->GetDeclaredType(), arraySpec));
         return result;
     }
 
@@ -1034,7 +1032,7 @@ namespace glsld
     auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType,
                                        std::vector<Declarator> declarators) -> AstVariableDecl*
     {
-        auto resolvedTypes = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
+        auto resolvedTypes = ComputeDeclaratorTypes(astContext, qualType, declarators);
 
         for (size_t i = 0; i < declarators.size(); ++i) {
             auto& declarator = declarators[i];
@@ -1056,7 +1054,7 @@ namespace glsld
     auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType,
                                     std::vector<Declarator> declarators) -> AstFieldDecl*
     {
-        auto resolvedType = ComputeDeclaratorTypes(compilerObject.GetAstContext(), qualType, declarators);
+        auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
 
         // FIXME: mandate CopyArray call by creating wrapper types
         auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
@@ -1074,7 +1072,7 @@ namespace glsld
         }
 
         result->SetScope(symbolTable.GetCurrentLevel()->GetScope());
-        result->SetDeclaredType(compilerObject.GetAstContext().CreateStructType(*result));
+        result->SetDeclaredType(astContext.CreateStructType(*result));
 
         symbolTable.GetCurrentLevel()->AddStructDecl(*result);
         return result;
@@ -1087,8 +1085,8 @@ namespace glsld
         auto result = CreateAstNode<AstParamDecl>(range, qualType, declarator);
 
         result->SetScope(DeclScope::Function);
-        result->SetResolvedType(compilerObject.GetAstContext().GetArrayType(
-            qualType->GetResolvedType(), declarator ? declarator->arraySize : nullptr));
+        result->SetResolvedType(
+            astContext.GetArrayType(qualType->GetResolvedType(), declarator ? declarator->arraySize : nullptr));
 
         symbolTable.GetCurrentLevel()->AddParamDecl(*result);
         return result;
@@ -1118,12 +1116,11 @@ namespace glsld
             fieldDecl->SetParentDecl(result);
         }
 
-        auto blockType = compilerObject.GetAstContext().CreateInterfaceBlockType(*result);
+        auto blockType = astContext.CreateInterfaceBlockType(*result);
         result->SetScope(DeclScope::Global);
         result->SetResolvedBlockType(blockType);
         if (declarator) {
-            result->SetResolvedInstanceType(
-                compilerObject.GetAstContext().GetArrayType(blockType, declarator->arraySize));
+            result->SetResolvedInstanceType(astContext.GetArrayType(blockType, declarator->arraySize));
         }
         else {
             result->SetResolvedInstanceType(Type::GetErrorType());

@@ -1,18 +1,12 @@
 #include "Compiler/AstContext.h"
-#include "Compiler/AstEval.h"
+#include "Ast/Eval.h"
 
 namespace glsld
 {
-    AstContext::AstContext(const AstContext* preambleContext) : CompilerContextBase(preambleContext)
+    AstContext::AstContext(const AstContext* preambleContext)
     {
         if (preambleContext) {
-            arrayTypes  = preambleContext->arrayTypes;
-            arena       = std::make_unique<MemoryArena>();
-            symbolTable = std::make_unique<SymbolTable>(preambleContext->symbolTable->GetGlobalLevels());
-        }
-        else {
-            arena       = std::make_unique<MemoryArena>();
-            symbolTable = std::make_unique<SymbolTable>();
+            arrayTypes = preambleContext->arrayTypes;
         }
     }
 
@@ -42,12 +36,12 @@ namespace glsld
             }
         }
 
-        auto result = arena->Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                 .name    = decl.GetDeclTok() ? typeName.Str() : "",
-                                                                 .members = std::move(memberDesc),
-                                                                 .decl    = &decl,
-                                                                 .memberDeclLookup = std::move(memberLookup),
-                                                             });
+        auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
+                                                                .name    = decl.GetDeclTok() ? typeName.Str() : "",
+                                                                .members = std::move(memberDesc),
+                                                                .decl    = &decl,
+                                                                .memberDeclLookup = std::move(memberLookup),
+                                                            });
         return result;
     }
 
@@ -77,12 +71,12 @@ namespace glsld
             }
         }
 
-        auto result = arena->Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                 .name             = typeName.Str(),
-                                                                 .members          = std::move(memberDesc),
-                                                                 .decl             = &decl,
-                                                                 .memberDeclLookup = std::move(memberLookup),
-                                                             });
+        auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
+                                                                .name             = typeName.Str(),
+                                                                .members          = std::move(memberDesc),
+                                                                .decl             = &decl,
+                                                                .memberDeclLookup = std::move(memberLookup),
+                                                            });
         return result;
     }
 
@@ -93,12 +87,11 @@ namespace glsld
             return elementType;
         }
 
-        std::vector<size_t> dimSizes;
         if (arraySpec != nullptr && !arraySpec->GetSizeList().empty()) {
             std::vector<size_t> dimSizes;
             for (auto arrayDim : arraySpec->GetSizeList()) {
                 if (arrayDim != nullptr) {
-                    const auto& dimSizeValue = EvaluateAstExpr(arrayDim);
+                    const auto& dimSizeValue = EvalAstExpr(*arrayDim);
                     if (dimSizeValue.IsScalarInt32()) {
                         dimSizes.push_back(dimSizeValue.GetInt32Value());
                         continue;
@@ -123,6 +116,7 @@ namespace glsld
             return elementType;
         }
         if (dimSizes.empty()) {
+            // FIXME: this should be unreachable?
             return elementType;
         }
 
@@ -143,6 +137,7 @@ namespace glsld
         if (cachedItem == nullptr) {
             std::string debugName = realElementType->GetDebugName().Str();
             for (auto dimSize : realDimSizes) {
+                // FIXME: error vs runtime-sized
                 if (dimSize != 0) {
                     debugName += fmt::format("[{}]", dimSize);
                 }
@@ -151,8 +146,8 @@ namespace glsld
                 }
             }
 
-            cachedItem = arena->Construct<Type>(
-                std::move(debugName), ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes});
+            cachedItem = arena.Construct<Type>(std::move(debugName),
+                                               ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes});
         }
         return cachedItem;
     }

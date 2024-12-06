@@ -6,6 +6,8 @@
 #include "Basic/SourceInfo.h"
 #include "Language/Typing.h"
 
+#include <compare>
+#include <cstdint>
 #include <optional>
 
 namespace glsld
@@ -169,25 +171,179 @@ namespace glsld
         bool hasLeadingWhitespace;
     };
 
-    using SyntaxTokenIndex                              = uint32_t;
-    inline constexpr SyntaxTokenIndex InvalidTokenIndex = static_cast<uint32_t>(-1);
-
-    struct AstSyntaxRange final
+    enum class TranslationUnitID
     {
-        // The range that spells the first token for this AST node.
-        SyntaxTokenIndex startTokenIndex = 0;
+        SystemPreamble = 0,
+        UserPreamble   = 1,
+        UserFile       = 2,
+    };
 
-        // The range that spells the first token after this AST node.
-        SyntaxTokenIndex endTokenIndex = 0;
+    class SyntaxTokenID
+    {
+    private:
+        static constexpr uint32_t InvalidTokenID = static_cast<uint32_t>(-1);
+        // this must be a power of 2 for best performance
+        static constexpr uint32_t MaxTranslationUnitTokenCount = 1u << 28;
+        static constexpr uint32_t MaxTranslationUnitCount      = 15;
 
-        AstSyntaxRange() = default;
-        AstSyntaxRange(SyntaxTokenIndex tokIndex) : startTokenIndex(tokIndex), endTokenIndex(tokIndex + 1)
+        uint32_t value;
+
+    public:
+        constexpr SyntaxTokenID()
         {
         }
-        AstSyntaxRange(SyntaxTokenIndex beginTokIndex, SyntaxTokenIndex endTokIndex)
-            : startTokenIndex(beginTokIndex), endTokenIndex(endTokIndex)
+        constexpr explicit SyntaxTokenID(uint32_t tuIndex, uint32_t tokIndex)
         {
-            GLSLD_ASSERT(beginTokIndex <= endTokIndex);
+            GLSLD_ASSERT(tuIndex < MaxTranslationUnitCount && tokIndex < MaxTranslationUnitTokenCount);
+            value = tuIndex * MaxTranslationUnitTokenCount + tokIndex;
+        }
+
+        auto IsValid() const noexcept -> bool
+        {
+            return value != InvalidTokenID;
+        }
+
+        auto GetTUIndex() const noexcept -> uint32_t
+        {
+            return value / MaxTranslationUnitTokenCount;
+        }
+
+        auto GetTokenIndex() const noexcept -> uint32_t
+        {
+            return value % MaxTranslationUnitTokenCount;
+        }
+
+        auto operator==(const SyntaxTokenID& other) const noexcept -> bool = default;
+
+        auto operator++() noexcept -> SyntaxTokenID&
+        {
+            ++value;
+            return *this;
+        }
+        auto operator--() noexcept -> SyntaxTokenID&
+        {
+            --value;
+            return *this;
+        }
+        auto operator+=(uint32_t diff) noexcept -> SyntaxTokenID&
+        {
+            value += diff;
+            return *this;
+        }
+        auto operator-=(uint32_t diff) noexcept -> SyntaxTokenID&
+        {
+            value -= diff;
+            return *this;
+        }
+        auto operator+(uint32_t diff) const noexcept -> SyntaxTokenID
+        {
+            SyntaxTokenID result = *this;
+            result += diff;
+            return result;
+        }
+        auto operator-(uint32_t diff) const noexcept -> SyntaxTokenID
+        {
+            SyntaxTokenID result = *this;
+            result += diff;
+            return result;
+        }
+        auto operator-(SyntaxTokenID other) const noexcept -> int32_t
+        {
+            uint32_t diff = std::max(value, other.value) - std::min(value, other.value);
+            int32_t sign  = value > other.value ? 1 : -1;
+            return sign * static_cast<int32_t>(diff);
+        }
+    };
+
+    class AstSyntaxRange final
+    {
+    private:
+        // The range that spells the first token for this AST node.
+        SyntaxTokenID beginID = {};
+
+        // The range that spells the first token after this AST node.
+        SyntaxTokenID endID = {};
+
+        class Iterator
+        {
+        private:
+            SyntaxTokenID id;
+
+        public:
+            Iterator(SyntaxTokenID id) : id(id)
+            {
+            }
+
+            auto operator==(const Iterator& other) const noexcept -> bool = default;
+            auto operator*() const noexcept -> const SyntaxTokenID&
+            {
+                return id;
+            }
+            auto operator->() const noexcept -> const SyntaxTokenID&
+            {
+                return id;
+            }
+            auto operator++() noexcept -> Iterator&
+            {
+                ++id;
+                return *this;
+            }
+            auto operator--() noexcept -> Iterator&
+            {
+                --id;
+                return *this;
+            }
+        };
+
+    public:
+        AstSyntaxRange() = default;
+        AstSyntaxRange(SyntaxTokenID tokIndex) : beginID(tokIndex), endID(tokIndex + 1)
+        {
+        }
+        AstSyntaxRange(SyntaxTokenID beginTokID, SyntaxTokenID endTokID) : beginID(beginTokID), endID(endTokID)
+        {
+            GLSLD_ASSERT(beginTokID.GetTUIndex() == endID.GetTUIndex() &&
+                         beginTokID.GetTokenIndex() <= endTokID.GetTokenIndex());
+        }
+
+        auto Empty() const noexcept -> bool
+        {
+            return beginID == endID;
+        }
+
+        auto GetTokenCount() const noexcept -> size_t
+        {
+            return endID - beginID;
+        }
+
+        auto GetTranslationUnit() const noexcept -> TranslationUnitID
+        {
+            return static_cast<TranslationUnitID>(endID.GetTUIndex());
+        }
+
+        auto GetBeginID() const noexcept -> SyntaxTokenID
+        {
+            return beginID;
+        }
+
+        auto GetEndID() const noexcept -> SyntaxTokenID
+        {
+            return endID;
+        }
+
+        auto GetBackID() const noexcept -> SyntaxTokenID
+        {
+            GLSLD_ASSERT(!Empty());
+            return endID - 1;
+        }
+
+        auto begin() const noexcept -> Iterator
+        {
+            return Iterator{beginID};
+        }
+        auto end() const noexcept -> Iterator
+        {
+            return Iterator{endID};
         }
     };
 
@@ -195,9 +351,9 @@ namespace glsld
     // It is pointing to a raw token that is managed by the LexContext.
     struct SyntaxToken final
     {
-        SyntaxTokenIndex index = InvalidTokenIndex;
-        TokenKlass klass       = TokenKlass::Invalid;
-        AtomString text        = {};
+        SyntaxTokenID index = {};
+        TokenKlass klass    = TokenKlass::Invalid;
+        AtomString text     = {};
 
         auto IsValid() const noexcept -> bool
         {
@@ -218,7 +374,7 @@ namespace glsld
 
         auto GetSyntaxRange() const noexcept -> AstSyntaxRange
         {
-            return AstSyntaxRange(index, index + 1);
+            return AstSyntaxRange(index);
         }
     };
 
@@ -227,11 +383,11 @@ namespace glsld
         // The token class.
         TokenKlass klass;
 
-        // The source file id that the token is spelled.
+        // The source file where the token is spelled.
         FileID spelledFile;
 
         // The text range in which the token is spelled. If the token isn't directly spelled but created by macro
-        // expansion, this is an empty range.
+        // expansion, this is an empty range before the macro name token.
         TextRange spelledRange;
 
         // The text range in which the token expanded into the main file.
@@ -245,4 +401,18 @@ namespace glsld
         AtomString text;
     };
 
+    struct RawCommentTokenEntry final
+    {
+        // The source file where the token is spelled.
+        FileID spelledFile;
+
+        // The text range in which the token is spelled.
+        TextRange spelledRange;
+
+        // Comment text including control characters
+        AtomString text;
+
+        // Index of the next non-comment token in this translation unit
+        uint32_t nextTokenIndex;
+    };
 } // namespace glsld

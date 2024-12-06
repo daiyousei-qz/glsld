@@ -4,5 +4,5 @@
 
 namespace glsld
 {
-    auto EvaluateAstExpr(const AstExpr* expr) -> ConstValue;
-} // namespace glsld
+    auto EvalAstExpr(const AstExpr& expr) -> ConstValue;
+}

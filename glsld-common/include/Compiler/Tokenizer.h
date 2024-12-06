@@ -1,7 +1,9 @@
 #pragma once
+#include "Basic/AtomTable.h"
 #include "Basic/Common.h"
 #include "Basic/SourceInfo.h"
-#include "Compiler/CompilerObject.h"
+#include "Basic/StringView.h"
+#include "Compiler/CompilerInvocation.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/SourceScanner.h"
 #include "Compiler/Preprocessor.h"
@@ -14,13 +16,13 @@ namespace glsld
     class Tokenizer final
     {
     private:
-        CompilerObject& compilerObject;
+        const CompilerInvocationState& compiler;
 
         AtomTable& atomTable;
 
-        Preprocessor& preprocessor;
+        PreprocessStateMachine& pp;
 
-        FileID sourceFileId;
+        FileID sourceFile;
 
         SourceScanner srcScanner;
 
@@ -29,10 +31,14 @@ namespace glsld
     public:
         // If `countUtf16Characters` is set to true, the tokenizer will count the number of UTF-16 code units in column
         // counter. Otherwise, the tokenizer will count the number of UTF-8 code units.
-        Tokenizer(CompilerObject& compilerObject, AtomTable& atomTable, Preprocessor& preprocessor, FileID sourceFile,
-                  bool countUtf16Characters = true);
+        Tokenizer(const CompilerInvocationState& compiler, PreprocessStateMachine& pp, AtomTable& atomTable,
+                  FileID sourceFile, StringView sourceText)
+            : compiler(compiler), atomTable(atomTable), pp(pp), sourceFile(sourceFile),
+              srcScanner(sourceText, compiler.GetCompilerConfig().countUtf16Character)
+        {
+        }
 
-        // Tokenize the source file and register tokens into the LexContext.
+        // Tokenize the source file and feed the tokens to the preprocessor.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.
         auto DoTokenize() -> void;

@@ -143,6 +143,8 @@ namespace glsld
         // NOTE if the vector type doesn't exist in glsl language, returns nullptr
         static auto GetVectorType(ScalarKind kind, size_t dim) -> const Type*;
 
+        // Get a globally unique type instance for the particular matrix type, if any
+        // NOTE if the matrix type doesn't exist in glsl language, returns nullptr
         static auto GetMatrixType(ScalarKind kind, size_t dimRow, size_t dimCol) -> const Type*;
 
         auto IsError() const noexcept -> bool

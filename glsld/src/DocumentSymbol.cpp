@@ -79,7 +79,7 @@ namespace glsld
                 return false;
             }
 
-            if (auto spelledRange = GetProvider().GetSpelledTextRangeInMainFile(token)) {
+            if (auto spelledRange = GetProvider().LookupSpelledTextRangeInMainFile(token.index)) {
                 auto lspSpelledRange = ToLspRange(*spelledRange);
                 buffer.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),

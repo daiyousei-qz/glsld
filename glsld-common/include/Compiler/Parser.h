@@ -3,13 +3,11 @@
 #include "Ast/Stmt.h"
 #include "Ast/Decl.h"
 #include "Ast/Misc.h"
+#include "Basic/Common.h"
 #include "Compiler/AstBuilder.h"
-#include "Compiler/LexContext.h"
-#include "Compiler/CompilerObject.h"
-#include "Compiler/CompilerTrace.h"
+#include "Compiler/CompilerInvocationState.h"
 #include "Compiler/SyntaxToken.h"
-
-#include "DiagnosticStream.h"
+#include "Compiler/DiagnosticStream.h"
 
 #include <vector>
 
@@ -28,13 +26,21 @@ namespace glsld
     // EXPECT: The expected next token. Calling this parser with incorrect next token leads to undefined behavior.
     // PARSE: Grammar rules that are going to be parsed.
     // ACCEPT: Additional grammar rules to be accepted (for permissive parsing).
-    // RECOVERY: The next token to be expected if this parser entered recovery mode
+    // RECOVERY: If specified, this parser would do backtracking and parse additional error rules
     class Parser
     {
     private:
-        CompilerObject& compilerObject;
+        CompilerInvocationState& compiler;
+
+        DiagnosticReportor diagReporter;
 
         AstBuilder astBuilder;
+
+        TranslationUnitID tuID;
+
+        ArrayView<RawSyntaxTokenEntry> tokens;
+
+        const RawSyntaxTokenEntry* currentTok = nullptr;
 
         enum class ParsingState
         {
@@ -98,26 +104,30 @@ namespace glsld
             }
         };
 
-        SyntaxToken currentTok = {};
-
     public:
-        Parser(CompilerObject& compilerObject) : compilerObject(compilerObject), astBuilder(compilerObject)
+        Parser(CompilerInvocationState& compiler, const LexedTranslationUnit& tu)
+            : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tu.GetID()),
+              tokens(tu.GetTokens())
         {
+            currentTok = tokens.data();
         }
 
         auto DoParse() -> void;
 
     private:
-        auto HandleSystemCommand(const SyntaxToken& cmdTok, ArrayView<SyntaxToken> args) -> void;
+        auto HandleSystemCommand(StringView cmd, ArrayView<SyntaxToken> args) -> void;
 
         // Parse a sequence of system commands in the global scope.
         // System commands are `__glsld_syscmd_XXX__ <args>... ;` in the system preamble, which are used to
         // configure the special compiler behavior for the standard library.
         auto ParseSystemCommands() -> void;
 
-        // Parse the tokens in the token stream from the LexContext and register AST nodes into the AstContext.
+        // Parse the tokens in the token stream and register AST nodes into the CompilerInvocationState.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.
+        //
+        // PARSE: translation_unit
+        //      - translation_unit := declaration...
         auto ParseTranslationUnit() -> const AstTranslationUnit*;
 
 #pragma region Parsing Misc
@@ -134,30 +144,25 @@ namespace glsld
         // ACCEPT: null
         auto ParseOrInferSemicolonHelper() -> void;
 
-        // Parse a ',' inside a parenthesis pair. Returns true if a ',' is parsed, meaning we should continue parsing
-        // the next item.
+        // Parse a ',' inside a parenthesis pair. Returns true if a ',' is successfully parsed.
         //
         // PARSE: ','
         //
-        // ACCEPT: ??? ',' or ??? ^')'
-        auto ParseCommaSeperatorHelper(size_t leftParenDepth) -> bool;
+        // RECOVERY: comma_recovery
+        auto ParseCommaInParenHelper(size_t leftParenDepth) -> bool;
 
         // Parse a closing ')' with the assumption that a balanced '(' has been parsed.
         //
         // PARSE: ')'
         //
-        // ACCEPT: ??? ')' or null
-        //
-        // RECOVERY: ^'EOF' or '}' or ';'
+        // RECOVERY: paren_recovery ')'
         auto ParseClosingParenHelper(size_t leftParenDepth) -> void;
 
         // Parse a closing ']' with the assumption that a balanced '[' has been parsed.
         //
         // PARSE: ']'
         //
-        // ACCEPT: ??? ']' or null
-        //
-        // RECOVERY: ^'EOF' or '}' or ';'
+        // RECOVERY: bracket_recovery ']'
         auto ParseClosingBracketHelper(size_t leftBracketDepth) -> void;
 
         // Try to parse an identifier token as a symbol name if available, otherwise returns an invalid token.
@@ -165,6 +170,8 @@ namespace glsld
         // PARSE: 'ID'
         //
         // ACCEPT: null
+        auto ParseOptionalDeclIdHelper() -> SyntaxToken;
+
         auto ParseDeclIdHelper() -> SyntaxToken;
 
         // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter recovery mode and return
@@ -173,8 +180,6 @@ namespace glsld
         // PARSE: paren_wrapped_expr
         //
         // ACCEPT: null
-        //
-        // RECOVERY: unknown
         auto ParseParenWrappedExprOrErrorHelper() -> AstExpr*;
 #pragma endregion
 
@@ -185,14 +190,14 @@ namespace glsld
         // EXPECT: 'K_layout'
         //
         // PARSE: layout_qual
-        //      - layout_qual := 'layout' '(' ')'
-        //      - layout_qual := 'layout' '(' layout_spec [',' layout_spec]... ')'
+        //      - layout_qual := 'K_layout' '(' ')'
+        //      - layout_qual := 'K_layout' '(' layout_spec [',' layout_spec]... ')'
         //      - layout_spec := 'ID'
         //      - layout_spec := 'ID' '=' assignment_expr
         //
-        // ACCEPT: 'K_layout' '(' ??? ')'
-        //
-        // RECOVERY: unknown
+        // ACCEPT:
+        //       - 'K_layout'
+        //       - 'K_layout' '(' paren_recovery ')'
         auto ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void;
 
         // Try to parse a sequence of qualifiers. Returns nullptr if no qualifier is parsed.
@@ -201,11 +206,10 @@ namespace glsld
         //      - qual_seq := [qualifier]...
         //      - qualifier := layout_qual
         //      - qualifier := 'K_???'
-        //
-        // RECOVERY: ^'EOF' or ^';'
         auto ParseTypeQualifierSeq() -> AstTypeQualifierSeq*;
 
         // EXPECT: '{'
+        //
         // PARSE: struct_body
         //      - struct_body := '{' member_decl... '}'
         //      - member_decl := ?
@@ -216,10 +220,14 @@ namespace glsld
         // FIXME: member_decl???
         auto ParseStructBody() -> std::vector<AstFieldDecl*>;
 
-        // EXPECT: K_struct
+        // EXPECT: 'K_struct'
         //
         // PARSE: struct_definition
-        //      - struct_definition := 'struct' ['ID'] struct_body
+        //      - struct_definition := 'K_struct' ['ID'] struct_body
+        //
+        // ACCEPT:
+        //      - 'K_struct'
+        //      - 'K_struct' ['ID']
         //
         // RECOVERY:
         auto ParseStructDefinition() -> AstStructDecl*;
@@ -341,7 +349,7 @@ namespace glsld
         //      - func_decl := 'ID' func_param_list compound_stmt
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseFunctionDecl(size_t beginTokIndex, AstQualType* returnType) -> AstDecl*;
+        auto ParseFunctionDecl(SyntaxTokenID beginTokIndex, AstQualType* returnType) -> AstDecl*;
 
         // EXPECT: ';' or 'ID'
         //
@@ -350,7 +358,7 @@ namespace glsld
         //      - type_or_variable_decl := declarator [',' declarator]... ';'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseTypeOrVariableDecl(size_t beginTokIndex, AstQualType* variableType) -> AstDecl*;
+        auto ParseTypeOrVariableDecl(SyntaxTokenID beginTokIndex, AstQualType* variableType) -> AstDecl*;
 
         // EXPECT: 'ID' '{' or '{'
         //
@@ -358,7 +366,7 @@ namespace glsld
         //      - interface_block_decl := 'ID' '{' [declartion]... '}' [declarator] ';'
         //
         // RECOVERY: ^'EOF' or ^';'
-        auto ParseInterfaceBlockDecl(size_t beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
+        auto ParseInterfaceBlockDecl(SyntaxTokenID beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
         // EXPECT: 'K_precision'
         //
@@ -375,42 +383,41 @@ namespace glsld
         // Parse an expression. If no token is consumed, enter recovery mode to advance parsing.
         //
         // PARSE: expr
+        //      - expr := comma_expr
         //
-        // RECOVERY: unknown
+        // ACCEPT: null
+        //
+        // RECOVERY: yes
         auto ParseExpr() -> AstExpr*;
 
         // Parse an expression without comma operator. If no token is consumed, enter recovery mode to advance parsing.
         //
         // PARSE: assignment_expr
         //
-        // RECOVERY: unknown
+        // RECOVERY: yes
         auto ParseExprNoComma() -> AstExpr*;
 
         // Parse a comma expression.
         //
-        // PARSE: expr
-        //      - expr := assignment_expr [',' assignment_expr]...
-        //
-        // RECOVERY: ^';' or ^'}' or ^'EOF'
+        // PARSE: comma_expr
+        //      - comma_expr := assignment_expr [',' assignment_expr]...
         auto ParseCommaExpr() -> AstExpr*;
 
-        // Parse a top-level expreesion without comma operator.
+        // Parse an assignment expreesion.
         //
         // PARSE: assignment_expr
         //      - assignment_expr := unary_expr '?=' assignment_expr
-        //      - assignment_expr := binary_or_conditional_expr
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        //      - assignment_expr := conditional_expr
         auto ParseAssignmentExpr() -> AstExpr*;
 
-        // PARSE: binary_or_conditional_expr
-        //      - binary_or_conditional_expr := binary_expr
-        //      - binary_or_conditional_expr := binary_expr '?' expr ':' assignment_expr
+        // PARSE: conditional_expr
+        //      - conditional_expr := binary_expr
+        //      - conditional_expr := binary_expr '?' comma_expr ':' assignment_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         //
         // `firstTerm` is the first terminal in the condition
-        auto ParseBinaryOrConditionalExpr(size_t beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
+        auto ParseConditionalExpr(SyntaxTokenID beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
         // PARSE: binary_expr
         //      - binary_expr := unary_expr
@@ -419,7 +426,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         //
         // `firstTerm` for this is a unary expression, which might already be parsed
-        auto ParseBinaryExpr(size_t beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
+        auto ParseBinaryExpr(SyntaxTokenID beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
 
         // Parse an unary expression.
         //
@@ -461,8 +468,6 @@ namespace glsld
         //      - primary_expr := paren_wrapped_expr
         //
         // ACCEPT: null
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePrimaryExpr() -> AstExpr*;
 
         // Parse an expression wrapped in parentheses pair.
@@ -472,7 +477,7 @@ namespace glsld
         // PARSE: paren_wrapped_expr
         //      - paren_wrapped_expr := '(' expr ')'
         //
-        // ACCEPT: '(' ??? ')'
+        // ACCEPT: '(' paren_recovery ')'
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseParenWrappedExpr() -> AstExpr*;
@@ -677,25 +682,36 @@ namespace glsld
         // Recover from a parsing error by skipping tokens until we reach a recovery point.
         auto RecoverFromError(RecoveryMode mode) -> void;
 
-        auto PeekToken() const noexcept -> const SyntaxToken&
+        auto PeekToken() const noexcept -> const RawSyntaxTokenEntry&
         {
-            return currentTok;
+            GLSLD_ASSERT(currentTok != nullptr);
+            return *currentTok;
         }
 
-        auto PeekToken(size_t lookahead) const noexcept -> SyntaxToken
+        auto PeekToken(size_t lookahead) const noexcept -> const RawSyntaxTokenEntry&
         {
-            return compilerObject.GetLexContext().GetTUTokenSafe(currentTok.index + lookahead);
+            GLSLD_ASSERT(currentTok != nullptr);
+            if (currentTok + lookahead < tokens.data() + tokens.size()) {
+                return currentTok[lookahead];
+            }
+            else {
+                return tokens.back();
+            }
         }
 
-        auto GetTokenIndex() const noexcept -> SyntaxTokenIndex
+        auto GetCurrentTokenID() const noexcept -> SyntaxTokenID
         {
-            return currentTok.index;
+            GLSLD_ASSERT(currentTok != nullptr);
+            return SyntaxTokenID{static_cast<uint32_t>(tuID), static_cast<uint32_t>(currentTok - tokens.data())};
         }
 
-        // FIXME: need to restore brace depth tracker
-        auto RestoreTokenIndex(size_t index) -> void
+        auto GetCurrentToken() const noexcept -> SyntaxToken
         {
-            currentTok = compilerObject.GetLexContext().GetTUToken(index);
+            return SyntaxToken{
+                .index = GetCurrentTokenID(),
+                .klass = PeekToken().klass,
+                .text  = PeekToken().text,
+            };
         }
 
         auto TryTestToken(TokenKlass klass) -> bool
@@ -736,12 +752,6 @@ namespace glsld
             return TryTestToken(TokenKlass::Eof);
         }
 
-        // Tests if the parser has consumed all tokens in the token stream.
-        auto Exhaused() -> bool
-        {
-            return currentTok.index + 1 >= compilerObject.GetLexContext().GetTotalTokenCount();
-        }
-
         auto ConsumeToken() -> void;
 
         auto TryConsumeToken(TokenKlass klass) -> bool
@@ -760,36 +770,36 @@ namespace glsld
             return astBuilder.BuildErrorExpr(CreateAstSyntaxRange());
         }
 
-        auto CreateErrorExpr(SyntaxTokenIndex beginTokIndex) -> AstErrorExpr*
+        auto CreateErrorExpr(SyntaxTokenID beginTokIndex) -> AstErrorExpr*
         {
             return astBuilder.BuildErrorExpr(CreateAstSyntaxRange(beginTokIndex));
         }
 
         auto CreateErrorStmt() -> AstErrorStmt*
         {
-            auto tokIndex = GetTokenIndex();
+            auto tokIndex = GetCurrentTokenID();
             return astBuilder.BuildErrorStmt(CreateAstSyntaxRange());
         }
 
         auto CreateAstSyntaxRange() -> AstSyntaxRange
         {
-            return AstSyntaxRange{GetTokenIndex()};
+            return AstSyntaxRange{GetCurrentTokenID()};
         }
-        auto CreateAstSyntaxRange(SyntaxTokenIndex beginTokIndex) -> AstSyntaxRange
+        auto CreateAstSyntaxRange(SyntaxTokenID beginTokIndex) -> AstSyntaxRange
         {
-            return AstSyntaxRange{beginTokIndex, GetTokenIndex()};
+            return AstSyntaxRange{beginTokIndex, GetCurrentTokenID()};
         }
 
         // Report an error at the given token.
-        auto ReportError(SyntaxTokenIndex tokIndex, std::string message) -> void
+        auto ReportError(SyntaxTokenID tokIndex, std::string message) -> void
         {
-            compilerObject.GetDiagnosticStream().ReportError(AstSyntaxRange{tokIndex}, std::move(message));
+            diagReporter.ReportError(AstSyntaxRange{tokIndex}, std::move(message));
         }
 
         // Report an error at the current token.
         auto ReportError(std::string message) -> void
         {
-            ReportError(GetTokenIndex(), std::move(message));
+            ReportError(GetCurrentTokenID(), std::move(message));
         }
     };
 

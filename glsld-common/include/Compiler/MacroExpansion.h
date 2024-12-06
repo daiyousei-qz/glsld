@@ -1,6 +1,7 @@
 #pragma once
+#include "Basic/AtomTable.h"
+#include "Compiler/MacroTable.h"
 #include "Compiler/SyntaxToken.h"
-#include "Compiler/LexContext.h"
 #include "Compiler/MacroDefinition.h"
 #include "Compiler/PPTokenScanner.h"
 
@@ -9,7 +10,7 @@ namespace glsld
     auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
 
     // Flexible, could either
-    // - Register token to LexContext
+    // - Output token to token stream
     // - Add token to a buffer
     class EmptyMacroExpansionCallback
     {
@@ -71,7 +72,8 @@ namespace glsld
         class MacroExpansionProcessorImpl
         {
         private:
-            LexContext& lexContext;
+            AtomTable& atomTable;
+            MacroTable& macroTable;
             Callback callback;
 
             std::vector<PPToken> argBuffer;
@@ -82,8 +84,8 @@ namespace glsld
             std::optional<PPToken> pendingExitMacroToken;
 
         public:
-            MacroExpansionProcessorImpl(LexContext& lexContext, Callback callback)
-                : lexContext(lexContext), callback(callback)
+            MacroExpansionProcessorImpl(AtomTable& atomTable, MacroTable& macroTable, Callback callback)
+                : atomTable(atomTable), macroTable(macroTable), callback(callback)
             {
             }
 
@@ -91,9 +93,24 @@ namespace glsld
             auto Feed(const PPToken& token) -> void
             {
                 if (pendingInvokedMacro) {
-                    // First, we try to see if previous token is held for function-like macro expansion.
+                    // First, we try to see if previous token is witheld for potential function-like macro expansion.
+                    if (argLParenCounter == 0) {
+                        // We are looking for a '(' to start the argument list of a function-like macro.
+                        if (token.klass == TokenKlass::LParen) {
+                            TryExitMacroExpansionDelayed();
 
-                    if (argLParenCounter > 0) {
+                            argLParenCounter += 1;
+                            callback.OnEnterMacroExpansion(pendingInvokedMacroToken);
+                        }
+                        else {
+                            // This is not a function-like macro invocation.
+                            RevokePendingMacroInvocation();
+                            TryExitMacroExpansionDelayed();
+
+                            callback.OnYieldToken(token);
+                        }
+                    }
+                    else {
                         // We are in the argument list of a function-like macro.
                         // So try to close the list with ')' or continue collecting arguments.
                         if (token.klass == TokenKlass::RParen) {
@@ -110,7 +127,7 @@ namespace glsld
                                 TryExitMacroExpansion(macroUseTok);
                             }
                             else {
-                                // Push the token to the argument buffer until the argument list is closed.
+                                // This is not the matching ')' of the argument list. Treat it as regular token.
                                 argBuffer.push_back(token);
                             }
                         }
@@ -120,30 +137,15 @@ namespace glsld
                             if (token.klass == TokenKlass::LParen) {
                                 argLParenCounter += 1;
                             }
+
                             argBuffer.push_back(token);
-                        }
-                    }
-                    else {
-                        // We are looking for a '(' to start the argument list of a function-like macro.
-                        if (token.klass == TokenKlass::LParen) {
-                            TryExitMacroExpansionDelayed();
-
-                            argLParenCounter += 1;
-                            callback.OnEnterMacroExpansion(pendingInvokedMacroToken);
-                        }
-                        else {
-                            RevokePendingMacroInvocation();
-                            TryExitMacroExpansionDelayed();
-
-                            callback.OnYieldToken(token);
                         }
                     }
                 }
                 else if (token.klass == TokenKlass::Identifier) {
                     // Second, we try to see if the given token is an identifier.
                     // Only identifier can start a macro expansion.
-
-                    auto macroDefinition = lexContext.FindEnabledMacroDefinition(token.text);
+                    auto macroDefinition = macroTable.FindEnabledMacroDefinition(token.text);
                     if (macroDefinition) {
                         if (macroDefinition->IsFunctionLike()) {
                             // For function-like macro, we need to collect the arguments first, if any.
@@ -159,7 +161,7 @@ namespace glsld
                         }
                     }
                     else {
-                        // TODO: Expand builtin macros.
+                        // FIXME: Expand builtin macros.
                         callback.OnYieldToken(token);
                     }
                 }
@@ -221,7 +223,7 @@ namespace glsld
                         .klass                = klass,
                         .spelledFile          = macroUseTok.spelledFile,
                         .spelledRange         = TextRange{macroUseTok.spelledRange.start},
-                        .text                 = lexContext.GetAtomTable().GetAtom(tokText),
+                        .text                 = atomTable.GetAtom(tokText),
                         .isFirstTokenOfLine   = false,
                         .hasLeadingWhitespace = false,
                     });
@@ -246,6 +248,7 @@ namespace glsld
                     token.isFirstTokenOfLine   = false;
                     token.hasLeadingWhitespace = false;
 
+                    // FIXME: properly handle comments
                     if (token.klass == TokenKlass::Hash) {
                         if (macroScanner.TryTestToken(TokenKlass::Identifier, 1)) {
                             // #identifier, aka. stringification
@@ -295,7 +298,7 @@ namespace glsld
                         auto [klass, tokText, remText] = TokenizeOnce(pastedText);
                         if (!pastingFailure && remText.Empty()) {
                             token.klass = klass;
-                            token.text  = lexContext.GetAtomTable().GetAtom(tokText);
+                            token.text  = atomTable.GetAtom(tokText);
                             Feed(token);
                         }
                         else {
@@ -370,8 +373,9 @@ namespace glsld
                     if constexpr (ArgExpansionMode) {
                         using BaseCallback = typename Callback::BaseCallbackType;
                         MacroExpansionProcessorImpl<MacroArgumentExpansionCallback<BaseCallback>, true> argProcessor{
-                            lexContext, MacroArgumentExpansionCallback<BaseCallback>{callback.GetBaseCallback(),
-                                                                                     expandedArgs.emplace_back()}};
+                            atomTable, macroTable,
+                            MacroArgumentExpansionCallback<BaseCallback>{callback.GetBaseCallback(),
+                                                                         expandedArgs.emplace_back()}};
 
                         for (const PPToken& token : argView) {
                             argProcessor.Feed(token);
@@ -380,7 +384,7 @@ namespace glsld
                     else {
                         using BaseCallback = Callback;
                         MacroExpansionProcessorImpl<MacroArgumentExpansionCallback<BaseCallback>, true> argProcessor{
-                            lexContext,
+                            atomTable, macroTable,
                             MacroArgumentExpansionCallback<BaseCallback>{callback, expandedArgs.emplace_back()}};
                         for (const PPToken& token : argView) {
                             argProcessor.Feed(token);

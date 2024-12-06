@@ -1,21 +1,22 @@
 #include "SemanticTokens.h"
+#include "Compiler/SyntaxToken.h"
 #include "LanguageQueryVisitor.h"
 
 namespace glsld
 {
     auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryProvider& provider,
-                                 SyntaxToken token, SemanticTokenType type,
+                                 SyntaxTokenID tokID, SemanticTokenType type,
                                  SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
     {
         // FIXME: how to handle multi-line token
         //            a\
         //            b
-        if (auto tokRange = provider.GetSpelledTextRangeInMainFile(token)) {
-            if (!tokRange->IsEmpty()) {
+        if (auto tokTextRange = provider.LookupSpelledTextRangeInMainFile(tokID)) {
+            if (!tokTextRange->IsEmpty()) {
                 tokenBuffer.push_back(SemanticTokenInfo{
-                    .line      = tokRange->start.line,
-                    .character = tokRange->start.character,
-                    .length    = tokRange->end.character - tokRange->start.character,
+                    .line      = tokTextRange->start.line,
+                    .character = tokTextRange->start.character,
+                    .length    = tokTextRange->end.character - tokTextRange->start.character,
                     .type      = type,
                     .modifier  = modifier,
                 });
@@ -24,27 +25,25 @@ namespace glsld
     }
 
     // Collect semantic tokens from token stream, including keywords, numbers, etc.
-    auto CollectLexSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
-        -> void
+    auto CollectLexSemanticTokens(const LanguageQueryProvider& provider,
+                                  std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
-        const auto& lexContext = provider.GetLexContext();
-        for (SyntaxTokenIndex tokIndex = lexContext.GetTUTokenIndexOffset(); tokIndex < lexContext.GetTotalTokenCount();
-             ++tokIndex) {
-            auto tok = lexContext.GetTUToken(tokIndex);
+        for (auto tokID : provider.GetUserFileAst().GetSyntaxRange()) {
+            auto tok = provider.GetToken(tokID);
 
             std::optional<SemanticTokenType> type;
-            if (IsKeywordToken(tok.klass)) {
-                if (!GetGlslBuiltinType(tok.klass)) {
+            if (IsKeywordToken(tok->klass)) {
+                if (!GetGlslBuiltinType(tok->klass)) {
                     // Type keyword would be handled by traversing Ast
                     type = SemanticTokenType::Keyword;
                 }
             }
-            else if (tok.klass == TokenKlass::IntegerConstant || tok.klass == TokenKlass::FloatConstant) {
+            else if (tok->klass == TokenKlass::IntegerConstant || tok->klass == TokenKlass::FloatConstant) {
                 type = SemanticTokenType::Number;
             }
 
             if (type) {
-                CreateSemanticTokenInfo(tokenBuffer, provider, tok, *type);
+                CreateSemanticTokenInfo(tokenBuffer, provider, tokID, *type);
             }
         }
     }
@@ -74,8 +73,8 @@ namespace glsld
     }
 
     // Collect semantic tokens from AST, including types, structs, functions, etc.
-    auto CollectAstSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
-        -> void
+    auto CollectAstSemanticTokens(const LanguageQueryProvider& provider,
+                                  std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         class AstSemanticTokenCollector : public LanguageQueryVisitor<AstSemanticTokenCollector>
         {
@@ -207,7 +206,7 @@ namespace glsld
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
                 if (token.IsValid()) {
-                    CreateSemanticTokenInfo(output, GetProvider(), token, type, modifier);
+                    CreateSemanticTokenInfo(output, GetProvider(), token.index, type, modifier);
                 }
             }
         };

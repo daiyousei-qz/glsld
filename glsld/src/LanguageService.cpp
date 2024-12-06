@@ -1,5 +1,6 @@
 #include "LanguageService.h"
 #include "DocumentSymbol.h"
+#include "LanguageQueryProvider.h"
 #include "SemanticTokens.h"
 #include "CodeCompletion.h"
 #include "Hover.h"
@@ -9,8 +10,8 @@
 
 namespace glsld
 {
-    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
-        -> std::optional<lsp::SignatureHelp>;
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider,
+                              lsp::Position position) -> std::optional<lsp::SignatureHelp>;
 
     auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
                            bool includeDeclaration) -> std::vector<lsp::Location>;
@@ -79,7 +80,7 @@ namespace glsld
             return;
         }
 
-        providerEntry = std::make_shared<PendingLanguageQueryProvider>(
+        providerEntry = std::make_shared<PendingBackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text));
 
         ScheduleTask([provider = providerEntry]() { provider->Setup(); });
@@ -103,7 +104,7 @@ namespace glsld
                 sourceBuffer = std::move(change.text);
             }
         }
-        providerEntry = std::make_shared<PendingLanguageQueryProvider>(
+        providerEntry = std::make_shared<PendingBackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
         ScheduleTask([provider = providerEntry]() { provider->Setup(); });

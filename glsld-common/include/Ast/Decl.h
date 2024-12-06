@@ -20,6 +20,7 @@ namespace glsld
     class AstDecl : public AstNode
     {
     private:
+        // [Payload]
         DeclScope scope = DeclScope::Global;
 
     protected:

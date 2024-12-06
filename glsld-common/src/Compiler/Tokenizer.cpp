@@ -1,6 +1,5 @@
 #include "Compiler/Tokenizer.h"
-#include "Compiler/CompilerObject.h"
-#include "Compiler/LexContext.h"
+#include "Basic/StringView.h"
 #include "Compiler/Preprocessor.h"
 #include "Compiler/CompilerTrace.h"
 
@@ -12,39 +11,32 @@ namespace glsld::detail
 
 namespace glsld
 {
-    Tokenizer::Tokenizer(CompilerObject& compilerObject, AtomTable& atomTable, Preprocessor& preprocessor,
-                         FileID sourceFileId, bool countUtf16Characters)
-        : compilerObject(compilerObject), atomTable(atomTable), preprocessor(preprocessor), sourceFileId(sourceFileId)
-    {
-        auto sourceText = compilerObject.GetSourceContext().GetSourceText(sourceFileId);
-        srcScanner      = SourceScanner{sourceText.data(), sourceText.data() + sourceText.Size(), countUtf16Characters};
-    }
-
     auto Tokenizer::DoTokenize() -> void
     {
-        GLSLD_ASSERT(preprocessor.GetState() == PreprocessorState::Default);
+        GLSLD_ASSERT(pp.GetState() == PreprocessorState::Default);
         std::vector<PPToken> ppLineBuffer;
-        while (!preprocessor.ShouldHaltLexing()) {
+        while (!pp.ShouldHaltLexing()) {
             PPToken token = LexPPToken();
+#if defined(GLSLD_DEBUG)
+            compiler.GetCompilerTrace().TracePPTokenLexed(token);
+#endif
 
             if (token.klass == TokenKlass::Eof) {
-                preprocessor.IssuePPToken(token);
+                pp.FeedPPToken(token);
                 break;
             }
 
             if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                preprocessor.IssuePPToken(token);
+                pp.FeedPPToken(token);
             }
 
-            if (preprocessor.InActiveRegion()) {
-                GLSLD_TRACE_TOKEN_LEXED(token);
-                preprocessor.IssuePPToken(token);
+            if (pp.InActiveRegion()) {
+                pp.FeedPPToken(token);
             }
             else {
                 // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
                 if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                    GLSLD_TRACE_TOKEN_LEXED(token);
-                    preprocessor.IssuePPToken(token);
+                    pp.FeedPPToken(token);
                 }
             }
         }
@@ -60,7 +52,7 @@ namespace glsld
             // NOTE we always regard an EOF in a new line
             return PPToken{
                 .klass                = TokenKlass::Eof,
-                .spelledFile          = sourceFileId,
+                .spelledFile          = sourceFile,
                 .spelledRange         = TextRange{srcScanner.GetTextPosition()},
                 .text                 = {},
                 .isFirstTokenOfLine   = true,
@@ -81,10 +73,10 @@ namespace glsld
         else if (srcScanner.TryConsumeAsciiText("/*")) {
             klass = ParseBlockComment();
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('"')) {
+        else if (pp.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('"')) {
             klass = ParseHeaderName('"', '"', TokenKlass::UserHeaderName);
         }
-        else if (preprocessor.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
+        else if (pp.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
             klass = ParseHeaderName('<', '>', TokenKlass::SystemHeaderName);
         }
         else {
@@ -100,7 +92,7 @@ namespace glsld
 
         return PPToken{
             .klass                = klass,
-            .spelledFile          = sourceFileId,
+            .spelledFile          = sourceFile,
             .spelledRange         = TextRange{beginPos, endPos},
             .text                 = text,
             .isFirstTokenOfLine   = skippedNewLine,
@@ -111,12 +103,17 @@ namespace glsld
     auto Tokenizer::ParseLineComment() -> TokenKlass
     {
         // Assuming "//" is already consumed
+        // FIXME: add a toggle
+        tokenTextBuffer.push_back('/');
+        tokenTextBuffer.push_back('/');
+
         while (!srcScanner.CursorAtEnd()) {
             if (srcScanner.PeekCodeUnit() == '\n') {
+                tokenTextBuffer.push_back('\n');
                 break;
             }
 
-            srcScanner.ConsumeChar();
+            srcScanner.ConsumeChar(tokenTextBuffer);
         }
 
         return TokenKlass::Comment;
@@ -125,12 +122,18 @@ namespace glsld
     auto Tokenizer::ParseBlockComment() -> TokenKlass
     {
         // Assuming "/*" is already consumed
+        // FIXME: add a toggle
+        tokenTextBuffer.push_back('/');
+        tokenTextBuffer.push_back('*');
+
         while (!srcScanner.CursorAtEnd()) {
             if (srcScanner.TryConsumeAsciiText("*/")) {
+                tokenTextBuffer.push_back('*');
+                tokenTextBuffer.push_back('/');
                 return TokenKlass::Comment;
             }
 
-            srcScanner.ConsumeChar();
+            srcScanner.ConsumeChar(tokenTextBuffer);
         }
 
         return TokenKlass::Unknown;
@@ -162,7 +165,7 @@ namespace glsld
         std::vector<char> tokenTextBuffer;
         tokenTextBuffer.reserve(text.Size());
 
-        SourceScanner srcScanner{text.data(), text.data() + text.Size()};
+        SourceScanner srcScanner{text, false};
         TokenKlass klass = detail::Tokenize(srcScanner, tokenTextBuffer);
         return {klass, srcScanner.GetScannedText(), srcScanner.GetRemainingText()};
     }

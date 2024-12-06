@@ -17,7 +17,7 @@ namespace glsld
     case AstNodeTag::TYPE:                                                                                             \
         return std::forward<F>(f)(static_cast<TYPE&>(node), std::forward<Args>(args)...);
 #define DECL_AST_END_BASE(TYPE)
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_TYPE
 #undef DECL_AST_END_BASE
@@ -36,7 +36,7 @@ namespace glsld
     case AstNodeTag::TYPE:                                                                                             \
         return std::forward<F>(f)(static_cast<const TYPE&>(node), std::forward<Args>(args)...);
 #define DECL_AST_END_BASE(TYPE)
-#include "Ast/GlslAst.inc"
+#include "GlslAst.inc"
 #undef DECL_AST_BEGIN_BASE
 #undef DECL_AST_TYPE
 #undef DECL_AST_END_BASE

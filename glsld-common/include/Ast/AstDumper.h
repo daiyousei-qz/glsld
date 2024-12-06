@@ -3,6 +3,8 @@
 #include "Ast/Dispatch.h"
 #include "Ast/AstVisitor.h"
 
+#include <functional>
+
 namespace glsld
 {
     class AstDumper

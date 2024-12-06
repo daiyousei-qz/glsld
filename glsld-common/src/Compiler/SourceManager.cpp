@@ -1,14 +1,14 @@
-#include "Compiler/SourceContext.h"
+#include "Compiler/SourceManager.h"
 
 namespace glsld
 {
-    auto SourceContext::OpenFromBuffer(StringView sourceText) -> FileID
+    auto SourceManager::OpenFromBuffer(StringView sourceText) -> FileID
     {
         auto result = entries.emplace_back(GetNextFileID(), "", sourceText);
         return result.id;
     }
 
-    auto SourceContext::OpenFromFile(const std::filesystem::path& path) -> FileID
+    auto SourceManager::OpenFromFile(const std::filesystem::path& path) -> FileID
     {
         if (auto it = lookupPathToEntries.find(path); it != lookupPathToEntries.end()) {
             return it->second;

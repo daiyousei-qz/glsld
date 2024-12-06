@@ -81,7 +81,7 @@ namespace glsld
         {
             if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
                 if (GetProvider().ContainsPositionExtended(
-                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().endTokenIndex}, cursorPosition)) {
+                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
                     accessChainExpr = expr.GetLhsExpr();
                 }
@@ -91,7 +91,7 @@ namespace glsld
         {
             if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
                 if (GetProvider().ContainsPositionExtended(
-                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().endTokenIndex}, cursorPosition)) {
+                        AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
                     accessChainExpr = expr.GetLhsExpr();
                 }
@@ -296,8 +296,8 @@ namespace glsld
             std::unordered_set<AtomString> seenIds;
 
             // Builtins
-            for (const AstDecl* decl :
-                 GetStandardLibraryModule()->GetAstContext().GetTranslationUnit()->GetGlobalDecls()) {
+            // FIXME: support user preamble
+            for (const AstDecl* decl : GetStdlibModule()->GetSystemPreambleAst()->GetGlobalDecls()) {
                 CollectCompletionFromDecl(
                     [&](const SyntaxToken& declTok, lsp::CompletionItemKind kind) {
                         if (seenIds.find(declTok.text) == seenIds.end()) {
@@ -325,10 +325,10 @@ namespace glsld
         return cachedCompletionItems;
     }
 
-    auto ComputeCompletion(const LanguageQueryProvider& provider, lsp::Position lspPosition)
-        -> std::vector<lsp::CompletionItem>
+    auto ComputeCompletion(const LanguageQueryProvider& provider,
+                           lsp::Position lspPosition) -> std::vector<lsp::CompletionItem>
     {
-        const auto& compilerObject = provider.GetCompilerObject();
+        const auto& compilerObject = provider.GetCompilerResult();
 
         auto cursorPosition = FromLspPosition(lspPosition);
 

@@ -1,8 +1,5 @@
 #pragma once
 #include "Ast/AstVisitor.h"
-#include "Compiler/LexContext.h"
-#include "Compiler/AstContext.h"
-#include "Compiler/CompilerObject.h"
 
 #include "LanguageQueryProvider.h"
 
@@ -24,7 +21,7 @@ namespace glsld
     protected:
         auto TraverseTranslationUnit() -> void
         {
-            this->Traverse(*provider.GetAstContext().GetTranslationUnit());
+            this->Traverse(provider.GetUserFileAst());
         }
 
         auto TraverseNodeContains(const AstNode& node, TextPosition position) -> AstVisitPolicy
