@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.18)
 
 option(GLSLD_BUILD_WRAPPER "Build glsld-wrapper" ON)
 option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
+option(GLSLD_BUILD_UNIT_TEST "Build glsld unit test" ON)
 
 # Load vcpkg
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
@@ -72,6 +73,7 @@ endif()
 find_package(fmt CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
+find_package(Catch2 CONFIG REQUIRED)
 
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
@@ -97,7 +99,7 @@ file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
 add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
 target_include_directories(glsld-common PUBLIC glsld-common/include)
 
-target_link_libraries(glsld-common PRIVATE fmt::fmt)
+target_link_libraries(glsld-common PUBLIC fmt::fmt)
 
 # GLSLD
 if(GLSLD_BUILD_LANGUAGE_SERVER)
@@ -109,7 +111,6 @@ if(GLSLD_BUILD_LANGUAGE_SERVER)
 
     target_link_libraries(glsld PRIVATE glsld-common)
 
-    target_link_libraries(glsld PRIVATE fmt::fmt)
     target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
     target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 endif()
@@ -124,6 +125,23 @@ if(GLSLD_BUILD_WRAPPER)
 
     target_link_libraries(glsld-wrapper PRIVATE glsld-common)
 
-    target_link_libraries(glsld-wrapper PRIVATE fmt::fmt)
     target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
+endif()
+
+# GLSLD Unit Test
+if(GLSLD_BUILD_UNIT_TEST)
+    include(CTest)
+
+    file(GLOB_RECURSE GLSLD_TEST_HEADER_FILE glsld-test/include/*.h)
+    file(GLOB_RECURSE GLSLD_TEST_SOURCE_FILE glsld-test/src/*.cpp)
+
+    add_executable(glsld-test ${GLSLD_TEST_HEADER_FILE} ${GLSLD_TEST_SOURCE_FILE})
+    target_include_directories(glsld-test PRIVATE glsld-test/include)
+
+    target_link_libraries(glsld-test PRIVATE glsld-common)
+
+    target_link_libraries(glsld-test PRIVATE Catch2::Catch2WithMain)
+
+    include(Catch)
+    catch_discover_tests(glsld-test)
 endif()

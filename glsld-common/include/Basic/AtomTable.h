@@ -9,6 +9,10 @@ namespace glsld
 {
     class AtomString
     {
+    private:
+        // A pointer of C-style string that's hosted by the AtomTable.
+        const char* ptr = nullptr;
+
     public:
         AtomString() = default;
         explicit AtomString(const char* p) : ptr(p)
@@ -23,6 +27,10 @@ namespace glsld
         auto Equals(const char* other) const noexcept -> bool
         {
             return ptr ? strcmp(ptr, other) == 0 : false;
+        }
+        auto Equals(StringView other) const noexcept -> bool
+        {
+            return ptr ? StringView{ptr} == other : other == "";
         }
 
         auto Str() const noexcept -> std::string
@@ -43,10 +51,6 @@ namespace glsld
         {
             return ptr;
         }
-
-    private:
-        // A pointer of C-style string that's hosted by the AtomTable.
-        const char* ptr = nullptr;
     };
 
     inline auto operator==(const AtomString& lhs, const char* rhs) noexcept -> bool
@@ -54,6 +58,14 @@ namespace glsld
         return lhs.Equals(rhs);
     }
     inline auto operator==(const char* lhs, const AtomString& rhs) noexcept -> bool
+    {
+        return rhs.Equals(lhs);
+    }
+    inline auto operator==(const AtomString& lhs, StringView rhs) noexcept -> bool
+    {
+        return lhs.Equals(rhs);
+    }
+    inline auto operator==(StringView lhs, const AtomString& rhs) noexcept -> bool
     {
         return rhs.Equals(lhs);
     }

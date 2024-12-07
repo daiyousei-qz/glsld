@@ -102,7 +102,7 @@ namespace glsld
         auto SetLexedTranslationUnit(LexedTranslationUnit tu) -> void
         {
             if (compilerConfig.dumpTokens) {
-                if (tu.GetID() == TranslationUnitID::UserPreamble) {
+                if (tu.GetID() == TranslationUnitID::UserPreamble && tu.GetTokens().size() > 1) {
                     Print("=====Tokens of User Preamble=====\n");
                     for (const auto& token : tu.GetTokens()) {
                         const auto& expanedRange = token.expandedRange;
@@ -129,7 +129,7 @@ namespace glsld
         }
         auto SetAstTranslationUnit(TranslationUnitID id, const AstTranslationUnit* ast) -> void
         {
-            if (id == TranslationUnitID::UserPreamble) {
+            if (id == TranslationUnitID::UserPreamble && !ast->GetGlobalDecls().empty()) {
                 Print("=====AST of User Preamble=====\n");
                 ast->Print();
             }
@@ -150,7 +150,7 @@ namespace glsld
         }
         auto CreateCompileResult() noexcept -> std::unique_ptr<CompilerResult>
         {
-            return std::make_unique<CompilerResult>(std::move(astContext), std::move(artifacts));
+            return std::make_unique<CompilerResult>(std::move(atomTable), std::move(astContext), std::move(artifacts));
         }
     };
 } // namespace glsld

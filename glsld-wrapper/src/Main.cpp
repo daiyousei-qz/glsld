@@ -32,8 +32,8 @@ namespace glsld
             compiler.SetGlslVersion(version, profile);
         }
 
-        auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
-                                  ExtensionBehavior behavior) -> void override
+        auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension, ExtensionBehavior behavior)
+            -> void override
         {
             if (behavior == ExtensionBehavior::Enable || behavior == ExtensionBehavior::Require) {
                 compiler.EnableExtension(extension);
@@ -51,8 +51,8 @@ namespace glsld
         std::filesystem::path inputFilePath = inputFile.GetValue();
 
         auto compiler = std::make_unique<CompilerInvocation>();
-        if (noStdlib.HasValue() && noStdlib.GetValue()) {
-            compiler->SetNoStdlib();
+        if (noStdlib.HasValue()) {
+            compiler->SetNoStdlib(noStdlib.GetValue());
         }
 
         compiler->AddIncludePath(inputFilePath.parent_path());

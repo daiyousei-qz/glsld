@@ -24,6 +24,10 @@ namespace glsld
         constexpr StringView(const char* p, size_t count) : view(p, count)
         {
         }
+        template <size_t N>
+        constexpr StringView(const char (&s)[N]) : view(s, N - 1)
+        {
+        }
         constexpr StringView(std::nullptr_t p) = delete;
         constexpr StringView(std::string_view s) : view(s)
         {

@@ -119,7 +119,7 @@ namespace glsld
             }
         }
 
-        auto SetNoStdlib() -> void
+        auto SetNoStdlib(bool value) -> void
         {
             if (!preamble) {
                 languageConfig.noStdlib = true;
@@ -145,7 +145,8 @@ namespace glsld
         // Compile the system preamble, user preamble and optionally main file into a precompiled preamble for reuse.
         auto CompilePreamble(PPCallback* ppCallback) -> std::shared_ptr<PrecompiledPreamble>;
 
-        auto CompileMainFile(PPCallback* ppCallback) -> std::unique_ptr<CompilerResult>;
+        auto CompileMainFile(PPCallback* ppCallback, CompileMode mode = CompileMode::ParseOnly)
+            -> std::unique_ptr<CompilerResult>;
 
     private:
         auto InitializeCompilation() -> std::unique_ptr<CompilerInvocationState>;

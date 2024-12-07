@@ -3,7 +3,6 @@
 #include "Compiler/SyntaxToken.h"
 #include "SyntaxToken.h"
 
-#include <fmt/base.h>
 #include <vector>
 
 namespace glsld

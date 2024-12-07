@@ -9,6 +9,12 @@
 
 namespace glsld
 {
+    enum class CompileMode
+    {
+        ParseOnly,
+        PreprocessOnly,
+    };
+
     struct CompilerConfig
     {
         // Dumps the token stream in stdout.
@@ -24,6 +30,8 @@ namespace glsld
         // While we only support source file encoded in utf-8, we may need count characters in utf-16 code points
         // to satisfy the language server protocol spec.
         bool countUtf16Character = false;
+
+        CompileMode mode = CompileMode::ParseOnly;
 
         // The maximum number of nested include levels.
         int maxIncludeDepth = 32;

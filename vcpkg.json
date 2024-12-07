@@ -4,6 +4,7 @@
     "dependencies": [
         "fmt",
         "nlohmann-json",
-        "bshoshany-thread-pool"
+        "bshoshany-thread-pool",
+        "catch2"
     ]
 }

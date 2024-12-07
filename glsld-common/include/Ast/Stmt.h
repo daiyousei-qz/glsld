@@ -503,6 +503,11 @@ namespace glsld
         {
         }
 
+        auto GetJumpType() const noexcept -> JumpType
+        {
+            return jumpType;
+        }
+
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {

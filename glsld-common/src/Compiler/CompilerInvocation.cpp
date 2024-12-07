@@ -69,7 +69,8 @@ namespace glsld
         return compiler->CreatePreamble();
     }
 
-    auto CompilerInvocation::CompileMainFile(PPCallback* ppCallback) -> std::unique_ptr<CompilerResult>
+    auto CompilerInvocation::CompileMainFile(PPCallback* ppCallback, CompileMode mode)
+        -> std::unique_ptr<CompilerResult>
     {
         if (!mainFileId.IsValid()) {
             // FIXME: report error
@@ -85,13 +86,18 @@ namespace glsld
 
         if (!preamble) {
             DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::SystemPreamble));
-
             DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserPreamble));
         }
 
         DoPreprocess(*compiler, mainFileId, ppCallback);
+        if (mode == CompileMode::PreprocessOnly) {
+            return compiler->CreateCompileResult();
+        }
+
+        if (!preamble) {
+            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::SystemPreamble));
+            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserPreamble));
+        }
         DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserFile));
 
         return compiler->CreateCompileResult();

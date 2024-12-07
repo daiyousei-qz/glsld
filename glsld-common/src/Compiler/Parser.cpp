@@ -16,7 +16,7 @@ namespace glsld
     {
         auto ast = ParseTranslationUnit();
         GLSLD_ASSERT(ast->GetSyntaxRange().GetEndID().GetTokenIndex() == tokens.size() - 1);
-        compiler.SetAstTranslationUnit(tuID, ParseTranslationUnit());
+        compiler.SetAstTranslationUnit(tuID, ast);
     }
 
     auto ParseSystemCommandShaderStage(StringView stageName) -> GlslShaderStage

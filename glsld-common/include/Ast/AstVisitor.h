@@ -23,11 +23,49 @@ namespace glsld
         Halt,
     };
 
+    class EmptyAstVisitorPlugin
+    {
+    public:
+        EmptyAstVisitorPlugin() = default;
+
+    protected:
+        auto OnEnterAst(const AstNode& node) -> void
+        {
+        }
+        auto OnExitAst(const AstNode& node) -> void
+        {
+        }
+    };
+
+    class AstVisitPluginTrackPath
+    {
+    private:
+        std::vector<const AstNode*> path;
+
+    public:
+        AstVisitPluginTrackPath() = default;
+
+    protected:
+        auto OnEnterAst(const AstNode& node) -> void
+        {
+            path.push_back(&node);
+        }
+        auto OnExitAst(const AstNode& node) -> void
+        {
+            path.pop_back();
+        }
+
+        auto GetTraversalDepth() const -> size_t
+        {
+            return path.size();
+        }
+    };
+
     // Enter: Decision
     // Visit: Pre-order
     // Exit: Post-order
-    template <typename Derived>
-    class AstVisitor
+    template <typename Derived, typename Plugin = EmptyAstVisitorPlugin>
+    class AstVisitor : protected Plugin
     {
     public:
         AstVisitor()
@@ -75,7 +113,10 @@ namespace glsld
         }                                                                                                              \
                                                                                                                        \
         /* Traverse */                                                                                                 \
-        if (!dispatchedNode.DoTraverse(visitor)) {                                                                     \
+        Plugin::OnEnterAst(astNode);                                                                                   \
+        auto traversal = dispatchedNode.DoTraverse(visitor);                                                           \
+        Plugin::OnExitAst(astNode);                                                                                    \
+        if (!traversal) {                                                                                              \
             return false;                                                                                              \
         }                                                                                                              \
                                                                                                                        \

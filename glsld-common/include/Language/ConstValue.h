@@ -74,6 +74,15 @@ namespace glsld
             other.InitializeAsError();
             return *this;
         }
+        auto operator==(const ConstValue& other) const noexcept -> bool
+        {
+            if (scalarType != other.scalarType || arraySize != other.arraySize || rowSize != other.rowSize ||
+                colSize != other.colSize) {
+                return false;
+            }
+
+            return std::ranges::equal(GetBufferAsBlob(), other.GetBufferAsBlob());
+        }
 
         template <typename T>
         static auto FromValue(const T& value) -> ConstValue
@@ -117,9 +126,6 @@ namespace glsld
             }
 
             return result;
-        }
-        static auto FromBinaryBlob(ArrayView<std::byte> blob) -> ConstValue
-        {
         }
 
         auto IsError() const noexcept -> bool
@@ -532,8 +538,8 @@ namespace glsld
         }
 
         // Note this doesn't release the memory of existing heap pointer
-        auto InitializeAsBlob(ScalarKind scalarType, int16_t arraySize, int16_t rowSize,
-                              int16_t colSize) -> ArraySpan<std::byte>
+        auto InitializeAsBlob(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize)
+            -> ArraySpan<std::byte>
         {
             GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
 

@@ -97,12 +97,14 @@ namespace glsld
     protected:
         std::shared_ptr<PrecompiledPreamble> preamble = nullptr;
 
+        std::unique_ptr<const AtomTable> atomTable   = nullptr;
         std::unique_ptr<const AstContext> astContext = nullptr;
         std::unique_ptr<const CompilerArtifacts> artifacts;
 
     public:
-        CompilerResult(std::unique_ptr<const AstContext> astContext, std::unique_ptr<const CompilerArtifacts> artifacts)
-            : astContext(std::move(astContext)), artifacts(std::move(artifacts))
+        CompilerResult(std::unique_ptr<const AtomTable> atomTable, std::unique_ptr<const AstContext> astContext,
+                       std::unique_ptr<const CompilerArtifacts> artifacts)
+            : atomTable(std::move(atomTable)), astContext(std::move(astContext)), artifacts(std::move(artifacts))
         {
         }
 
