@@ -272,7 +272,7 @@ namespace glsld
             return Is<AstType>() ? static_cast<const AstType*>(this) : nullptr;
         }
 
-        auto Print() const -> void;
+        auto Print() const -> std::string;
         auto DebugPrint() const -> void;
     };
 

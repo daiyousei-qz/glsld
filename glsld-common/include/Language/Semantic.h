@@ -244,6 +244,9 @@ namespace glsld
 
     class SwizzleDesc
     {
+    private:
+        std::array<uint8_t, 4> data = {255, 255, 255, 255};
+
     public:
         SwizzleDesc() = default;
         SwizzleDesc(uint8_t x)
@@ -284,24 +287,11 @@ namespace glsld
 
             return buffer.empty() ? "__InvalidSwizzle" : buffer;
         }
-
-    private:
-        std::array<uint8_t, 4> data = {255, 255, 255, 255};
     };
 
     class QualifierGroup
     {
     public:
-        auto HasStorageQual() const noexcept -> bool
-        {
-            return qConst || qIn || qOut || qInout || qAttribute || qUniform || qVarying || qBuffer || qShared;
-        }
-
-        auto CanDeclareInterfaceBlock() const noexcept -> bool
-        {
-            return qIn || qOut || qUniform || qBuffer;
-        }
-
         // Precision Qualifier
         bool qHighp : 1   = false;
         bool qMediump : 1 = false;
@@ -353,6 +343,16 @@ namespace glsld
         bool qPerviewNV : 1            = false;
         bool qTaskNV : 1               = false;
         bool qTaskPayloadSharedEXT : 1 = false;
+
+        auto HasStorageQual() const noexcept -> bool
+        {
+            return qConst || qIn || qOut || qInout || qAttribute || qUniform || qVarying || qBuffer || qShared;
+        }
+
+        auto CanDeclareInterfaceBlock() const noexcept -> bool
+        {
+            return qIn || qOut || qUniform || qBuffer;
+        }
     };
 
 } // namespace glsld

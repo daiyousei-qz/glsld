@@ -23,50 +23,85 @@ namespace glsld
         Halt,
     };
 
-    class EmptyAstVisitorPlugin
+    struct AstVisitorConfig
     {
-    public:
-        EmptyAstVisitorPlugin() = default;
-
-    protected:
-        auto OnEnterAst(const AstNode& node) -> void
-        {
-        }
-        auto OnExitAst(const AstNode& node) -> void
-        {
-        }
+        bool traceTraversalPath = false;
     };
 
-    class AstVisitPluginTrackPath
+    namespace details
     {
-    private:
-        std::vector<const AstNode*> path;
-
-    public:
-        AstVisitPluginTrackPath() = default;
-
-    protected:
-        auto OnEnterAst(const AstNode& node) -> void
+        struct AstVisitorPluginEmpty
         {
-            path.push_back(&node);
-        }
-        auto OnExitAst(const AstNode& node) -> void
-        {
-            path.pop_back();
-        }
+        };
 
-        auto GetTraversalDepth() const -> size_t
+        class AstVisitorPluginTrackPath
         {
-            return path.size();
-        }
-    };
+        private:
+            std::vector<const AstNode*> path;
+
+        public:
+            AstVisitorPluginTrackPath() = default;
+
+            auto OnEnterAst(const AstNode& node) -> void
+            {
+                path.push_back(&node);
+            }
+            auto OnExitAst(const AstNode& node) -> void
+            {
+                path.pop_back();
+            }
+
+            auto GetTraversalPath() const -> ArrayView<const AstNode*>
+            {
+                return path;
+            }
+
+            auto GetTraversalDepth() const -> size_t
+            {
+                return path.size();
+            }
+        };
+
+        template <AstVisitorConfig Config>
+        class AstVisitorBase
+            : protected std::conditional_t<Config.traceTraversalPath, AstVisitorPluginTrackPath, AstVisitorPluginEmpty>
+        {
+        public:
+            auto OnEnterAst(const AstNode& node) -> void
+            {
+                if constexpr (Config.traceTraversalPath) {
+                    AstVisitorPluginTrackPath::OnEnterAst(node);
+                }
+            }
+
+            auto OnExitAst(const AstNode& node) -> void
+            {
+                if constexpr (Config.traceTraversalPath) {
+                    AstVisitorPluginTrackPath::OnExitAst(node);
+                }
+            }
+        };
+    } // namespace details
 
     // Enter: Decision
     // Visit: Pre-order
     // Exit: Post-order
-    template <typename Derived, typename Plugin = EmptyAstVisitorPlugin>
-    class AstVisitor : protected Plugin
+    template <typename Derived, AstVisitorConfig Config = {}>
+    class AstVisitor : protected details::AstVisitorBase<Config>
     {
+    private:
+        using BaseType = details::AstVisitorBase<Config>;
+
+        auto OnEnterAst(const AstNode& node) -> void
+        {
+            BaseType::OnEnterAst(node);
+        }
+
+        auto OnExitAst(const AstNode& node) -> void
+        {
+            BaseType::OnExitAst(node);
+        }
+
     public:
         AstVisitor()
         {
@@ -113,9 +148,9 @@ namespace glsld
         }                                                                                                              \
                                                                                                                        \
         /* Traverse */                                                                                                 \
-        Plugin::OnEnterAst(astNode);                                                                                   \
+        OnEnterAst(astNode);                                                                                           \
         auto traversal = dispatchedNode.DoTraverse(visitor);                                                           \
-        Plugin::OnExitAst(astNode);                                                                                    \
+        OnExitAst(astNode);                                                                                            \
         if (!traversal) {                                                                                              \
             return false;                                                                                              \
         }                                                                                                              \

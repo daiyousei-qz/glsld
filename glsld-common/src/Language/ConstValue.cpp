@@ -104,60 +104,145 @@ namespace glsld
         return std::nullopt;
     };
 
-    template <typename F, typename... Ts>
-    struct ExcludingTypes
+    auto ConstValue::GetScalarSize() const noexcept -> int
     {
-        // Exclude bool type to avoid compiler warning
-        template <typename T>
-        auto operator()(T value) const -> T
-            requires(!(std::is_same_v<T, Ts> || ...) && requires(F f) { f(value); })
-        {
-            return F{}(value);
+        switch (static_cast<ScalarKind>(scalarType)) {
+        case ScalarKind::Bool:
+        case ScalarKind::Int8:
+        case ScalarKind::Uint8:
+            return 1;
+        case ScalarKind::Int16:
+        case ScalarKind::Uint16:
+        case ScalarKind::Float16:
+            return 2;
+        case ScalarKind::Int:
+        case ScalarKind::Uint:
+        case ScalarKind::Float:
+            return 4;
+        case ScalarKind::Double:
+        case ScalarKind::Int64:
+        case ScalarKind::Uint64:
+            return 8;
+        default:
+            return 0;
+        }
+    }
+
+    auto ConstValue::ToString() const -> std::string
+    {
+        if (IsError()) {
+            return "<error>";
         }
 
-        template <typename T>
-        auto operator()(T lhs, T rhs) const -> T
-            requires(!(std::is_same_v<T, Ts> || ...) && requires(F f) { f(lhs, rhs); })
-        {
-            return F{}(lhs, rhs);
+        if (!IsScalar()) {
+            // FIXME: handle non-scalar types
+            return "<non-scalar>";
         }
-    };
 
-    template <typename F>
-    using ExcludingBool = ExcludingTypes<F, bool>;
+        switch (GetScalarKind()) {
+        case ScalarKind::Bool:
+            return GetBoolValue() ? "true" : "false";
+        case ScalarKind::Int:
+            return std::to_string(GetInt32Value());
+        case ScalarKind::Uint:
+            return std::to_string(GetUInt32Value());
+        case ScalarKind::Float:
+            return std::to_string(GetFloatValue());
+        case ScalarKind::Double:
+            return std::to_string(GetDoubleValue());
+        default:
+            return "<other>";
+        }
+    }
 
-    template <typename F>
-    using ExcludingBoolFloat = ExcludingTypes<F, bool, float, double>;
+    auto ConstValue::Clone() const -> ConstValue
+    {
+        ConstValue result;
+
+        auto blob = result.InitializeAsBlob(static_cast<ScalarKind>(scalarType), arraySize, rowSize, colSize);
+        std::ranges::copy(GetBufferAsBlob(), blob.begin());
+
+        return result;
+    }
+
+    auto ConstValue::GetElement(int index) -> ConstValue
+    {
+        // FIXME: verify this is correct
+        if (colSize <= 1 || index < 0 || index >= colSize) {
+            return ConstValue{};
+        }
+
+        ConstValue result;
+        auto blob          = result.InitializeAsBlob(GetScalarKind(), rowSize, 1, rowSize);
+        auto elementSize   = GetBufferSize() / colSize;
+        auto elementOffset = index * elementSize;
+        std::ranges::copy(GetBufferAsBlob(), blob.begin());
+        return result;
+    }
+
+    auto ConstValue::GetSwizzle(SwizzleDesc swizzle) -> ConstValue
+    {
+        // FIXME: verify this is correct
+        if (IsError() || !swizzle.IsValid()) {
+            return ConstValue{};
+        }
+
+        std::vector<std::byte> buffer;
+        for (auto index : swizzle.GetIndices()) {
+            auto elem = GetElement(index);
+            if (elem.IsError()) {
+                return ConstValue{};
+            }
+
+            std::ranges::copy(elem.GetBufferAsBlob(), std::back_inserter(buffer));
+        }
+
+        ConstValue result;
+        auto blob =
+            result.InitializeAsBlob(GetScalarKind(), rowSize * swizzle.GetDimension(), rowSize, swizzle.GetDimension());
+        std::ranges::copy(buffer, blob.data());
+        return result;
+    }
+
+    namespace
+    {
+        template <typename F, typename... Ts>
+        struct ExcludingTypes
+        {
+            // Exclude bool type to avoid compiler warning
+            template <typename T>
+            auto operator()(T value) const -> T
+                requires(!(std::is_same_v<T, Ts> || ...) && requires(F f) { f(value); })
+            {
+                return F{}(value);
+            }
+
+            template <typename T>
+            auto operator()(T lhs, T rhs) const -> T
+                requires(!(std::is_same_v<T, Ts> || ...) && requires(F f) { f(lhs, rhs); })
+            {
+                return F{}(lhs, rhs);
+            }
+        };
+
+        template <typename F>
+        using ExcludingBool = ExcludingTypes<F, bool>;
+
+        template <typename F>
+        using ExcludingBoolFloat = ExcludingTypes<F, bool, float, double>;
+    } // namespace
 
     auto ConstValue::ElemwiseNegate() const -> ConstValue
     {
         return ApplyElemwiseUnaryOp(ExcludingBool<std::negate<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseUnaryOp(ExcludingTypes<std::negate<>, bool>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseBitNot() const -> ConstValue
     {
         return ApplyElemwiseUnaryOp(ExcludingBoolFloat<std::bit_not<>>{});
-        // if (IsIntegralScalarType(GetScalarType())) {
-        //     return ApplyElemwiseUnaryOp(ExcludingTypes<std::bit_not<>, bool, float, double>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseLogicalNot() const -> ConstValue
     {
         return ApplyElemwiseUnaryOp(std::logical_not<bool>{});
-        // if (GetScalarType() == ScalarKind::Bool) {
-        //     return ApplyElemwiseUnaryOp(std::logical_not<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::Length() const -> ConstValue
     {
@@ -173,102 +258,42 @@ namespace glsld
     auto ConstValue::ElemwisePlus(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBool<std::plus<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, std::plus<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseMinus(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBool<std::minus<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, std::minus<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseMul(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBool<std::multiplies<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, std::multiplies<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseDiv(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBool<std::divides<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, ExcludingBool<std::divides<>>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseMod(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::modulus<>>{});
-        // if (IsIntegralScalarType(GetScalarType())) {
-        //     return ApplyElemwiseBinaryOp(other, ExcludingBool<std::modulus<>>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseBitAnd(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_and<>>{});
-        // if (IsIntegralScalarType(GetScalarType())) {
-        //     return ApplyElemwiseBinaryOp(other, std::bit_and<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseBitOr(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_or<>>{});
-        // if (IsIntegralScalarType(GetScalarType())) {
-        //     return ApplyElemwiseBinaryOp(other, std::bit_or<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseBitXor(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_xor<>>{});
-        // if (IsIntegralScalarType(GetScalarType())) {
-        //     return ApplyElemwiseBinaryOp(other, std::bit_xor<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseLogicalAnd(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, std::logical_and<bool>{});
-        // if (GetScalarType() == ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, std::logical_and<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseLogicalOr(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, std::logical_or<bool>{});
-        // if (GetScalarType() == ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, std::logical_or<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseLogicalXor(const ConstValue& other) const -> ConstValue
     {
@@ -281,12 +306,6 @@ namespace glsld
         };
 
         return ApplyElemwiseBinaryOp(other, LogicalXor{});
-        // if (GetScalarType() == ScalarKind::Bool) {
-        //     return ApplyElemwiseBinaryOp(other, LogicalXor{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseShiftLeft(const ConstValue& other) const -> ConstValue
     {
@@ -310,42 +329,18 @@ namespace glsld
     auto ConstValue::ElemwiseLessThan(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseComparisonOp(other, ExcludingBool<std::less<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseComparisonOp(other, std::less<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseLessThanEq(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseComparisonOp(other, ExcludingBool<std::less_equal<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseComparisonOp(other, std::less_equal<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseComparisonOp(other, ExcludingBool<std::greater<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseComparisonOp(other, std::greater<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
     auto ConstValue::ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseComparisonOp(other, ExcludingBool<std::greater_equal<>>{});
-        // if (GetScalarType() != ScalarKind::Bool) {
-        //     return ApplyElemwiseComparisonOp(other, std::greater_equal<>{});
-        // }
-        // else {
-        //     return ConstValue();
-        // }
     }
 
     auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue

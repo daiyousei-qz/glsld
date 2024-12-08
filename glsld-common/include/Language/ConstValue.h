@@ -4,10 +4,8 @@
 #include "Language/Typing.h"
 
 #include <cstdint>
-#include <iterator>
 #include <optional>
 #include <type_traits>
-#include <vector>
 
 namespace glsld
 {
@@ -156,29 +154,29 @@ namespace glsld
 
         auto GetGlslType() const noexcept -> std::optional<GlslBuiltinType>;
 
-        auto GetScalarType() const noexcept -> ScalarKind
+        auto GetScalarKind() const noexcept -> ScalarKind
         {
             return static_cast<ScalarKind>(scalarType);
         }
         auto IsScalarBool() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarKind::Bool;
+            return IsScalar() && GetScalarKind() == ScalarKind::Bool;
         }
         auto IsScalarInt32() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarKind::Int;
+            return IsScalar() && GetScalarKind() == ScalarKind::Int;
         }
         auto IsScalarUInt32() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarKind::Uint;
+            return IsScalar() && GetScalarKind() == ScalarKind::Uint;
         }
         auto IsScalarFloat() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarKind::Float;
+            return IsScalar() && GetScalarKind() == ScalarKind::Float;
         }
         auto IsScalarDouble() const noexcept -> bool
         {
-            return IsScalar() && GetScalarType() == ScalarKind::Double;
+            return IsScalar() && GetScalarKind() == ScalarKind::Double;
         }
 
         auto GetBoolValue() const noexcept -> bool
@@ -207,112 +205,13 @@ namespace glsld
             return *reinterpret_cast<const double*>(localBuffer);
         }
 
-        auto GetScalarSize() const noexcept -> int
-        {
-            switch (static_cast<ScalarKind>(scalarType)) {
-            case ScalarKind::Bool:
-            case ScalarKind::Int8:
-            case ScalarKind::Uint8:
-                return 1;
-            case ScalarKind::Int16:
-            case ScalarKind::Uint16:
-            case ScalarKind::Float16:
-                return 2;
-            case ScalarKind::Int:
-            case ScalarKind::Uint:
-            case ScalarKind::Float:
-                return 4;
-            case ScalarKind::Double:
-            case ScalarKind::Int64:
-            case ScalarKind::Uint64:
-                return 8;
-            default:
-                return 0;
-            }
-        }
+        auto GetScalarSize() const noexcept -> int;
 
-        auto ToString() const -> std::string
-        {
-            if (IsError()) {
-                return "<error>";
-            }
+        auto ToString() const -> std::string;
+        auto Clone() const -> ConstValue;
 
-            if (!IsScalar()) {
-                return "<non-scalar>";
-            }
-
-            switch (GetScalarType()) {
-            case ScalarKind::Bool:
-                return GetBoolValue() ? "true" : "false";
-            case ScalarKind::Int:
-                return std::to_string(GetInt32Value());
-            case ScalarKind::Uint:
-                return std::to_string(GetUInt32Value());
-            case ScalarKind::Float:
-                return std::to_string(GetFloatValue());
-            case ScalarKind::Double:
-                return std::to_string(GetDoubleValue());
-            default:
-                return "<other>";
-            }
-        }
-
-        auto Clone() const -> ConstValue
-        {
-            ConstValue result;
-            result.scalarType = scalarType;
-            result.arraySize  = arraySize;
-            result.rowSize    = rowSize;
-            result.colSize    = colSize;
-            if (UseHeapBuffer()) {
-                result.bufferPtr = new std::byte[arraySize * GetScalarSize()];
-                std::memcpy(result.bufferPtr, bufferPtr, arraySize * GetScalarSize());
-            }
-            else {
-                std::memcpy(result.localBuffer, localBuffer, sizeof(localBuffer));
-            }
-
-            return result;
-        }
-
-        auto GetElement(int index) -> ConstValue
-        {
-            // FIXME: verify this is correct
-            if (colSize <= 1 || index < 0 || index >= colSize) {
-                return ConstValue{};
-            }
-
-            ConstValue result;
-            auto blob          = result.InitializeAsBlob(GetScalarType(), rowSize, 1, rowSize);
-            auto elementSize   = GetBufferSize() / colSize;
-            auto elementOffset = index * elementSize;
-            std::ranges::copy(GetBufferAsBlob(), blob.begin());
-            return result;
-        }
-
-        auto GetSwizzle(SwizzleDesc swizzle) -> ConstValue
-        {
-            // FIXME: verify this is correct
-            if (IsError() || !swizzle.IsValid()) {
-                return ConstValue{};
-            }
-
-            std::vector<std::byte> buffer;
-            for (auto index : swizzle.GetIndices()) {
-                auto elem = GetElement(index);
-                if (elem.IsError()) {
-                    return ConstValue{};
-                }
-
-                std::ranges::copy(elem.GetBufferAsBlob(), std::back_inserter(buffer));
-            }
-
-            ConstValue result;
-            auto blob = result.InitializeAsBlob(GetScalarType(), rowSize * swizzle.GetDimension(), rowSize,
-                                                swizzle.GetDimension());
-            std::ranges::copy(buffer, blob.data());
-            return result;
-        }
+        auto GetElement(int index) -> ConstValue;
+        auto GetSwizzle(SwizzleDesc swizzle) -> ConstValue;
 
         auto ElemwiseNegate() const -> ConstValue;
         auto ElemwiseBitNot() const -> ConstValue;
@@ -347,7 +246,7 @@ namespace glsld
             ConstValue result;
 
             auto srcBuffer = GetBufferAs<T>();
-            auto dstBuffer = result.InitializeAs<T>(GetScalarType(), arraySize, rowSize, colSize);
+            auto dstBuffer = result.InitializeAs<T>(GetScalarKind(), arraySize, rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer[i]);
@@ -362,7 +261,7 @@ namespace glsld
 
             auto srcBuffer1 = GetBufferAs<T>();
             auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<T>(GetScalarType(), arraySize, rowSize, colSize);
+            auto dstBuffer  = result.InitializeAs<T>(GetScalarKind(), arraySize, rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);

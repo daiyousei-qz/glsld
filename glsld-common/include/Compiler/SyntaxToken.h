@@ -6,7 +6,6 @@
 #include "Basic/SourceInfo.h"
 #include "Language/Typing.h"
 
-#include <compare>
 #include <cstdint>
 #include <optional>
 

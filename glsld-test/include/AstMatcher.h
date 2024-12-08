@@ -3,11 +3,12 @@
 #include "Ast/Base.h"
 #include "Ast/Expr.h"
 #include "Language/ConstValue.h"
+
 #include <functional>
 
 namespace glsld
 {
-    struct AstChildCollector : public AstVisitor<AstChildCollector, AstVisitPluginTrackPath>
+    struct AstChildCollector : public AstVisitor<AstChildCollector, AstVisitorConfig{.traceTraversalPath = true}>
     {
         std::vector<const AstNode*> children;
 
@@ -57,7 +58,11 @@ namespace glsld
             AstChildCollector collector;
             collector.Traverse(node);
 
-            for (size_t i = 0; i < std::min(collector.children.size(), data->matchChildren.size()); ++i) {
+            if (collector.children.size() != data->matchChildren.size()) {
+                return false;
+            }
+
+            for (size_t i = 0; i < collector.children.size(); ++i) {
                 if (!data->matchChildren[i].Match(*collector.children[i])) {
                     return false;
                 }
@@ -315,11 +320,17 @@ namespace glsld
 
 #pragma endregion
 
-    template <std::same_as<AstMatcher>... MatcherType>
-    inline auto VariableDecl(AstMatcher matchQualType, MatcherType... matchDeclarator) -> AstMatcher
+    inline auto VariableDecl1(AstMatcher matchQualType, AstMatcher initializer) -> AstMatcher
     {
         return AstMatcher([](const AstNode& node) -> bool { return node.Is<AstVariableDecl>(); },
-                          std::move(matchQualType), std::move(matchDeclarator)...);
+                          std::move(matchQualType), std::move(initializer));
+    }
+
+    template <std::same_as<AstMatcher>... MatcherType>
+    inline auto TranslationUnit(MatcherType... matchDecls) -> AstMatcher
+    {
+        return AstMatcher([](const AstNode& node) -> bool { return node.Is<AstTranslationUnit>(); },
+                          std::move(matchDecls)...);
     }
 
 } // namespace glsld

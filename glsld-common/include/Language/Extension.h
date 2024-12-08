@@ -2,7 +2,6 @@
 #include "Basic/Common.h"
 #include "Basic/StringView.h"
 
-#include <vector>
 #include <optional>
 
 namespace glsld

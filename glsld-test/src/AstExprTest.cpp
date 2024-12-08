@@ -4,55 +4,60 @@
 
 using namespace glsld;
 
-TEST_CASE("Simple Expr", "")
+#define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
+    do {                                                                                                               \
+        auto matcher = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                                 \
+        CHECK_THAT(SRC, matcher);                                                                                      \
+    } while (false)
+
+TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 {
+    SetTemplate("unknown x = {};",
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+
     SECTION("LiteralExpr")
     {
-        REQUIRE(AstExprTest{"1", LiteralExpr(1)}.Positive());
-        REQUIRE(AstExprTest{"1.0", LiteralExpr(1.0f)}.Positive());
-        REQUIRE(AstExprTest{"true", LiteralExpr(true)}.Positive());
+        GLSLD_CHECK_AST("1", LiteralExpr(1));
+        GLSLD_CHECK_AST("1.0", LiteralExpr(1.0f));
+        GLSLD_CHECK_AST("true", LiteralExpr(true));
     }
 
     SECTION("NameAccessExpr")
     {
-        REQUIRE(AstExprTest{"a", NameAccessExpr("a")}.Positive());
+        GLSLD_CHECK_AST("a", NameAccessExpr("a"));
     }
 
     SECTION("FieldAccessExpr")
     {
-        REQUIRE(AstExprTest{"a.b", FieldAccessExpr(NameAccessExpr("a"), "b")}.Positive());
-        REQUIRE(AstExprTest{"a.b.c", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), "b"), "c")}.Positive());
+        GLSLD_CHECK_AST("a.b", FieldAccessExpr(NameAccessExpr("a"), "b"));
+        GLSLD_CHECK_AST("a.b.c", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), "b"), "c"));
     }
 
     SECTION("UnaryExpr")
     {
-        REQUIRE(AstExprTest{"-1", UnaryExpr(UnaryOp::Negate, LiteralExpr(1))}.Positive());
-        REQUIRE(AstExprTest{"!true", UnaryExpr(UnaryOp::LogicalNot, LiteralExpr(true))}.Positive());
+        GLSLD_CHECK_AST("-1", UnaryExpr(UnaryOp::Negate, LiteralExpr(1)));
+        GLSLD_CHECK_AST("!true", UnaryExpr(UnaryOp::LogicalNot, LiteralExpr(true)));
     }
 
     SECTION("BinaryExpr")
     {
-        REQUIRE(AstExprTest{"1 + 2", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2))}.Positive());
-        REQUIRE(AstExprTest{
+        GLSLD_CHECK_AST("1 + 2", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST(
             "1 + 2 + 3",
-            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3))}
-                    .Positive());
-        REQUIRE(AstExprTest{"1 + 2 * 3", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
-                                                    BinaryExpr(BinaryOp::Mul, LiteralExpr(2), LiteralExpr(3)))}
-                    .Positive());
-        REQUIRE(AstExprTest{
+            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        GLSLD_CHECK_AST("1 + 2 * 3", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
+                                                BinaryExpr(BinaryOp::Mul, LiteralExpr(2), LiteralExpr(3))));
+        GLSLD_CHECK_AST(
             "1 * 2 + 3",
-            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3))}
-                    .Positive());
+            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
     }
 
     SECTION("SelectExpr")
     {
-        REQUIRE(AstExprTest{"true ? 1 : 2", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2))}.Positive());
-        REQUIRE(AstExprTest{"true ? 1 : false ? 2 : 3",
-                            SelectExpr(LiteralExpr(true), LiteralExpr(1),
-                                       SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3)))}
-                    .Positive());
+        GLSLD_CHECK_AST("true ? 1 : 2", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("true ? 1 : false ? 2 : 3",
+                        SelectExpr(LiteralExpr(true), LiteralExpr(1),
+                                   SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3))));
     }
 
     // TODO: SwizzleExpr
@@ -61,46 +66,57 @@ TEST_CASE("Simple Expr", "")
     // TODO: ConstructorCallExpr
 }
 
-TEST_CASE("Paren Wrapped Expr")
+TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 {
-    REQUIRE(AstExprTest{"(1)", LiteralExpr(1)}.Positive());
-    REQUIRE(AstExprTest{"((1))", LiteralExpr(1)}.Positive());
-    REQUIRE(AstExprTest{"(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2))}.Positive());
-    REQUIRE(
-        AstExprTest{"(1 + 2) * 3", BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)),
-                                              LiteralExpr(3))}
-            .Positive());
+    SetTemplate("unknown x = {};",
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+
+    GLSLD_CHECK_AST("(1)", LiteralExpr(1));
+    GLSLD_CHECK_AST("((1))", LiteralExpr(1));
+    GLSLD_CHECK_AST("(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+    GLSLD_CHECK_AST("(1 + 2) * 3", BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)),
+                                              LiteralExpr(3)));
 }
 
-TEST_CASE("Permissive Expr")
+TEST_CASE_METHOD(AstTestFixture, "Permissive Expr")
 {
-    REQUIRE(AstExprTest{"", ErrorExpr()}.Positive());
-    REQUIRE(AstExprTest{"1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr())}.Positive());
-    REQUIRE(AstExprTest{"+", UnaryExpr(UnaryOp::Identity, ErrorExpr())}.Positive());
-    REQUIRE(AstExprTest{"*", BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr())}.Positive());
+    SetTemplate("unknown x = {};",
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+
+    GLSLD_CHECK_AST("", ErrorExpr());
+    GLSLD_CHECK_AST("1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
+    GLSLD_CHECK_AST("+", UnaryExpr(UnaryOp::Identity, ErrorExpr()));
+    GLSLD_CHECK_AST("*", BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr()));
+
+    GLSLD_CHECK_AST("(1", LiteralExpr(1));
 }
 
-TEST_CASE("Initializer List")
+TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 {
-    REQUIRE(AstExprTest{"{}", InitializerList()}.Positive());
-    REQUIRE(AstExprTest{"{1}", InitializerList(LiteralExpr(1))}.Positive());
-    REQUIRE(AstExprTest{"{1,}", InitializerList(LiteralExpr(1))}.Positive());
-    REQUIRE(AstExprTest{"{1,2}", InitializerList(LiteralExpr(1), LiteralExpr(2))}.Positive());
-    REQUIRE(AstExprTest{"{1,2,}", InitializerList(LiteralExpr(1), LiteralExpr(2))}.Positive());
+    SetTemplate("unknown x = {};",
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
 
-    REQUIRE(AstExprTest{"{{}}", InitializerList(InitializerList())}.Positive());
-    REQUIRE(AstExprTest{"{{},}", InitializerList(InitializerList())}.Positive());
-    REQUIRE(AstExprTest{"{{},{}}", InitializerList(InitializerList(), InitializerList())}.Positive());
+    GLSLD_CHECK_AST("{}", InitializerList());
+    GLSLD_CHECK_AST("{1}", InitializerList(LiteralExpr(1)));
+    GLSLD_CHECK_AST("{1,}", InitializerList(LiteralExpr(1)));
+    GLSLD_CHECK_AST("{1,2}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
+    GLSLD_CHECK_AST("{1,2,}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
 
-    REQUIRE(AstExprTest{"{{1}}", InitializerList(InitializerList(LiteralExpr(1)))}.Positive());
-    REQUIRE(AstExprTest{"{{1}, {2, {3}},}",
-                        InitializerList(InitializerList(LiteralExpr(1)),
-                                        InitializerList(LiteralExpr(2), InitializerList(LiteralExpr(3))))}
-                .Positive());
+    GLSLD_CHECK_AST("{{}}", InitializerList(InitializerList()));
+    GLSLD_CHECK_AST("{{},}", InitializerList(InitializerList()));
+    GLSLD_CHECK_AST("{{},{}}", InitializerList(InitializerList(), InitializerList()));
+
+    GLSLD_CHECK_AST("{{1}}", InitializerList(InitializerList(LiteralExpr(1))));
+    GLSLD_CHECK_AST("{{1}, {2, {3}}}",
+                    InitializerList(InitializerList(LiteralExpr(1)),
+                                    InitializerList(LiteralExpr(2), InitializerList(LiteralExpr(3)))));
 }
 
-TEST_CASE("Permissive Initializer List")
+TEST_CASE_METHOD(AstTestFixture, "Permissive Initializer List")
 {
-    REQUIRE(AstExprTest{"{,}", InitializerList()}.Positive());
-    REQUIRE(AstExprTest{"{,,,}", InitializerList()}.Positive());
+    SetTemplate("unknown x = {};",
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+
+    GLSLD_CHECK_AST("{,}", InitializerList(ErrorExpr()));
+    GLSLD_CHECK_AST("{,,}", InitializerList(ErrorExpr(), ErrorExpr()));
 }

@@ -13,12 +13,6 @@ namespace glsld
     class AstContext final
     {
     private:
-        const AstTranslationUnit* systemPreambleAst = nullptr;
-
-        const AstTranslationUnit* userPreambleAst = nullptr;
-
-        const AstTranslationUnit* mainFileAst = nullptr;
-
         // The cached array types.
         std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
 
@@ -27,17 +21,6 @@ namespace glsld
 
     public:
         AstContext(const AstContext* preambleContext);
-
-        auto GetTranslationUnit() const noexcept
-        {
-            return mainFileAst;
-        }
-
-        auto SetTranslationUnit(const AstTranslationUnit* tu)
-        {
-            GLSLD_ASSERT(!mainFileAst && "Translation unit is already set.");
-            mainFileAst = tu;
-        }
 
         auto GetArena() noexcept -> MemoryArena&
         {

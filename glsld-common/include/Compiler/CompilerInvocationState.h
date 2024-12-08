@@ -121,6 +121,7 @@ namespace glsld
                     }
                 }
             }
+
             artifacts->UpdateLexInfo(std::move(tu));
         }
         auto GetAstTranslationUnit(TranslationUnitID id) const -> const AstTranslationUnit*
@@ -129,15 +130,18 @@ namespace glsld
         }
         auto SetAstTranslationUnit(TranslationUnitID id, const AstTranslationUnit* ast) -> void
         {
-            if (id == TranslationUnitID::UserPreamble && !ast->GetGlobalDecls().empty()) {
-                Print("=====AST of User Preamble=====\n");
-                ast->Print();
+            if (compilerConfig.dumpAst) {
+                if (id == TranslationUnitID::UserPreamble && !ast->GetGlobalDecls().empty()) {
+                    Print("=====AST of User Preamble=====\n");
+                    ast->Print();
+                }
+
+                if (id == TranslationUnitID::UserFile) {
+                    Print("=====AST of User File=====\n");
+                    ast->Print();
+                }
             }
 
-            if (id == TranslationUnitID::UserFile) {
-                Print("=====AST of User File=====\n");
-                ast->Print();
-            }
             artifacts->UpdateAst(ast);
         }
 

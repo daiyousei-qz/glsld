@@ -4,17 +4,15 @@
 
 namespace glsld
 {
-    auto AstNode::Print() const -> void
+    auto AstNode::Print() const -> std::string
     {
         AstDumper dumper;
         dumper.DumpChildNode("AstNode", *this);
-        glsld::Print("{}\n", dumper.GetBufferView());
+        return dumper.GetBufferView().Str();
     }
 
     auto AstNode::DebugPrint() const -> void
     {
-        AstDumper dumper;
-        dumper.DumpChildNode("AstNode", *this);
-        glsld::DebugPrint("{}\n", dumper.GetBufferView());
+        glsld::DebugPrint("{}\n", Print());
     }
 } // namespace glsld
