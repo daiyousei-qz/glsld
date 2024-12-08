@@ -46,17 +46,6 @@ namespace glsld
         AstMatcher matcher;
         StringView matcherDesc;
 
-        auto MatchAux(StringView sourceText) const -> std::optional<std::string>
-        {
-            auto result = fixture.Compile(sourceText);
-            if (matcher.Match(*result->GetUserFileAst())) {
-                return std::nullopt;
-            }
-            else {
-                return result->GetUserFileAst()->Print();
-            }
-        }
-
     public:
         AstTestCatchMatcher(const AstTestFixture& fixture, AstMatcher matcher, StringView matcherDesc)
             : fixture(fixture), matcher(fixture.WrapMatcher(std::move(matcher))), matcherDesc(matcherDesc)
@@ -65,12 +54,16 @@ namespace glsld
 
         auto match(const StringView& sourceText) const -> bool override
         {
-            auto matchFailure = MatchAux(sourceText);
-            if (matchFailure) {
-                UNSCOPED_INFO(matchFailure.value());
-            }
+            auto compilerResult = fixture.Compile(sourceText);
 
-            return !matchFailure.has_value();
+            auto matchResult = matcher.Match(*compilerResult->GetUserFileAst());
+            if (matchResult.IsSuccess()) {
+                return true;
+            }
+            else {
+                UNSCOPED_INFO(matchResult.GetFailedNode()->Print());
+                return false;
+            }
         }
 
         auto describe() const -> std::string override
@@ -80,3 +73,9 @@ namespace glsld
     };
 
 } // namespace glsld
+
+#define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
+    do {                                                                                                               \
+        auto matcher = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                                 \
+        CHECK_THAT(SRC, matcher);                                                                                      \
+    } while (false)

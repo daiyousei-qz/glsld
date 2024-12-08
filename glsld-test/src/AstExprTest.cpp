@@ -4,16 +4,10 @@
 
 using namespace glsld;
 
-#define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
-    do {                                                                                                               \
-        auto matcher = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                                 \
-        CHECK_THAT(SRC, matcher);                                                                                      \
-    } while (false)
-
 TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 {
     SetTemplate("unknown x = {};",
-                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher))); });
 
     SECTION("LiteralExpr")
     {
@@ -60,7 +54,20 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
                                    SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3))));
     }
 
-    // TODO: SwizzleExpr
+    SECTION("SwizzleExpr")
+    {
+        SetTemplate("vec4 x; void main() {{ {} }}", [](AstMatcher matcher) {
+            return TranslationUnit(AnyDecl(),
+                                   FunctionDecl(AnyQualType(), Any(), CompoundStmt(ExprStmt(std::move(matcher)))));
+        });
+
+        GLSLD_CHECK_AST("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
+        GLSLD_CHECK_AST("x.xy", SwizzleAccessExpr(NameAccessExpr("x"), "xy"));
+        GLSLD_CHECK_AST("x.xyz", SwizzleAccessExpr(NameAccessExpr("x"), "xyz"));
+        GLSLD_CHECK_AST("x.xyzw", SwizzleAccessExpr(NameAccessExpr("x"), "xyzw"));
+        GLSLD_CHECK_AST("x.xxxx", SwizzleAccessExpr(NameAccessExpr("x"), "xxxx"));
+        GLSLD_CHECK_AST("x.wzyx", SwizzleAccessExpr(NameAccessExpr("x"), "wzyx"));
+    }
     // TODO: IndexAccessExpr
     // TODO: FunctionCallExpr
     // TODO: ConstructorCallExpr
@@ -69,7 +76,7 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 {
     SetTemplate("unknown x = {};",
-                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher))); });
 
     GLSLD_CHECK_AST("(1)", LiteralExpr(1));
     GLSLD_CHECK_AST("((1))", LiteralExpr(1));
@@ -81,7 +88,7 @@ TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 TEST_CASE_METHOD(AstTestFixture, "Permissive Expr")
 {
     SetTemplate("unknown x = {};",
-                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher))); });
 
     GLSLD_CHECK_AST("", ErrorExpr());
     GLSLD_CHECK_AST("1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
@@ -94,7 +101,7 @@ TEST_CASE_METHOD(AstTestFixture, "Permissive Expr")
 TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 {
     SetTemplate("unknown x = {};",
-                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher))); });
 
     GLSLD_CHECK_AST("{}", InitializerList());
     GLSLD_CHECK_AST("{1}", InitializerList(LiteralExpr(1)));
@@ -115,7 +122,7 @@ TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 TEST_CASE_METHOD(AstTestFixture, "Permissive Initializer List")
 {
     SetTemplate("unknown x = {};",
-                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(Any(), std::move(matcher))); });
+                [](AstMatcher matcher) { return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher))); });
 
     GLSLD_CHECK_AST("{,}", InitializerList(ErrorExpr()));
     GLSLD_CHECK_AST("{,,}", InitializerList(ErrorExpr(), ErrorExpr()));
