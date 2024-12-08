@@ -702,7 +702,7 @@ namespace glsld
         auto GetCurrentTokenID() const noexcept -> SyntaxTokenID
         {
             GLSLD_ASSERT(currentTok != nullptr);
-            return SyntaxTokenID{static_cast<uint32_t>(tuID), static_cast<uint32_t>(currentTok - tokens.data())};
+            return SyntaxTokenID{tuID, static_cast<uint32_t>(currentTok - tokens.data())};
         }
 
         auto GetCurrentToken() const noexcept -> SyntaxToken

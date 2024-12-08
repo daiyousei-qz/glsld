@@ -48,12 +48,19 @@ namespace glsld
         }
     };
 
+    class SyntaxTokenMatcher
+    {
+    private:
+    public:
+    };
+
     class AstMatcher
     {
     private:
         struct AstMatcherData
         {
             std::string desc;
+            bool findMatchMode = false;
             std::function<bool(const AstNode&)> matchThis;
             std::vector<AstMatcher> matchChildren;
         };
@@ -78,12 +85,21 @@ namespace glsld
 
     public:
         template <std::same_as<AstMatcher>... MatcherType>
-        AstMatcher(std::string desc, std::function<bool(const AstNode&)> matchThis, MatcherType... matchChild)
+        AstMatcher(std::string desc, std::function<auto(const AstNode&)->bool> matchThis, MatcherType... matchChild)
         {
             data            = std::make_unique<AstMatcherData>();
             data->desc      = std::move(desc);
             data->matchThis = std::move(matchThis);
             (data->matchChildren.push_back(std::move(matchChild)), ...);
+        }
+
+        AstMatcher(std::string desc, AstMatcher finder, AstMatcher matcher)
+        {
+            data                = std::make_unique<AstMatcherData>();
+            data->desc          = std::move(desc);
+            data->findMatchMode = true;
+            data->matchChildren.push_back(std::move(finder));
+            data->matchChildren.push_back(std::move(matcher));
         }
 
         AstMatcher(const AstMatcher&)                    = delete;
@@ -93,21 +109,36 @@ namespace glsld
 
         auto Match(const AstNode& node) const -> AstMatchResult
         {
-            if (!data->matchThis(node)) {
-                return AstMatchResult::Failure(node, *this);
-            }
-
             AstChildCollector collector;
             collector.Traverse(node);
 
-            for (size_t i = 0; i < std::min(data->matchChildren.size(), collector.children.size()); ++i) {
-                auto result = data->matchChildren[i].Match(*collector.children[i]);
-                if (!result.IsSuccess()) {
-                    return result;
-                }
-            }
+            if (data->findMatchMode) {
+                auto& finder  = data->matchChildren[0];
+                auto& matcher = data->matchChildren[1];
 
-            return AstMatchResult::Success();
+                for (const auto* child : collector.children) {
+                    auto found = finder.Match(*child);
+                    if (found.IsSuccess()) {
+                        return matcher.Match(*child);
+                    }
+                }
+
+                return AstMatchResult::Failure(node, *this);
+            }
+            else {
+                if (!data->matchThis(node)) {
+                    return AstMatchResult::Failure(node, *this);
+                }
+
+                for (size_t i = 0; i < std::min(data->matchChildren.size(), collector.children.size()); ++i) {
+                    auto result = data->matchChildren[i].Match(*collector.children[i]);
+                    if (!result.IsSuccess()) {
+                        return result;
+                    }
+                }
+
+                return AstMatchResult::Success();
+            }
         }
     };
 
@@ -150,6 +181,30 @@ namespace glsld
             auto qualType = node.As<AstQualType>();
             return qualType && qualType->GetResolvedType() == Type::GetBuiltinType(type);
         });
+    }
+
+    inline auto NamedType(StringView name) -> AstMatcher
+    {
+        return AstMatcher("NamedType", [name = name.Str()](const AstNode& node) -> bool {
+            auto qualType = node.As<AstQualType>();
+            return qualType && qualType->GetTypeNameTok().IsIdentifier() && qualType->GetTypeNameTok().text == name;
+        });
+    }
+
+#pragma endregion
+
+#pragma region Misc
+
+    template <std::same_as<AstMatcher>... MatcherType>
+    inline auto ArraySpec(MatcherType... matchExpr) -> AstMatcher
+    {
+        return AstMatcher(
+            "ArraySpec",
+            [numSpec = sizeof...(matchExpr)](const AstNode& node) -> bool {
+                auto arraySpec = node.As<AstArraySpec>();
+                return arraySpec && arraySpec->GetSizeList().size() == numSpec;
+            },
+            std::move(matchExpr)...);
     }
 
 #pragma endregion
@@ -212,11 +267,12 @@ namespace glsld
             std::move(matchLhs));
     }
 
-    inline auto IndexAccessExpr(AstMatcher matchLhs, AstMatcher matchArraySpec) -> AstMatcher
+    template <std::same_as<AstMatcher>... MatcherType>
+    inline auto IndexAccessExpr(AstMatcher matchLhs, MatcherType... matchIndices) -> AstMatcher
     {
         return AstMatcher(
             "IndexAccessExpr", [](const AstNode& node) -> bool { return node.Is<AstIndexAccessExpr>(); },
-            std::move(matchLhs), std::move(matchArraySpec));
+            std::move(matchLhs), ArraySpec(std::move(matchIndices)...));
     }
 
     inline auto UnaryExpr(UnaryOp op, AstMatcher matchOperand) -> AstMatcher
@@ -260,9 +316,9 @@ namespace glsld
     {
         return AstMatcher(
             "FunctionCallExpr",
-            [name](const AstNode& node) -> bool {
+            [name, numArgs = sizeof...(matchArgs)](const AstNode& node) -> bool {
                 auto expr = node.As<AstFunctionCallExpr>();
-                return expr && expr->GetFunctionName().text == name;
+                return expr && expr->GetFunctionName().text == name && expr->GetArgs().size() == numArgs;
             },
             std::move(matchArgs)...);
     }
@@ -432,6 +488,11 @@ namespace glsld
         return AstMatcher(
             "TranslationUnit", [](const AstNode& node) -> bool { return node.Is<AstTranslationUnit>(); },
             std::move(matchDecls)...);
+    }
+
+    inline auto FindMatch(AstMatcher finder, AstMatcher matcher) -> AstMatcher
+    {
+        return AstMatcher("FindMatch", std::move(finder), std::move(matcher));
     }
 
 } // namespace glsld

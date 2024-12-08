@@ -98,7 +98,7 @@ namespace glsld
         auto GetToken(SyntaxTokenID id) const -> const RawSyntaxTokenEntry*
         {
             ArrayView<RawSyntaxTokenEntry> tokens;
-            switch (static_cast<TranslationUnitID>(id.GetTUIndex())) {
+            switch (static_cast<TranslationUnitID>(id.GetTU())) {
             case TranslationUnitID::SystemPreamble:
                 tokens = compilerResult->GetSystemPreambleTokens();
                 break;
@@ -164,7 +164,7 @@ namespace glsld
         // True if the specified token is spelled in the main file.
         auto IsSpelledInMainFile(SyntaxTokenID id) const -> bool
         {
-            if (static_cast<TranslationUnitID>(id.GetTUIndex()) != TranslationUnitID::UserFile) {
+            if (static_cast<TranslationUnitID>(id.GetTU()) != TranslationUnitID::UserFile) {
                 return false;
             }
 

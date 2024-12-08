@@ -6,7 +6,7 @@ using namespace glsld;
 
 TEST_CASE_METHOD(AstTestFixture, "Simple Stmt")
 {
-    SetTemplate("void main() {{ {} }}", [](AstMatcher matcher) {
+    SetTestTemplate("void main() {{ {} }}", [](AstMatcher matcher) {
         return TranslationUnit(FunctionDecl(Any(), Any(), CompoundStmt(std::move(matcher))));
     });
 
@@ -25,12 +25,25 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Stmt")
         GLSLD_CHECK_AST("{{}}", CompoundStmt(CompoundStmt()));
         GLSLD_CHECK_AST("{{} {}}", CompoundStmt(CompoundStmt(), CompoundStmt()));
         GLSLD_CHECK_AST("{{}; {}}", CompoundStmt(CompoundStmt(), EmptyStmt(), CompoundStmt()));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("{", CompoundStmt(ErrorStmt()));
+            GLSLD_CHECK_AST("{;", CompoundStmt(EmptyStmt()));
+            GLSLD_CHECK_AST("{{", CompoundStmt(CompoundStmt(ErrorStmt())));
+        }
     }
 
     SECTION("ExprStmt")
     {
         GLSLD_CHECK_AST("1;", ExprStmt(LiteralExpr(1)));
         GLSLD_CHECK_AST("1 + 2;", ExprStmt(BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2))));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("1", ExprStmt(LiteralExpr(1)));
+            GLSLD_CHECK_AST("{ 1 2 }", CompoundStmt(ExprStmt(LiteralExpr(1)), ExprStmt(LiteralExpr(2))));
+        }
     }
 
     // TODO: DeclStmt
@@ -75,20 +88,35 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Stmt")
     SECTION("BreakStmt")
     {
         GLSLD_CHECK_AST("break;", BreakStmt());
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("break", BreakStmt());
+            GLSLD_CHECK_AST("{ break break }", CompoundStmt(BreakStmt(), BreakStmt()));
+        }
     }
 
     SECTION("ContinueStmt")
     {
         GLSLD_CHECK_AST("continue;", ContinueStmt());
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("continue", ContinueStmt());
+            GLSLD_CHECK_AST("{ continue continue }", CompoundStmt(ContinueStmt(), ContinueStmt()));
+        }
     }
 
     SECTION("ReturnStmt")
     {
         GLSLD_CHECK_AST("return;", ReturnStmt());
         GLSLD_CHECK_AST("return 1;", ReturnStmt(LiteralExpr(1)));
-    }
-}
 
-TEST_CASE_METHOD(AstTestFixture, "Permissive Stmt")
-{
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("return", ReturnStmt());
+            GLSLD_CHECK_AST("{ return return }", CompoundStmt(ReturnStmt(), ReturnStmt()));
+            GLSLD_CHECK_AST("{ return x return }", CompoundStmt(ReturnStmt(NameAccessExpr("x")), ReturnStmt()));
+        }
+    }
 }

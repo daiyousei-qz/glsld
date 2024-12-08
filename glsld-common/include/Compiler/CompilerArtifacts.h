@@ -54,7 +54,7 @@ namespace glsld
         {
             GLSLD_ASSERT(tokIndex < tokens.size());
             return SyntaxToken{
-                .index = SyntaxTokenID{static_cast<uint32_t>(id), tokIndex},
+                .index = SyntaxTokenID{id, tokIndex},
                 .klass = tokens[tokIndex].klass,
                 .text  = tokens[tokIndex].text,
             };

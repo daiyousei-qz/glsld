@@ -185,16 +185,25 @@ namespace glsld
         static constexpr uint32_t MaxTranslationUnitTokenCount = 1u << 28;
         static constexpr uint32_t MaxTranslationUnitCount      = 15;
 
-        uint32_t value;
+        union
+        {
+            struct
+            {
+                TranslationUnitID tuID : 4;
+                uint32_t tokIndex : 28;
+            };
+            uint32_t value;
+        };
 
     public:
         constexpr SyntaxTokenID()
         {
         }
-        constexpr explicit SyntaxTokenID(uint32_t tuIndex, uint32_t tokIndex)
+        constexpr explicit SyntaxTokenID(TranslationUnitID tuID, uint32_t tokIndex)
         {
-            GLSLD_ASSERT(tuIndex < MaxTranslationUnitCount && tokIndex < MaxTranslationUnitTokenCount);
-            value = tuIndex * MaxTranslationUnitTokenCount + tokIndex;
+            GLSLD_ASSERT(tokIndex < MaxTranslationUnitTokenCount);
+            this->tuID     = tuID;
+            this->tokIndex = tokIndex;
         }
 
         auto IsValid() const noexcept -> bool
@@ -202,17 +211,20 @@ namespace glsld
             return value != InvalidTokenID;
         }
 
-        auto GetTUIndex() const noexcept -> uint32_t
+        auto GetTU() const noexcept -> TranslationUnitID
         {
-            return value / MaxTranslationUnitTokenCount;
+            return tuID;
         }
 
         auto GetTokenIndex() const noexcept -> uint32_t
         {
-            return value % MaxTranslationUnitTokenCount;
+            return tokIndex;
         }
 
-        auto operator==(const SyntaxTokenID& other) const noexcept -> bool = default;
+        auto operator==(const SyntaxTokenID& other) const noexcept -> bool
+        {
+            return value == other.value;
+        }
 
         auto operator++() noexcept -> SyntaxTokenID&
         {
@@ -301,8 +313,7 @@ namespace glsld
         }
         AstSyntaxRange(SyntaxTokenID beginTokID, SyntaxTokenID endTokID) : beginID(beginTokID), endID(endTokID)
         {
-            GLSLD_ASSERT(beginTokID.GetTUIndex() == endID.GetTUIndex() &&
-                         beginTokID.GetTokenIndex() <= endTokID.GetTokenIndex());
+            GLSLD_ASSERT(beginTokID.GetTU() == endID.GetTU() && beginTokID.GetTokenIndex() <= endTokID.GetTokenIndex());
         }
 
         auto Empty() const noexcept -> bool
@@ -317,7 +328,7 @@ namespace glsld
 
         auto GetTranslationUnit() const noexcept -> TranslationUnitID
         {
-            return static_cast<TranslationUnitID>(endID.GetTUIndex());
+            return static_cast<TranslationUnitID>(endID.GetTU());
         }
 
         auto GetBeginID() const noexcept -> SyntaxTokenID

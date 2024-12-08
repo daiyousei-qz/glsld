@@ -456,13 +456,15 @@ namespace glsld
                 buffer = reinterpret_cast<std::byte*>(&localBuffer);
             }
 
-            return ArraySpan<std::byte>(buffer, arraySize);
+            return ArraySpan<std::byte>(buffer, GetBufferSize());
         }
 
         // Note this doesn't release the memory of existing heap pointer
         template <typename T>
         auto InitializeAs(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
         {
+            GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
+
             auto blob = InitializeAsBlob(scalarType, arraySize, rowSize, colSize);
             GLSLD_ASSERT(GetScalarSize() == sizeof(T));
             return ArraySpan<T>(reinterpret_cast<T*>(blob.data()), arraySize);

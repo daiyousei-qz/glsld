@@ -12,25 +12,30 @@ namespace glsld
     class AstTestFixture
     {
     private:
-        std::string templateText;
-        std::function<AstMatcher(AstMatcher)> matcherWrapper;
+        std::string sourceTemplate;
+        std::function<AstMatcher(AstMatcher)> matcherTemplate;
 
     public:
-        auto SetTemplate(fmt::format_string<StringView> templateText,
-                         std::function<AstMatcher(AstMatcher)> matcherWrapper) -> void
+        auto SetTestTemplate(fmt::format_string<StringView> sourceTemplate,
+                             std::function<AstMatcher(AstMatcher)> matcherTemplate) -> void
         {
-            this->templateText   = std::string(templateText.get().begin(), templateText.get().end());
-            this->matcherWrapper = std::move(matcherWrapper);
+            this->sourceTemplate  = std::string(sourceTemplate.get().begin(), sourceTemplate.get().end());
+            this->matcherTemplate = std::move(matcherTemplate);
+        }
+
+        auto WrapSource(StringView sourceText) const -> std::string
+        {
+            return fmt::format(fmt::runtime(sourceTemplate), sourceText);
         }
 
         auto WrapMatcher(AstMatcher matcher) const -> AstMatcher
         {
-            return matcherWrapper(std::move(matcher));
+            return matcherTemplate(std::move(matcher));
         }
 
         auto Compile(StringView sourceText) const -> std::unique_ptr<CompilerResult>
         {
-            std::string realSourceText = fmt::format(fmt::runtime(templateText), sourceText);
+            std::string realSourceText = WrapSource(sourceText);
 
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
