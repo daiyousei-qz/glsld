@@ -32,8 +32,9 @@ namespace glsld
         auto DumpChildNode(StringView key, const AstNode& node) -> void
         {
             PrintIndentation();
-            fmt::format_to(std::back_inserter(buffer), "+{}: {} #{:x} -> {{\n", key, AstNodeTagToString(node.GetTag()),
-                           GetPointerIdentifier(&node));
+            fmt::format_to(std::back_inserter(buffer), "+{}: {}[{}, {}) #{:x} -> {{\n", key,
+                           AstNodeTagToString(node.GetTag()), node.GetSyntaxRange().GetBeginID().GetTokenIndex(),
+                           node.GetSyntaxRange().GetEndID().GetTokenIndex(), GetPointerIdentifier(&node));
 
             PushIndent();
             InvokeAstDispatched(

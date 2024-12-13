@@ -187,10 +187,11 @@ namespace glsld
 
         union
         {
+            // FIXME: This assumes little-endian. Make it better?
             struct
             {
-                TranslationUnitID tuID : 4;
                 uint32_t tokIndex : 28;
+                TranslationUnitID tuID : 4;
             };
             uint32_t value;
         };
@@ -255,7 +256,7 @@ namespace glsld
         auto operator-(uint32_t diff) const noexcept -> SyntaxTokenID
         {
             SyntaxTokenID result = *this;
-            result += diff;
+            result -= diff;
             return result;
         }
         auto operator-(SyntaxTokenID other) const noexcept -> int32_t

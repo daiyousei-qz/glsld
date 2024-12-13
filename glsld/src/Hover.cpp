@@ -33,8 +33,11 @@ namespace glsld
         case SymbolAccessType::LayoutQualifier:
             builder.Append("Layout Qualifier");
             break;
-        case SymbolAccessType::Variable:
-            builder.Append("Variable");
+        case SymbolAccessType::GlobalVariable:
+            builder.Append("Global Variable");
+            break;
+        case SymbolAccessType::LocalVariable:
+            builder.Append("Local Variable");
             break;
         case SymbolAccessType::Swizzle:
             builder.Append("Swizzle");
@@ -105,8 +108,8 @@ namespace glsld
         return result;
     }
 
-    static auto CreateHoverContent(const LanguageQueryProvider& provider,
-                                   const SymbolAccessInfo& accessInfo) -> std::optional<HoverContent>
+    static auto CreateHoverContent(const LanguageQueryProvider& provider, const SymbolAccessInfo& accessInfo)
+        -> std::optional<HoverContent>
     {
         if (!accessInfo.token.IsIdentifier()) {
             return std::nullopt;
@@ -135,7 +138,7 @@ namespace glsld
             funcDecl && accessInfo.symbolType == SymbolAccessType::Function) {
             ReconstructSourceText(codeBuffer, *funcDecl);
             return HoverContent{
-                .type          = SymbolAccessType::Function,
+                .type          = accessInfo.symbolType,
                 .name          = name.Str(),
                 .description   = std::move(description),
                 .documentation = QueryFunctionDocumentation(name).Str(),
@@ -146,17 +149,18 @@ namespace glsld
                  paramDecl && accessInfo.symbolType == SymbolAccessType::Parameter) {
             ReconstructSourceText(codeBuffer, *paramDecl);
             return HoverContent{
-                .type        = SymbolAccessType::Parameter,
+                .type        = accessInfo.symbolType,
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
             };
         }
         else if (auto varDecl = decl->As<AstVariableDecl>();
-                 varDecl && accessInfo.symbolType == SymbolAccessType::Variable) {
+                 varDecl && (accessInfo.symbolType == SymbolAccessType::GlobalVariable ||
+                             accessInfo.symbolType == SymbolAccessType::LocalVariable)) {
             ReconstructSourceText(codeBuffer, *varDecl, accessInfo.symbolDecl.GetIndex());
             return HoverContent{
-                .type        = SymbolAccessType::Variable,
+                .type        = accessInfo.symbolType,
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
@@ -166,7 +170,7 @@ namespace glsld
                  memberDecl && accessInfo.symbolType == SymbolAccessType::MemberVariable) {
             ReconstructSourceText(codeBuffer, *memberDecl, accessInfo.symbolDecl.GetIndex());
             return HoverContent{
-                .type        = SymbolAccessType::MemberVariable,
+                .type        = accessInfo.symbolType,
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
@@ -176,7 +180,7 @@ namespace glsld
                  structDecl && accessInfo.symbolType == SymbolAccessType::Type) {
             ReconstructSourceText(codeBuffer, *structDecl);
             return HoverContent{
-                .type        = SymbolAccessType::Type,
+                .type        = accessInfo.symbolType,
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),

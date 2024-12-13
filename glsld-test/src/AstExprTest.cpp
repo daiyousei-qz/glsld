@@ -144,6 +144,7 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
         GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S")));
 
+        // FIXME: add `int[2]()`
         // FIXME: add `struct {}()`
 
         SECTION("Permissive")

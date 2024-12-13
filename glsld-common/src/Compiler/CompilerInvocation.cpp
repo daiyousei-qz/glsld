@@ -20,6 +20,7 @@ namespace glsld
 
     auto CompilerInvocation::SetMainFileFromFile(StringView path) -> void
     {
+        // FIXME: report error
         mainFileId = sourceManager.OpenFromFile(path.StdStrView());
     }
 

@@ -71,9 +71,8 @@ const int gl_MaxAtomicCounterBufferSize = 32;
 const int gl_MaxTransformFeedbackBuffers = 4;
 const int gl_MaxTransformFeedbackInterleavedComponents = 64;
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_target__ vulkan;
+#if __GLSLD_TARGET_VULKAN
 
 const highp int gl_MaxInputAttachments = 1; // only present when targeting Vulkan
 
-__glsld_syscmd_end_context__;
+#endif

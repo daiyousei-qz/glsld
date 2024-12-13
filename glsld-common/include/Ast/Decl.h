@@ -21,6 +21,7 @@ namespace glsld
     {
     private:
         // [Payload]
+        // The scope of the declaration.
         DeclScope scope = DeclScope::Global;
 
     protected:

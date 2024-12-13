@@ -104,6 +104,36 @@ namespace glsld
             }
         }
 
+        // Consumes all characters until the next '#' character at the beginning of a line.
+        auto SkipUntilPPHash() -> void
+        {
+            bool startOfLine = false;
+            while (!CursorAtEnd()) {
+                auto ch = *srcCursor;
+
+                if (ch == '\n') {
+                    if (!TryConsumeLineContinuation()) {
+                        startOfLine = true;
+                    }
+                    ++lineCounter;
+                    characterCounter = 0;
+                }
+                else if (ch == ' ' || ch == '\t' || ch == '\r') {
+                    ++characterCounter;
+                }
+                else if (ch == '#') {
+                    if (startOfLine) {
+                        break;
+                    }
+                }
+                else {
+                    startOfLine = false;
+                }
+
+                ConsumeChar();
+            }
+        }
+
         // Peek the next code unit.
         auto PeekCodeUnit() -> char
         {

@@ -104,20 +104,22 @@ namespace glsld
             if (compilerConfig.dumpTokens) {
                 if (tu.GetID() == TranslationUnitID::UserPreamble && tu.GetTokens().size() > 1) {
                     Print("=====Tokens of User Preamble=====\n");
+                    auto index = 0;
                     for (const auto& token : tu.GetTokens()) {
                         const auto& expanedRange = token.expandedRange;
-                        Print("[{}]'{}' @ ({},{}~{},{})\n", TokenKlassToString(token.klass), token.text.StrView(),
-                              expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
-                              expanedRange.end.character);
+                        Print("{}: [{}]'{}' @ ({},{}~{},{})\n", index++, TokenKlassToString(token.klass),
+                              token.text.StrView(), expanedRange.start.line, expanedRange.start.character,
+                              expanedRange.end.line, expanedRange.end.character);
                     }
                 }
                 else if (tu.GetID() == TranslationUnitID::UserFile) {
                     Print("=====Tokens of User File=====\n");
+                    auto index = 0;
                     for (const auto& token : tu.GetTokens()) {
                         const auto& expanedRange = token.expandedRange;
-                        Print("[{}]'{}' @ ({},{}~{},{})\n", TokenKlassToString(token.klass), token.text.StrView(),
-                              expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
-                              expanedRange.end.character);
+                        Print("{}: [{}]'{}' @ ({},{}~{},{})\n", index++, TokenKlassToString(token.klass),
+                              token.text.StrView(), expanedRange.start.line, expanedRange.start.character,
+                              expanedRange.end.line, expanedRange.end.character);
                     }
                 }
             }
@@ -133,12 +135,12 @@ namespace glsld
             if (compilerConfig.dumpAst) {
                 if (id == TranslationUnitID::UserPreamble && !ast->GetGlobalDecls().empty()) {
                     Print("=====AST of User Preamble=====\n");
-                    ast->Print();
+                    Print("{}", ast->Print());
                 }
 
                 if (id == TranslationUnitID::UserFile) {
                     Print("=====AST of User File=====\n");
-                    ast->Print();
+                    Print("{}", ast->Print());
                 }
             }
 

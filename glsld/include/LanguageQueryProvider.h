@@ -31,8 +31,11 @@ namespace glsld
         // The symbol is a key in the layout qualifier. e.g. `location` in `layout(location = 0) in vec4 a;`
         LayoutQualifier,
 
-        // The symbol is a variable name. either in a variable declaration or accessing of a variable.
-        Variable,
+        // The symbol is a global variable name. either in a variable declaration or accessing of a variable.
+        GlobalVariable,
+
+        // The symbol is a local variable name. either in a variable declaration or accessing of a variable.
+        LocalVariable,
 
         // The symbol is a swizzle name. e.g. `xyz` in `vec3 v; v.xyz;`
         Swizzle,

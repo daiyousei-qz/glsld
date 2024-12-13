@@ -64,6 +64,11 @@ namespace glsld
             symbolTable.PopLevel();
         }
 
+        auto GetCurrentScope() const -> DeclScope
+        {
+            return symbolTable.GetCurrentLevel()->GetScope();
+        }
+
 #pragma region Misc
 
         auto BuildTranslationUnit(AstSyntaxRange range, std::vector<AstDecl*> decls) -> AstTranslationUnit*;

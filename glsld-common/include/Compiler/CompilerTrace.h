@@ -11,7 +11,7 @@ namespace glsld
 {
     struct CompilerTraceConfig
     {
-        bool traceCompiler = true;
+        bool traceCompiler = false;
 
         static auto Get() -> CompilerTraceConfig&
         {
@@ -42,9 +42,9 @@ namespace glsld
         template <typename... Args>
         auto EmitTraceMessage(CompilerTraceSource source, fmt::format_string<Args...> fmt, Args&&... args) -> void
         {
-            // if (CompilerTraceConfig::Get().traceCompiler == false) {
-            //     return;
-            // }
+            if (!CompilerTraceConfig::Get().traceCompiler) {
+                return;
+            }
 
             StringView sourceName;
             switch (source) {

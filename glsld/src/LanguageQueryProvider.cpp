@@ -64,8 +64,8 @@ namespace glsld
 
             auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
             {
-                // By default, we assume it's a variable access.
-                SymbolAccessType accessType = SymbolAccessType::Variable;
+                // By default, we assume it's a global variable access.
+                SymbolAccessType accessType = SymbolAccessType::GlobalVariable;
                 if (expr.GetResolvedDecl().IsValid()) {
                     auto decl = expr.GetResolvedDecl().GetDecl();
                     if (decl->Is<AstParamDecl>()) {
@@ -73,6 +73,11 @@ namespace glsld
                     }
                     else if (decl->Is<AstInterfaceBlockDecl>()) {
                         accessType = SymbolAccessType::InterfaceBlockInstance;
+                    }
+                    else if (auto varDecl = decl->As<AstVariableDecl>()) {
+                        if (varDecl->GetScope() != DeclScope::Global) {
+                            accessType = SymbolAccessType::LocalVariable;
+                        }
                     }
                 }
                 TryDeclToken(expr.GetAccessName(), expr.GetResolvedDecl(), accessType, false);
@@ -98,7 +103,9 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, SymbolAccessType::Variable,
+                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex},
+                                 decl.GetScope() == DeclScope::Global ? SymbolAccessType::GlobalVariable
+                                                                      : SymbolAccessType::LocalVariable,
                                  true);
 
                     declaratorIndex += 1;
