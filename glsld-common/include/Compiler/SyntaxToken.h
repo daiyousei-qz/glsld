@@ -329,7 +329,7 @@ namespace glsld
 
         auto GetTranslationUnit() const noexcept -> TranslationUnitID
         {
-            return static_cast<TranslationUnitID>(endID.GetTU());
+            return endID.GetTU();
         }
 
         auto GetBeginID() const noexcept -> SyntaxTokenID
