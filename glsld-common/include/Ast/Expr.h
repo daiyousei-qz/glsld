@@ -12,6 +12,11 @@ namespace glsld
     // - expression
     class AstInitializer : public AstNode
     {
+    private:
+        // [Payload]
+        // Whether this initializer is const, i.e. can be evaluated at compile time.
+        bool isConst = false;
+
     protected:
         AstInitializer() = default;
 
@@ -24,6 +29,17 @@ namespace glsld
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
+            d.DumpAttribute("IsConst", IsConst());
+        }
+
+    public:
+        auto SetConst(bool isConst) noexcept -> void
+        {
+            this->isConst = isConst;
+        }
+        auto IsConst() const noexcept -> bool
+        {
+            return isConst;
         }
     };
 
@@ -63,6 +79,7 @@ namespace glsld
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
+            AstInitializer::DoDump(d);
             for (auto item : items) {
                 d.DumpChildNode("Item", *item);
             }
@@ -73,10 +90,6 @@ namespace glsld
     class AstExpr : public AstInitializer
     {
     private:
-        // [Payload]
-        // Whether this expression is const, i.e. can be evaluated at compile time.
-        bool isConst = false;
-
         // [Payload]
         // The type that this expression is deduced to.
         const Type* deducedType = nullptr;
@@ -94,20 +107,10 @@ namespace glsld
         auto DoDump(Dumper& d) const -> void
         {
             AstInitializer::DoDump(d);
-            d.DumpAttribute("IsConst", IsConst());
             d.DumpAttribute("DeducedType", GetDeducedType()->GetDebugName());
         }
 
     public:
-        auto SetConst(bool isConst) noexcept -> void
-        {
-            this->isConst = isConst;
-        }
-        auto IsConst() const noexcept -> bool
-        {
-            return isConst;
-        }
-
         auto SetDeducedType(const Type* deducedType) noexcept -> void
         {
             this->deducedType = deducedType;
@@ -273,7 +276,7 @@ namespace glsld
         SyntaxToken accessName;
 
         // [Payload]
-        // The declaration that this name access expression refers to.
+        // The field declaration that this name access expression refers to.
         DeclView resolvedDecl = {};
 
     public:

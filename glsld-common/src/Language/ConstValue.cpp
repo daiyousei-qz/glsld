@@ -3,6 +3,7 @@
 #include <charconv>
 #include <concepts>
 #include <functional>
+#include <numbers>
 
 #if GLSLD_COMPILER_MSVC
 // Deliberately allow things like -1u as GLSL spec allows it
@@ -141,15 +142,30 @@ namespace glsld
 
         switch (GetScalarKind()) {
         case ScalarKind::Bool:
-            return GetBoolValue() ? "true" : "false";
+            return GetBufferAs<bool>()[0] ? "true" : "false";
         case ScalarKind::Int:
-            return std::to_string(GetInt32Value());
+            return std::to_string(GetBufferAs<int32_t>()[0]);
         case ScalarKind::Uint:
-            return std::to_string(GetUInt32Value());
+            return std::to_string(GetBufferAs<uint32_t>()[0]);
         case ScalarKind::Float:
-            return std::to_string(GetFloatValue());
+            return std::to_string(GetBufferAs<float>()[0]);
         case ScalarKind::Double:
-            return std::to_string(GetDoubleValue());
+            return std::to_string(GetBufferAs<double>()[0]);
+        case ScalarKind::Int8:
+            return std::to_string(GetBufferAs<int8_t>()[0]);
+        case ScalarKind::Int16:
+            return std::to_string(GetBufferAs<int16_t>()[0]);
+        case ScalarKind::Int64:
+            return std::to_string(GetBufferAs<int64_t>()[0]);
+        case ScalarKind::Uint8:
+            return std::to_string(GetBufferAs<uint8_t>()[0]);
+        case ScalarKind::Uint16:
+            return std::to_string(GetBufferAs<uint16_t>()[0]);
+        case ScalarKind::Uint64:
+            return std::to_string(GetBufferAs<uint64_t>()[0]);
+        case ScalarKind::Float16:
+            GLSLD_NO_IMPL();
+            return "<float16>";
         default:
             return "<other>";
         }
@@ -159,13 +175,13 @@ namespace glsld
     {
         ConstValue result;
 
-        auto blob = result.InitializeAsBlob(static_cast<ScalarKind>(scalarType), arraySize, rowSize, colSize);
+        auto blob = result.InitializeAsBlob(static_cast<ScalarKind>(scalarType), rowSize, colSize);
         std::ranges::copy(GetBufferAsBlob(), blob.begin());
 
         return result;
     }
 
-    auto ConstValue::GetElement(int index) -> ConstValue
+    auto ConstValue::GetElement(int index) const -> ConstValue
     {
         // FIXME: verify this is correct
         if (colSize <= 1 || index < 0 || index >= colSize) {
@@ -173,14 +189,14 @@ namespace glsld
         }
 
         ConstValue result;
-        auto blob          = result.InitializeAsBlob(GetScalarKind(), rowSize, 1, rowSize);
+        auto blob          = result.InitializeAsBlob(GetScalarKind(), 1, rowSize);
         auto elementSize   = GetBufferSize() / colSize;
         auto elementOffset = index * elementSize;
         std::ranges::copy(GetBufferAsBlob(), blob.begin());
         return result;
     }
 
-    auto ConstValue::GetSwizzle(SwizzleDesc swizzle) -> ConstValue
+    auto ConstValue::GetSwizzle(SwizzleDesc swizzle) const -> ConstValue
     {
         // FIXME: verify this is correct
         if (IsError() || !swizzle.IsValid()) {
@@ -198,8 +214,7 @@ namespace glsld
         }
 
         ConstValue result;
-        auto blob =
-            result.InitializeAsBlob(GetScalarKind(), rowSize * swizzle.GetDimension(), rowSize, swizzle.GetDimension());
+        auto blob = result.InitializeAsBlob(GetScalarKind(), rowSize, swizzle.GetDimension());
         std::ranges::copy(buffer, blob.data());
         return result;
     }
@@ -248,13 +263,14 @@ namespace glsld
     {
         if (colSize > 0) {
             // FIXME: which type should it be?
-            return ConstValue::FromValue(static_cast<int32_t>(colSize));
+            return ConstValue::CreateScalar(static_cast<int32_t>(colSize));
         }
         else {
             return ConstValue{};
         }
     }
 
+#pragma region Binary
     auto ConstValue::ElemwisePlus(const ConstValue& other) const -> ConstValue
     {
         return ApplyElemwiseBinaryOp(other, ExcludingBool<std::plus<>>{});
@@ -342,112 +358,329 @@ namespace glsld
     {
         return ApplyElemwiseComparisonOp(other, ExcludingBool<std::greater_equal<>>{});
     }
+#pragma endregion
 
-    auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
+#pragma region Builtin
+    namespace
     {
-        if (operand.IsError()) {
-            return ConstValue{};
-        }
+        // FIXME: check std rounding
+        struct Radians
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return (std::numbers::pi_v<FloatType> / static_cast<FloatType>(180)) * value;
+            }
+        };
 
-        switch (op) {
-        case UnaryOp::Identity:
-            return operand.Clone();
-        case UnaryOp::Negate:
-            return operand.ElemwiseNegate();
-        case UnaryOp::BitwiseNot:
-            return operand.ElemwiseBitNot();
-        case UnaryOp::LogicalNot:
-            return operand.ElemwiseLogicalNot();
-        case UnaryOp::PrefixInc:
-        case UnaryOp::PrefixDec:
-        case UnaryOp::PostfixInc:
-        case UnaryOp::PostfixDec:
-            // Fast path. Returns error since constant expression cannot have side effect.
-            return ConstValue{};
-        case UnaryOp::Length:
-            return operand.Length();
-        }
+        struct Degrees
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return (static_cast<FloatType>(180) / std::numbers::pi_v<FloatType>)*value;
+            }
+        };
 
-        GLSLD_UNREACHABLE();
+        struct Sin
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::sin(value);
+            }
+        };
+
+        struct Cos
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::cos(value);
+            }
+        };
+
+        struct Asin
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::asin(value);
+            }
+        };
+
+        struct Acos
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::acos(value);
+            }
+        };
+
+        struct Pow
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType lhs, FloatType rhs) -> FloatType
+            {
+                return std::pow(lhs, rhs);
+            }
+        };
+
+        struct Exp
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::exp(value);
+            }
+        };
+
+        struct Log
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::log(value);
+            }
+        };
+
+        struct Exp2
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::exp2(value);
+            }
+        };
+
+        struct Log2
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::log2(value);
+            }
+        };
+
+        struct Sqrt
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::sqrt(value);
+            }
+        };
+
+        struct InverseSqrt
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return static_cast<FloatType>(1) / std::sqrt(value);
+            }
+        };
+
+        struct Abs
+        {
+            template <typename ArithmeticType>
+                requires std::signed_integral<ArithmeticType> || std::floating_point<ArithmeticType>
+            auto operator()(ArithmeticType value) -> ArithmeticType
+            {
+                return value > 0 ? value : -value;
+            }
+        };
+
+        struct Sign
+        {
+            template <typename ArithmeticType>
+                requires std::signed_integral<ArithmeticType> || std::floating_point<ArithmeticType>
+            auto operator()(ArithmeticType value) -> ArithmeticType
+            {
+                return value > 0 ? 1 : (value < 0 ? -1 : 0);
+            }
+        };
+
+        struct Floor
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::floor(value);
+            }
+        };
+
+        struct Trunc
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::trunc(value);
+            }
+        };
+
+        struct Round
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::round(value);
+            }
+        };
+
+        struct Ceil
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType value) -> FloatType
+            {
+                return std::ceil(value);
+            }
+        };
+
+        struct Mod
+        {
+            template <std::floating_point FloatType>
+            auto operator()(FloatType lhs, FloatType rhs) -> FloatType
+            {
+                return std::fmod(lhs, rhs);
+            }
+        };
+
+        struct Min
+        {
+            template <typename ArithmeticType>
+                requires std::integral<ArithmeticType> || std::floating_point<ArithmeticType>
+            auto operator()(ArithmeticType lhs, ArithmeticType rhs) -> ArithmeticType
+            {
+                return std::min<ArithmeticType>(lhs, rhs);
+            }
+        };
+
+        struct Max
+        {
+            template <typename ArithmeticType>
+                requires std::integral<ArithmeticType> || std::floating_point<ArithmeticType>
+            auto operator()(ArithmeticType lhs, ArithmeticType rhs) -> ArithmeticType
+            {
+                return std::max<ArithmeticType>(lhs, rhs);
+            }
+        };
+    } // namespace
+
+    auto ConstValue::ElemwiseRadians() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Radians{});
     }
-    auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
+    auto ConstValue::ElemwiseDegrees() const -> ConstValue
     {
-        if (lhs.IsError() || rhs.IsError()) {
-            return ConstValue{};
-        }
-
-        switch (op) {
-        case BinaryOp::Plus:
-            return lhs.ElemwisePlus(rhs);
-        case BinaryOp::Minus:
-            return lhs.ElemwiseMinus(rhs);
-        case BinaryOp::Mul:
-            return lhs.ElemwiseMul(rhs);
-        case BinaryOp::Div:
-            return lhs.ElemwiseDiv(rhs);
-        case BinaryOp::Modulo:
-            return lhs.ElemwiseMod(rhs);
-        case BinaryOp::Equal:
-            return lhs.ElemwiseEquals(rhs);
-        case BinaryOp::NotEqual:
-            return lhs.ElemwiseNotEquals(rhs);
-        case BinaryOp::Less:
-            return lhs.ElemwiseLessThan(rhs);
-        case BinaryOp::LessEq:
-            return lhs.ElemwiseLessThanEq(rhs);
-        case BinaryOp::Greater:
-            return lhs.ElemwiseGreaterThan(rhs);
-        case BinaryOp::GreaterEq:
-            return lhs.ElemwiseGreaterThanEq(rhs);
-        case BinaryOp::BitwiseAnd:
-            return lhs.ElemwiseBitAnd(rhs);
-        case BinaryOp::BitwiseOr:
-            return lhs.ElemwiseBitOr(rhs);
-        case BinaryOp::BitwiseXor:
-            return lhs.ElemwiseBitXor(rhs);
-        case BinaryOp::LogicalAnd:
-            return lhs.ElemwiseLogicalAnd(rhs);
-        case BinaryOp::LogicalOr:
-            return lhs.ElemwiseLogicalOr(rhs);
-        case BinaryOp::LogicalXor:
-            return lhs.ElemwiseLogicalXor(rhs);
-        case BinaryOp::ShiftLeft:
-            return lhs.ElemwiseShiftLeft(rhs);
-        case BinaryOp::ShiftRight:
-            return lhs.ElemwiseShiftRight(rhs);
-        case BinaryOp::Comma:
-        case BinaryOp::Assign:
-        case BinaryOp::MulAssign:
-        case BinaryOp::DivAssign:
-        case BinaryOp::ModAssign:
-        case BinaryOp::AddAssign:
-        case BinaryOp::SubAssign:
-        case BinaryOp::LShiftAssign:
-        case BinaryOp::RShiftAssign:
-        case BinaryOp::AndAssign:
-        case BinaryOp::XorAssign:
-        case BinaryOp::OrAssign:
-            // Fast path. These ops cannot produce a constant expression.
-            return ConstValue{};
-        }
-
-        GLSLD_UNREACHABLE();
+        return ApplyElemwiseUnaryOp(Degrees{});
     }
-    auto EvalSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
-                             const ConstValue& elseBranchVal) -> ConstValue
+    auto ConstValue::ElemwiseSin() const -> ConstValue
     {
-        // Predicate must be bool
-        if (!predicate.IsScalarBool()) {
-            return ConstValue{};
-        }
+        return ApplyElemwiseUnaryOp(Sin{});
+    }
+    auto ConstValue::ElemwiseCos() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Cos{});
+    }
+    auto ConstValue::ElemwiseAsin() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Asin{});
+    }
+    auto ConstValue::ElemwiseAcos() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Acos{});
+    }
 
-        // FIXME: type check if branch and else branch
-        if (predicate.GetBoolValue()) {
-            return ifBranchVal.Clone();
+    auto ConstValue::ElemwisePow(const ConstValue& other) const -> ConstValue
+    {
+        return ApplyElemwiseBinaryOp(other, Pow{});
+    }
+    auto ConstValue::ElemwiseExp() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Exp{});
+    }
+    auto ConstValue::ElemwiseLog() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Log{});
+    }
+    auto ConstValue::ElemwiseExp2() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Exp2{});
+    }
+    auto ConstValue::ElemwiseLog2() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Log2{});
+    }
+    auto ConstValue::ElemwiseSqrt() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Sqrt{});
+    }
+    auto ConstValue::ElemwiseInverseSqrt() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(InverseSqrt{});
+    }
+    auto ConstValue::ElemwiseAbs() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Abs{});
+    }
+    auto ConstValue::ElemwiseSign() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Sign{});
+    }
+    auto ConstValue::ElemwiseFloor() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Floor{});
+    }
+    auto ConstValue::ElemwiseTrunc() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Trunc{});
+    }
+    auto ConstValue::ElemwiseRound() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Round{});
+    }
+    auto ConstValue::ElemwiseCeil() const -> ConstValue
+    {
+        return ApplyElemwiseUnaryOp(Ceil{});
+    }
+    // auto ConstValue::ElemwiseMod(const ConstValue& other) const -> ConstValue
+    // {
+    //     return ApplyElemwiseBinaryOp(other, Mod{});
+    // }
+    auto ConstValue::ElemwiseMin(const ConstValue& other) const -> ConstValue
+    {
+        return ApplyElemwiseBinaryOp(other, Min{});
+    }
+    auto ConstValue::ElemwiseMax(const ConstValue& other) const -> ConstValue
+    {
+        return ApplyElemwiseBinaryOp(other, Max{});
+    }
+    auto ConstValue::ElemwiseClamp(const ConstValue& min, const ConstValue& max) const -> ConstValue
+    {
+        return ElemwiseMax(min).ElemwiseMin(max);
+    }
+#pragma endregion
+
+    auto ConstValue::InitializeAsBlob(ScalarKind scalarType, int16_t rowSize, int16_t colSize) -> ArraySpan<std::byte>
+    {
+        GLSLD_ASSERT(IsError() && rowSize >= 0 && colSize >= 0);
+
+        this->scalarType = static_cast<int16_t>(scalarType);
+        this->arraySize  = rowSize * colSize;
+        this->rowSize    = rowSize;
+        this->colSize    = colSize;
+
+        std::byte* buffer = nullptr;
+        if (UseHeapBuffer()) {
+            bufferPtr = new std::byte[GetBufferSize()];
+            buffer    = bufferPtr;
         }
         else {
-            return elseBranchVal.Clone();
+            buffer = reinterpret_cast<std::byte*>(&localBuffer);
         }
+
+        return ArraySpan<std::byte>(buffer, GetBufferSize());
     }
 
     auto ParseNumberLiteral(StringView literalText) -> ConstValue
@@ -460,7 +693,7 @@ namespace glsld
             auto parseResult = std::from_chars(literalTextNoSuffix.data(),
                                                literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
             if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<uint32_t>(value);
+                return ConstValue::CreateScalar<uint32_t>(value);
             }
         }
         else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
@@ -470,7 +703,7 @@ namespace glsld
             auto parseResult = std::from_chars(literalTextNoSuffix.data(),
                                                literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
             if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<double>(value);
+                return ConstValue::CreateScalar<double>(value);
             }
         }
         else if (literalText.EndWith("f") || literalText.EndWith("F")) {
@@ -480,7 +713,7 @@ namespace glsld
             auto parseResult = std::from_chars(literalTextNoSuffix.data(),
                                                literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
             if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::FromValue<float>(value);
+                return ConstValue::CreateScalar<float>(value);
             }
         }
         else {
@@ -488,14 +721,14 @@ namespace glsld
                 float value;
                 auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
                 if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::FromValue<float>(value);
+                    return ConstValue::CreateScalar<float>(value);
                 }
             }
             else {
                 int32_t value;
                 auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
                 if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::FromValue<int32_t>(value);
+                    return ConstValue::CreateScalar<int32_t>(value);
                 }
             }
         }

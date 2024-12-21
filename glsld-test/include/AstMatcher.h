@@ -230,7 +230,7 @@ namespace glsld
         // FIXME: this is a hack for std::function has a copy ctor. We should use std::move_only_function instead in
         // c++23.
         std::function<bool(const AstNode&)> f =
-            [value = std::make_shared<ConstValue>(ConstValue::FromValue(value))](const AstNode& node) -> bool {
+            [value = std::make_shared<ConstValue>(ConstValue::CreateScalar(value))](const AstNode& node) -> bool {
             auto expr = node.As<AstLiteralExpr>();
             return expr && expr->GetValue() == *value;
         };

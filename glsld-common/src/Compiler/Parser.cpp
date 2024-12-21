@@ -1445,7 +1445,7 @@ namespace glsld
             // Boolean literal
             ConsumeToken();
             return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokID),
-                                               ConstValue::FromValue(tok.klass == TokenKlass::K_true));
+                                               ConstValue::CreateScalar(tok.klass == TokenKlass::K_true));
         case TokenKlass::LParen:
             // expr in wrapped parens
             return ParseParenWrappedExpr();

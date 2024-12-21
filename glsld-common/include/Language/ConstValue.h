@@ -3,13 +3,14 @@
 #include "Language/Semantic.h"
 #include "Language/Typing.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <type_traits>
 
 namespace glsld
 {
-    // Represents a compile-time constant. This can be either:
+    // Represents a compile-time constant primitive. This can be either:
     // - error
     // - scalar
     // - column vector
@@ -30,7 +31,7 @@ namespace glsld
         union
         {
             std::byte* bufferPtr;
-            alignas(8) std::byte localBuffer[8];
+            alignas(8) std::byte localBuffer[24];
         };
 
     public:
@@ -51,10 +52,9 @@ namespace glsld
         ConstValue& operator=(const ConstValue& other) = delete;
 
         ConstValue(ConstValue&& other) noexcept
-            : scalarType(other.scalarType), arraySize(other.arraySize), rowSize(other.rowSize), colSize(other.colSize),
-              localBuffer()
+            : scalarType(other.scalarType), arraySize(other.arraySize), rowSize(other.rowSize), colSize(other.colSize)
         {
-            bufferPtr = other.bufferPtr;
+            std::ranges::copy(other.localBuffer, localBuffer);
             other.InitializeAsError();
         }
         ConstValue& operator=(ConstValue&& other) noexcept
@@ -68,7 +68,7 @@ namespace glsld
             arraySize  = other.arraySize;
             rowSize    = other.rowSize;
             colSize    = other.colSize;
-            bufferPtr  = other.bufferPtr;
+            std::ranges::copy(other.localBuffer, localBuffer);
             other.InitializeAsError();
             return *this;
         }
@@ -83,47 +83,51 @@ namespace glsld
         }
 
         template <typename T>
-        static auto FromValue(const T& value) -> ConstValue
+        static auto CreateScalar(const T& value) -> ConstValue
         {
             ConstValue result;
-            if constexpr (std::is_same_v<T, bool>) {
-                result.InitializeAs<bool>(ScalarKind::Bool, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, int32_t>) {
-                result.InitializeAs<int32_t>(ScalarKind::Int, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, uint32_t>) {
-                result.InitializeAs<uint32_t>(ScalarKind::Uint, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, float>) {
-                result.InitializeAs<float>(ScalarKind::Float, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, double>) {
-                result.InitializeAs<double>(ScalarKind::Double, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, int8_t>) {
-                result.InitializeAs<int8_t>(ScalarKind::Int8, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, uint8_t>) {
-                result.InitializeAs<uint8_t>(ScalarKind::Uint8, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, int16_t>) {
-                result.InitializeAs<int16_t>(ScalarKind::Int16, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, uint16_t>) {
-                result.InitializeAs<uint16_t>(ScalarKind::Uint16, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, int64_t>) {
-                result.InitializeAs<int64_t>(ScalarKind::Int64, 1, 1, 1)[0] = value;
-            }
-            else if constexpr (std::is_same_v<T, uint64_t>) {
-                result.InitializeAs<uint64_t>(ScalarKind::Uint64, 1, 1, 1)[0] = value;
-            }
-            else {
-                static_assert(AlwaysFalse<T>);
+            result.InitializeAs<T>(1, 1)[0] = value;
+            return result;
+        }
+
+        template <typename T>
+        static auto CreateVector(std::initializer_list<T> values) -> ConstValue
+        {
+            if (values.size() == 0) {
+                return ConstValue();
             }
 
+            ConstValue result;
+            auto elements = result.InitializeAs<T>(1, values.size());
+            std::ranges::copy(values, elements.begin());
             return result;
+        }
+
+        auto GetBufferAsBlob() const -> ArrayView<std::byte>
+        {
+            return ArrayView<std::byte>(GetBufferPtr(), GetBufferSize());
+        }
+
+        template <typename T>
+        auto GetBufferAs() const -> ArrayView<T>
+        {
+            GLSLD_ASSERT(GetScalarKindFromCppType<T>() == GetScalarKind());
+            return ArrayView<T>(reinterpret_cast<const T*>(GetBufferPtr()), arraySize);
+        }
+        auto GetBoolValue() const -> bool
+        {
+            GLSLD_ASSERT(IsScalarBool());
+            return GetBufferAs<bool>()[0];
+        }
+        auto GetInt32Value() const -> int32_t
+        {
+            GLSLD_ASSERT(IsScalarInt32());
+            return GetBufferAs<int32_t>()[0];
+        }
+        auto GetUInt32Value() const -> uint32_t
+        {
+            GLSLD_ASSERT(IsScalarUInt32());
+            return GetBufferAs<uint32_t>()[0];
         }
 
         auto IsError() const noexcept -> bool
@@ -158,6 +162,19 @@ namespace glsld
         {
             return static_cast<ScalarKind>(scalarType);
         }
+        auto GetRowSize() const noexcept -> int
+        {
+            return rowSize;
+        }
+        auto GetColumnSize() const noexcept -> int
+        {
+            return colSize;
+        }
+        auto GetArraySize() const noexcept -> int
+        {
+            return arraySize;
+        }
+
         auto IsScalarBool() const noexcept -> bool
         {
             return IsScalar() && GetScalarKind() == ScalarKind::Bool;
@@ -178,31 +195,33 @@ namespace glsld
         {
             return IsScalar() && GetScalarKind() == ScalarKind::Double;
         }
-
-        auto GetBoolValue() const noexcept -> bool
+        auto IsScalarInt8() const noexcept -> bool
         {
-            GLSLD_ASSERT(IsScalarBool() && !UseHeapBuffer());
-            return *reinterpret_cast<const bool*>(localBuffer);
+            return IsScalar() && GetScalarKind() == ScalarKind::Int8;
         }
-        auto GetInt32Value() const noexcept -> int32_t
+        auto IsScalarUInt8() const noexcept -> bool
         {
-            GLSLD_ASSERT(IsScalarInt32() && !UseHeapBuffer());
-            return *reinterpret_cast<const int32_t*>(localBuffer);
+            return IsScalar() && GetScalarKind() == ScalarKind::Uint8;
         }
-        auto GetUInt32Value() const noexcept -> uint32_t
+        auto IsScalarInt16() const noexcept -> bool
         {
-            GLSLD_ASSERT(IsScalarUInt32() && !UseHeapBuffer());
-            return *reinterpret_cast<const uint32_t*>(localBuffer);
+            return IsScalar() && GetScalarKind() == ScalarKind::Int16;
         }
-        auto GetFloatValue() const noexcept -> float
+        auto IsScalarUInt16() const noexcept -> bool
         {
-            GLSLD_ASSERT(IsScalarFloat() && !UseHeapBuffer());
-            return *reinterpret_cast<const float*>(localBuffer);
+            return IsScalar() && GetScalarKind() == ScalarKind::Uint16;
         }
-        auto GetDoubleValue() const noexcept -> double
+        auto IsScalarInt64() const noexcept -> bool
         {
-            GLSLD_ASSERT(IsScalarDouble() && !UseHeapBuffer());
-            return *reinterpret_cast<const double*>(localBuffer);
+            return IsScalar() && GetScalarKind() == ScalarKind::Int64;
+        }
+        auto IsScalarUInt64() const noexcept -> bool
+        {
+            return IsScalar() && GetScalarKind() == ScalarKind::Uint64;
+        }
+        auto IsScalarFloat16() const noexcept -> bool
+        {
+            return IsScalar() && GetScalarKind() == ScalarKind::Float16;
         }
 
         auto GetScalarSize() const noexcept -> int;
@@ -210,8 +229,8 @@ namespace glsld
         auto ToString() const -> std::string;
         auto Clone() const -> ConstValue;
 
-        auto GetElement(int index) -> ConstValue;
-        auto GetSwizzle(SwizzleDesc swizzle) -> ConstValue;
+        auto GetElement(int index) const -> ConstValue;
+        auto GetSwizzle(SwizzleDesc swizzle) const -> ConstValue;
 
         auto ElemwiseNegate() const -> ConstValue;
         auto ElemwiseBitNot() const -> ConstValue;
@@ -239,14 +258,79 @@ namespace glsld
         auto ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue;
         auto ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue;
 
+        auto ElemwiseRadians() const -> ConstValue;
+        auto ElemwiseDegrees() const -> ConstValue;
+        auto ElemwiseSin() const -> ConstValue;
+        auto ElemwiseCos() const -> ConstValue;
+        auto ElemwiseAsin() const -> ConstValue;
+        auto ElemwiseAcos() const -> ConstValue;
+        auto ElemwisePow(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseExp() const -> ConstValue;
+        auto ElemwiseLog() const -> ConstValue;
+        auto ElemwiseExp2() const -> ConstValue;
+        auto ElemwiseLog2() const -> ConstValue;
+        auto ElemwiseSqrt() const -> ConstValue;
+        auto ElemwiseInverseSqrt() const -> ConstValue;
+        auto ElemwiseAbs() const -> ConstValue;
+        auto ElemwiseSign() const -> ConstValue;
+        auto ElemwiseFloor() const -> ConstValue;
+        auto ElemwiseTrunc() const -> ConstValue;
+        auto ElemwiseRound() const -> ConstValue;
+        auto ElemwiseCeil() const -> ConstValue;
+        // auto ElemwiseMod(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseMin(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseMax(const ConstValue& other) const -> ConstValue;
+        auto ElemwiseClamp(const ConstValue& min, const ConstValue& max) const -> ConstValue;
+
     private:
+        template <typename T>
+        static constexpr auto GetScalarKindFromCppType() -> ScalarKind
+        {
+            if constexpr (std::is_same_v<T, bool>) {
+                return ScalarKind::Bool;
+            }
+            else if constexpr (std::is_same_v<T, int32_t>) {
+                return ScalarKind::Int;
+            }
+            else if constexpr (std::is_same_v<T, uint32_t>) {
+                return ScalarKind::Uint;
+            }
+            else if constexpr (std::is_same_v<T, float>) {
+                return ScalarKind::Float;
+            }
+            else if constexpr (std::is_same_v<T, double>) {
+                return ScalarKind::Double;
+            }
+            else if constexpr (std::is_same_v<T, int8_t>) {
+                return ScalarKind::Int8;
+            }
+            else if constexpr (std::is_same_v<T, uint8_t>) {
+                return ScalarKind::Uint8;
+            }
+            else if constexpr (std::is_same_v<T, int16_t>) {
+                return ScalarKind::Int16;
+            }
+            else if constexpr (std::is_same_v<T, uint16_t>) {
+                return ScalarKind::Uint16;
+            }
+            else if constexpr (std::is_same_v<T, int64_t>) {
+                return ScalarKind::Int64;
+            }
+            else if constexpr (std::is_same_v<T, uint64_t>) {
+                return ScalarKind::Uint64;
+            }
+            else {
+                static_assert(AlwaysFalse<T>);
+            }
+        }
+
         template <typename T, typename F>
         auto ApplyElemwiseUnaryOpUnsafe(F f) const -> ConstValue
         {
             ConstValue result;
 
             auto srcBuffer = GetBufferAs<T>();
-            auto dstBuffer = result.InitializeAs<T>(GetScalarKind(), arraySize, rowSize, colSize);
+            auto dstBuffer = result.InitializeAs<T>(rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer[i]);
@@ -261,7 +345,7 @@ namespace glsld
 
             auto srcBuffer1 = GetBufferAs<T>();
             auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<T>(GetScalarKind(), arraySize, rowSize, colSize);
+            auto dstBuffer  = result.InitializeAs<T>(rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);
@@ -276,7 +360,7 @@ namespace glsld
 
             auto srcBuffer1 = GetBufferAs<T>();
             auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<bool>(ScalarKind::Bool, arraySize, rowSize, colSize);
+            auto dstBuffer  = result.InitializeAs<bool>(rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);
@@ -437,56 +521,16 @@ namespace glsld
         }
 
         // Note this doesn't release the memory of existing heap pointer
-        auto InitializeAsBlob(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize)
-            -> ArraySpan<std::byte>
-        {
-            GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
-
-            this->scalarType = static_cast<int16_t>(scalarType);
-            this->arraySize  = arraySize;
-            this->rowSize    = rowSize;
-            this->colSize    = colSize;
-
-            std::byte* buffer = nullptr;
-            if (UseHeapBuffer()) {
-                bufferPtr = new std::byte[GetBufferSize()];
-                buffer    = bufferPtr;
-            }
-            else {
-                buffer = reinterpret_cast<std::byte*>(&localBuffer);
-            }
-
-            return ArraySpan<std::byte>(buffer, GetBufferSize());
-        }
+        auto InitializeAsBlob(ScalarKind scalarType, int16_t rowSize, int16_t colSize) -> ArraySpan<std::byte>;
 
         // Note this doesn't release the memory of existing heap pointer
         template <typename T>
-        auto InitializeAs(ScalarKind scalarType, int16_t arraySize, int16_t rowSize, int16_t colSize) -> ArraySpan<T>
+        auto InitializeAs(int16_t rowSize, int16_t colSize) -> ArraySpan<T>
         {
-            GLSLD_ASSERT(IsError() && arraySize > 0 && arraySize == rowSize * colSize);
-
-            auto blob = InitializeAsBlob(scalarType, arraySize, rowSize, colSize);
-            GLSLD_ASSERT(GetScalarSize() == sizeof(T));
+            auto blob = InitializeAsBlob(GetScalarKindFromCppType<T>(), rowSize, colSize);
             return ArraySpan<T>(reinterpret_cast<T*>(blob.data()), arraySize);
         }
-
-        auto GetBufferAsBlob() const -> ArrayView<std::byte>
-        {
-            return ArrayView<std::byte>(GetBufferPtr(), GetBufferSize());
-        }
-
-        template <typename T>
-        auto GetBufferAs() const -> ArrayView<T>
-        {
-            GLSLD_ASSERT(GetScalarSize() == sizeof(T));
-            return ArrayView<T>(reinterpret_cast<const T*>(GetBufferPtr()), arraySize);
-        }
     };
-
-    auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue;
-    auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue;
-    auto EvalSelectConstExpr(const ConstValue& predicate, const ConstValue& ifBranchVal,
-                             const ConstValue& elseBranchVal) -> ConstValue;
 
     auto ParseNumberLiteral(StringView literalText) -> ConstValue;
 } // namespace glsld

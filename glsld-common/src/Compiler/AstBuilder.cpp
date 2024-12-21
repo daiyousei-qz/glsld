@@ -107,7 +107,9 @@ namespace glsld
     auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers)
         -> AstInitializerList*
     {
-        return CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
+        auto result = CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
+        result->SetConst(std::ranges::all_of(initializers, [](const AstInitializer* init) { return init->IsConst(); }));
+        return result;
     }
 
 #pragma endregion
@@ -117,8 +119,8 @@ namespace glsld
     {
         auto result = CreateAstNode<AstErrorExpr>(range);
 
-        // Note anything with error type is not const
-        result->SetConst(false);
+        // Note anything with error type is const
+        result->SetConst(true);
         result->SetDeducedType(Type::GetErrorType());
         return result;
     }
@@ -1061,7 +1063,7 @@ namespace glsld
         auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
         result->SetScope(DeclScope::Struct);
         result->SetResolvedTypes(CopyArray(resolvedType));
-        // Note `AstFieldDecl::parentDecl` is resolved in parent decl build process.
+        // Note payloads of AstFieldDecl is resolved in parent decl build process.
         return result;
     }
 
@@ -1069,8 +1071,11 @@ namespace glsld
                                      std::vector<AstFieldDecl*> members) -> AstStructDecl*
     {
         auto result = CreateAstNode<AstStructDecl>(range, declTok, CopyArray(members));
+
+        size_t fieldIndex = 0;
         for (auto fieldDecl : members) {
             fieldDecl->SetParentDecl(result);
+            fieldDecl->SetFieldIndex(fieldIndex++);
         }
 
         result->SetScope(GetCurrentScope());

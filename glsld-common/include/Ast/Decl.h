@@ -242,7 +242,12 @@ namespace glsld
     {
     private:
         // [Payload]
+        // The declaration of struct or interface block that this field belongs to.
         AstDecl* parentDecl = nullptr;
+
+        // [Payload]
+        // The index of this field in the parent declaration.
+        size_t fieldIndex;
 
     public:
         AstFieldDecl(AstQualType* type, ArrayView<Declarator> declarators)
@@ -258,6 +263,15 @@ namespace glsld
         auto GetParentDecl() const -> const AstDecl*
         {
             return parentDecl;
+        }
+
+        auto SetFieldIndex(size_t index) -> void
+        {
+            this->fieldIndex = index;
+        }
+        auto GetFieldIndex() const noexcept -> size_t
+        {
+            return fieldIndex;
         }
 
         template <AstVisitorT Visitor>
