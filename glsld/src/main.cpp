@@ -1,7 +1,9 @@
-#include "Basic/CommandLine.h"
 #include "LanguageServer.h"
 
+#include <argparse/argparse.hpp>
+
 #if defined(GLSLD_OS_WIN)
+#define NOMINMAX
 #include <windows.h>
 #endif
 
@@ -48,9 +50,24 @@ void SetUnhandledExceptionFilter()
 
 namespace glsld
 {
-    cl::Opt<bool> WaitDebugger(
-        "wait-debugger", cl::ReallyHidden,
-        cl::Desc("Wait for debugger to attach before starting the server. This option only works with debug build."));
+    namespace
+    {
+        struct ProgramArgs
+        {
+        };
+    } // namespace
+
+    auto ParseArguments(int argc, char* argv[]) -> ProgramArgs
+    {
+        using namespace argparse;
+
+        ProgramArgs result;
+
+        ArgumentParser program("glsld");
+
+        program.parse_args(argc, argv);
+        return result;
+    }
 
 #if defined(GLSLD_DEBUG)
 
@@ -75,7 +92,7 @@ namespace glsld
     }
 #endif
 
-    auto DoMain() -> void
+    auto DoMain(ProgramArgs args) -> void
     {
 #if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
         WaitDebuggerToAttach();
@@ -90,7 +107,6 @@ auto main(int argc, char* argv[]) -> int
 #if defined(GLSLD_OS_WIN)
     SetUnhandledExceptionFilter();
 #endif
-    glsld::cl::ParseArguments(argc, argv);
-    glsld::DoMain();
+    glsld::DoMain(glsld::ParseArguments(argc, argv));
     return 0;
 }

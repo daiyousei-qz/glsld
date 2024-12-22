@@ -5,6 +5,7 @@
 #include "Language/ConstValue.h"
 
 #include <functional>
+#include <memory>
 
 namespace glsld
 {
@@ -48,10 +49,27 @@ namespace glsld
         }
     };
 
-    class SyntaxTokenMatcher
+    class StringMatcher
     {
     private:
+        struct StringMatcherData
+        {
+            std::move_only_function<bool(StringView)> matchCallback;
+        };
+
+        std::unique_ptr<StringMatcherData> data;
+
     public:
+        StringMatcher(std::move_only_function<bool(StringView)> callback)
+        {
+            data                = std::make_unique<StringMatcherData>();
+            data->matchCallback = std::move(callback);
+        }
+
+        auto Match(StringView str) const -> bool
+        {
+            return false;
+        }
     };
 
     class AstMatcher
@@ -59,10 +77,15 @@ namespace glsld
     private:
         struct AstMatcherData
         {
+            // Description of this matcher. Used for composing error message.
             std::string desc;
             bool findMatchMode = false;
-            std::function<bool(const AstNode&)> matchThis;
-            std::vector<AstMatcher> matchChildren;
+            // Callback to match the current node.
+            std::move_only_function<bool(const AstNode&)> matchCallback;
+            // Matchers for children nodes.
+            std::vector<AstMatcher> childrenMatcher;
+            // The matched node will be captured to this pointer.
+            const AstNode** capturePtr = nullptr;
         };
 
         std::unique_ptr<AstMatcherData> data;
@@ -85,12 +108,13 @@ namespace glsld
 
     public:
         template <std::same_as<AstMatcher>... MatcherType>
-        AstMatcher(std::string desc, std::function<auto(const AstNode&)->bool> matchThis, MatcherType... matchChild)
+        AstMatcher(std::string desc, std::move_only_function<auto(const AstNode&)->bool> matchThis,
+                   MatcherType... matchChild)
         {
-            data            = std::make_unique<AstMatcherData>();
-            data->desc      = std::move(desc);
-            data->matchThis = std::move(matchThis);
-            (data->matchChildren.push_back(std::move(matchChild)), ...);
+            data                = std::make_unique<AstMatcherData>();
+            data->desc          = std::move(desc);
+            data->matchCallback = std::move(matchThis);
+            (data->childrenMatcher.push_back(std::move(matchChild)), ...);
         }
 
         AstMatcher(std::string desc, AstMatcher finder, AstMatcher matcher)
@@ -98,8 +122,8 @@ namespace glsld
             data                = std::make_unique<AstMatcherData>();
             data->desc          = std::move(desc);
             data->findMatchMode = true;
-            data->matchChildren.push_back(std::move(finder));
-            data->matchChildren.push_back(std::move(matcher));
+            data->childrenMatcher.push_back(std::move(finder));
+            data->childrenMatcher.push_back(std::move(matcher));
         }
 
         AstMatcher(const AstMatcher&)                    = delete;
@@ -107,14 +131,20 @@ namespace glsld
         auto operator=(const AstMatcher&) -> AstMatcher& = delete;
         auto operator=(AstMatcher&&) -> AstMatcher&      = default;
 
+        auto Capture(const AstNode*& capture) && -> AstMatcher&&
+        {
+            data->capturePtr = &capture;
+            return std::move(*this);
+        }
+
         auto Match(const AstNode& node) const -> AstMatchResult
         {
             AstChildCollector collector;
             collector.Traverse(node);
 
             if (data->findMatchMode) {
-                auto& finder  = data->matchChildren[0];
-                auto& matcher = data->matchChildren[1];
+                auto& finder  = data->childrenMatcher[0];
+                auto& matcher = data->childrenMatcher[1];
 
                 for (const auto* child : collector.children) {
                     auto found = finder.Match(*child);
@@ -126,12 +156,16 @@ namespace glsld
                 return AstMatchResult::Failure(node, *this);
             }
             else {
-                if (!data->matchThis(node)) {
+                if (!data->matchCallback(node)) {
                     return AstMatchResult::Failure(node, *this);
                 }
 
-                for (size_t i = 0; i < std::min(data->matchChildren.size(), collector.children.size()); ++i) {
-                    auto result = data->matchChildren[i].Match(*collector.children[i]);
+                if (data->capturePtr) {
+                    *data->capturePtr = &node;
+                }
+
+                for (size_t i = 0; i < std::min(data->childrenMatcher.size(), collector.children.size()); ++i) {
+                    auto result = data->childrenMatcher[i].Match(*collector.children[i]);
                     if (!result.IsSuccess()) {
                         return result;
                     }
@@ -224,17 +258,14 @@ namespace glsld
         return AstMatcher("ErrorExpr", [](const AstNode& node) -> bool { return node.Is<AstErrorExpr>(); });
     }
 
+    // Scalar literal
     template <typename T>
     inline auto LiteralExpr(T value) -> AstMatcher
     {
-        // FIXME: this is a hack for std::function has a copy ctor. We should use std::move_only_function instead in
-        // c++23.
-        std::function<bool(const AstNode&)> f =
-            [value = std::make_shared<ConstValue>(ConstValue::CreateScalar(value))](const AstNode& node) -> bool {
+        return AstMatcher("LiteralExpr", [value = ConstValue::CreateScalar(value)](const AstNode& node) -> bool {
             auto expr = node.As<AstLiteralExpr>();
-            return expr && expr->GetValue() == *value;
-        };
-        return AstMatcher("LiteralExpr", std::move(f));
+            return expr && expr->GetValue() == value;
+        });
     }
 
     inline auto NameAccessExpr(StringView name) -> AstMatcher

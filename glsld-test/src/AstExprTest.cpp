@@ -1,7 +1,5 @@
 #include "AstTestFixture.h"
 
-#include <catch2/catch_all.hpp>
-
 using namespace glsld;
 
 TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
@@ -176,6 +174,16 @@ TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
         GLSLD_CHECK_AST("(1", LiteralExpr(1));
         GLSLD_CHECK_AST("(1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
     }
+}
+
+TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
+{
+    // binary expr
+    // select expr
+    // function call
+    // constructor call
+    // initializer list
+    // initializer
 }
 
 TEST_CASE_METHOD(AstTestFixture, "Initializer List")

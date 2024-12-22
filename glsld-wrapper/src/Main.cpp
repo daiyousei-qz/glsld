@@ -1,21 +1,46 @@
-#include "Basic/CommandLine.h"
 #include "Basic/Print.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 
+#include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
 
 namespace glsld
 {
-    cl::Opt<std::string> inputFile(cl::Positional, cl::Desc("input file"), cl::ValueDesc("input file"));
+    struct ProgramArgs
+    {
+        std::string inputFile;
+        bool dumpTokens;
+        bool dumpAst;
+        bool noStdlib;
+    };
 
-    cl::Opt<bool> dumpTokens("dump-tokens", cl::Desc("Dumping result of the lexing and preprocessing only."));
-    cl::Opt<bool> dumpAst("dump-ast", cl::Desc("Dumping result of the parsing only."));
-    cl::Opt<bool> noStdlib("no-stdlib", cl::Desc("Don't link standard library module."));
-    // cl::Opt<bool> version("version", cl::Desc("Print the version of glsld-wrapper."));
+    auto ParseArguments(int argc, char** argv) -> ProgramArgs
+    {
+        using namespace argparse;
 
-    // TODO: -IXXX -DXXX
-    // TODO: -vs -fs -cs ...
+        ProgramArgs result;
+
+        ArgumentParser program("glsld-wrapper");
+        program.add_argument("input-file").help("Input file to be compiled").required().store_into(result.inputFile);
+        program.add_argument("--dump-tokens")
+            .help("Dumps tokens when a translation unit is preprocessed.")
+            .default_value(false)
+            .store_into(result.dumpTokens);
+        program.add_argument("--dump-ast")
+            .help("Dumps AST when a translation unit is parsed.")
+            .default_value(false)
+            .store_into(result.dumpAst);
+        program.add_argument("--no-stdlib")
+            .help("Don't include standard library module.")
+            .default_value(false)
+            .store_into(result.noStdlib);
+        // TODO: -IXXX -DXXX
+        // TODO: -vs -fs -cs ...
+
+        program.parse_args(argc, argv);
+        return result;
+    }
 
     class VersionExtensionCollector : public PPCallback
     {
@@ -41,30 +66,25 @@ namespace glsld
         }
     };
 
-    auto DoMain() -> void
+    auto DoMain(ProgramArgs args) -> void
     {
-        if (!inputFile.HasValue()) {
-            Print("need a input file\n");
-            return;
-        }
-
-        std::filesystem::path inputFilePath = inputFile.GetValue();
+        std::filesystem::path inputFilePath = args.inputFile;
 
         auto compiler = std::make_unique<CompilerInvocation>();
-        if (noStdlib.HasValue()) {
-            compiler->SetNoStdlib(noStdlib.GetValue());
+        if (args.noStdlib) {
+            compiler->SetNoStdlib(true);
         }
 
         compiler->AddIncludePath(inputFilePath.parent_path());
-        if (dumpTokens.HasValue()) {
-            compiler->SetDumpTokens(dumpTokens.GetValue());
+        if (args.dumpTokens) {
+            compiler->SetDumpTokens(true);
         }
-        if (dumpAst.HasValue()) {
-            compiler->SetDumpAst(dumpAst.GetValue());
+        if (args.dumpAst) {
+            compiler->SetDumpAst(true);
         }
 
         compiler->SetShaderStage(GlslShaderStage ::Unknown);
-        compiler->SetMainFileFromFile(inputFile.GetValue());
+        compiler->SetMainFileFromFile(args.inputFile);
 
         VersionExtensionCollector ppCallback{*compiler};
         compiler->ScanVersionAndExtension(&ppCallback);
@@ -76,7 +96,6 @@ namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
-    glsld::cl::ParseArguments(argc, argv);
-    glsld::DoMain();
+    glsld::DoMain(glsld::ParseArguments(argc, argv));
     return 0;
 }

@@ -1,10 +1,37 @@
 {
-    "name": "test-app",
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "glsld",
+    "description": "An experimental language server for OpenGL Shading Language (GLSL).",
+    "license": "MIT",
     "version": "0.1.0",
     "dependencies": [
         "fmt",
+        "argparse",
         "nlohmann-json",
         "bshoshany-thread-pool",
         "catch2"
+    ],
+    "builtin-baseline": "f06267da58f3c06b3a1aff9cbf5c2906e595ebc9",
+    "overrides": [
+        {
+            "name": "fmt",
+            "version": "11.0.2#1"
+        },
+        {
+            "name": "argparse",
+            "version": "3.1"
+        },
+        {
+            "name": "nlohmann-json",
+            "version": "3.11.3#1"
+        },
+        {
+            "name": "bshoshany-thread-pool",
+            "version": "4.1.0"
+        },
+        {
+            "name": "catch2",
+            "version": "3.7.1"
+        }
     ]
 }

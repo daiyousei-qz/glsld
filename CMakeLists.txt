@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.30)
 
 option(GLSLD_BUILD_WRAPPER "Build glsld-wrapper" ON)
 option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
@@ -63,17 +63,25 @@ else()
     message(STATUS "[Build Type] ${CMAKE_BUILD_TYPE}")
 endif()
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
-if(GLSLD_COMPILER_MSVC)
+if(GLSLD_OS_WIN)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    add_compile_options(-permissive-)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+
+    if(GLSLD_COMPILER_MSVC)
+        add_compile_options(-permissive-)
+    endif()
 endif()
 
 find_package(fmt CONFIG REQUIRED)
+find_package(argparse CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
-find_package(Catch2 CONFIG REQUIRED)
+
+if(GLSLD_BUILD_UNIT_TEST)
+    find_package(Catch2 CONFIG REQUIRED)
+endif()
 
 # GLSLD Lexer Generator
 file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
@@ -111,6 +119,7 @@ if(GLSLD_BUILD_LANGUAGE_SERVER)
 
     target_link_libraries(glsld PRIVATE glsld-common)
 
+    target_link_libraries(glsld PRIVATE argparse::argparse)
     target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
     target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 endif()
@@ -125,6 +134,7 @@ if(GLSLD_BUILD_WRAPPER)
 
     target_link_libraries(glsld-wrapper PRIVATE glsld-common)
 
+    target_link_libraries(glsld-wrapper PRIVATE argparse::argparse)
     target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
 endif()
 
