@@ -1,5 +1,4 @@
 #pragma once
-#include "Basic/Common.h"
 #include "Compiler/SyntaxToken.h"
 #include "SyntaxToken.h"
 

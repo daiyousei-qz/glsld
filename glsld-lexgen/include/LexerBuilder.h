@@ -5,8 +5,6 @@
 
 #include <fmt/format.h>
 #include <vector>
-#include <string_view>
-#include <ranges>
 #include <concepts>
 #include <algorithm>
 #include <tuple>
@@ -166,9 +164,7 @@ namespace glsld
 
     template <typename T>
     concept RegexT = requires(const T& regex, NfaAutomata& nfa, NfaState& start) {
-        {
-            regex.BuildNfa(nfa, start)
-        } -> std::convertible_to<NfaState*>;
+        { regex.BuildNfa(nfa, start) } -> std::convertible_to<NfaState*>;
     };
 
     struct RegexTextSeq

@@ -1,5 +1,4 @@
 #pragma once
-#include "Basic/Common.h"
 #include "Basic/Print.h"
 
 #include <array>
@@ -46,38 +45,16 @@ namespace glsld
         {
             data /= other.data;
         }
-        auto operator%=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data %= other.data;
-        }
+        auto operator%=(const Vec& other) noexcept -> Vec& requires(std::is_integral_v<T>) { data %= other.data; }
 
-        auto operator&=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data &= other.data;
-        }
-        auto operator|=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data |= other.data;
-        }
-        auto operator^=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data ^= other.data;
-        }
+        auto operator&=(const Vec& other) noexcept
+            -> Vec& requires(std::is_integral_v<T>) { data &= other.data; } auto operator|=(const Vec& other) noexcept
+            -> Vec& requires(std::is_integral_v<T>) { data |= other.data; } auto operator^=(const Vec& other) noexcept
+            -> Vec& requires(std::is_integral_v<T>) { data ^= other.data; }
 
-        auto operator<<=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data <<= other.data;
-        }
-        auto operator>>=(const Vec& other) noexcept -> Vec&
-            requires(std::is_integral_v<T>)
-        {
-            data >>= other.data;
-        }
+        auto operator<<=(const Vec& other) noexcept
+            -> Vec& requires(std::is_integral_v<T>) { data <<= other.data; } auto operator>>=(const Vec& other) noexcept
+            -> Vec& requires(std::is_integral_v<T>) { data >>= other.data; }
 
         auto operator+(const Vec& other) const noexcept -> Vec
         {
@@ -192,11 +169,7 @@ namespace glsld
         {
             data /= other.data;
         }
-        auto operator%=(const Mat& other) noexcept -> Mat&
-            requires(std::is_integral_v<T>)
-        {
-            data %= other.data;
-        }
+        auto operator%=(const Mat& other) noexcept -> Mat& requires(std::is_integral_v<T>) { data %= other.data; }
 
         auto operator+(const Mat& other) const noexcept -> Mat
         {

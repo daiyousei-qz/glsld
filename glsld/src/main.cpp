@@ -57,7 +57,7 @@ namespace glsld
         };
     } // namespace
 
-    auto ParseArguments(int argc, char* argv[]) -> ProgramArgs
+    static auto ParseArguments(int argc, char* argv[]) -> ProgramArgs
     {
         using namespace argparse;
 
@@ -92,7 +92,7 @@ namespace glsld
     }
 #endif
 
-    auto DoMain(ProgramArgs args) -> void
+    static auto DoMain(ProgramArgs args) -> void
     {
 #if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
         WaitDebuggerToAttach();

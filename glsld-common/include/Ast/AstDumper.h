@@ -1,7 +1,5 @@
 #pragma once
-#include "Basic/Common.h"
 #include "Ast/Dispatch.h"
-#include "Ast/AstVisitor.h"
 
 #include <functional>
 

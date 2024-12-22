@@ -1,9 +1,7 @@
 #pragma once
 #include "Basic/AtomTable.h"
-#include "Basic/Common.h"
 #include "Basic/SourceInfo.h"
 #include "Basic/StringView.h"
-#include "Compiler/CompilerInvocation.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/SourceScanner.h"
 #include "Compiler/Preprocessor.h"

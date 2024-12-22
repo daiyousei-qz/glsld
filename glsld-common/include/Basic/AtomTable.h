@@ -1,5 +1,4 @@
 #pragma once
-#include "Basic/Common.h"
 #include "Basic/MemoryArena.h"
 #include "Basic/StringView.h"
 

@@ -2,7 +2,6 @@
 
 #include "Ast/Misc.h"
 #include "Compiler/SyntaxToken.h"
-#include <algorithm>
 
 namespace glsld
 {

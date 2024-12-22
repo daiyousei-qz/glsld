@@ -1,10 +1,8 @@
 #include "Ast/Eval.h"
 #include "Ast/Base.h"
 #include "Ast/Expr.h"
-#include "Ast/Dispatch.h"
 #include "Basic/StringSet.h"
 #include "Language/ConstValue.h"
-#include <unordered_set>
 
 namespace glsld
 {

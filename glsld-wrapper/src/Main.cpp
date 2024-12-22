@@ -7,15 +7,18 @@
 
 namespace glsld
 {
-    struct ProgramArgs
+    namespace
     {
-        std::string inputFile;
-        bool dumpTokens;
-        bool dumpAst;
-        bool noStdlib;
-    };
+        struct ProgramArgs
+        {
+            std::string inputFile;
+            bool dumpTokens;
+            bool dumpAst;
+            bool noStdlib;
+        };
+    } // namespace
 
-    auto ParseArguments(int argc, char** argv) -> ProgramArgs
+    static auto ParseArguments(int argc, char** argv) -> ProgramArgs
     {
         using namespace argparse;
 
@@ -66,7 +69,7 @@ namespace glsld
         }
     };
 
-    auto DoMain(ProgramArgs args) -> void
+    static auto DoMain(ProgramArgs args) -> void
     {
         std::filesystem::path inputFilePath = args.inputFile;
 
