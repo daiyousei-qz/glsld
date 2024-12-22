@@ -87,68 +87,46 @@ namespace glsld
             return elementType;
         }
 
+        const Type* resultType = elementType;
         if (arraySpec != nullptr && !arraySpec->GetSizeList().empty()) {
-            std::vector<size_t> dimSizes;
             for (auto arrayDim : arraySpec->GetSizeList()) {
+                int dimSizeValue = 0;
                 if (arrayDim != nullptr) {
-                    const auto& dimSizeValue = EvalAstExpr(*arrayDim);
-                    if (dimSizeValue.IsScalarInt32()) {
-                        dimSizes.push_back(dimSizeValue.GetInt32Value());
-                        continue;
+                    const auto& dimSize = EvalAstExpr(*arrayDim);
+                    if (dimSize.IsScalarInt32()) {
+                        dimSizeValue = dimSize.GetInt32Value();
                     }
                 }
 
-                dimSizes.push_back(0);
-            }
-
-            if (!dimSizes.empty()) {
-                return GetArrayType(elementType, dimSizes);
+                resultType = GetArrayType(resultType, dimSizeValue);
             }
         }
 
-        return elementType;
+        return resultType;
     }
 
-    auto AstContext::GetArrayType(const Type* elementType, ArrayView<size_t> dimSizes) -> const Type*
+    auto AstContext::GetArrayType(const Type* elementType, size_t dimSize) -> const Type*
     {
         if (elementType->IsError()) {
             // We cannot construct arrays upon error type
             return elementType;
         }
-        if (dimSizes.empty()) {
-            // FIXME: this should be unreachable?
-            return elementType;
-        }
 
-        const Type* realElementType = elementType;
-        std::vector<size_t> realDimSizes;
-
-        // Fold array type if needed
-        if (auto arrayTypeDesc = elementType->GetArrayDesc()) {
-            realElementType = arrayTypeDesc->elementType;
-            realDimSizes    = arrayTypeDesc->dimSizes;
-        }
-        realDimSizes.insert(realDimSizes.end(), dimSizes.begin(), dimSizes.end());
-
-        GLSLD_ASSERT(!realElementType->IsArray());
-
-        // Find and cache the type desc if needed
-        auto& cachedItem = arrayTypes[std::pair{realElementType, realDimSizes}];
+        auto& cachedItem = arrayTypes[std::pair{elementType, dimSize}];
         if (cachedItem == nullptr) {
-            std::string debugName = realElementType->GetDebugName().Str();
-            for (auto dimSize : realDimSizes) {
-                // FIXME: error vs runtime-sized
-                if (dimSize != 0) {
-                    debugName += fmt::format("[{}]", dimSize);
-                }
-                else {
-                    debugName += "[]";
-                }
+            std::string debugName = elementType->GetDebugName().Str();
+            // FIXME: error vs runtime-sized
+            if (dimSize != 0) {
+                debugName += fmt::format("[{}]", dimSize);
+            }
+            else {
+                debugName += "[]";
             }
 
             cachedItem = arena.Construct<Type>(std::move(debugName),
-                                               ArrayTypeDesc{.elementType = realElementType, .dimSizes = realDimSizes});
+                                               ArrayTypeDesc{.elementType = elementType, .dimSize = dimSize});
         }
+
         return cachedItem;
     }
 }; // namespace glsld

@@ -1,4 +1,5 @@
 #include "Compiler/AstBuilder.h"
+#include "Ast/Eval.h"
 
 namespace glsld
 {
@@ -104,9 +105,15 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers)
-        -> AstInitializerList*
+    auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers,
+                                          const Type* contextType) -> AstInitializerList*
     {
+        for (size_t i = 0; i < initializers.size(); ++i) {
+            if (auto expr = initializers[i]->As<AstExpr>(); expr) {
+                initializers[i] = TryMakeImplicitCast(expr, contextType->GetComponentType(i));
+            }
+        }
+
         auto result = CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
         result->SetConst(std::ranges::all_of(initializers, [](const AstInitializer* init) { return init->IsConst(); }));
         return result;
@@ -119,8 +126,8 @@ namespace glsld
     {
         auto result = CreateAstNode<AstErrorExpr>(range);
 
-        // Note anything with error type is const
-        result->SetConst(true);
+        // Note anything with error type is not const, but they will be evaluated to error value anyway.
+        result->SetConst(false);
         result->SetDeducedType(Type::GetErrorType());
         return result;
     }
@@ -391,7 +398,7 @@ namespace glsld
                     isConst = true;
                 }
                 else if (auto desc = operandType->GetArrayDesc()) {
-                    isConst = desc->dimSizes[0] != 0;
+                    isConst = desc->dimSize != 0;
                 }
             }
             else {
@@ -891,9 +898,14 @@ namespace glsld
                 argTypes.push_back(arg->GetDeducedType());
             }
 
-            if (auto function = symbolTable.FindFunction(functionName.text.StrView(), argTypes, false)) {
-                // FIXME: result of some function call can be const
-                isConst          = false;
+            auto functionNameText = functionName.text.StrView();
+            if (auto function = symbolTable.FindFunction(functionNameText, argTypes, false)) {
+                isConst = false;
+                if (IsConstEvalFunction(functionNameText) &&
+                    std::ranges::all_of(args, [](const AstExpr* arg) { return arg->IsConst(); })) {
+                    // FIXME: this is a loose check. Is it good enough?
+                    isConst = true;
+                }
                 deducedType      = function->GetReturnType()->GetResolvedType();
                 resolvedFunction = function;
 
@@ -914,15 +926,25 @@ namespace glsld
     auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
         -> AstConstructorCallExpr*
     {
-        bool isConst = true;
-        for (auto arg : args) {
-            if (!arg->IsConst()) {
+        bool isConst         = true;
+        auto constructedType = qualType->GetResolvedType();
+        for (size_t i = 0; i < args.size(); ++i) {
+            if (!args[i]->IsConst()) {
                 isConst = false;
-                break;
+            }
+
+            // Construct implicit cast if needed
+            if (constructedType->IsVector()) {
+                // FIXME: implicit cast for vector
+            }
+            else if (constructedType->IsMatrix()) {
+                // FIXME: implicit cast for matrix
+            }
+            else if (constructedType->IsStruct() || constructedType->IsArray()) {
+                args[i] = TryMakeImplicitCast(args[i], constructedType->GetComponentType(i));
             }
         }
 
-        // FIXME: implicit cast
         auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, CopyArray(args));
         result->SetConst(isConst);
         result->SetDeducedType(qualType->GetResolvedType());

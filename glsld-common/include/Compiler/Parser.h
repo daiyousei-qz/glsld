@@ -309,27 +309,53 @@ namespace glsld
         //      - initializer := initializer_list
         //
         // FIXME: recovery?
-        auto ParseInitializer() -> AstInitializer*;
+        auto ParseInitializer(const Type* type) -> AstInitializer*;
 
+        // Parse an initializer list.
+        //
         // PARSE: initializer_list
         //      - initializer_list := '{' initializer [',' initializer]... '}'
-        auto ParseInitializerList() -> AstInitializerList*;
+        auto ParseInitializerList(const Type* type) -> AstInitializerList*;
 
+        // Parse a declarator.
+        //
         // EXPECT: 'ID'
         // PARSE: declarator
         //      - declarator := 'ID' [array_spec]
         //      - declarator := 'ID' [array_spec] [ '=' initializer ]
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseDeclarator() -> Declarator;
+        auto ParseDeclarator(const Type* type) -> Declarator;
 
+        // Parse a list of declarator.
+        //
         // EXPECT: 'ID'
         // PARSE: declarator_list
         //      - declarator_list := declarator [',' declarator]...
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseDeclaratorList() -> std::vector<Declarator>;
+        auto ParseDeclaratorList(const Type* type) -> std::vector<Declarator>;
 
+        // Parse a declarator that cannot have an initializer.
+        //
+        // EXPECT: 'ID'
+        // PARSE: declarator_no_init
+        //      - declarator_no_init := 'ID' [array_spec]
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseDeclaratorNoInit() -> Declarator;
+
+        // Parse a list of declarator that cannot have an initializer.
+        //
+        // EXPECT: 'ID'
+        // PARSE: declarator_list_no_init
+        //      - declarator_list_no_init := declarator_no_init [',' declarator_no_init]...
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseDeclaratorListNoInit() -> std::vector<Declarator>;
+
+        // Parse the function parameter list.
+        //
         // EXPECT: '('
         //
         // PARSE: func_param_list

@@ -566,7 +566,7 @@ namespace glsld
             // Parse a member decl
             auto beginTokID  = GetCurrentTokenID();
             auto typeResult  = ParseQualType();
-            auto declarators = ParseDeclaratorList();
+            auto declarators = ParseDeclaratorListNoInit();
 
             if (!InRecoveryMode()) {
                 result.push_back(
@@ -782,19 +782,19 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseInitializer() -> AstInitializer*
+    auto Parser::ParseInitializer(const Type* type) -> AstInitializer*
     {
         GLSLD_TRACE_PARSER();
 
         if (TryTestToken(TokenKlass::LBrace)) {
-            return ParseInitializerList();
+            return ParseInitializerList(type);
         }
         else {
             return ParseExprNoComma();
         }
     }
 
-    auto Parser::ParseInitializerList() -> AstInitializerList*
+    auto Parser::ParseInitializerList(const Type* type) -> AstInitializerList*
     {
         GLSLD_TRACE_PARSER();
 
@@ -826,12 +826,12 @@ namespace glsld
         ConsumeToken();
 
         std::vector<AstInitializer*> initializers;
-        while (!Eof()) {
+        for (size_t index = 0; !Eof(); ++index) {
             if (TryTestToken(TokenKlass::RBrace)) {
                 break;
             }
             else if (TryTestToken(TokenKlass::LBrace)) {
-                initializers.push_back(ParseInitializerList());
+                initializers.push_back(ParseInitializerList(type->GetComponentType(index)));
 
                 if (!TryConsumeToken(TokenKlass::Comma)) {
                     break;
@@ -857,10 +857,51 @@ namespace glsld
             }
         }
 
-        return astBuilder.BuildInitializerList(CreateAstSyntaxRange(beginTokID), std::move(initializers));
+        return astBuilder.BuildInitializerList(CreateAstSyntaxRange(beginTokID), std::move(initializers), type);
     }
 
-    auto Parser::ParseDeclarator() -> Declarator
+    auto Parser::ParseDeclarator(const Type* type) -> Declarator
+    {
+        GLSLD_TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
+
+        Declarator result;
+
+        // Parse declaration identifier
+        result.declTok = ParseOptionalDeclIdHelper();
+
+        // Parse array specifier
+        auto declType = type;
+        if (TryTestToken(TokenKlass::LBracket)) {
+            result.arraySize = ParseArraySpec();
+            declType         = astBuilder.GetAstContext().GetArrayType(type, result.arraySize);
+        }
+
+        if (TryConsumeToken(TokenKlass::Assign)) {
+            result.initializer = ParseInitializer(declType);
+        }
+
+        return result;
+    }
+
+    auto Parser::ParseDeclaratorList(const Type* type) -> std::vector<Declarator>
+    {
+        GLSLD_TRACE_PARSER();
+
+        std::vector<Declarator> result;
+        while (TryTestToken(TokenKlass::Identifier)) {
+            result.push_back(ParseDeclarator(type));
+
+            if (!TryConsumeToken(TokenKlass::Comma)) {
+                break;
+            }
+        }
+
+        return std::move(result);
+    }
+
+    auto Parser::ParseDeclaratorNoInit() -> Declarator
     {
         GLSLD_TRACE_PARSER();
 
@@ -876,20 +917,16 @@ namespace glsld
             result.arraySize = ParseArraySpec();
         }
 
-        if (TryConsumeToken(TokenKlass::Assign)) {
-            result.initializer = ParseInitializer();
-        }
-
         return result;
     }
 
-    auto Parser::ParseDeclaratorList() -> std::vector<Declarator>
+    auto Parser::ParseDeclaratorListNoInit() -> std::vector<Declarator>
     {
         GLSLD_TRACE_PARSER();
 
         std::vector<Declarator> result;
         while (TryTestToken(TokenKlass::Identifier)) {
-            result.push_back(ParseDeclarator());
+            result.push_back(ParseDeclaratorNoInit());
 
             if (!TryConsumeToken(TokenKlass::Comma)) {
                 break;
@@ -926,7 +963,7 @@ namespace glsld
             if (!InRecoveryMode()) {
                 std::optional<Declarator> declarator;
                 if (TryTestToken(TokenKlass::Identifier)) {
-                    declarator = ParseDeclarator();
+                    declarator = ParseDeclaratorNoInit();
                 }
 
                 result.push_back(astBuilder.BuildParamDecl(CreateAstSyntaxRange(beginTokID), type, declarator));
@@ -986,7 +1023,7 @@ namespace glsld
         }
 
         // Parse variable decl
-        auto declarators = ParseDeclaratorList();
+        auto declarators = ParseDeclaratorList(variableType->GetResolvedType());
 
         // Parse ';'
         ParseOrInferSemicolonHelper();
@@ -1013,7 +1050,7 @@ namespace glsld
         // Parse declarator if any
         std::optional<Declarator> declarator;
         if (TryTestToken(TokenKlass::Identifier)) {
-            declarator = ParseDeclarator();
+            declarator = ParseDeclaratorNoInit();
         }
 
         // Parse ';'

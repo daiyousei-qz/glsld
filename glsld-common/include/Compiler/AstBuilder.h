@@ -84,8 +84,8 @@ namespace glsld
         auto BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, AstStructDecl* structDecl,
                            AstArraySpec* arraySpec) -> AstQualType*;
 
-        auto BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers)
-            -> AstInitializerList*;
+        auto BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers,
+                                  const Type* contextType) -> AstInitializerList*;
 
 #pragma endregion
 
@@ -205,7 +205,6 @@ namespace glsld
                 return expr;
             }
 
-            GLSLD_ASSERT(!contextType->IsError());
             return BuildImplicitCastExpr(expr->GetSyntaxRange(), expr, contextType);
         }
     };

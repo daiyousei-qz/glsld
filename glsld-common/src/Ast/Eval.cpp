@@ -2,7 +2,9 @@
 #include "Ast/Base.h"
 #include "Ast/Expr.h"
 #include "Ast/Dispatch.h"
+#include "Basic/StringSet.h"
 #include "Language/ConstValue.h"
+#include <unordered_set>
 
 namespace glsld
 {
@@ -67,7 +69,7 @@ namespace glsld
         return LazyConstEvalResult{};
     }
 
-    auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
+    static auto EvalUnaryConstExpr(UnaryOp op, const ConstValue& operand) -> ConstValue
     {
         if (operand.IsError()) {
             return ConstValue{};
@@ -95,7 +97,7 @@ namespace glsld
         GLSLD_UNREACHABLE();
     }
 
-    auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
+    static auto EvalBinaryConstExpr(BinaryOp op, const ConstValue& lhs, const ConstValue& rhs) -> ConstValue
     {
         if (lhs.IsError() || rhs.IsError()) {
             return ConstValue{};
@@ -159,7 +161,7 @@ namespace glsld
         GLSLD_UNREACHABLE();
     }
 
-    auto EvalBuiltinFunction1(StringView funcName, const AstExpr* firstArg) -> ConstValue
+    static auto EvalBuiltinFunction1(StringView funcName, const AstExpr* firstArg) -> ConstValue
     {
         auto firstArgResult = EvalAstExpr(*firstArg);
         if (firstArgResult.IsError()) {
@@ -232,7 +234,13 @@ namespace glsld
             return ConstValue{};
         }
 
-        if (funcName == "pow") {
+        if (funcName == "min") {
+            return firstArgResult.ElemwiseMin(secondArgResult);
+        }
+        else if (funcName == "max") {
+            return firstArgResult.ElemwiseMax(secondArgResult);
+        }
+        else if (funcName == "pow") {
             return firstArgResult.ElemwisePow(secondArgResult);
         }
 
@@ -253,6 +261,14 @@ namespace glsld
         }
 
         return ConstValue{};
+    }
+
+    auto IsConstEvalFunction(StringView name) -> bool
+    {
+        static const UnorderedStringSet AllFunctions = {
+            "radians",     "degrees", "sin",  "cos",   "asin",  "acos",  "exp",  "log", "exp2", "log2", "sqrt",
+            "inversesqrt", "abs",     "sign", "floor", "trunc", "round", "ceil", "min", "max",  "pow",  "clamp"};
+        return AllFunctions.Find(name) != AllFunctions.end();
     }
 
     static auto EvalAstInitializerLazy(const AstInitializer& init) -> LazyConstEvalResult
@@ -317,7 +333,22 @@ namespace glsld
             }
         }
         else if (auto implicitCastExpr = init.As<AstImplicitCastExpr>(); implicitCastExpr) {
-            // FIXME: implment this
+            // Only primitive type can be casted implicitly.
+            auto operandResult = EvalAstExpr(*implicitCastExpr->GetOperand());
+            auto toType        = implicitCastExpr->GetDeducedType();
+            if (auto toScalarDesc = toType->GetScalarDesc(); operandResult.IsScalar() && toScalarDesc) {
+                return operandResult.CastScalar(toScalarDesc->type);
+            }
+            else if (auto toVectorDesc = toType->GetVectorDesc();
+                     operandResult.IsVector() && toVectorDesc &&
+                     operandResult.GetArraySize() == toVectorDesc->vectorSize) {
+                return operandResult.CastScalar(toVectorDesc->scalarType);
+            }
+            else if (auto toMatrixDesc = toType->GetMatrixDesc();
+                     operandResult.IsMatrix() && toMatrixDesc && operandResult.GetRowSize() == toMatrixDesc->dimRow &&
+                     operandResult.GetColumnSize() == toMatrixDesc->dimCol) {
+                return operandResult.CastScalar(toMatrixDesc->scalarType);
+            }
         }
         else if (auto fnCallExpr = init.As<AstFunctionCallExpr>(); fnCallExpr) {
             if (fnCallExpr->GetArgs().size() == 1) {
@@ -333,22 +364,31 @@ namespace glsld
             }
         }
         else if (auto ctorCallExpr = init.As<AstConstructorCallExpr>(); ctorCallExpr) {
-            std::vector<ConstValue> ctorArgs;
-            for (const auto& arg : ctorCallExpr->GetArgs()) {
-                ctorArgs.push_back(EvalAstExpr(*arg));
-            }
-
             auto type = ctorCallExpr->GetConstructedType()->GetResolvedType();
-            if (type->IsScalar()) {
+            if (auto scalarDesc = type->GetScalarDesc(); scalarDesc) {
                 if (ctorCallExpr->GetArgs().empty()) {
                     // default constructor
                     // FIXME: is this legal?
+                    return ConstValue::CreateScalar(scalarDesc->type);
                 }
                 else if (ctorCallExpr->GetArgs().size() == 1) {
                     // conversion constructor
+                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    return arg.CastScalar(scalarDesc->type);
                 }
             }
-            else if (type->IsVector()) {
+            else if (auto vectorDesc = type->GetVectorDesc(); vectorDesc) {
+                if (ctorCallExpr->GetArgs().empty()) {
+                    // default constructor
+                    return ConstValue::CreateVector(vectorDesc->scalarType, vectorDesc->vectorSize);
+                }
+                else if (ctorCallExpr->GetArgs().size() == 1) {
+                    // conversion constructor
+                    // FIXME: implement this
+                }
+                else {
+                    // FIXME: implement this. We need to collect all scalars and assemble them into a vector.
+                }
             }
             else if (type->IsMatrix()) {
             }

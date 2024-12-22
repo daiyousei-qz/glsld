@@ -9,8 +9,8 @@ namespace glsld
 {
     namespace detail
     {
-        template <typename T, typename BaseMapType>
-        class StringMapBase
+        template <typename BaseMapType>
+        class BasicStringMap
         {
         private:
             BaseMapType baseMap;
@@ -20,13 +20,16 @@ namespace glsld
             using ConstIteratorType = typename BaseMapType::const_iterator;
             using ValueType         = typename BaseMapType::value_type;
 
-            StringMapBase()  = default;
-            ~StringMapBase() = default;
+            BasicStringMap() = default;
+            BasicStringMap(std::initializer_list<ValueType> ilist) : baseMap(ilist)
+            {
+            }
+            ~BasicStringMap() = default;
 
-            StringMapBase(const StringMapBase&)                    = default;
-            StringMapBase(StringMapBase&&)                         = default;
-            auto operator=(const StringMapBase&) -> StringMapBase& = default;
-            auto operator=(StringMapBase&&) -> StringMapBase&      = default;
+            BasicStringMap(const BasicStringMap&)                    = default;
+            BasicStringMap(BasicStringMap&&)                         = default;
+            auto operator=(const BasicStringMap&) -> BasicStringMap& = default;
+            auto operator=(BasicStringMap&&) -> BasicStringMap&      = default;
 
             [[nodiscard]] auto Empty() const noexcept -> bool
             {
@@ -96,11 +99,13 @@ namespace glsld
                 return baseMap.end();
             }
 
-            [[nodiscard]] auto operator==(const StringMapBase& rhs) const noexcept -> bool
+            [[nodiscard]] auto operator==(const BasicStringMap& rhs) const noexcept -> bool
+                requires std::equality_comparable<BaseMapType>
             {
                 return baseMap == rhs.baseMap;
             }
-            [[nodiscard]] auto operator<=>(const StringMapBase& rhs) const noexcept -> std::strong_ordering
+            [[nodiscard]] auto operator<=>(const BasicStringMap& rhs) const noexcept -> std::strong_ordering
+                requires std::three_way_comparable<BaseMapType>
             {
                 return baseMap <=> rhs.baseMap;
             }
@@ -138,17 +143,17 @@ namespace glsld
     } // namespace detail
 
     template <typename T>
-    using StringMap = detail::StringMapBase<T, std::map<std::string, T, detail::StringMapCompare>>;
+    using StringMap = detail::BasicStringMap<std::map<std::string, T, detail::StringMapCompare>>;
 
     template <typename T>
-    using StringMultiMap = detail::StringMapBase<T, std::multimap<std::string, T, detail::StringMapCompare>>;
+    using StringMultiMap = detail::BasicStringMap<std::multimap<std::string, T, detail::StringMapCompare>>;
 
     template <typename T>
-    using UnorderedStringMap = detail::StringMapBase<
-        T, std::unordered_map<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
+    using UnorderedStringMap = detail::BasicStringMap<
+        std::unordered_map<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
 
     template <typename T>
-    using UnorderedStringMultiMap = detail::StringMapBase<
-        T, std::unordered_multimap<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
+    using UnorderedStringMultiMap = detail::BasicStringMap<
+        std::unordered_multimap<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
 
 } // namespace glsld

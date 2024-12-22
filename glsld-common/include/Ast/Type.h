@@ -65,7 +65,7 @@ namespace glsld
         const Type* elementType;
 
         // Note dim size of 0 means unsized/error-sized dimension
-        std::vector<size_t> dimSizes;
+        size_t dimSize;
     };
 
     struct StructTypeDesc
@@ -233,6 +233,32 @@ namespace glsld
             else {
                 return nullptr;
             }
+        }
+
+        auto GetComponentType(size_t index) const noexcept -> const Type*
+        {
+            if (auto vectorDesc = GetVectorDesc(); vectorDesc) {
+                if (index < vectorDesc->vectorSize) {
+                    return GetScalarType(vectorDesc->scalarType);
+                }
+            }
+            else if (auto matrixDesc = GetMatrixDesc(); matrixDesc) {
+                if (index < matrixDesc->dimRow) {
+                    return GetVectorType(matrixDesc->scalarType, matrixDesc->dimCol);
+                }
+            }
+            else if (auto arrayDesc = GetArrayDesc(); arrayDesc) {
+                if (arrayDesc->dimSize == 0 || index < arrayDesc->dimSize) {
+                    return arrayDesc->elementType;
+                }
+            }
+            else if (auto structDesc = GetStructDesc(); structDesc) {
+                if (index < structDesc->members.size()) {
+                    return structDesc->members[index].second;
+                }
+            }
+
+            return GetErrorType();
         }
 
         auto GetDimension() const noexcept -> ValueDimension

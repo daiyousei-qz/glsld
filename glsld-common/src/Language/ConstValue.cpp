@@ -181,6 +181,43 @@ namespace glsld
         return result;
     }
 
+    auto ConstValue::CastScalar(ScalarKind kind) const -> ConstValue
+    {
+        if (IsError()) {
+            return ConstValue{};
+        }
+
+        switch (kind) {
+        case ScalarKind::Bool:
+            return ApplyElemwiseCast<bool>();
+        case ScalarKind::Int:
+            return ApplyElemwiseCast<int32_t>();
+        case ScalarKind::Uint:
+            return ApplyElemwiseCast<uint32_t>();
+        case ScalarKind::Float:
+            return ApplyElemwiseCast<float>();
+        case ScalarKind::Double:
+            return ApplyElemwiseCast<double>();
+        case ScalarKind::Int8:
+            return ApplyElemwiseCast<int8_t>();
+        case ScalarKind::Uint8:
+            return ApplyElemwiseCast<uint8_t>();
+        case ScalarKind::Int16:
+            return ApplyElemwiseCast<int16_t>();
+        case ScalarKind::Uint16:
+            return ApplyElemwiseCast<uint16_t>();
+        case ScalarKind::Int64:
+            return ApplyElemwiseCast<int64_t>();
+        case ScalarKind::Uint64:
+            return ApplyElemwiseCast<uint64_t>();
+        case ScalarKind::Float16:
+            GLSLD_NO_IMPL();
+            return ConstValue{};
+        default:
+            return ConstValue{};
+        }
+    }
+
     auto ConstValue::GetElement(int index) const -> ConstValue
     {
         // FIXME: verify this is correct

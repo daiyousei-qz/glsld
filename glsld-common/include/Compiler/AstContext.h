@@ -14,7 +14,7 @@ namespace glsld
     {
     private:
         // The cached array types.
-        std::map<std::pair<const Type*, std::vector<size_t>>, const Type*> arrayTypes;
+        std::map<std::pair<const Type*, size_t>, const Type*> arrayTypes;
 
         // The memory arena that holds all memory allocated for AST.
         MemoryArena arena;
@@ -35,6 +35,6 @@ namespace glsld
 
         // TODO: To ensure Type of the same type always uses a single pointer, we need a common context for
         // different module compile?
-        auto GetArrayType(const Type* elementType, ArrayView<size_t> dimSizes) -> const Type*;
+        auto GetArrayType(const Type* elementType, size_t dimSizes) -> const Type*;
     };
 } // namespace glsld

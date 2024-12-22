@@ -82,6 +82,16 @@ namespace glsld
             return std::ranges::equal(GetBufferAsBlob(), other.GetBufferAsBlob());
         }
 
+        // Create a zero-initialized scalar constant.
+        static auto CreateScalar(ScalarKind kind) -> ConstValue
+        {
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(kind, 1, 1);
+            std::fill(blob.begin(), blob.end(), std::byte{0});
+            return result;
+        }
+
+        // Create a scalar constant with the given value.
         template <typename T>
         static auto CreateScalar(const T& value) -> ConstValue
         {
@@ -90,6 +100,16 @@ namespace glsld
             return result;
         }
 
+        // Create a zero-initialized vector constant.
+        static auto CreateVector(ScalarKind kind, int dimSize) -> ConstValue
+        {
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(kind, 1, dimSize);
+            std::fill(blob.begin(), blob.end(), std::byte{0});
+            return result;
+        }
+
+        // Create a vector constant with the given values.
         template <typename T>
         static auto CreateVector(std::initializer_list<T> values) -> ConstValue
         {
@@ -103,11 +123,14 @@ namespace glsld
             return result;
         }
 
+        // Get a view to the constant value as a blob of bytes.
         auto GetBufferAsBlob() const -> ArrayView<std::byte>
         {
             return ArrayView<std::byte>(GetBufferPtr(), GetBufferSize());
         }
 
+        // Get a view to the constant value as an array of the given type.
+        // The type must match the scalar kind of the constant.
         template <typename T>
         auto GetBufferAs() const -> ArrayView<T>
         {
@@ -229,6 +252,8 @@ namespace glsld
         auto ToString() const -> std::string;
         auto Clone() const -> ConstValue;
 
+        // Cast the underlying scalar type to the given kind while keeping the shape.
+        auto CastScalar(ScalarKind kind) const -> ConstValue;
         auto GetElement(int index) const -> ConstValue;
         auto GetSwizzle(SwizzleDesc swizzle) const -> ConstValue;
 
@@ -324,13 +349,13 @@ namespace glsld
             }
         }
 
-        template <typename T, typename F>
+        template <typename T, typename U, typename F>
         auto ApplyElemwiseUnaryOpUnsafe(F f) const -> ConstValue
         {
             ConstValue result;
 
             auto srcBuffer = GetBufferAs<T>();
-            auto dstBuffer = result.InitializeAs<T>(rowSize, colSize);
+            auto dstBuffer = result.InitializeAs<U>(rowSize, colSize);
 
             for (int i = 0; i < arraySize; ++i) {
                 dstBuffer[i] = f(srcBuffer[i]);
@@ -368,12 +393,55 @@ namespace glsld
             return result;
         }
 
+        template <typename TargetType>
+        auto ApplyElemwiseCast() const -> ConstValue
+        {
+            switch (GetScalarKind()) {
+            case ScalarKind::Bool:
+                return ApplyElemwiseUnaryOpUnsafe<bool, TargetType>([](bool x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Int:
+                return ApplyElemwiseUnaryOpUnsafe<int32_t, TargetType>(
+                    [](int32_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Uint:
+                return ApplyElemwiseUnaryOpUnsafe<uint32_t, TargetType>(
+                    [](uint32_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Float:
+                return ApplyElemwiseUnaryOpUnsafe<float, TargetType>(
+                    [](float x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Double:
+                return ApplyElemwiseUnaryOpUnsafe<double, TargetType>(
+                    [](double x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Int8:
+                return ApplyElemwiseUnaryOpUnsafe<int8_t, TargetType>(
+                    [](int8_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Int16:
+                return ApplyElemwiseUnaryOpUnsafe<int16_t, TargetType>(
+                    [](int16_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Int64:
+                return ApplyElemwiseUnaryOpUnsafe<int64_t, TargetType>(
+                    [](int64_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Uint8:
+                return ApplyElemwiseUnaryOpUnsafe<uint8_t, TargetType>(
+                    [](uint8_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Uint16:
+                return ApplyElemwiseUnaryOpUnsafe<uint16_t, TargetType>(
+                    [](uint16_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Uint64:
+                return ApplyElemwiseUnaryOpUnsafe<uint64_t, TargetType>(
+                    [](uint64_t x) { return static_cast<TargetType>(x); });
+            case ScalarKind::Float16:
+                GLSLD_NO_IMPL();
+            default:
+                return ConstValue();
+            }
+        }
+
         template <typename F>
         auto ApplyElemwiseUnaryOp(F f) const -> ConstValue
         {
 #define SWITCH_CASE(CPPTYPE)                                                                                           \
     if constexpr (requires(CPPTYPE x) { f(x); }) {                                                                     \
-        return ApplyElemwiseUnaryOpUnsafe<CPPTYPE>(f);                                                                 \
+        return ApplyElemwiseUnaryOpUnsafe<CPPTYPE, CPPTYPE>(f);                                                        \
     }                                                                                                                  \
     else {                                                                                                             \
         return ConstValue();                                                                                           \
