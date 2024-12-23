@@ -1,4 +1,6 @@
 #pragma once
+#include "Basic/StringView.h"
+
 #include "Protocol.h"
 
 namespace glsld
@@ -9,7 +11,7 @@ namespace glsld
     {
     public:
         // Submit a message from the client to language server and dispatch it to the right handler.
-        auto HandleClientMessage(std::string_view messageText) -> void
+        auto HandleClientMessage(StringView messageText) -> void
         {
             auto message = lsp::ParseJson(messageText);
             if (message) {
@@ -35,7 +37,7 @@ namespace glsld
         }
 
     protected:
-        virtual auto DoHandleBadClientMessage(std::string_view messageText) -> void = 0;
+        virtual auto DoHandleBadClientMessage(StringView messageText) -> void = 0;
 
         virtual auto DoHandleClientMessage(lsp::JsonObject rpcBlob) -> void = 0;
 

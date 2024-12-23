@@ -67,6 +67,7 @@ namespace glsld
             }
             else {
                 UNSCOPED_INFO(matchResult.GetFailedNode()->Print());
+                UNSCOPED_INFO(matchResult.GetErrorTrace());
                 return false;
             }
         }

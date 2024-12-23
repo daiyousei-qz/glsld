@@ -64,6 +64,7 @@ namespace glsld
         ProgramArgs result;
 
         ArgumentParser program("glsld");
+        program.add_argument("--stdio").help("Use stdio for communication").default_value(true);
 
         program.parse_args(argc, argv);
         return result;

@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 
 #include <nlohmann/json.hpp>
 
@@ -58,7 +59,7 @@ namespace glsld::lsp
         return JsonSerializer<T>::ToJson(value);
     }
 
-    inline auto ParseJson(std::string_view s) noexcept -> std::optional<JsonObject>
+    inline auto ParseJson(StringView s) noexcept -> std::optional<JsonObject>
     {
         auto result = JsonObject::parse(s, nullptr, false, true);
         if (result.is_discarded()) {

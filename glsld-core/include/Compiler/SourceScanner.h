@@ -72,6 +72,13 @@ namespace glsld
             return StringView{srcCursor, srcEnd};
         }
 
+        // Forcefully set the cursor text position. This is useful for removing some text from the source buffer.
+        auto SetTextPosition(TextPosition position) -> void
+        {
+            lineCounter      = position.line;
+            characterCounter = position.character;
+        }
+
         // Get the current cursor position in the source text in line number and character offset in the line.
         auto GetTextPosition() const noexcept -> TextPosition
         {

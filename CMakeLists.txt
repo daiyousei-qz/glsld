@@ -5,18 +5,25 @@ option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
 option(GLSLD_BUILD_UNIT_TEST "Build glsld unit test" ON)
 
 # Load vcpkg
+if(NOT CMAKE_TOOLCHAIN_FILE)
+    if(NOT ENV{VCPKG_ROOT})
+        message(FATAL_ERROR "Couldn't find vcpkg. Please set VCPKG_ROOT environment variable or pass CMAKE_TOOLCHAIN_FILE")
+    endif()
+
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Vcpkg toolchain file")
+endif()
+
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(GLSLD_VCPKG_TRIPLET "x64-windows-static")
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(GLSLD_VCPKG_TRIPLET "x64-linux")
+    set(VCPKG_TARGET_TRIPLET "x64-linux")
 elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    # FIXME: test for x86?
-    set(GLSLD_VCPKG_TRIPLET "arm64-osx")
+    set(VCPKG_TARGET_TRIPLET "arm64-osx")
 else()
     message(FATAL_ERROR "Failed to infer vcpkg triplet")
 endif()
-
-set(VCPKG_TARGET_TRIPLET ${GLSLD_VCPKG_TRIPLET} CACHE STRING "" FORCE)
 
 if(NOT CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
@@ -66,7 +73,6 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 
 if(GLSLD_OS_WIN)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
     if(GLSLD_COMPILER_MSVC)
@@ -88,7 +94,7 @@ file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
 file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
 
 add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
-target_include_directories(glsld-lexgen PUBLIC glsld-common/include)
+target_include_directories(glsld-lexgen PUBLIC glsld-core/include)
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
@@ -100,14 +106,28 @@ add_custom_command(
     VERBATIM
 )
 
-# GLSL Common Library
-file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-common/include/*.h)
-file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-common/src/*.cpp)
+# GLSL Core Library
+file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-core/include/*.h)
+file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-core/src/*.cpp)
 
-add_library(glsld-common STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
-target_include_directories(glsld-common PUBLIC glsld-common/include)
+add_library(glsld-core STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
+target_include_directories(glsld-core PUBLIC glsld-core/include)
 
-target_link_libraries(glsld-common PUBLIC fmt::fmt)
+target_link_libraries(glsld-core PUBLIC fmt::fmt)
+
+# GLSLD Language Server
+if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
+    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_HEADER_FILE glsld-server/include/*.h)
+    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_SOURCE_FILE glsld-server/src/*.cpp)
+
+    add_library(glsld-server STATIC ${GLSLD_LANGUAGE_SERVER_HEADER_FILE} ${GLSLD_LANGUAGE_SERVER_SOURCE_FILE})
+    target_include_directories(glsld-server PUBLIC glsld-server/include)
+
+    target_link_libraries(glsld-server PUBLIC glsld-core)
+
+    target_link_libraries(glsld-server PRIVATE nlohmann_json::nlohmann_json)
+    target_include_directories(glsld-server PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
+endif()
 
 # GLSLD
 if(GLSLD_BUILD_LANGUAGE_SERVER)
@@ -117,11 +137,9 @@ if(GLSLD_BUILD_LANGUAGE_SERVER)
     add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
     target_include_directories(glsld PRIVATE glsld/include)
 
-    target_link_libraries(glsld PRIVATE glsld-common)
+    target_link_libraries(glsld PRIVATE glsld-server)
 
     target_link_libraries(glsld PRIVATE argparse::argparse)
-    target_link_libraries(glsld PRIVATE nlohmann_json::nlohmann_json)
-    target_include_directories(glsld PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 endif()
 
 # GLSLD Wrapper
@@ -132,10 +150,9 @@ if(GLSLD_BUILD_WRAPPER)
     add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
     target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
 
-    target_link_libraries(glsld-wrapper PRIVATE glsld-common)
+    target_link_libraries(glsld-wrapper PRIVATE glsld-core)
 
     target_link_libraries(glsld-wrapper PRIVATE argparse::argparse)
-    target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
 endif()
 
 # GLSLD Unit Test
@@ -148,7 +165,7 @@ if(GLSLD_BUILD_UNIT_TEST)
     add_executable(glsld-test ${GLSLD_TEST_HEADER_FILE} ${GLSLD_TEST_SOURCE_FILE})
     target_include_directories(glsld-test PRIVATE glsld-test/include)
 
-    target_link_libraries(glsld-test PRIVATE glsld-common)
+    target_link_libraries(glsld-test PRIVATE glsld-core glsld-server)
 
     target_link_libraries(glsld-test PRIVATE Catch2::Catch2WithMain)
 

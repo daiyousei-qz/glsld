@@ -15,7 +15,7 @@ namespace glsld
 
         LanguageServerCallback* server;
 
-        BS::thread_pool threadPool;
+        BS::light_thread_pool threadPool;
 
     public:
         LanguageService(LanguageServerCallback* server) : server(server)

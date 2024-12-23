@@ -7,7 +7,8 @@ using namespace glsld;
 TEST_CASE_METHOD(AstTestFixture, "Simple Stmt")
 {
     SetTestTemplate("void main() {{ {} }}", [](AstMatcher matcher) {
-        return TranslationUnit(FunctionDecl(Any(), Any(), CompoundStmt(std::move(matcher))));
+        return FindMatch(FunctionDecl(AnyQualType(), "main", AnyStmt()),
+                         FunctionDecl(AnyAst(), AnyStr(), CompoundStmt(std::move(matcher))));
     });
 
     SECTION("EmptyStmt")

@@ -24,6 +24,25 @@ namespace glsld
             return std::move(result);
         }
 
+        auto VisitAstImplicitCastExpr(const AstImplicitCastExpr& expr) -> void
+        {
+            if (expr.GetDeducedType()->IsError()) {
+                return;
+            }
+
+            auto exprTextRange = GetProvider().GetExpandedTextRange(expr);
+            if (exprTextRange.IsEmpty()) {
+                return;
+            }
+
+            result.push_back(lsp::InlayHint{
+                .position     = ToLspPosition({exprTextRange.start.line, exprTextRange.start.character}),
+                .label        = fmt::format("({})", expr.GetDeducedType()->GetDebugName()),
+                .paddingLeft  = false,
+                .paddingRight = false,
+            });
+        }
+
         auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
         {
             if (!expr.GetResolvedFunction()) {

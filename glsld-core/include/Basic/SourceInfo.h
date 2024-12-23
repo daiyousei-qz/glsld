@@ -2,6 +2,7 @@
 #include "Basic/Common.h"
 
 #include <compare>
+#include <limits>
 
 namespace glsld
 {

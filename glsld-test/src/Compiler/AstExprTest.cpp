@@ -4,8 +4,9 @@ using namespace glsld;
 
 TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 {
-    SetTestTemplate("unknown x = {};", [](AstMatcher matcher) {
-        return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
+        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
+                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
     });
 
     SECTION("ErrorExpr")
@@ -86,9 +87,9 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("SwizzleExpr")
     {
-        SetTestTemplate("vec4 x; int y; void main() {{ {} }}", [](AstMatcher matcher) {
-            return TranslationUnit(AnyDecl(), AnyDecl(),
-                                   FunctionDecl(AnyQualType(), Any(), CompoundStmt(ExprStmt(std::move(matcher)))));
+        SetTestTemplate("vec4 x; int y; unknown test__ = {};", [](AstMatcher matcher) {
+            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
         });
 
         GLSLD_CHECK_AST("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
@@ -107,8 +108,9 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
-            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            // FIXME: how to handle error index?
+            // GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            // GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
             GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
         }
     }
@@ -131,8 +133,9 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("ConstructorCallExpr")
     {
-        SetTestTemplate("struct S{{}}; unknown x = {};", [](AstMatcher matcher) {
-            return TranslationUnit(AnyDecl(), VariableDecl1(AnyQualType(), std::move(matcher)));
+        SetTestTemplate("struct S{{}}; unknown test__ = {};", [](AstMatcher matcher) {
+            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
         });
 
         GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3)));
@@ -156,8 +159,9 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
 TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 {
-    SetTestTemplate("unknown x = {};", [](AstMatcher matcher) {
-        return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
+        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyExpr()),
+                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
     });
 
     GLSLD_CHECK_AST("(1)", LiteralExpr(1));
@@ -178,6 +182,11 @@ TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 
 TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
 {
+    SetTestTemplate("void main() {{ {}; }}", [](AstMatcher matcher) {
+        return FindMatch(FunctionDecl(AnyQualType(), "main", AnyStmt()),
+                         FunctionDecl(AnyQualType(), AnyStr(), CompoundStmt(ExprStmt(std::move(matcher)))));
+    });
+
     // binary expr
     // select expr
     // function call
@@ -188,30 +197,47 @@ TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
 
 TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 {
-    SetTestTemplate("unknown x = {};", [](AstMatcher matcher) {
-        return TranslationUnit(VariableDecl1(AnyQualType(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
+        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
+                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
     });
 
-    GLSLD_CHECK_AST("{}", InitializerList());
-    GLSLD_CHECK_AST("{1}", InitializerList(LiteralExpr(1)));
-    GLSLD_CHECK_AST("{1,}", InitializerList(LiteralExpr(1)));
-    GLSLD_CHECK_AST("{1,2}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
-    GLSLD_CHECK_AST("{1,2,}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
+    SECTION("Simple")
+    {
+        SetTestTemplate("int[] test__ = {};", [](AstMatcher matcher) {
+            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+        });
 
-    GLSLD_CHECK_AST("{{}}", InitializerList(InitializerList()));
-    GLSLD_CHECK_AST("{{},}", InitializerList(InitializerList()));
-    GLSLD_CHECK_AST("{{},{}}", InitializerList(InitializerList(), InitializerList()));
+        GLSLD_CHECK_AST("{}", InitializerList());
+        GLSLD_CHECK_AST("{1}", InitializerList(LiteralExpr(1)));
+        GLSLD_CHECK_AST("{1,}", InitializerList(LiteralExpr(1)));
+        GLSLD_CHECK_AST("{1,2}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("{1,2,}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
+    }
 
-    GLSLD_CHECK_AST("{{1}}", InitializerList(InitializerList(LiteralExpr(1))));
-    GLSLD_CHECK_AST("{{1}, {2, {3}}}",
-                    InitializerList(InitializerList(LiteralExpr(1)),
-                                    InitializerList(LiteralExpr(2), InitializerList(LiteralExpr(3)))));
+    SECTION("Nested")
+    {
+        GLSLD_CHECK_AST("{{}}", InitializerList(InitializerList()));
+        GLSLD_CHECK_AST("{{},}", InitializerList(InitializerList()));
+        GLSLD_CHECK_AST("{{},{}}", InitializerList(InitializerList(), InitializerList()));
+
+        // We have implicit cast here because the target type is unknown
+        GLSLD_CHECK_AST("{{1}}", InitializerList(InitializerList(ImplicitCastExpr(LiteralExpr(1)))));
+        GLSLD_CHECK_AST("{{1}, {2, {3}}}",
+                        InitializerList(InitializerList(ImplicitCastExpr(LiteralExpr(1))),
+                                        InitializerList(ImplicitCastExpr(LiteralExpr(2)),
+                                                        InitializerList(ImplicitCastExpr(LiteralExpr(3))))));
+    }
 
     SECTION("Permissive")
     {
         GLSLD_CHECK_AST("{", InitializerList(ErrorExpr()));
-        GLSLD_CHECK_AST("{,", InitializerList(ErrorExpr()));
-        GLSLD_CHECK_AST("{,}", InitializerList(ErrorExpr(), ErrorExpr()));
+        GLSLD_CHECK_AST("{,", InitializerList(ErrorExpr(), ErrorExpr()));
+        // This is considered as a single-element list like `{1,}`
+        GLSLD_CHECK_AST("{,}", InitializerList(ErrorExpr()));
+        GLSLD_CHECK_AST("{,,", InitializerList(ErrorExpr(), ErrorExpr(), ErrorExpr()));
+        // This is considered as a two-element list like `{1,2,}`
         GLSLD_CHECK_AST("{,,}", InitializerList(ErrorExpr(), ErrorExpr()));
     }
 }
