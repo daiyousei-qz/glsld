@@ -39,7 +39,7 @@ namespace glsld
             return astContext;
         }
 
-        auto IsTypeName(StringView name) const -> bool
+        auto IsStructName(StringView name) const -> bool
         {
             auto symbol = symbolTable.FindSymbol(name);
             return symbol.IsValid() && symbol.GetDecl()->Is<AstStructDecl>();
@@ -199,6 +199,7 @@ namespace glsld
             return result;
         }
 
+        // Try to implicitly cast an expression to the context type.
         auto TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*
         {
             if (expr->GetDeducedType()->IsSameWith(contextType) || expr->GetDeducedType()->IsError()) {

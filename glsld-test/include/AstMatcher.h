@@ -1,4 +1,6 @@
 #pragma once
+#include "TokenMatcher.h"
+
 #include "Ast/AstVisitor.h"
 #include "Ast/Base.h"
 #include "Ast/Expr.h"
@@ -55,44 +57,6 @@ namespace glsld
         static auto Failure(const AstNode& failedNode) -> AstMatchResult
         {
             return AstMatchResult{&failedNode};
-        }
-    };
-
-    class StringMatcher
-    {
-    private:
-        struct StringMatcherData
-        {
-            // Description of this matcher. Used for composing error message.
-            std::string desc;
-            // Callback to match the current string.
-            std::move_only_function<bool(StringView)> matchCallback;
-        };
-
-        std::unique_ptr<StringMatcherData> data;
-
-    public:
-        StringMatcher(std::move_only_function<bool(StringView)> callback)
-        {
-            data                = std::make_unique<StringMatcherData>();
-            data->matchCallback = std::move(callback);
-        }
-        StringMatcher(StringView str) : StringMatcher([str = str.Str()](StringView view) { return view == str; })
-        {
-        }
-        template <std::convertible_to<StringView> T>
-        StringMatcher(T str) : StringMatcher(StringView{str})
-        {
-        }
-
-        auto GetDesc() const -> StringView
-        {
-            return data->desc;
-        }
-
-        auto Match(StringView str) const -> bool
-        {
-            return data->matchCallback(str);
         }
     };
 
@@ -237,11 +201,6 @@ namespace glsld
         AstMatcher matchInitializer;
     };
 
-    inline auto AnyStr() -> StringMatcher
-    {
-        return StringMatcher([](StringView) { return true; });
-    }
-
     inline auto AnyAst() -> AstMatcher
     {
         return AstMatcher("AnyAst", [](const AstNode&) -> AstMatchResult { return AstMatchResult::Success(); });
@@ -291,16 +250,21 @@ namespace glsld
         });
     }
 
-    inline auto NamedType(StringMatcher name) -> AstMatcher
+    inline auto NamedType(TokenMatcher nameMatcher) -> AstMatcher
     {
-        return AstMatcher("NamedType", [name = std::move(name)](const AstNode& node) -> AstMatchResult {
+        return AstMatcher("NamedType", [nameMatcher = std::move(nameMatcher)](const AstNode& node) -> AstMatchResult {
             auto qualType = node.As<AstQualType>();
-            if (!qualType || !name.Match(qualType->GetTypeNameTok().text.StrView())) {
+            if (!qualType || !nameMatcher.Match(qualType->GetTypeNameTok())) {
                 return AstMatchResult::Failure(node);
             }
 
             return AstMatchResult::Success();
         });
+    }
+
+    inline auto NamedType(StringView name) -> AstMatcher
+    {
+        return NamedType(IdTok(name));
     }
 
 #pragma endregion
@@ -375,13 +339,12 @@ namespace glsld
         });
     }
 
-    inline auto FieldAccessExpr(AstMatcher lhsMatcher, StringMatcher nameMatcher) -> AstMatcher
+    inline auto FieldAccessExpr(AstMatcher lhsMatcher, StringView name) -> AstMatcher
     {
         return AstMatcher("FieldAccessExpr",
-                          [lhsMatcher  = std::move(lhsMatcher),
-                           nameMatcher = std::move(nameMatcher)](const AstNode& node) -> AstMatchResult {
+                          [lhsMatcher = std::move(lhsMatcher), name = name](const AstNode& node) -> AstMatchResult {
                               auto expr = node.As<AstFieldAccessExpr>();
-                              if (!expr || !nameMatcher.Match(expr->GetAccessName().text.StrView())) {
+                              if (!expr || expr->GetAccessName().text != name) {
                                   return AstMatchResult::Failure(node);
                               }
 
@@ -480,20 +443,26 @@ namespace glsld
     }
 
     template <std::same_as<AstMatcher>... MatcherType>
-    inline auto FunctionCallExpr(StringMatcher nameMatcher, MatcherType... argMatchers) -> AstMatcher
+    inline auto FunctionCallExpr(TokenMatcher nameMatcher, MatcherType... argMatchers) -> AstMatcher
     {
         return AstMatcher(
             "FunctionCallExpr",
             [nameMatcher = std::move(nameMatcher),
              argMatchers = AstMatcher::CollectToVec(std::move(argMatchers)...)](const AstNode& node) -> AstMatchResult {
                 auto expr = node.As<AstFunctionCallExpr>();
-                if (!expr || !nameMatcher.Match(expr->GetFunctionName().text.StrView()) ||
+                if (!expr || !nameMatcher.Match(expr->GetFunctionName()) ||
                     expr->GetArgs().size() != argMatchers.size()) {
                     return AstMatchResult::Failure(node);
                 }
 
                 return AstMatcher::MatchAll(expr->GetArgs(), argMatchers);
             });
+    }
+
+    template <std::same_as<AstMatcher>... MatcherType>
+    inline auto FunctionCallExpr(StringView name, MatcherType... argMatchers) -> AstMatcher
+    {
+        return FunctionCallExpr(IdTok(name), std::move(argMatchers)...);
     }
 
     template <std::same_as<AstMatcher>... MatcherType>
@@ -724,7 +693,7 @@ namespace glsld
 
 #pragma endregion
 
-    inline auto VariableDecl1(AstMatcher qualTypeMatcher, StringMatcher nameMatcher, AstMatcher initMatcher)
+    inline auto VariableDecl1(AstMatcher qualTypeMatcher, TokenMatcher nameMatcher, AstMatcher initMatcher)
         -> AstMatcher
     {
         return AstMatcher("VariableDecl1",
@@ -734,8 +703,7 @@ namespace glsld
                               if (!decl || decl->GetDeclarators().size() != 1) {
                                   return AstMatchResult::Failure(node);
                               }
-                              if (auto nameMatchResult =
-                                      nameMatcher.Match(decl->GetDeclarators()[0].declTok.text.StrView());
+                              if (auto nameMatchResult = nameMatcher.Match(decl->GetDeclarators()[0].declTok);
                                   !nameMatchResult) {
                                   return AstMatchResult::Failure(node);
                               }
@@ -748,7 +716,7 @@ namespace glsld
     }
 
     template <std::same_as<AstMatcher>... MatcherType>
-    inline auto FunctionDecl(AstMatcher returnTypeMatcher, StringMatcher nameMatcher, AstMatcher bodyMatcher,
+    inline auto FunctionDecl(AstMatcher returnTypeMatcher, TokenMatcher nameMatcher, AstMatcher bodyMatcher,
                              MatcherType... paramMatchers) -> AstMatcher
     {
         return AstMatcher("FunctionDecl",
@@ -757,7 +725,7 @@ namespace glsld
                            paramMatchers = AstMatcher::CollectToVec(std::move(paramMatchers)...)](
                               const AstNode& node) -> AstMatchResult {
                               auto decl = node.As<AstFunctionDecl>();
-                              if (!decl || !nameMatcher.Match(decl->GetDeclTok().text.StrView()) ||
+                              if (!decl || !nameMatcher.Match(decl->GetDeclTok()) ||
                                   decl->GetParams().size() != paramMatchers.size()) {
                                   return AstMatchResult::Failure(node);
                               }

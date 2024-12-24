@@ -175,7 +175,7 @@ namespace glsld
             while (!Eof()) {
                 // FIXME: Only parse system commands in the system preamble
                 ParseSystemCommands();
-                decls.push_back(ParseDeclAndTryRecover(true));
+                decls.push_back(ParseDeclAndTryRecover(nullptr, true));
             }
 
             if (Eof()) {
@@ -317,9 +317,9 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseDeclAndTryRecover(bool atGlobalScope) -> AstDecl*
+    auto Parser::ParseDeclAndTryRecover(AstQualType* typeSpec, bool atGlobalScope) -> AstDecl*
     {
-        auto declResult = ParseDeclaration(atGlobalScope);
+        auto declResult = typeSpec ? ParseDeclarationWithTypeSpec(typeSpec) : ParseDeclaration(atGlobalScope);
         if (InRecoveryMode()) {
             RecoverFromError(RecoveryMode::Semi);
             if (TryConsumeToken(TokenKlass::Semicolon)) {
@@ -1178,20 +1178,25 @@ namespace glsld
         auto beginTokID = GetCurrentTokenID();
         auto lhsResult  = ParseUnaryExpr();
 
-        AstExpr* result = nullptr;
-        auto parsedOp   = TryParseAssignmentOp(PeekToken().klass);
-        if (parsedOp) {
+        return ParseAssignmentExprWithLhs(lhsResult);
+    }
+
+    auto Parser::ParseAssignmentExprWithLhs(AstExpr* lhs) -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        auto beginTokID = lhs->GetSyntaxRange().GetBeginID();
+
+        if (auto parsedOp = TryParseAssignmentOp(PeekToken().klass); parsedOp) {
             ConsumeToken();
             GLSLD_ASSERT(InParsingMode());
-            auto rhsResult = ParseAssignmentExpr();
+            auto rhs = ParseAssignmentExpr();
 
-            result = astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokID), lhsResult, rhsResult, *parsedOp);
+            return astBuilder.BuildBinaryExpr(CreateAstSyntaxRange(beginTokID), lhs, rhs, *parsedOp);
         }
         else {
-            result = ParseConditionalExpr(beginTokID, lhsResult);
+            return ParseConditionalExpr(beginTokID, lhs);
         }
-
-        return result;
     }
 
     auto Parser::ParseConditionalExpr(SyntaxTokenID beginTokID, AstExpr* firstTerm) -> AstExpr*
@@ -1360,16 +1365,17 @@ namespace glsld
         AstExpr* result = nullptr;
         if (GetGlslBuiltinType(PeekToken().klass) || PeekToken().klass == TokenKlass::K_struct) {
             // Obviously this is a constructor call
-            result = ParseConstructorCallExpr();
+            auto typeSpec = ParseTypeSpec(nullptr);
+            result        = ParseConstructorCallExpr(typeSpec);
         }
         else {
             if (TryTestToken(TokenKlass::Identifier)) {
-                // Could still be constructor call if it's a type name
-                // Though we are conservative here and need to peek a following '(' or '[' to confirm.
+                // Could still be constructor call if it's a unknown type name
+                // Though we are conservative here and need to peek a following '(' to confirm.
                 // This means we'll parse a isolated type identifier as a bad name access.
-                if (astBuilder.IsTypeName(PeekToken().text.StrView()) &&
-                    TryTestToken(TokenKlass::LParen, TokenKlass::LBracket, 1)) {
-                    result = ParseConstructorCallExpr();
+                if (astBuilder.IsStructName(PeekToken().text.StrView()) && TryTestToken(TokenKlass::LParen, 1)) {
+                    auto typeSpec = ParseTypeSpec(nullptr);
+                    result        = ParseConstructorCallExpr(typeSpec);
                 }
                 else if (TryTestToken(TokenKlass::LParen, 1)) {
                     // Note there's no function pointer in GLSL.
@@ -1436,15 +1442,11 @@ namespace glsld
         return result;
     }
 
-    auto Parser::ParseConstructorCallExpr() -> AstExpr*
+    auto Parser::ParseConstructorCallExpr(AstQualType* typeSpec) -> AstExpr*
     {
         GLSLD_TRACE_PARSER();
 
-        GLSLD_ASSERT(TryTestToken(TokenKlass::K_struct) || TryTestToken(TokenKlass::Identifier) ||
-                     GetGlslBuiltinType(PeekToken().klass));
-
-        auto beginTokID = GetCurrentTokenID();
-        auto typeSpec   = ParseTypeSpec(nullptr);
+        auto beginTokID = typeSpec->GetSyntaxRange().GetBeginID();
 
         std::vector<AstExpr*> args;
         if (TryTestToken(TokenKlass::LParen)) {
@@ -1859,14 +1861,22 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseExprStmt() -> AstStmt*
+    auto Parser::ParseExprStmt(AstQualType* typeSpec) -> AstStmt*
     {
         GLSLD_TRACE_PARSER();
 
         auto beginTokID = GetCurrentTokenID();
 
         // Parse expr
-        auto expr = ParseExpr();
+        AstExpr* expr;
+        if (typeSpec) {
+            // We know for sure this starts with a constructor call
+            GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
+            expr = ParseAssignmentExprWithLhs(ParseConstructorCallExpr(typeSpec));
+        }
+        else {
+            expr = ParseExpr();
+        }
 
         // Parse ';'
         ParseOrInferSemicolonHelper();
@@ -1874,11 +1884,12 @@ namespace glsld
         return astBuilder.BuildExprStmt(CreateAstSyntaxRange(beginTokID), expr);
     }
 
-    auto Parser::ParseDeclStmt() -> AstStmt*
+    auto Parser::ParseDeclStmt(AstQualType* typeSpec) -> AstStmt*
     {
         auto beginTokID = GetCurrentTokenID();
 
-        return astBuilder.BuildDeclStmt(CreateAstSyntaxRange(beginTokID), ParseDeclAndTryRecover(false));
+        auto decl = ParseDeclAndTryRecover(typeSpec, false);
+        return astBuilder.BuildDeclStmt(CreateAstSyntaxRange(beginTokID), decl);
     }
 
     auto Parser::ParseDeclOrExprStmt() -> AstStmt*
@@ -1888,6 +1899,9 @@ namespace glsld
         // FIXME: infer expression statement more aggressively
         auto beginTokID = GetCurrentTokenID();
         switch (PeekToken().klass) {
+            // It's definitely an expression statement if we see literals, '(' or operators
+            //
+
             // Primary expr
         case TokenKlass::IntegerConstant:
         case TokenKlass::FloatConstant:
@@ -1935,26 +1949,68 @@ namespace glsld
         case TokenKlass::Percent:
             // Comma expr
         case TokenKlass::Comma:
-            return ParseExprStmt();
-            // Declaration
+            return ParseExprStmt(nullptr);
+
+            // It's definitely a declaration statement if we see qualifiers
+            //
+
+            // Storage qualifier
         case TokenKlass::K_const:
+        case TokenKlass::K_in:
+        case TokenKlass::K_out:
+        case TokenKlass::K_inout:
+        case TokenKlass::K_centroid:
+        case TokenKlass::K_patch:
+        case TokenKlass::K_sample:
+        case TokenKlass::K_uniform:
+        case TokenKlass::K_buffer:
+        case TokenKlass::K_shared:
+        case TokenKlass::K_coherent:
+        case TokenKlass::K_volatile:
+        case TokenKlass::K_restrict:
+        case TokenKlass::K_readonly:
+        case TokenKlass::K_writeonly:
+        case TokenKlass::K_subroutine:
+            // Layout qualifier
+        case TokenKlass::K_layout:
+            // Precision qualifier
         case TokenKlass::K_lowp:
         case TokenKlass::K_mediump:
         case TokenKlass::K_highp:
-            // FIXME: what about other qualifiers?
-            return ParseDeclStmt();
+            // Interpolation qualifier
+        case TokenKlass::K_smooth:
+        case TokenKlass::K_flat:
+        case TokenKlass::K_noperspective:
+            // Invariant qualifier
+        case TokenKlass::K_invariant:
+            // Precise qualifier
+        case TokenKlass::K_precise:
+            return ParseDeclStmt(nullptr);
+
         default:
-            // FIXME: what about a constructor call expression?
-            if (TryTestToken(TokenKlass::Identifier)) {
-                if (astBuilder.IsTypeName(PeekToken().text.StrView())) {
-                    return ParseDeclStmt();
+            if (TryTestToken(TokenKlass::K_struct) || TryTestToken(TokenKlass::Identifier) ||
+                GetGlslBuiltinType(PeekToken().klass)) {
+                if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
+                    // We see a regular identifier, so we infer an expression for now
+                    return ParseExprStmt(nullptr);
                 }
                 else {
-                    return ParseExprStmt();
+                    // We see a type specifier. We parse it first as we cannot determine if it's a declaration or
+                    // expression until we see the next token after the type specifier.
+                    auto typeSpec = ParseTypeSpec(nullptr);
+                    if (TryTestToken(TokenKlass::LParen)) {
+                        // It's a constructor call expression
+                        return ParseExprStmt(typeSpec);
+                    }
+                    else {
+                        // It's a declaration statement
+                        return ParseDeclStmt(typeSpec);
+                    }
                 }
             }
             else {
-                return ParseDeclStmt();
+                // We have no clue what the hack this is, so we infer an expression for now
+                return ParseExprStmt(nullptr);
             }
         }
     }

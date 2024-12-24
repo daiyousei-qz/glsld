@@ -126,8 +126,8 @@ namespace glsld
     {
         auto result = CreateAstNode<AstErrorExpr>(range);
 
-        // Note anything with error type is not const, but they will be evaluated to error value anyway.
-        result->SetConst(false);
+        // Note anything with error type is const.
+        result->SetConst(true);
         result->SetDeducedType(Type::GetErrorType());
         return result;
     }
@@ -421,7 +421,6 @@ namespace glsld
 
     static auto DeduceBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType) -> BinaryExprTypeInfo;
 
-    // lhs and rhs should be scalar or vector of the same dimension
     // Either:
     // 1. lhs is scalar, rhs is scalar
     // 2. lhs is vector, rhs is vector
@@ -438,6 +437,9 @@ namespace glsld
             GLSLD_ASSERT(rhsType->IsVector());
             auto lhsDim = lhsType->GetVectorDesc()->vectorSize;
             auto rhsDim = rhsType->GetVectorDesc()->vectorSize;
+
+            // If the vector sizes are different, we can't do component-wise operation.
+            // Deduces to error type.
             if (lhsDim != rhsDim) {
                 return result;
             }
@@ -646,10 +648,10 @@ namespace glsld
         const Type* lhsContextType = lhsType;
         const Type* rhsContextType = rhsType;
 
-        // FIXME: handle type conversion on element type
+        auto lhsElemType = lhsType->GetElementScalarType();
+        auto rhsElemType = rhsType->GetElementScalarType();
         if (op == BinaryOp::Mul) {
-            auto lhsElemType = lhsType->GetElementScalarType();
-            auto rhsElemType = rhsType->GetElementScalarType();
+            // This is matrix multiplication
             const Type* resultElemType;
             if (lhsElemType->IsSameWith(rhsElemType)) {
                 resultElemType = lhsElemType;
@@ -661,6 +663,7 @@ namespace glsld
                 resultElemType = lhsElemType;
             }
             else {
+                // Two fundamental types are at least convertible in one direction
                 GLSLD_UNREACHABLE();
             }
 
@@ -710,6 +713,26 @@ namespace glsld
             }
             else {
                 GLSLD_ASSERT(false);
+            }
+        }
+        else if (op == BinaryOp::Plus || op == BinaryOp::Minus || op == BinaryOp::Div) {
+            // This is component-wise operation
+            auto lhsElemType = lhsType->GetElementScalarType();
+            auto rhsElemType = rhsType->GetElementScalarType();
+            if (lhsElemType->IsSameWith(rhsElemType)) {
+                deducedType = lhsType;
+            }
+            else if (lhsElemType->IsConvertibleTo(rhsElemType)) {
+                deducedType    = rhsType;
+                lhsContextType = rhsType;
+            }
+            else if (rhsElemType->IsConvertibleTo(lhsElemType)) {
+                deducedType    = lhsType;
+                rhsContextType = lhsType;
+            }
+            else {
+                // Two fundamental types are at least convertible in one direction
+                GLSLD_UNREACHABLE();
             }
         }
 
@@ -838,7 +861,6 @@ namespace glsld
         lhs = TryMakeImplicitCast(lhs, exprTypeInfo.lhsContextType);
         rhs = TryMakeImplicitCast(rhs, exprTypeInfo.rhsContextType);
 
-        // FIXME: implicit cast
         auto result = CreateAstNode<AstBinaryExpr>(range, lhs, rhs, opcode);
         result->SetConst(isConst);
         result->SetDeducedType(exprTypeInfo.deducedType);
@@ -934,13 +956,9 @@ namespace glsld
             }
 
             // Construct implicit cast if needed
-            if (constructedType->IsVector()) {
-                // FIXME: implicit cast for vector
-            }
-            else if (constructedType->IsMatrix()) {
-                // FIXME: implicit cast for matrix
-            }
-            else if (constructedType->IsStruct() || constructedType->IsArray()) {
+            // Note we only do this for composite types. For primitive ctors, type conversion is handled by the type
+            // checkker.
+            if (constructedType->IsStruct() || constructedType->IsArray()) {
                 args[i] = TryMakeImplicitCast(args[i], constructedType->GetComponentType(i));
             }
         }
@@ -1081,7 +1099,6 @@ namespace glsld
     {
         auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
 
-        // FIXME: mandate CopyArray call by creating wrapper types
         auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
         result->SetScope(DeclScope::Struct);
         result->SetResolvedTypes(CopyArray(resolvedType));

@@ -265,7 +265,7 @@ namespace glsld
         // PARSE: declaration
         //
         // RECOVERY: ^'EOF'
-        auto ParseDeclAndTryRecover(bool atGlobalScope) -> AstDecl*;
+        auto ParseDeclAndTryRecover(AstQualType* typeSpec, bool atGlobalScope) -> AstDecl*;
 
         // PARSE: stmt
         //
@@ -276,6 +276,8 @@ namespace glsld
 
 #pragma region Parsing Decl
 
+        // Parse a declaration. For disambiguation, the type specifier may has already been parsed.
+        //
         // PARSE: declaration
         //      - declaration := ';'
         //      - declaration := precision_decl
@@ -288,8 +290,6 @@ namespace glsld
         // ACCEPT: ??? ';'
         //
         // RECOVERY: ^'EOF'
-        //
-        // FIXME: seperate different path for local/global decl
         auto ParseDeclaration(bool atGlobalScope) -> AstDecl*;
 
         // We have already parsed a fully qualified type specifier. Now we need to parse the rest of the declaration.
@@ -436,13 +436,20 @@ namespace glsld
         //      - assignment_expr := conditional_expr
         auto ParseAssignmentExpr() -> AstExpr*;
 
+        // Parse an assignment expression with lhs unary expression already parsed.
+        //
+        // PARSE: assignment_expr
+        //      - assignment_expr := unary_expr '?=' assignment_expr
+        //      - assignment_expr := conditional_expr
+        auto ParseAssignmentExprWithLhs(AstExpr* lhs) -> AstExpr*;
+
+        // Parse a conditional expression with a part of the first binary expression already parsed.
+        //
         // PARSE: conditional_expr
         //      - conditional_expr := binary_expr
         //      - conditional_expr := binary_expr '?' comma_expr ':' assignment_expr
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        //
-        // `firstTerm` is the first terminal in the condition
         auto ParseConditionalExpr(SyntaxTokenID beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
         // PARSE: binary_expr
@@ -476,7 +483,7 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePostfixExpr() -> AstExpr*;
 
-        // Parse an constructor call expression.
+        // Parse an constructor call expression, assuming the type specifier has already been parsed.
         //
         // EXPECT: 'K_struct' or 'K_???' or 'ID' (aka. type_spec)
         //
@@ -484,7 +491,7 @@ namespace glsld
         //      - constructor_call := type_spec func_arg_list
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
-        auto ParseConstructorCallExpr() -> AstExpr*;
+        auto ParseConstructorCallExpr(AstQualType* typeSpec) -> AstExpr*;
 
         // Parse an primary expression.
         //
@@ -618,19 +625,25 @@ namespace glsld
         // RECOVERY: unknown
         auto ParseJumpStmt() -> AstStmt*;
 
+        // Parse an expression statement. For disambiguation, the type specifier part may has already been parsed for a
+        // constructor call.
+        //
         // PARSE: expr_stmt
         //      - expr_stmt := expr ';'
         //
         // ACCEPT: expr
         //
         // RECOVERY: unknown
-        auto ParseExprStmt() -> AstStmt*;
+        auto ParseExprStmt(AstQualType* typeSpec) -> AstStmt*;
 
+        // Parse a declaration statement. For disambiguation, the type specifier part may has already been parsed for a
+        // struct/variable declaration.
+        //
         // PARSE: decl_stmt
         //      - decl_stmt := declaration
         //
         // RECOVERY: unknown
-        auto ParseDeclStmt() -> AstStmt*;
+        auto ParseDeclStmt(AstQualType* typeSpec) -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt

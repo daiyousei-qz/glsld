@@ -6,7 +6,7 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Const Eval")
 {
     // const AstNode* captureExpr = nullptr;
     // SetTestTemplate("int x = {}; int y = x;", [](AstMatcher matcher) {
-    //     return TranslationUnit(VariableDecl1(AnyQualType(), AnyStr(), AnyInitializer()));
+    //     return TranslationUnit(VariableDecl1(AnyQualType(), AnyTok(), AnyInitializer()));
     // });
 
     // SECTION("Simple")

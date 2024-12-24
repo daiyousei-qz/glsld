@@ -5,8 +5,8 @@ using namespace glsld;
 TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 {
     SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
-                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
+                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
     });
 
     SECTION("ErrorExpr")
@@ -88,8 +88,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
     SECTION("SwizzleExpr")
     {
         SetTestTemplate("vec4 x; int y; unknown test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
         });
 
         GLSLD_CHECK_AST("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
@@ -134,8 +134,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
     SECTION("ConstructorCallExpr")
     {
         SetTestTemplate("struct S{{}}; unknown test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
         });
 
         GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3)));
@@ -160,8 +160,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 {
     SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyExpr()),
-                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyExpr()),
+                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
     });
 
     GLSLD_CHECK_AST("(1)", LiteralExpr(1));
@@ -183,8 +183,8 @@ TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
 {
     SetTestTemplate("void main() {{ {}; }}", [](AstMatcher matcher) {
-        return FindMatch(FunctionDecl(AnyQualType(), "main", AnyStmt()),
-                         FunctionDecl(AnyQualType(), AnyStr(), CompoundStmt(ExprStmt(std::move(matcher)))));
+        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), AnyStmt()),
+                         FunctionDecl(AnyQualType(), AnyTok(), CompoundStmt(ExprStmt(std::move(matcher)))));
     });
 
     // binary expr
@@ -198,15 +198,15 @@ TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
 TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 {
     SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
-                         VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
+                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
     });
 
     SECTION("Simple")
     {
         SetTestTemplate("int[] test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), "test__", AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyStr(), std::move(matcher)));
+            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
+                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
         });
 
         GLSLD_CHECK_AST("{}", InitializerList());

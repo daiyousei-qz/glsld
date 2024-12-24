@@ -183,6 +183,10 @@ namespace glsld
         {
             return this == Type::GetBuiltinType(GlslBuiltinType::Ty_bool);
         }
+        auto IsScalarInt() const noexcept -> bool
+        {
+            return this == Type::GetBuiltinType(GlslBuiltinType::Ty_int);
+        }
 
         auto IsOpaque() const noexcept -> bool
         {
@@ -218,6 +222,7 @@ namespace glsld
             return false;
         }
 
+        // Returns the underlying scalar type of a scalar, vector or matrix type. Returns nullptr otherwise.
         auto GetElementScalarType() const noexcept -> const Type*
         {
             if (auto desc = GetScalarDesc()) {

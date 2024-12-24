@@ -36,15 +36,15 @@ namespace glsld
         {
             return std::holds_alternative<ConstValue>(result);
         }
+        auto IsLazyAggregate() const -> bool
+        {
+            return !IsConstValue();
+        }
+
         auto AsConstValue() const -> ConstValue
         {
             auto value = std::get_if<ConstValue>(&result);
             return value ? value->Clone() : ConstValue{};
-        }
-
-        auto IsLazyAggregate() const -> bool
-        {
-            return std::holds_alternative<ArrayView<const AstInitializer*>>(result);
         }
         auto AsLazyAggregate() const -> ArrayView<const AstInitializer*>
         {
@@ -305,6 +305,20 @@ namespace glsld
             // All swizzle access should be evaluated eagerly
             return EvalAstExpr(*swizzleAccessExpr->GetLhsExpr()).GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
         }
+        else if (auto indexAccessExpr = init.As<AstIndexAccessExpr>(); indexAccessExpr) {
+            auto evalResult = EvalAstInitializerLazy(*indexAccessExpr->GetBaseExpr());
+            for (auto indexExpr : indexAccessExpr->GetIndices()->GetSizeList()) {
+                auto indexResult = EvalAstExpr(*indexExpr);
+                if (indexResult.IsScalarInt32()) {
+                    evalResult = UnwrapConstEvalResult(evalResult, indexResult.GetInt32Value());
+                }
+                else {
+                    return LazyConstEvalResult{};
+                }
+            }
+
+            return evalResult;
+        }
         else if (auto unaryExpr = init.As<AstUnaryExpr>(); unaryExpr) {
             // Because `.length()` works on aggregate as well, we need to handle it here.
             auto operandResult = EvalAstInitializerLazy(*unaryExpr->GetOperand());
@@ -362,35 +376,55 @@ namespace glsld
             }
         }
         else if (auto ctorCallExpr = init.As<AstConstructorCallExpr>(); ctorCallExpr) {
-            auto type = ctorCallExpr->GetConstructedType()->GetResolvedType();
-            if (auto scalarDesc = type->GetScalarDesc(); scalarDesc) {
-                if (ctorCallExpr->GetArgs().empty()) {
-                    // default constructor
-                    // FIXME: is this legal?
-                    return ConstValue::CreateScalar(scalarDesc->type);
-                }
-                else if (ctorCallExpr->GetArgs().size() == 1) {
-                    // conversion constructor
+            auto targetType = ctorCallExpr->GetConstructedType()->GetResolvedType();
+            if (auto scalarDesc = targetType->GetScalarDesc(); scalarDesc) {
+                // scalar constructor only accepts one argument
+                // 1. if the argument is a scalar, we just returns it casted to the target type
+                // 2. if the argument is a vector or matrix, we returns the first scalar casted to the target type
+                if (ctorCallExpr->GetArgs().size() == 1) {
                     auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
-                    return arg.CastScalar(scalarDesc->type);
+                    return ConstValue::ConstructScalar(arg, scalarDesc->type);
                 }
             }
-            else if (auto vectorDesc = type->GetVectorDesc(); vectorDesc) {
-                if (ctorCallExpr->GetArgs().empty()) {
-                    // default constructor
-                    return ConstValue::CreateVector(vectorDesc->scalarType, vectorDesc->vectorSize);
-                }
-                else if (ctorCallExpr->GetArgs().size() == 1) {
-                    // conversion constructor
-                    // FIXME: implement this
+            else if (auto vectorDesc = targetType->GetVectorDesc(); vectorDesc) {
+                if (ctorCallExpr->GetArgs().size() == 1) {
+                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    return ConstValue::ConstructVector(arg, vectorDesc->scalarType, vectorDesc->vectorSize);
                 }
                 else {
-                    // FIXME: implement this. We need to collect all scalars and assemble them into a vector.
+                    static constexpr size_t MaxVectorSize = 4;
+                    std::array<ConstValue, MaxVectorSize> buffer;
+                    if (ctorCallExpr->GetArgs().size() <= MaxVectorSize) {
+                        for (size_t i = 0; i < ctorCallExpr->GetArgs().size(); ++i) {
+                            buffer[i] = EvalAstExpr(*ctorCallExpr->GetArgs()[i]);
+                        }
+
+                        return ConstValue::ComposeVector({buffer.data(), ctorCallExpr->GetArgs().size()},
+                                                         vectorDesc->scalarType, vectorDesc->vectorSize);
+                    }
                 }
             }
-            else if (type->IsMatrix()) {
+            else if (auto matrixDesc = targetType->GetMatrixDesc(); matrixDesc) {
+                if (ctorCallExpr->GetArgs().size() == 1) {
+                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    return ConstValue::ConstructMatrix(arg, matrixDesc->scalarType, matrixDesc->dimRow,
+                                                       matrixDesc->dimCol);
+                }
+                else {
+                    static constexpr size_t MaxMatrixSize = 16;
+                    std::array<ConstValue, MaxMatrixSize> buffer;
+                    if (ctorCallExpr->GetArgs().size() <= MaxMatrixSize) {
+                        for (size_t i = 0; i < ctorCallExpr->GetArgs().size(); ++i) {
+                            buffer[i] = EvalAstExpr(*ctorCallExpr->GetArgs()[i]);
+                        }
+
+                        return ConstValue::ComposeMatrix({buffer.data(), ctorCallExpr->GetArgs().size()},
+                                                         matrixDesc->scalarType, matrixDesc->dimRow,
+                                                         matrixDesc->dimCol);
+                    }
+                }
             }
-            else if (type->IsArray() || type->IsStruct()) {
+            else if (targetType->IsArray() || targetType->IsStruct()) {
                 return LazyConstEvalResult{ctorCallExpr->GetArgs()};
             }
         }

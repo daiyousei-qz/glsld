@@ -186,6 +186,9 @@ namespace glsld
         if (IsError()) {
             return ConstValue{};
         }
+        if (GetScalarKind() == kind) {
+            return Clone();
+        }
 
         switch (kind) {
         case ScalarKind::Bool:
@@ -229,7 +232,7 @@ namespace glsld
         auto blob          = result.InitializeAsBlob(GetScalarKind(), 1, rowSize);
         auto elementSize   = GetBufferSize() / colSize;
         auto elementOffset = index * elementSize;
-        std::ranges::copy(GetBufferAsBlob(), blob.begin());
+        std::ranges::copy_n(GetBufferAsBlob().begin() + elementOffset, blob.size(), blob.begin());
         return result;
     }
 
