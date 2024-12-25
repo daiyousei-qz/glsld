@@ -10,6 +10,5 @@
         "nlohmann-json",
         "bshoshany-thread-pool",
         "catch2"
-    ],
-    "builtin-baseline": "f06267da58f3c06b3a1aff9cbf5c2906e595ebc9"
+    ]
 }
