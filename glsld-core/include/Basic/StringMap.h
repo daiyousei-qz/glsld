@@ -9,7 +9,7 @@ namespace glsld
 {
     namespace detail
     {
-        template <typename BaseMapType>
+        template <typename BaseMapType, bool IsMap>
         class BasicStringMap
         {
         private:
@@ -99,6 +99,16 @@ namespace glsld
                 return baseMap.end();
             }
 
+            auto operator[](StringView key) -> decltype(auto)
+                requires IsMap
+            {
+                // Since transparent operator[] needs c++26, we have to implement it manually
+                auto it = Find(key);
+                if (it == end()) {
+                    return Insert(ValueType{key, {}}).first->second;
+                }
+                return it->second;
+            }
             [[nodiscard]] auto operator==(const BasicStringMap& rhs) const noexcept -> bool
                 requires std::equality_comparable<BaseMapType>
             {
@@ -143,17 +153,18 @@ namespace glsld
     } // namespace detail
 
     template <typename T>
-    using StringMap = detail::BasicStringMap<std::map<std::string, T, detail::StringMapCompare>>;
+    using StringMap = detail::BasicStringMap<std::map<std::string, T, detail::StringMapCompare>, true>;
 
     template <typename T>
-    using StringMultiMap = detail::BasicStringMap<std::multimap<std::string, T, detail::StringMapCompare>>;
+    using StringMultiMap = detail::BasicStringMap<std::multimap<std::string, T, detail::StringMapCompare>, true>;
 
     template <typename T>
     using UnorderedStringMap = detail::BasicStringMap<
-        std::unordered_map<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
+        std::unordered_map<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>, true>;
 
     template <typename T>
     using UnorderedStringMultiMap = detail::BasicStringMap<
-        std::unordered_multimap<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>>;
+        std::unordered_multimap<std::string, T, detail::UnorderedStringMapHash, detail::UnorderedStringMapKeyEqual>,
+        true>;
 
 } // namespace glsld

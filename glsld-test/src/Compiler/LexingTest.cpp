@@ -1,67 +1,61 @@
 #include "Basic/StringView.h"
 #include "Compiler/SyntaxToken.h"
 #include "LexingTestFixture.h"
-#include <catch2/catch_all.hpp>
 
 using namespace glsld;
 
-TEST_CASE("Lex single token", "")
+TEST_CASE_METHOD(LexingTestFixture, "Lexing")
 {
     SECTION("Keyword")
     {
-#define DECL_KEYWORD(KEYWORD) REQUIRE(LexSingleTokenTest<TokenKlass::K_##KEYWORD>{#KEYWORD}.Positive());
+#define DECL_KEYWORD(KEYWORD)                                                                                          \
+    GLSLD_CHECK_TOKENS(#KEYWORD, TokenMatcher{"Keyword", TokenKlass::K_##KEYWORD, std::nullopt}, EofTok());
 #include "GlslKeywords.inc"
 #undef DECL_KEYWORD
     }
 
     SECTION("Punctuation")
     {
-#define DECL_PUNCT(PUNCT_NAME, PUNCT) REQUIRE(LexSingleTokenTest<TokenKlass::PUNCT_NAME>{PUNCT}.Positive());
+#define DECL_PUNCT(PUNCT_NAME, PUNCT)                                                                                  \
+    GLSLD_CHECK_TOKENS(PUNCT, TokenMatcher{"Punctuation", TokenKlass::PUNCT_NAME, std::nullopt}, EofTok());
 #include "GlslPunctuation.inc"
 #undef DECL_PUNCT
     }
 
     SECTION("Integer constant")
     {
-        using Test = LexSingleTokenTest<TokenKlass::IntegerConstant>;
-        REQUIRE(Test{"0"}.Positive());
-        REQUIRE(Test{"1"}.Positive());
-        REQUIRE(Test{"123"}.Positive());
-        REQUIRE(Test{"1234567890"}.Positive());
-        REQUIRE(Test{"0x123abc"}.Positive());
-        REQUIRE(Test{"0X123ABC"}.Positive());
-        REQUIRE(Test{"0123"}.Positive());
-        REQUIRE(Test{"0u"}.Positive());
-        REQUIRE(Test{"123U"}.Positive());
-        REQUIRE(Test{"0xabcu"}.Positive());
-        REQUIRE(Test{"0XABcU"}.Positive());
-        REQUIRE(Test{"0123u"}.Positive());
+        const char* tests[] = {
+            "0", "1", "123", "1234567890", "0x123abc", "0X123ABC", "0123", "0u", "123U", "0xabcu", "0XABcU", "0123u",
+        };
+
+        for (StringView test : tests) {
+            GLSLD_CHECK_TOKENS(test, IntTok(test), EofTok());
+        }
     }
 
     SECTION("Float constant")
     {
-        using Test = LexSingleTokenTest<TokenKlass::FloatConstant>;
-        REQUIRE(Test{"0.0"}.Positive());
-        REQUIRE(Test{"1.0"}.Positive());
-        REQUIRE(Test{"123.0"}.Positive());
-        REQUIRE(Test{"1234567890.0"}.Positive());
-        REQUIRE(Test{"0.123"}.Positive());
-        REQUIRE(Test{"0.123e1"}.Positive());
-        REQUIRE(Test{"0.123E1"}.Positive());
-        REQUIRE(Test{"0.123e+1"}.Positive());
-        REQUIRE(Test{"0.123e-1"}.Positive());
-        REQUIRE(Test{"0.123e+00001"}.Positive());
-        REQUIRE(Test{"0.123e-00001"}.Positive());
+        const char* tests[] = {
+            "0.0",     "1.0",      "123.0",    "1234567890.0", "0.123",        "0.123e1",
+            "0.123E1", "0.123e+1", "0.123e-1", "0.123e+00001", "0.123e-00001",
+        };
+
+        for (StringView test : tests) {
+            GLSLD_CHECK_TOKENS(test, FloatTok(test), EofTok());
+        }
     }
 
     SECTION("Identifier")
     {
-        using Test = LexSingleTokenTest<TokenKlass::Identifier>;
-        REQUIRE(Test{"abc"}.Positive());
-        REQUIRE(Test{"ABC"}.Positive());
-        REQUIRE(Test{"a0_"}.Positive());
-        REQUIRE(Test{"___"}.Positive());
-        REQUIRE(Test{"测试"}.Negative());
-        REQUIRE(Test{"テスト"}.Negative());
+        const char* tests[] = {
+            "abc",
+            "ABC",
+            "a0_",
+            "___",
+        };
+
+        for (StringView test : tests) {
+            GLSLD_CHECK_TOKENS(test, IdTok(test), EofTok());
+        }
     }
 }

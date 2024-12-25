@@ -6,6 +6,7 @@
 #include "Compiler/CompilerInvocation.h"
 
 #include <catch2/catch_all.hpp>
+#include <tuple>
 
 namespace glsld
 {
@@ -16,16 +17,22 @@ namespace glsld
         std::function<AstMatcher(AstMatcher)> matcherTemplate;
 
     public:
-        auto SetTestTemplate(fmt::format_string<StringView> sourceTemplate,
-                             std::function<AstMatcher(AstMatcher)> matcherTemplate) -> void
+        auto SetTestTemplate(StringView sourceTemplate, std::function<AstMatcher(AstMatcher)> matcherTemplate) -> void
         {
-            this->sourceTemplate  = std::string(sourceTemplate.get().begin(), sourceTemplate.get().end());
+            this->sourceTemplate  = sourceTemplate.Str();
             this->matcherTemplate = std::move(matcherTemplate);
         }
 
+        template <typename... Args>
+        auto WrapSource(std::tuple<Args...> sourcePieces) const -> std::string
+        {
+            return std::apply(
+                [this](const auto&... args) { return fmt::format(fmt::runtime(sourceTemplate), args...); },
+                sourcePieces);
+        }
         auto WrapSource(StringView sourceText) const -> std::string
         {
-            return fmt::format(fmt::runtime(sourceTemplate), sourceText);
+            return WrapSource(std::make_tuple(sourceText));
         }
 
         auto WrapMatcher(AstMatcher matcher) const -> AstMatcher
@@ -35,11 +42,9 @@ namespace glsld
 
         auto Compile(StringView sourceText) const -> std::unique_ptr<CompilerResult>
         {
-            std::string realSourceText = WrapSource(sourceText);
-
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
-            compiler->SetMainFileFromBuffer(realSourceText);
+            compiler->SetMainFileFromBuffer(sourceText);
             return compiler->CompileMainFile(nullptr, CompileMode::ParseOnly);
         }
     };
@@ -80,8 +85,11 @@ namespace glsld
 
 } // namespace glsld
 
+#define SOURCE_PIECES(...) std::make_tuple(__VA_ARGS__)
+
 #define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
     do {                                                                                                               \
-        auto matcher = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                                 \
-        CHECK_THAT(SRC, matcher);                                                                                      \
+        auto matcher    = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                              \
+        auto sourceText = WrapSource((SRC));                                                                           \
+        CHECK_THAT(sourceText, matcher);                                                                               \
     } while (false)

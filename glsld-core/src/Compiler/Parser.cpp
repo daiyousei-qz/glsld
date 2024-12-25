@@ -1853,6 +1853,7 @@ namespace glsld
             else {
                 auto returnedExpr = ParseExprNoComma();
                 ParseOrInferSemicolonHelper();
+
                 return astBuilder.BuildReturnStmt(CreateAstSyntaxRange(beginTokID), returnedExpr);
             }
         default:

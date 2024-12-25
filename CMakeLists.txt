@@ -10,8 +10,7 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
         message(FATAL_ERROR "Couldn't find vcpkg. Please set VCPKG_ROOT environment variable or pass CMAKE_TOOLCHAIN_FILE")
     endif()
 
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Vcpkg toolchain file")
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 endif()
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
@@ -23,11 +22,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     set(VCPKG_TARGET_TRIPLET "arm64-osx")
 else()
     message(FATAL_ERROR "Failed to infer vcpkg triplet")
-endif()
-
-if(NOT CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Vcpkg toolchain file")
 endif()
 
 # NOTE it is important to have project declaration to come after vcpkg config

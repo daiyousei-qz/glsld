@@ -1,75 +1,84 @@
 #pragma once
+#include "TokenMatcher.h"
+
 #include "Basic/StringView.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/CompilerResult.h"
 #include "Compiler/SyntaxToken.h"
+
+#include <catch2/catch_all.hpp>
+
+#include <vector>
 
 namespace glsld
 {
     class LexingTestFixture
     {
     private:
-        std::unique_ptr<CompilerResult> compilerResult;
-
     public:
-        LexingTestFixture(StringView sourceText)
+        LexingTestFixture()
         {
-            std::unique_ptr<CompilerInvocation> compiler = std::make_unique<CompilerInvocation>();
+        }
+
+        auto Compile(StringView sourceText) const -> std::unique_ptr<CompilerResult>
+        {
+            auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
 
-            compilerResult = compiler->CompileMainFile(nullptr, CompileMode::PreprocessOnly);
-        }
-
-        auto GetTokens() const noexcept -> ArrayView<RawSyntaxTokenEntry>
-        {
-            return compilerResult->GetUserFileTokens();
+            return compiler->CompileMainFile(nullptr, CompileMode::PreprocessOnly);
         }
     };
 
-    class GlsldTest
-    {
-    public:
-        GlsldTest()          = default;
-        virtual ~GlsldTest() = default;
-
-        virtual auto Positive() -> bool = 0;
-
-        auto Negative() -> bool
-        {
-            return !Positive();
-        }
-    };
-
-    template <TokenKlass ExpectedKlass>
-    class LexSingleTokenTest : public GlsldTest
+    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<StringView>
     {
     private:
-        StringView sourceText;
+        const LexingTestFixture& fixture;
+        std::vector<TokenMatcher> matchers;
+        StringView matcherDesc;
 
     public:
-        LexSingleTokenTest(StringView sourceText) : sourceText(sourceText)
+        LexingTestCatchMatcher(const LexingTestFixture& fixture, std::vector<TokenMatcher> matchers,
+                               StringView matcherDesc)
+            : fixture(fixture), matchers(std::move(matchers)), matcherDesc(matcherDesc)
         {
         }
 
-        auto Positive() -> bool override
+        auto match(const StringView& sourceText) const -> bool override
         {
-            auto fixture = LexingTestFixture{sourceText};
-            auto tokens  = fixture.GetTokens();
+            auto compilerResult = fixture.Compile(sourceText);
 
-            if (tokens.size() != 2) {
+            auto tokens = compilerResult->GetUserFileTokens();
+            if (tokens.size() != matchers.size()) {
+                UNSCOPED_INFO("Token count mismatch");
                 return false;
             }
 
-            if (tokens[0].klass != ExpectedKlass) {
-                return false;
-            }
-
-            if (tokens[0].text != sourceText) {
-                return false;
+            for (uint32_t i = 0; i < tokens.size(); ++i) {
+                auto token = SyntaxToken{
+                    .index = SyntaxTokenID{TranslationUnitID::UserFile, i},
+                    .klass = tokens[i].klass,
+                    .text  = tokens[i].text,
+                };
+                if (!matchers[i].Match(token)) {
+                    UNSCOPED_INFO("Token mismatch at index " + std::to_string(i));
+                    return false;
+                }
             }
 
             return true;
         }
+
+        auto describe() const -> std::string override
+        {
+            return matcherDesc.Str();
+        }
     };
 } // namespace glsld
+
+#define GLSLD_CHECK_TOKENS(SRC, ...)                                                                                   \
+    do {                                                                                                               \
+        auto matchers =                                                                                                \
+            ::glsld::LexingTestCatchMatcher{*this, ::std::vector<::glsld::TokenMatcher>{__VA_ARGS__}, #__VA_ARGS__};   \
+        CHECK_THAT(SRC, matchers);                                                                                     \
+    } while (false)

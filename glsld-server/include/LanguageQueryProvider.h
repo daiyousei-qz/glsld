@@ -83,6 +83,11 @@ namespace glsld
         PreprocessInfoCache ppInfoCache;
 
     public:
+        LanguageQueryProvider(std::unique_ptr<CompilerResult> result, PreprocessInfoCache ppInfo)
+            : compilerResult(std::move(result)), ppInfoCache(std::move(ppInfo))
+        {
+        }
+
         auto GetCompilerResult() const -> const CompilerResult&
         {
             return *compilerResult;
@@ -312,9 +317,8 @@ namespace glsld
         std::string uri;
         std::string sourceString;
 
-        std::unique_ptr<CompilerInvocation> compiler;
-
-        LanguageQueryProvider provider;
+        std::unique_ptr<CompilerInvocation> compiler    = nullptr;
+        std::unique_ptr<LanguageQueryProvider> provider = nullptr;
 
         std::atomic<bool> available = false;
         std::mutex mu;
@@ -328,13 +332,16 @@ namespace glsld
 
         auto Setup()
         {
-            auto ppCallback = provider.ppInfoCache.GetCollectionCallback();
+            PreprocessInfoCache ppInfoCache;
+            auto ppCallback = ppInfoCache.GetCollectionCallback();
 
             compiler = std::make_unique<CompilerInvocation>(GetStdlibModule());
             compiler->SetCountUtf16Characters(true);
             compiler->AddIncludePath(std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
             compiler->SetMainFileFromBuffer(sourceString);
-            provider.compilerResult = compiler->CompileMainFile(ppCallback.get());
+            auto result = compiler->CompileMainFile(ppCallback.get());
+
+            provider = std::make_unique<LanguageQueryProvider>(std::move(result), std::move(ppInfoCache));
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;
@@ -367,7 +374,7 @@ namespace glsld
         auto GetProvider() -> const LanguageQueryProvider&
         {
             GLSLD_ASSERT(available);
-            return provider;
+            return *provider;
         }
     };
 } // namespace glsld

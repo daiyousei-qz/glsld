@@ -806,7 +806,7 @@ namespace glsld
 
         auto CreateErrorExpr() -> AstErrorExpr*
         {
-            return astBuilder.BuildErrorExpr(CreateAstSyntaxRange());
+            return astBuilder.BuildErrorExpr(CreateAstSyntaxRange(GetCurrentTokenID()));
         }
 
         auto CreateErrorExpr(SyntaxTokenID beginTokIndex) -> AstErrorExpr*
@@ -816,14 +816,9 @@ namespace glsld
 
         auto CreateErrorStmt() -> AstErrorStmt*
         {
-            auto tokIndex = GetCurrentTokenID();
-            return astBuilder.BuildErrorStmt(CreateAstSyntaxRange());
+            return astBuilder.BuildErrorStmt(CreateAstSyntaxRange(GetCurrentTokenID()));
         }
 
-        auto CreateAstSyntaxRange() -> AstSyntaxRange
-        {
-            return AstSyntaxRange{GetCurrentTokenID()};
-        }
         auto CreateAstSyntaxRange(SyntaxTokenID beginTokIndex) -> AstSyntaxRange
         {
             return AstSyntaxRange{beginTokIndex, GetCurrentTokenID()};

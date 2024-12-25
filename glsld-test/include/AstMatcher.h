@@ -4,6 +4,7 @@
 #include "Ast/AstVisitor.h"
 #include "Ast/Base.h"
 #include "Ast/Expr.h"
+#include "Ast/Eval.h"
 #include "Language/ConstValue.h"
 
 #include <functional>
@@ -70,6 +71,11 @@ namespace glsld
             bool findMatchMode = false;
             // Callback to match the current node.
             std::move_only_function<auto(const AstNode&)->AstMatchResult> matchCallback;
+            // Additional checkers for the deduced type of AST expression.
+            std::move_only_function<auto(const Type&)->bool> typeChecker;
+            // Additional checkers for the evaluated value of AST expression.
+            std::move_only_function<auto(const ConstValue&)->bool> valueChecker;
+
             // Matchers for children nodes.
             std::vector<AstMatcher> childrenMatcher;
             // The matched node will be captured to this pointer.
@@ -122,6 +128,18 @@ namespace glsld
             return std::move(*this);
         }
 
+        auto CheckType(std::move_only_function<auto(const Type&)->bool> typeChecker) && -> AstMatcher&&
+        {
+            data->typeChecker = std::move(typeChecker);
+            return std::move(*this);
+        }
+
+        auto CheckValue(std::move_only_function<auto(const ConstValue&)->bool> valueChecker) && -> AstMatcher&&
+        {
+            data->valueChecker = std::move(valueChecker);
+            return std::move(*this);
+        }
+
         auto Match(const AstNode& node) const -> AstMatchResult
         {
             AstChildCollector collector;
@@ -146,6 +164,15 @@ namespace glsld
                     if (!matchResult.IsSuccess()) {
                         matchResult.AddErrorTrace(data->desc);
                         return matchResult;
+                    }
+                }
+
+                if (auto expr = node.As<AstExpr>(); expr) {
+                    if (data->typeChecker && !data->typeChecker(*expr->GetDeducedType())) {
+                        return AstMatchResult::Failure(node);
+                    }
+                    if (data->valueChecker && !data->valueChecker(EvalAstExpr(*expr))) {
+                        return AstMatchResult::Failure(node);
                     }
                 }
 
@@ -692,6 +719,13 @@ namespace glsld
     }
 
 #pragma endregion
+
+    inline auto EmptyDecl() -> AstMatcher
+    {
+        return AstMatcher("EmptyDecl", [](const AstNode& node) -> AstMatchResult {
+            return node.Is<AstEmptyDecl>() ? AstMatchResult::Success() : AstMatchResult::Failure(node);
+        });
+    }
 
     inline auto VariableDecl1(AstMatcher qualTypeMatcher, TokenMatcher nameMatcher, AstMatcher initMatcher)
         -> AstMatcher
