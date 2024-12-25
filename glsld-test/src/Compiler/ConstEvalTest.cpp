@@ -4,17 +4,17 @@ using namespace glsld;
 
 TEST_CASE_METHOD(AstTestFixture, "Simple Const Eval")
 {
-    SetTestTemplate("void main() {{ {}; }}", [](AstMatcher matcher) {
-        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), AnyStmt()),
-                         FunctionDecl(AnyAst(), AnyTok(), CompoundStmt(ExprStmt(std::move(matcher)))));
+    SetTestTemplate("void main() {{ {}; }}", [this](AstMatcher* matcher) {
+        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
+                         FunctionDecl(AnyQualType(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
     });
 
-    auto checkScalar = [](auto scalarValue) {
-        return AnyExpr().CheckValue(
+    auto checkScalar = [this](auto scalarValue) {
+        return AnyExpr()->CheckValue(
             [scalarValue](const ConstValue& value) { return value == ConstValue::CreateScalar(scalarValue); });
     };
-    auto checkVector = [](auto... scalarValues) {
-        return AnyExpr().CheckValue([scalarValues...](const ConstValue& value) {
+    auto checkVector = [this](auto... scalarValues) {
+        return AnyExpr()->CheckValue([scalarValues...](const ConstValue& value) {
             return value == ConstValue::CreateVector({scalarValues...});
         });
     };

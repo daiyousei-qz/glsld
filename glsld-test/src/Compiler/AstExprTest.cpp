@@ -4,9 +4,9 @@ using namespace glsld;
 
 TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 {
-    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
-                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
+        return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
+                         VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
     });
 
     SECTION("ErrorExpr")
@@ -89,9 +89,9 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("SwizzleExpr")
     {
-        SetTestTemplate("vec4 x; int y; unknown test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+        SetTestTemplate("vec4 x; int y; unknown test__ = {};", [this](AstMatcher* matcher) {
+            return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
+                             VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
         });
 
         GLSLD_CHECK_AST("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
@@ -105,65 +105,94 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("IndexAccessExpr")
     {
-        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a[1][2]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), {
+                                                                         LiteralExpr(1),
+                                                                     }));
+        GLSLD_CHECK_AST("a[1][2]", IndexAccessExpr(NameAccessExpr("a"), {
+                                                                            LiteralExpr(1),
+                                                                            LiteralExpr(2),
+                                                                        }));
 
         SECTION("Permissive")
         {
-            // FIXME: how to handle error index that is nullptr?
-            // GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), AnyExpr()));
-            // GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
-            GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), {NullAst()}));
+            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), {ErrorExpr()}));
+            GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1)}));
         }
     }
 
     SECTION("FunctionCallExpr")
     {
-        GLSLD_CHECK_AST("foo()", FunctionCallExpr("foo"));
-        GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", LiteralExpr(1)));
-        GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("foo()", FunctionCallExpr("foo", {}));
+        GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", {
+                                                              LiteralExpr(1),
+                                                          }));
+        GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", {
+                                                                 LiteralExpr(1),
+                                                                 LiteralExpr(2),
+                                                             }));
 
         SECTION("Permissive")
         {
             // FIXME: shouldn't we parse `foo(` as `foo()`?
-            GLSLD_CHECK_AST("foo(", FunctionCallExpr("foo", ErrorExpr()));
-            GLSLD_CHECK_AST("foo(()", FunctionCallExpr("foo", ErrorExpr()));
-            GLSLD_CHECK_AST("foo(())", FunctionCallExpr("foo", ErrorExpr()));
-            GLSLD_CHECK_AST("foo(1,)", FunctionCallExpr("foo", LiteralExpr(1), ErrorExpr()));
+            GLSLD_CHECK_AST("foo(", FunctionCallExpr("foo", {
+                                                                ErrorExpr(),
+                                                            }));
+            GLSLD_CHECK_AST("foo(()", FunctionCallExpr("foo", {
+                                                                  ErrorExpr(),
+                                                              }));
+            GLSLD_CHECK_AST("foo(())", FunctionCallExpr("foo", {
+                                                                   ErrorExpr(),
+                                                               }));
+            GLSLD_CHECK_AST("foo(1,)", FunctionCallExpr("foo", {
+                                                                   LiteralExpr(1),
+                                                                   ErrorExpr(),
+                                                               }));
         }
     }
 
     SECTION("ConstructorCallExpr")
     {
-        SetTestTemplate("struct S{{}}; unknown test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+        SetTestTemplate("struct S{{}}; unknown test__ = {};", [this](AstMatcher* matcher) {
+            return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
+                             VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3)));
-        GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), LiteralExpr(1)));
-        GLSLD_CHECK_AST("vec3(1, 2, 3)", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3),
-                                                             LiteralExpr(1), LiteralExpr(2), LiteralExpr(3)));
+        GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {}));
+        GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
+                                                                                                         LiteralExpr(1),
+                                                                                                     }));
+        GLSLD_CHECK_AST("vec3(1, 2, 3)",
+                        ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
+                                                                                              LiteralExpr(1),
+                                                                                              LiteralExpr(2),
+                                                                                              LiteralExpr(3),
+                                                                                          }));
 
-        GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S")));
+        GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S"), {}));
 
         // FIXME: add `int[2]()`
         // FIXME: add `struct {}()`
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("vec3(", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), ErrorExpr()));
-            GLSLD_CHECK_AST("vec3(1,)", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3),
-                                                            LiteralExpr(1), ErrorExpr()));
+            GLSLD_CHECK_AST("vec3(", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
+                                                                                                           ErrorExpr(),
+                                                                                                       }));
+            GLSLD_CHECK_AST("vec3(1,)",
+                            ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
+                                                                                                  LiteralExpr(1),
+                                                                                                  ErrorExpr(),
+                                                                                              }));
         }
     }
 }
 
 TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 {
-    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyExpr()),
-                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
+        return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
+                         VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
     });
 
     GLSLD_CHECK_AST("(1)", LiteralExpr(1));
@@ -184,56 +213,98 @@ TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
 
 TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 {
-    SetTestTemplate("unknown test__ = {};", [](AstMatcher matcher) {
-        return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
-                         VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+    SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
+        return FindMatch(VariableDecl(AnyQualType(), IdTok("test__"), AnyAst(), AnyInitializer()),
+                         VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
     });
 
     SECTION("Simple")
     {
-        SetTestTemplate("int[] test__ = {};", [](AstMatcher matcher) {
-            return FindMatch(VariableDecl1(AnyQualType(), IdTok("test__"), AnyInitializer()),
-                             VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher)));
+        SetTestTemplate("int[] test__ = {};", [this](AstMatcher* matcher) {
+            return FindMatch(VariableDecl(AnyQualType(), IdTok("test__"), AnyAst(), AnyInitializer()),
+                             VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("{}", InitializerList());
-        GLSLD_CHECK_AST("{1}", InitializerList(LiteralExpr(1)));
-        GLSLD_CHECK_AST("{1,}", InitializerList(LiteralExpr(1)));
-        GLSLD_CHECK_AST("{1,2}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("{1,2,}", InitializerList(LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("{}", InitializerList({}));
+        GLSLD_CHECK_AST("{1}", InitializerList({
+                                   LiteralExpr(1),
+                               }));
+        GLSLD_CHECK_AST("{1,}", InitializerList({
+                                    LiteralExpr(1),
+                                }));
+        GLSLD_CHECK_AST("{1,2}", InitializerList({
+                                     LiteralExpr(1),
+                                     LiteralExpr(2),
+                                 }));
+        GLSLD_CHECK_AST("{1,2,}", InitializerList({
+                                      LiteralExpr(1),
+                                      LiteralExpr(2),
+                                  }));
     }
 
     SECTION("Nested")
     {
-        GLSLD_CHECK_AST("{{}}", InitializerList(InitializerList()));
-        GLSLD_CHECK_AST("{{},}", InitializerList(InitializerList()));
-        GLSLD_CHECK_AST("{{},{}}", InitializerList(InitializerList(), InitializerList()));
+        GLSLD_CHECK_AST("{{}}", InitializerList({
+                                    InitializerList({}),
+                                }));
+        GLSLD_CHECK_AST("{{},}", InitializerList({
+                                     InitializerList({}),
+                                 }));
+        GLSLD_CHECK_AST("{{},{}}", InitializerList({
+                                       InitializerList({}),
+                                       InitializerList({}),
+                                   }));
 
         // We have implicit cast here because the target type is unknown
-        GLSLD_CHECK_AST("{{1}}", InitializerList(InitializerList(ImplicitCastExpr(LiteralExpr(1)))));
-        GLSLD_CHECK_AST("{{1}, {2, {3}}}",
-                        InitializerList(InitializerList(ImplicitCastExpr(LiteralExpr(1))),
-                                        InitializerList(ImplicitCastExpr(LiteralExpr(2)),
-                                                        InitializerList(ImplicitCastExpr(LiteralExpr(3))))));
+        GLSLD_CHECK_AST("{{1}}", InitializerList({
+                                     InitializerList({
+                                         ImplicitCastExpr(LiteralExpr(1)),
+                                     }),
+                                 }));
+        GLSLD_CHECK_AST("{{1}, {2, {3}}}", InitializerList({
+                                               InitializerList({
+                                                   ImplicitCastExpr(LiteralExpr(1)),
+                                               }),
+                                               InitializerList({
+                                                   ImplicitCastExpr(LiteralExpr(2)),
+                                                   InitializerList({
+                                                       ImplicitCastExpr(LiteralExpr(3)),
+                                                   }),
+                                               }),
+                                           }));
     }
 
     SECTION("Permissive")
     {
-        GLSLD_CHECK_AST("{", InitializerList(ErrorExpr()));
-        GLSLD_CHECK_AST("{,", InitializerList(ErrorExpr(), ErrorExpr()));
+        GLSLD_CHECK_AST("{", InitializerList({
+                                 ErrorExpr(),
+                             }));
+        GLSLD_CHECK_AST("{,", InitializerList({
+                                  ErrorExpr(),
+                                  ErrorExpr(),
+                              }));
         // This is considered as a single-element list like `{1,}`
-        GLSLD_CHECK_AST("{,}", InitializerList(ErrorExpr()));
-        GLSLD_CHECK_AST("{,,", InitializerList(ErrorExpr(), ErrorExpr(), ErrorExpr()));
+        GLSLD_CHECK_AST("{,}", InitializerList({
+                                   ErrorExpr(),
+                               }));
+        GLSLD_CHECK_AST("{,,", InitializerList({
+                                   ErrorExpr(),
+                                   ErrorExpr(),
+                                   ErrorExpr(),
+                               }));
         // This is considered as a two-element list like `{1,2,}`
-        GLSLD_CHECK_AST("{,,}", InitializerList(ErrorExpr(), ErrorExpr()));
+        GLSLD_CHECK_AST("{,,}", InitializerList({
+                                    ErrorExpr(),
+                                    ErrorExpr(),
+                                }));
     }
 }
 
 TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
 {
-    SetTestTemplate("void main() {{ {}; }}", [](AstMatcher matcher) {
-        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), AnyStmt()),
-                         FunctionDecl(AnyQualType(), AnyTok(), CompoundStmt(ExprStmt(std::move(matcher)))));
+    SetTestTemplate("void main() {{ {}; }}", [this](AstMatcher* matcher) {
+        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
+                         FunctionDecl(AnyQualType(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
     });
 
     SECTION("BinaryExpr")
@@ -241,22 +312,22 @@ TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
         // int + uint -> uint + uint
         GLSLD_CHECK_AST("1 + 2u",
                         BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2u))
-                            .CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_uint); }));
+                            ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_uint); }));
         // int + float -> float + float
         GLSLD_CHECK_AST("1 + 2.0f",
                         BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2.0f))
-                            .CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_float); }));
+                            ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_float); }));
         // double + float -> double + double
         GLSLD_CHECK_AST("1.0lf + 2.0f",
                         BinaryExpr(BinaryOp::Plus, LiteralExpr(1.0), ImplicitCastExpr(LiteralExpr(2.0f)))
-                            .CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_double); }));
+                            ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_double); }));
         // ivecn + vecn -> vecn + vecn
         GLSLD_CHECK_AST(
             "ivec2(1) + vec2(2.0f)",
             BinaryExpr(
                 BinaryOp::Plus,
-                ImplicitCastExpr(ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_ivec2), LiteralExpr(1)))
-                    .CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_vec2); }),
+                ImplicitCastExpr(ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_ivec2), {LiteralExpr(1)}))
+                    ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_vec2); }),
                 AnyExpr()));
     }
 
@@ -264,20 +335,20 @@ TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
     {
         // bool ? int : uint -> bool ? uint : uint
         GLSLD_CHECK_AST("true ? 1 : 2u",
-                        SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1)).CheckType([](const Type& type) {
+                        SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1))->CheckType([](const Type& type) {
                             return type.IsSameWith(GlslBuiltinType::Ty_uint);
                         }),
                                    AnyExpr()));
         // bool ? int : float -> bool ? float : float
         GLSLD_CHECK_AST("true ? 1 : 2.0f",
-                        SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1)).CheckType([](const Type& type) {
+                        SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1))->CheckType([](const Type& type) {
                             return type.IsSameWith(GlslBuiltinType::Ty_float);
                         }),
                                    AnyExpr()));
         // bool ? double : float -> bool ? double : double
         GLSLD_CHECK_AST(
             "true ? 1.0lf : 2.0f",
-            SelectExpr(AnyExpr(), AnyExpr(), ImplicitCastExpr(LiteralExpr(2.0f)).CheckType([](const Type& type) {
+            SelectExpr(AnyExpr(), AnyExpr(), ImplicitCastExpr(LiteralExpr(2.0f))->CheckType([](const Type& type) {
                 return type.IsSameWith(GlslBuiltinType::Ty_double);
             })));
     }
@@ -290,37 +361,43 @@ TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
                 {};
             }}
         )";
-        SetTestTemplate(testTemplate, [](AstMatcher matcher) {
-            return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), AnyStmt()),
-                             FunctionDecl(AnyQualType(), AnyTok(), CompoundStmt(ExprStmt(std::move(matcher)))));
+        SetTestTemplate(testTemplate, [this](AstMatcher* matcher) {
+            return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
+                             FunctionDecl(AnyQualType(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
         });
 
         GLSLD_CHECK_AST("foo(1)",
-                        FunctionCallExpr("foo", ImplicitCastExpr(LiteralExpr(1)).CheckType([](const Type& type) {
-                            return type.IsSameWith(GlslBuiltinType::Ty_uint);
-                        })));
+                        FunctionCallExpr("foo", {
+                                                    ImplicitCastExpr(LiteralExpr(1))->CheckType([](const Type& type) {
+                                                        return type.IsSameWith(GlslBuiltinType::Ty_uint);
+                                                    }),
+                                                }));
     }
 
     SECTION("Initializer")
     {
-        SetTestTemplate("void main() {{ {} test__ = {} }}", [](AstMatcher matcher) {
+        SetTestTemplate("void main() {{ {} test__ = {} }}", [this](AstMatcher* matcher) {
             return FindMatch(
-                FunctionDecl(AnyQualType(), IdTok("main"), AnyStmt()),
-                FunctionDecl(AnyQualType(), AnyTok(),
-                             CompoundStmt(DeclStmt(VariableDecl1(AnyQualType(), AnyTok(), std::move(matcher))))));
+                FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
+                FunctionDecl(AnyQualType(), AnyTok(), {},
+                             CompoundStmt({DeclStmt(VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher))})));
         });
 
         auto checkFloatType  = [](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_float); };
         auto checkDoubleType = [](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_double); };
 
-        GLSLD_CHECK_AST(SOURCE_PIECES("float", "1"), ImplicitCastExpr(LiteralExpr(1)).CheckType(checkFloatType));
+        GLSLD_CHECK_AST(SOURCE_PIECES("float", "1"), ImplicitCastExpr(LiteralExpr(1))->CheckType(checkFloatType));
 
         GLSLD_CHECK_AST(SOURCE_PIECES("vec2", "{1, 2}"),
-                        InitializerList(ImplicitCastExpr(LiteralExpr(1)).CheckType(checkFloatType),
-                                        ImplicitCastExpr(LiteralExpr(2)).CheckType(checkFloatType)));
+                        InitializerList({
+                            ImplicitCastExpr(LiteralExpr(1))->CheckType(checkFloatType),
+                            ImplicitCastExpr(LiteralExpr(2))->CheckType(checkFloatType),
+                        }));
 
         GLSLD_CHECK_AST(SOURCE_PIECES("struct { float x; double y; }", "{1, 2}"),
-                        InitializerList(ImplicitCastExpr(LiteralExpr(1)).CheckType(checkFloatType),
-                                        ImplicitCastExpr(LiteralExpr(2)).CheckType(checkDoubleType)));
+                        InitializerList({
+                            ImplicitCastExpr(LiteralExpr(1))->CheckType(checkFloatType),
+                            ImplicitCastExpr(LiteralExpr(2))->CheckType(checkDoubleType),
+                        }));
     }
 }
