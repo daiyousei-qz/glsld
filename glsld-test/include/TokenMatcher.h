@@ -48,6 +48,10 @@ namespace glsld
     {
         return TokenMatcher("EofToken", TokenKlass::Eof, std::nullopt);
     }
+    inline auto InvalidTok() -> TokenMatcher
+    {
+        return TokenMatcher("InvalidToken", TokenKlass::Invalid, std::nullopt);
+    }
     inline auto IdTok(StringView identifier) -> TokenMatcher
     {
         return TokenMatcher("Identifier", TokenKlass::Identifier, identifier.Str());

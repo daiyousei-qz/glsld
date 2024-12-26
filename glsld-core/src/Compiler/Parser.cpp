@@ -589,9 +589,8 @@ namespace glsld
         }
 
         if (!TryConsumeToken(TokenKlass::RBrace)) {
-            GLSLD_ASSERT(InRecoveryMode());
             RecoverFromError(RecoveryMode::Brace);
-            if (TryConsumeToken(TokenKlass::RBrace)) {
+            if (TryConsumeToken(TokenKlass::RBrace) && InRecoveryMode()) {
                 ExitRecoveryMode();
             }
         }
@@ -1005,6 +1004,7 @@ namespace glsld
 
         // Parse type decl
         if (TryConsumeToken(TokenKlass::Semicolon)) {
+            // TODO: should we just return a type decl?
             return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokID), variableType, {});
         }
 

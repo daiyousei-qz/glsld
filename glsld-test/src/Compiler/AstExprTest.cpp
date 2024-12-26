@@ -84,6 +84,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
             GLSLD_CHECK_AST("true ? 1", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
             GLSLD_CHECK_AST("true ? 1 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
             GLSLD_CHECK_AST("true ? 1 : 2 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
+            GLSLD_CHECK_AST("true ? : ? :", SelectExpr(LiteralExpr(true), ErrorExpr(),
+                                                       SelectExpr(ErrorExpr(), ErrorExpr(), ErrorExpr())));
         }
     }
 
@@ -101,6 +103,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
         GLSLD_CHECK_AST("y.xxxx", SwizzleAccessExpr(NameAccessExpr("y"), "xxxx"));
         GLSLD_CHECK_AST("y.wzyx", SwizzleAccessExpr(NameAccessExpr("y"), "wzyx"));
+
+        // Swizzle expression has no permissive parsing since it would be classified as other expressions instead.
     }
 
     SECTION("IndexAccessExpr")
@@ -114,19 +118,17 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
             GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
             GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
             GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+            // FIXME: this is seen as a constructor call???
+            // GLSLD_CHECK_AST("a[int bool]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
         }
     }
 
     SECTION("FunctionCallExpr")
     {
         GLSLD_CHECK_AST("foo()", FunctionCallExpr("foo", {}));
-        GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", {
-                                                              LiteralExpr(1),
-                                                          }));
-        GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", {
-                                                                 LiteralExpr(1),
-                                                                 LiteralExpr(2),
-                                                             }));
+        GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", {LiteralExpr(1)}));
+        GLSLD_CHECK_AST("foo((1))", FunctionCallExpr("foo", {LiteralExpr(1)}));
+        GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", {LiteralExpr(1), LiteralExpr(2)}));
 
         SECTION("Permissive")
         {

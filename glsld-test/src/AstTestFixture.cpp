@@ -73,10 +73,10 @@ namespace glsld
     {
         return NamedType(IdTok(name));
     }
-    auto AstTestFixture::ArraySpec(std::vector<AstMatcher*> indexMatchers) -> AstMatcher*
+    auto AstTestFixture::ArraySpec(std::vector<AstMatcher*> sizeMatchers) -> AstMatcher*
     {
         return CreateMatcher("ArraySpec",
-                             [indexMatchers = std::move(indexMatchers)](const AstNode* node) -> AstMatchResult {
+                             [indexMatchers = std::move(sizeMatchers)](const AstNode* node) -> AstMatchResult {
                                  auto arraySpec = node ? node->As<AstArraySpec>() : nullptr;
                                  if (!arraySpec || arraySpec->GetSizeList().size() != indexMatchers.size()) {
                                      return AstMatchResult::Failure(node);

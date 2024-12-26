@@ -105,7 +105,7 @@ namespace glsld
         auto NamedType(TokenMatcher nameMatcher) -> AstMatcher*;
         auto NamedType(StringView name) -> AstMatcher*;
 
-        auto ArraySpec(std::vector<AstMatcher*> indexMatchers) -> AstMatcher*;
+        auto ArraySpec(std::vector<AstMatcher*> sizeMatchers) -> AstMatcher*;
 
         auto InitializerList(std::vector<AstMatcher*> itemMatchers) -> AstMatcher*;
         auto ErrorExpr() -> AstMatcher*;
