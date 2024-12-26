@@ -105,13 +105,8 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("IndexAccessExpr")
     {
-        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), {
-                                                                         LiteralExpr(1),
-                                                                     }));
-        GLSLD_CHECK_AST("a[1][2]", IndexAccessExpr(NameAccessExpr("a"), {
-                                                                            LiteralExpr(1),
-                                                                            LiteralExpr(2),
-                                                                        }));
+        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1)}));
+        GLSLD_CHECK_AST("a[1][2]", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1), LiteralExpr(2)}));
 
         SECTION("Permissive")
         {
@@ -135,19 +130,10 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
         SECTION("Permissive")
         {
             // FIXME: shouldn't we parse `foo(` as `foo()`?
-            GLSLD_CHECK_AST("foo(", FunctionCallExpr("foo", {
-                                                                ErrorExpr(),
-                                                            }));
-            GLSLD_CHECK_AST("foo(()", FunctionCallExpr("foo", {
-                                                                  ErrorExpr(),
-                                                              }));
-            GLSLD_CHECK_AST("foo(())", FunctionCallExpr("foo", {
-                                                                   ErrorExpr(),
-                                                               }));
-            GLSLD_CHECK_AST("foo(1,)", FunctionCallExpr("foo", {
-                                                                   LiteralExpr(1),
-                                                                   ErrorExpr(),
-                                                               }));
+            GLSLD_CHECK_AST("foo(", FunctionCallExpr("foo", {ErrorExpr()}));
+            GLSLD_CHECK_AST("foo(()", FunctionCallExpr("foo", {ErrorExpr()}));
+            GLSLD_CHECK_AST("foo(())", FunctionCallExpr("foo", {ErrorExpr()}));
+            GLSLD_CHECK_AST("foo(1,)", FunctionCallExpr("foo", {LiteralExpr(1), ErrorExpr()}));
         }
     }
 
@@ -226,20 +212,10 @@ TEST_CASE_METHOD(AstTestFixture, "Initializer List")
         });
 
         GLSLD_CHECK_AST("{}", InitializerList({}));
-        GLSLD_CHECK_AST("{1}", InitializerList({
-                                   LiteralExpr(1),
-                               }));
-        GLSLD_CHECK_AST("{1,}", InitializerList({
-                                    LiteralExpr(1),
-                                }));
-        GLSLD_CHECK_AST("{1,2}", InitializerList({
-                                     LiteralExpr(1),
-                                     LiteralExpr(2),
-                                 }));
-        GLSLD_CHECK_AST("{1,2,}", InitializerList({
-                                      LiteralExpr(1),
-                                      LiteralExpr(2),
-                                  }));
+        GLSLD_CHECK_AST("{1}", InitializerList({LiteralExpr(1)}));
+        GLSLD_CHECK_AST("{1,}", InitializerList({LiteralExpr(1)}));
+        GLSLD_CHECK_AST("{1,2}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
+        GLSLD_CHECK_AST("{1,2,}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
     }
 
     SECTION("Nested")
@@ -276,27 +252,13 @@ TEST_CASE_METHOD(AstTestFixture, "Initializer List")
 
     SECTION("Permissive")
     {
-        GLSLD_CHECK_AST("{", InitializerList({
-                                 ErrorExpr(),
-                             }));
-        GLSLD_CHECK_AST("{,", InitializerList({
-                                  ErrorExpr(),
-                                  ErrorExpr(),
-                              }));
+        GLSLD_CHECK_AST("{", InitializerList({ErrorExpr()}));
+        GLSLD_CHECK_AST("{,", InitializerList({ErrorExpr(), ErrorExpr()}));
         // This is considered as a single-element list like `{1,}`
-        GLSLD_CHECK_AST("{,}", InitializerList({
-                                   ErrorExpr(),
-                               }));
-        GLSLD_CHECK_AST("{,,", InitializerList({
-                                   ErrorExpr(),
-                                   ErrorExpr(),
-                                   ErrorExpr(),
-                               }));
+        GLSLD_CHECK_AST("{,}", InitializerList({ErrorExpr()}));
+        GLSLD_CHECK_AST("{,,", InitializerList({ErrorExpr(), ErrorExpr(), ErrorExpr()}));
         // This is considered as a two-element list like `{1,2,}`
-        GLSLD_CHECK_AST("{,,}", InitializerList({
-                                    ErrorExpr(),
-                                    ErrorExpr(),
-                                }));
+        GLSLD_CHECK_AST("{,,}", InitializerList({ErrorExpr(), ErrorExpr()}));
     }
 }
 

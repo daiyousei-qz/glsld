@@ -2,7 +2,6 @@
 #include "Basic/StringView.h"
 #include "Compiler/SyntaxToken.h"
 
-#include <memory>
 #include <optional>
 #include <string>
 
@@ -23,7 +22,7 @@ namespace glsld
         {
         }
 
-        auto Describe() const -> StringView
+        auto Describe() const -> std::string
         {
             return desc;
         }
