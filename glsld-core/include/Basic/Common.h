@@ -2,8 +2,9 @@
 #include <cassert>
 #include <span>
 
+// FIXME: improve the assert message
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
-#define GLSLD_REQUIRE(EXPR) GLSLD_ASSERT(EXPR)
+#define GLSLD_REQUIRE(EXPR) static_cast<void>((!!(EXPR)) || (std::abort(), false))
 
 #define GLSLD_UNREACHABLE() (GLSLD_ASSERT(false), std::abort())
 #define GLSLD_NO_IMPL() (GLSLD_ASSERT(false), std::abort())

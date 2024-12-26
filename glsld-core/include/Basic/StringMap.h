@@ -47,7 +47,7 @@ namespace glsld
             }
             [[nodiscard]] auto Find(StringView key) const -> ConstIteratorType
             {
-                return baseMap.template find<StringView>(key.Str());
+                return baseMap.template find<StringView>(key);
             }
 
             [[nodiscard]] auto EqualRange(StringView key) -> std::pair<IteratorType, IteratorType>
