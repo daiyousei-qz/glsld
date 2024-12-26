@@ -23,10 +23,10 @@ namespace glsld
     // When a parser is called from Recovery, it should do nothing and return with Recovery. A parser shouldn't
     // exit Recovery state by itself. The caller is responsible of that.
     //
-    // EXPECT: The expected next token. Calling this parser with incorrect next token leads to undefined behavior.
+    // EXPECT: The expected next token, aka. the first set of the grammar rule.
     // PARSE: Grammar rules that are going to be parsed.
     // ACCEPT: Additional grammar rules to be accepted (for permissive parsing).
-    // RECOVERY: If specified, this parser would do backtracking and parse additional error rules
+    // RECOVERY: If specified, this parser may be in a unknown state and should try to recover.
     class Parser
     {
     private:
@@ -176,21 +176,21 @@ namespace glsld
         //
         // PARSE: ','
         //
-        // RECOVERY: comma_recovery
+        // ACCEPT: comma_recovery [',']
         auto ParseCommaInParenHelper(size_t leftParenDepth) -> bool;
 
         // Parse a closing ')' with the assumption that a balanced '(' has been parsed.
         //
         // PARSE: ')'
         //
-        // RECOVERY: paren_recovery ')'
+        // ACCEPT: paren_recovery [')']
         auto ParseClosingParenHelper(size_t leftParenDepth) -> void;
 
         // Parse a closing ']' with the assumption that a balanced '[' has been parsed.
         //
         // PARSE: ']'
         //
-        // RECOVERY: bracket_recovery ']'
+        // ACCEPT: bracket_recovery ']'
         auto ParseClosingBracketHelper(size_t leftBracketDepth) -> void;
 
         // Try to parse an identifier token as a symbol name if available, otherwise returns an invalid token.
@@ -224,8 +224,10 @@ namespace glsld
         //      - layout_spec := 'ID' '=' assignment_expr
         //
         // ACCEPT:
-        //       - 'K_layout'
-        //       - 'K_layout' '(' paren_recovery ')'
+        //      - layout_qual := 'K_layout'
+        //      - layout_qual := 'K_layout' '(' paren_recovery [')']
+        //      - layout_spec := 'ID' comma_recovery
+        //      - layout_spec := comma_recovery
         auto ParseLayoutQualifier(std::vector<LayoutItem>& items) -> void;
 
         // Try to parse a sequence of qualifiers. Returns nullptr if no qualifier is parsed.
@@ -233,19 +235,21 @@ namespace glsld
         // PARSE: qual_seq
         //      - qual_seq := [qualifier]...
         //      - qualifier := layout_qual
-        //      - qualifier := 'K_???'
+        //      - qualifier := 'K_<qualifier>'
         auto ParseTypeQualifierSeq() -> AstTypeQualifierSeq*;
 
         // EXPECT: '{'
         //
         // PARSE: struct_body
-        //      - struct_body := '{' member_decl... '}'
-        //      - member_decl := ?
+        //      - struct_body := '{' [field_decl]... '}'
+        //      - field_decl := ';'
+        //      - field_decl := qualified_type_spec declarator_list_no_init ';'
         //
-        // ACCEPT: '{' ??? '}'
+        // ACCEPT:
+        //      - struct_body := '{' [field_decl]... brace_recovery ['}']
+        //      - field_decl := qualified_type_spec declarator_list_no_init
+        //      - field_decl := qualified_type_spec declarator_list_no_init semi_recovery [';']
         //
-        // RECOVERY: ^'EOF' or ^';'
-        // FIXME: member_decl???
         auto ParseStructBody() -> std::vector<AstFieldDecl*>;
 
         // EXPECT: 'K_struct'
@@ -254,21 +258,17 @@ namespace glsld
         //      - struct_definition := 'K_struct' ['ID'] struct_body
         //
         // ACCEPT:
-        //      - 'K_struct'
-        //      - 'K_struct' ['ID']
-        //
-        // RECOVERY:
+        //      - struct_definition := 'K_struct'
+        //      - struct_definition := 'K_struct' ['ID']
         auto ParseStructDefinition() -> AstStructDecl*;
 
         // EXPECT: '['
         //
         // PARSE: array_spec
-        //      - array_spec := ('[' [expr] ']')...
-        //
-        // RECOVERY: ^'EOF' or ^'}' or ^';'
+        //      - array_spec := bracket_wrapped_expr...
         auto ParseArraySpec() -> AstArraySpec*;
 
-        // Parse a qualified type specifier, which could be either:
+        // Parse a type specifier and combine it with a previously parsed qualifier sequence, which could be either:
         // 1. a struct definition
         // 2. an identifier that's a type name
         // 3. a keyword that's a built-in type name
@@ -277,22 +277,18 @@ namespace glsld
         // PARSE: type_spec
         //      - type_spec := struct_definition
         //      - type_spec := 'ID'
-        //      - type_spec := 'K_???'
-        //
-        // RECOVERY: unknown
+        //      - type_spec := 'K_<primitive_type>'
         auto ParseTypeSpec(AstTypeQualifierSeq* quals) -> AstQualType*;
 
         // Parse a qualfied type specifier.
         //
         // PARSE: qualified_type_spec
         //      - qualified_type_spec := [qual_seq] type_spec
-        //
-        // RECOVERY: unknown
         auto ParseQualType() -> AstQualType*;
 
         // PARSE: declaration
         //
-        // RECOVERY: ^'EOF'
+        // ACCEPT: [declaration] semi_recovery [';']
         auto ParseDeclAndTryRecover(AstQualType* typeSpec, bool atGlobalScope) -> AstDecl*;
 
         // PARSE: stmt
@@ -304,7 +300,7 @@ namespace glsld
 
 #pragma region Parsing Decl
 
-        // Parse a declaration. For disambiguation, the type specifier may has already been parsed.
+        // Parse a declaration.
         //
         // PARSE: declaration
         //      - declaration := ';'
@@ -335,19 +331,21 @@ namespace glsld
         // PARSE: initializer
         //      - initializer := assignment_expr
         //      - initializer := initializer_list
-        //
-        // FIXME: recovery?
         auto ParseInitializer(const Type* type) -> AstInitializer*;
 
         // Parse an initializer list.
         //
         // PARSE: initializer_list
-        //      - initializer_list := '{' initializer [',' initializer]... '}'
+        //      - initializer_list := '{' initializer [',' initializer]... [,] '}'
+        //
+        // ACCEPT:
+        //      - initializer_list := '{' initializer [',' initializer]... [,] brace_recovery ['}']
         auto ParseInitializerList(const Type* type) -> AstInitializerList*;
 
         // Parse a declarator.
         //
         // EXPECT: 'ID'
+        //
         // PARSE: declarator
         //      - declarator := 'ID' [array_spec]
         //      - declarator := 'ID' [array_spec] [ '=' initializer ]
@@ -434,17 +432,17 @@ namespace glsld
 
 #pragma region Parsing Expr
 
-        // Parse an expression. If no token is consumed, enter recovery mode to advance parsing.
+        // Parse an error-permissive expression, each term of which may be null.
+        // If no token is consumed, enter recovery mode to advance parsing.
         //
         // PARSE: expr
         //      - expr := comma_expr
         //
-        // ACCEPT: null
-        //
         // RECOVERY: yes
         auto ParseExpr() -> AstExpr*;
 
-        // Parse an expression without comma operator. If no token is consumed, enter recovery mode to advance parsing.
+        // Parse an error-permissive expression without comma operator, each term of which may be null.
+        // If no token is consumed, enter recovery mode to advance parsing.
         //
         // PARSE: assignment_expr
         //
@@ -476,15 +474,11 @@ namespace glsld
         // PARSE: conditional_expr
         //      - conditional_expr := binary_expr
         //      - conditional_expr := binary_expr '?' comma_expr ':' assignment_expr
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseConditionalExpr(SyntaxTokenID beginTokIndex, AstExpr* firstTerm) -> AstExpr*;
 
         // PARSE: binary_expr
         //      - binary_expr := unary_expr
         //      - binary_expr := binary_expr 'binary_op' binary_expr
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         //
         // `firstTerm` for this is a unary expression, which might already be parsed
         auto ParseBinaryExpr(SyntaxTokenID beginTokIndex, AstExpr* firstTerm, int minPrecedence) -> AstExpr*;
@@ -493,8 +487,6 @@ namespace glsld
         //
         // PARSE: unary_expr
         //      - unary_expr := ['unary_op']... postfix_expr
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseUnaryExpr() -> AstExpr*;
 
         // Parse an postfix expression.
@@ -503,12 +495,11 @@ namespace glsld
         //      - postfix_expr := primary_expr
         //      - postfix_expr := function_call
         //      - postfix_expr := constructor_call
-        //      - postfix_expr := postfix_expr 'incdec'
+        //      - postfix_expr := postfix_expr '++'
+        //      - postfix_expr := postfix_expr '--'
         //      - postfix_expr := postfix_expr '.' 'ID'
-        //      - postfix_expr := postfix_expr array_spec
+        //      - postfix_expr := postfix_expr bracket_wrapped_expr
         //      - function_call := postfix_expr func_arg_list
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParsePostfixExpr() -> AstExpr*;
 
         // Parse an constructor call expression, assuming the type specifier has already been parsed.
@@ -517,8 +508,6 @@ namespace glsld
         //
         // PARSE: constructor_call
         //      - constructor_call := type_spec func_arg_list
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseConstructorCallExpr(AstQualType* typeSpec) -> AstExpr*;
 
         // Parse an primary expression.
@@ -528,7 +517,8 @@ namespace glsld
         //      - primary_expr := 'constant'
         //      - primary_expr := paren_wrapped_expr
         //
-        // ACCEPT: null
+        // ACCEPT:
+        //      - primary_expr := null
         auto ParsePrimaryExpr() -> AstExpr*;
 
         // Parse an expression wrapped in parentheses pair.
@@ -551,9 +541,9 @@ namespace glsld
         // PARSE: bracket_wrapped_expr
         //      - bracket_wrapped_expr := '[' expr ']'
         //
-        // ACCEPT: '[' bracket_recovery ']'
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // ACCEPT:
+        //      - bracket_wrapped_expr := '[' expr bracket_recovery [']']
+        //      - bracket_wrapped_expr := '[' bracket_recovery [']']
         auto ParseBracketWrappedExpr(bool emptyIsError) -> AstExpr*;
 
         // Parse a function argument list.
@@ -561,13 +551,12 @@ namespace glsld
         // EXPECT: '('
         //
         // PARSE: func_arg_list
-        //      - func_arg_list := '(' ')'
-        //      - func_arg_list := '(' 'K_void' ')'
+        //      - func_arg_list := '(' ['K_void'] ')'
         //      - func_arg_list := '(' assignment_expr [',' assignment_expr]... ')'
         //
-        // ACCEPT: '(' ??? ')'
-        //
-        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        // ACCEPT:
+        //      - func_arg_list := '(' ['K_void'] paren_recovery [')']
+        //      - func_arg_list := '(' assignment_expr [',' assignment_expr]... paren_recovery [')']
         auto ParseFunctionArgumentList() -> std::vector<AstExpr*>;
 
 #pragma endregion
@@ -584,8 +573,6 @@ namespace glsld
         //      - stmt := jump_stmt
         //      - stmt := expr_stmt
         //      - stmt := declaration
-        //
-        // RECOVERY: unknown
         auto ParseStmt() -> AstStmt*;
 
         // EXPECT: '{'
@@ -593,9 +580,8 @@ namespace glsld
         // PARSE: compound_stmt
         //      - compound_stmt := '{' [stmt]... '}'
         //
-        // ACCEPT: '{' ??? '}'
-        //
-        // RECOVERY: ^'EOF'
+        // ACCEPT:
+        //      - compound_stmt := '{' [stmt]... brace_recovery ['}']
         auto ParseCompoundStmt() -> AstStmt*;
 
         // EXPECT: 'K_if'
@@ -624,33 +610,34 @@ namespace glsld
         // PARSE: dowhile_stmt
         //      - dowhile_stmt := 'K_do' stmt 'K_while' paren_wrapped_expr ';'
         //
-        // RECOVERY: unknown
+        // ACCEPT:
+        //      - dowhile_stmt := 'K_do' stmt 'K_while' paren_wrapped_expr
         auto ParseDoWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_while'
         //
         // PARSE: while_stmt
         //      - while_stmt := 'K_while' paren_wrapped_expr stmt
-        //
-        // RECOVERY: unknown
         auto ParseWhileStmt() -> AstStmt*;
 
         // EXPECT: 'K_case' or 'K_default'
         //
         // PARSE: label_stmt
-        //      - label_stmt := 'K_case' expr [':']
-        //      - label_stmt := 'K_default' [':']
-        //
-        // RECOVERY: unknown
+        //      - label_stmt := 'K_case' expr ':'
+        //      - label_stmt := 'K_default' ':'
+        // ACCEPT:
+        //      - label_stmt := 'K_case' expr
+        //      - label_stmt := 'K_default'
         auto ParseLabelStmt() -> AstStmt*;
 
         // EXPECT: 'K_switch'
         //
         // PARSE: switch_stmt
         //      - switch_stmt := 'K_switch' paren_wrapped_expr switch_body
-        //      - switch_body := '{' ??? '}'
+        //      - switch_body := '{' [stmt]... '}'
         //
-        // RECOVERY: unknown
+        // ACCEPT:
+        //      - switch_body := '{' [stmt]... brace_recovery ['}']
         auto ParseSwitchStmt() -> AstStmt*;
 
         // Parse jump statement.
@@ -658,23 +645,27 @@ namespace glsld
         // EXPECT: 'K_break' or 'K_continue' or 'K_discard' or 'K_return'
         //
         // PARSE: jump_stmt
-        //      - jump_stmt := 'K_break' [';']
-        //      - jump_stmt := 'K_continue' [';']
-        //      - jump_stmt := 'K_discard' [';']
-        //      - jump_stmt := 'K_return' [expr] [';']
+        //      - jump_stmt := 'K_break' ';'
+        //      - jump_stmt := 'K_continue' ';'
+        //      - jump_stmt := 'K_discard' ';'
+        //      - jump_stmt := 'K_return' [expr] ';'
         //
-        // RECOVERY: unknown
+        // ACCEPT:
+        //      - jump_stmt := 'K_break'
+        //      - jump_stmt := 'K_continue'
+        //      - jump_stmt := 'K_discard'
+        //      - jump_stmt := 'K_return' expr
         auto ParseJumpStmt() -> AstStmt*;
 
         // Parse an expression statement. For disambiguation, the type specifier part may has already been parsed for a
         // constructor call.
+        // At least one token must be consumed, including the type specifier part.
         //
         // PARSE: expr_stmt
         //      - expr_stmt := expr ';'
         //
-        // ACCEPT: expr
-        //
-        // RECOVERY: unknown
+        // ACCEPT:
+        //      - expr_stmt := expr [';']
         auto ParseExprStmt(AstQualType* typeSpec) -> AstStmt*;
 
         // Parse a declaration statement. For disambiguation, the type specifier part may has already been parsed for a
@@ -682,16 +673,11 @@ namespace glsld
         //
         // PARSE: decl_stmt
         //      - decl_stmt := declaration
-        //
-        // RECOVERY: unknown
         auto ParseDeclStmt(AstQualType* typeSpec) -> AstStmt*;
 
         // PARSE: decl_or_expr_stmt
         //      - decl_or_expr_stmt := expr_stmt
-        //      - decl_or_expr_stmt := declaration
-        //
-        // RECOVERY: unknown
-        // FIXME: what's in recovery mode?
+        //      - decl_or_expr_stmt := decl_stmt
         auto ParseDeclOrExprStmt() -> AstStmt*;
 
 #pragma endregion
@@ -760,6 +746,13 @@ namespace glsld
         }
 
         // Recover from a parsing error by skipping tokens until we reach a recovery point.
+        //
+        // ACCEPT: comma_recovery := ...
+        //         paren_recovery := ...
+        //         bracket_recovery := ...
+        //         brace_recovery := ...
+        //         ilist_brace_recovery := ...
+        //         semi_recovery := ...
         auto RecoverFromError(RecoveryMode mode) -> void;
 
         auto PeekToken() const noexcept -> const RawSyntaxTokenEntry&
