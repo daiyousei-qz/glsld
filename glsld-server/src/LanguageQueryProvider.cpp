@@ -57,6 +57,10 @@ namespace glsld
                     else if (type.GetResolvedType()->IsBuiltin()) {
                         TryDeclToken(type.GetTypeNameTok(), nullptr, SymbolAccessType::Type, false);
                     }
+                    else if (type.GetResolvedType()->IsError()) {
+                        // Unknown type
+                        TryDeclToken(type.GetTypeNameTok(), nullptr, SymbolAccessType::Type, false);
+                    }
 
                     // FIXME: any other case?
                 }

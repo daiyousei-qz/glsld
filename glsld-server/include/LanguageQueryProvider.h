@@ -260,7 +260,7 @@ namespace glsld
         // True if the expanded range of an AST node precedes the specified position in the main file.
         auto PrecedesPosition(const AstNode& node, TextPosition position) const -> bool
         {
-            return GetExpandedTextRange(node).end <= position;
+            return GetExpandedTextRange(node).end < position;
         }
 
         // True if the expanded range of an AST node succedes the specified position in the main file.

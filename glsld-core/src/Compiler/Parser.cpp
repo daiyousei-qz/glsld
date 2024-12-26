@@ -1886,10 +1886,8 @@ namespace glsld
 
     auto Parser::ParseDeclStmt(AstQualType* typeSpec) -> AstStmt*
     {
-        auto beginTokID = GetCurrentTokenID();
-
         auto decl = ParseDeclAndTryRecover(typeSpec, false);
-        return astBuilder.BuildDeclStmt(CreateAstSyntaxRange(beginTokID), decl);
+        return astBuilder.BuildDeclStmt(decl->GetSyntaxRange(), decl);
     }
 
     auto Parser::ParseDeclOrExprStmt() -> AstStmt*
@@ -1991,8 +1989,16 @@ namespace glsld
             if (TryTestToken(TokenKlass::K_struct) || TryTestToken(TokenKlass::Identifier) ||
                 GetGlslBuiltinType(PeekToken().klass)) {
                 if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
-                    // We see a regular identifier, so we infer an expression for now
-                    return ParseExprStmt(nullptr);
+                    // We see a regular identifier, meaning it's most likely an expression.
+                    // But we'll try more heuristics to infer if it's a declaration.
+                    if (TryTestToken(TokenKlass::Identifier, 1) &&
+                        TryTestToken(TokenKlass::Semicolon, TokenKlass::LBracket, TokenKlass::Assign, 2)) {
+                        // `T a;` or `T a[...` or `T a = ...`
+                        return ParseDeclStmt(nullptr);
+                    }
+                    else {
+                        return ParseExprStmt(nullptr);
+                    }
                 }
                 else {
                     // We see a type specifier. We parse it first as we cannot determine if it's a declaration or

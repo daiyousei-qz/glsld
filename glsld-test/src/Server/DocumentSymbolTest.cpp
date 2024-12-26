@@ -8,17 +8,17 @@ using namespace glsld;
 TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbol")
 {
     auto sourceText = R"(
-        struct ^S.begin^S^S.end^
+        struct ^[S.begin]S^[S.end]
         {
-            int ^a.begin^a^a.end^;
-            int ^b.begin^b^b.end^;
+            int ^[a.begin]a^[a.end];
+            int ^[b.begin]b^[b.end];
         };
 
-        void ^foo.begin^foo^foo.end^(S s)
+        void ^[foo.begin]foo^[foo.end](S s)
         {
         }
 
-        void ^main.begin^main^main.end^()
+        void ^[main.begin]main^[main.end]()
         {
         }
     )";

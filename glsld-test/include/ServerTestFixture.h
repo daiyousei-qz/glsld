@@ -53,7 +53,7 @@ namespace glsld
     class ServerTestFixture
     {
     private:
-        // Parses and remove "^label^" from the source text provided
+        // Parses and remove "^[label]" from the source text provided
         auto ParseLabelledSource(StringView sourceText) const -> std::tuple<std::string, StringMap<TextPosition>>
         {
             SourceScanner scanner(sourceText, true);
@@ -64,8 +64,9 @@ namespace glsld
             while (!scanner.CursorAtEnd()) {
                 auto textPosition = scanner.GetTextPosition();
                 if (scanner.TryConsumeAsciiChar('^')) {
+                    GLSLD_REQUIRE(scanner.TryConsumeAsciiChar('['));
                     while (!scanner.CursorAtEnd()) {
-                        if (scanner.TryConsumeAsciiChar('^')) {
+                        if (scanner.TryConsumeAsciiChar(']')) {
                             // Found the end of the label
                             scanner.SetTextPosition(textPosition);
                             break;

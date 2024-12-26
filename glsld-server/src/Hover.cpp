@@ -1,3 +1,4 @@
+#include "Hover.h"
 #include "Basic/Common.h"
 #include "Compiler/SyntaxToken.h"
 #include "LanguageService.h"
@@ -8,18 +9,6 @@
 
 namespace glsld
 {
-    struct HoverContent
-    {
-        SymbolAccessType type;
-        std::string name;
-        std::string description;
-        std::string documentation;
-        std::string code;
-
-        // We can't resolve the AST node that declares the symbol.
-        bool unknown = false;
-    };
-
     static auto ComputeHoverText(const HoverContent& hover) -> std::string
     {
         MarkdownBuilder builder;
@@ -125,6 +114,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = "",
                 .code        = "",
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
                 .unknown     = isUnknown,
             };
         }
@@ -143,6 +133,7 @@ namespace glsld
                 .description   = std::move(description),
                 .documentation = QueryFunctionDocumentation(name).Str(),
                 .code          = std::move(codeBuffer),
+                .range         = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
         else if (auto paramDecl = decl->As<AstParamDecl>();
@@ -153,6 +144,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
         else if (auto varDecl = decl->As<AstVariableDecl>();
@@ -164,6 +156,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
         else if (auto memberDecl = decl->As<AstFieldDecl>();
@@ -174,6 +167,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
         else if (auto structDecl = decl->As<AstStructDecl>();
@@ -184,6 +178,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
         else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>();
@@ -195,17 +190,19 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
+                .range       = provider.GetExpandedTextRange(accessInfo.token),
             };
         }
 
         return std::nullopt;
     }
 
-    auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>
+    auto ComputeHoverContent(const LanguageQueryProvider& provider, TextPosition position)
+        -> std::optional<HoverContent>
     {
         const auto& compilerObject = provider.GetCompilerResult();
 
-        auto accessInfo = provider.LookupSymbolAccess(FromLspPosition(position));
+        auto accessInfo = provider.LookupSymbolAccess(position);
         if (accessInfo) {
 
             // Decl token that's either builtin or unknown
@@ -219,16 +216,20 @@ namespace glsld
                 return std::nullopt;
             }
 
-            if (auto hoverContent = CreateHoverContent(provider, *accessInfo)) {
-                auto hoverRange = provider.GetExpandedTextRange(accessInfo->token);
-                return lsp::Hover{
-                    .contents = ComputeHoverText(*hoverContent),
-                    .range    = ToLspRange(hoverRange),
-                };
-            }
+            return CreateHoverContent(provider, *accessInfo);
         }
 
         return std::nullopt;
+    }
+
+    auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>
+    {
+        return ComputeHoverContent(provider, FromLspPosition(position)).transform([](const HoverContent& hoverContent) {
+            return lsp::Hover{
+                .contents = ComputeHoverText(hoverContent),
+                .range    = ToLspRange(hoverContent.range),
+            };
+        });
     }
 
 } // namespace glsld
