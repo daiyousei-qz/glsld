@@ -634,22 +634,8 @@ namespace glsld
         auto beginTokID = GetCurrentTokenID();
 
         std::vector<AstExpr*> sizes;
-        while (TryConsumeToken(TokenKlass::LBracket)) {
-            size_t initBracketDepth = bracketDepth;
-
-            // Parse empty/unsized specifier
-            if (TryConsumeToken(TokenKlass::RBracket)) {
-                sizes.push_back(nullptr);
-                continue;
-            }
-
-            // Parse the array size/index expression
-            sizes.push_back(ParseExpr());
-
-            ParseClosingBracketHelper(initBracketDepth);
-            if (InRecoveryMode()) {
-                break;
-            }
+        while (TryTestToken(TokenKlass::LBracket)) {
+            sizes.push_back(ParseBracketWrappedExpr(false));
         }
 
         return astBuilder.BuildArraySpec(CreateAstSyntaxRange(beginTokID), std::move(sizes));
@@ -1399,8 +1385,8 @@ namespace glsld
             case TokenKlass::LBracket:
             {
                 // Indexing access
-                auto arraySpec = ParseArraySpec();
-                result         = astBuilder.BuildIndexAccessExpr(CreateAstSyntaxRange(beginTokID), result, arraySpec);
+                auto indexExpr = ParseBracketWrappedExpr(true);
+                result         = astBuilder.BuildIndexAccessExpr(CreateAstSyntaxRange(beginTokID), result, indexExpr);
                 break;
             }
             case TokenKlass::Dot:
@@ -1499,7 +1485,6 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
         ParsingBalancedParenGuard parenGuard(*this);
 
         // A special case of empty parenthesis "()"
@@ -1509,6 +1494,20 @@ namespace glsld
 
         return ParseExpr();
     };
+
+    auto Parser::ParseBracketWrappedExpr(bool emptyIsError) -> AstExpr*
+    {
+        GLSLD_TRACE_PARSER();
+
+        ParsingBalancedBracketGuard bracketGuard(*this);
+
+        // A special case of empty brackets "[]"
+        if (TryTestToken(TokenKlass::RBracket)) {
+            return emptyIsError ? CreateErrorExpr() : nullptr;
+        }
+
+        return ParseExpr();
+    }
 
     auto Parser::ParseFunctionArgumentList() -> std::vector<AstExpr*>
     {

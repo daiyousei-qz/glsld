@@ -104,6 +104,34 @@ namespace glsld
             }
         };
 
+        class ParsingBalancedBracketGuard
+        {
+        private:
+            Parser& parser;
+            size_t leftBracketDepth;
+
+        public:
+            ParsingBalancedBracketGuard(Parser& parser) : parser(parser)
+            {
+                GLSLD_ASSERT(parser.TryTestToken(TokenKlass::LBracket));
+                parser.ConsumeToken();
+                leftBracketDepth = parser.bracketDepth;
+            }
+
+            ~ParsingBalancedBracketGuard()
+            {
+                parser.ParseClosingBracketHelper(leftBracketDepth);
+            }
+
+            ParsingBalancedBracketGuard(const ParsingBalancedBracketGuard&)            = delete;
+            ParsingBalancedBracketGuard& operator=(const ParsingBalancedBracketGuard&) = delete;
+
+            auto GetLeftBracketDepth() const noexcept -> size_t
+            {
+                return leftBracketDepth;
+            }
+        };
+
     public:
         Parser(CompilerInvocationState& compiler, const LexedTranslationUnit& tu)
             : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tu.GetID()),
@@ -514,6 +542,19 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseParenWrappedExpr() -> AstExpr*;
+
+        // Parse an expression wrapped in brackets pair. If `emptyIsError` is true, an empty bracket pair is considered
+        // an AstErrorExpr. Otherwise, this returns nullptr.
+        //
+        // EXPRECT: '['
+        //
+        // PARSE: bracket_wrapped_expr
+        //      - bracket_wrapped_expr := '[' expr ']'
+        //
+        // ACCEPT: '[' bracket_recovery ']'
+        //
+        // RECOVERY: ^'EOF' or ^';' or ^'}'
+        auto ParseBracketWrappedExpr(bool emptyIsError) -> AstExpr*;
 
         // Parse a function argument list.
         //

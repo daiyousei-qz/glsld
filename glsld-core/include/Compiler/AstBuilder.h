@@ -100,8 +100,7 @@ namespace glsld
         // Build either a swizzle or a field access expression
         auto BuildDotAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, SyntaxToken idToken) -> AstExpr*;
 
-        auto BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstArraySpec* indices)
-            -> AstIndexAccessExpr*;
+        auto BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstExpr* index) -> AstIndexAccessExpr*;
 
         auto BuildUnaryExpr(AstSyntaxRange range, AstExpr* operand, UnaryOp opcode) -> AstUnaryExpr*;
 

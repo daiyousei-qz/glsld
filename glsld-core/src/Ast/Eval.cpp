@@ -306,18 +306,14 @@ namespace glsld
             return EvalAstExpr(*swizzleAccessExpr->GetLhsExpr()).GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
         }
         else if (auto indexAccessExpr = init.As<AstIndexAccessExpr>(); indexAccessExpr) {
-            auto evalResult = EvalAstInitializerLazy(*indexAccessExpr->GetBaseExpr());
-            for (auto indexExpr : indexAccessExpr->GetIndices()->GetSizeList()) {
-                auto indexResult = EvalAstExpr(*indexExpr);
-                if (indexResult.IsScalarInt32()) {
-                    evalResult = UnwrapConstEvalResult(evalResult, indexResult.GetInt32Value());
-                }
-                else {
-                    return LazyConstEvalResult{};
-                }
+            auto baseResult  = EvalAstInitializerLazy(*indexAccessExpr->GetBaseExpr());
+            auto indexResult = EvalAstExpr(*indexAccessExpr->GetIndexExpr());
+            if (indexResult.IsScalarInt32()) {
+                return UnwrapConstEvalResult(baseResult, indexResult.GetInt32Value());
             }
-
-            return evalResult;
+            else {
+                return LazyConstEvalResult{};
+            }
         }
         else if (auto unaryExpr = init.As<AstUnaryExpr>(); unaryExpr) {
             // Because `.length()` works on aggregate as well, we need to handle it here.

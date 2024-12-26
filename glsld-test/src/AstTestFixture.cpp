@@ -151,20 +151,17 @@ namespace glsld
                                  return MatchAll({{expr->GetLhsExpr(), lhsMatcher}});
                              });
     }
-    auto AstTestFixture::IndexAccessExpr(AstMatcher* lhsMatcher, std::vector<AstMatcher*> indexMatchers) -> AstMatcher*
+    auto AstTestFixture::IndexAccessExpr(AstMatcher* lhsMatcher, AstMatcher* indexMatcher) -> AstMatcher*
     {
         return CreateMatcher(
             "IndexAccessExpr",
-            [lhsMatcher, indexMatchers = std::move(indexMatchers)](const AstNode* node) -> AstMatchResult {
+            [lhsMatcher, indexMatchers = std::move(indexMatcher)](const AstNode* node) -> AstMatchResult {
                 auto expr = node ? node->As<AstIndexAccessExpr>() : nullptr;
-                if (!expr || expr->GetIndices()->GetSizeList().size() != indexMatchers.size()) {
+                if (!expr) {
                     return AstMatchResult::Failure(node);
                 }
-                if (auto lhsResult = lhsMatcher->Match(expr->GetBaseExpr()); !lhsResult.IsSuccess()) {
-                    return lhsResult;
-                }
 
-                return MatchAll(expr->GetIndices()->GetSizeList(), indexMatchers);
+                return MatchAll({{expr->GetBaseExpr(), lhsMatcher}, {expr->GetIndexExpr(), indexMatchers}});
             });
     }
     auto AstTestFixture::UnaryExpr(UnaryOp op, AstMatcher* operandMatcher) -> AstMatcher*

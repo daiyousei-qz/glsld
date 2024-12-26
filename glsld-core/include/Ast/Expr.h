@@ -390,10 +390,11 @@ namespace glsld
         NotNull<AstExpr*> baseExpr;
 
         // [Node]
-        NotNull<AstArraySpec*> indices;
+        // The index expression of the array access.
+        NotNull<AstExpr*> indexExpr;
 
     public:
-        AstIndexAccessExpr(AstExpr* baseExpr, AstArraySpec* indices) : baseExpr(baseExpr), indices(indices)
+        AstIndexAccessExpr(AstExpr* baseExpr, AstExpr* indexExpr) : baseExpr(baseExpr), indexExpr(indexExpr)
         {
         }
 
@@ -401,9 +402,9 @@ namespace glsld
         {
             return baseExpr;
         }
-        auto GetIndices() const noexcept -> const AstArraySpec*
+        auto GetIndexExpr() const noexcept -> const AstExpr*
         {
-            return indices;
+            return indexExpr;
         }
 
         template <AstVisitorT Visitor>
@@ -416,7 +417,7 @@ namespace glsld
             if (!visitor.Traverse(*baseExpr)) {
                 return false;
             }
-            if (!visitor.Traverse(*indices)) {
+            if (!visitor.Traverse(*indexExpr)) {
                 return false;
             }
 
@@ -428,7 +429,7 @@ namespace glsld
         {
             AstExpr::DoDump(d);
             d.DumpChildNode("BaseExpr", *baseExpr);
-            d.DumpChildNode("Indices", *indices);
+            d.DumpChildNode("Index", *indexExpr);
         }
     };
 

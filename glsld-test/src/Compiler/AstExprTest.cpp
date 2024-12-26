@@ -105,14 +105,15 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
 
     SECTION("IndexAccessExpr")
     {
-        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1)}));
-        GLSLD_CHECK_AST("a[1][2]", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1), LiteralExpr(2)}));
+        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a[1][2]",
+                        IndexAccessExpr(IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)), LiteralExpr(2)));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), {NullAst()}));
-            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), {ErrorExpr()}));
-            GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), {LiteralExpr(1)}));
+            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
         }
     }
 

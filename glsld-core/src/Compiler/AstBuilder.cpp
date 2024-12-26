@@ -298,6 +298,7 @@ namespace glsld
         }
     }
 
+    // FIXME: remove dimToUnwrap as it's no longer used
     static auto DeduceIndexAccessType(const Type* baseType, size_t dimToUnwrap) -> const Type*
     {
         if (baseType->IsError() || dimToUnwrap == 0) {
@@ -325,23 +326,13 @@ namespace glsld
         return Type::GetErrorType();
     }
 
-    auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstArraySpec* indices)
+    auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstExpr* indexExpr)
         -> AstIndexAccessExpr*
     {
-        auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indices);
+        auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indexExpr);
 
-        result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType(), indices->GetSizeList().size()));
-        if (baseExpr->IsConst() && !result->GetDeducedType()->IsError()) {
-            bool isConst = true;
-            for (auto indexExpr : indices->GetSizeList()) {
-                if (!indexExpr->IsConst()) {
-                    isConst = false;
-                    break;
-                }
-            }
-
-            result->SetConst(isConst);
-        }
+        result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType(), 1));
+        result->SetConst(baseExpr->IsConst() && indexExpr->IsConst());
         return result;
     }
 

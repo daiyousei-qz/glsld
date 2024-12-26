@@ -121,7 +121,7 @@ namespace glsld
         auto NameAccessExpr(StringView name) -> AstMatcher*;
         auto FieldAccessExpr(AstMatcher* lhsMatcher, StringView name) -> AstMatcher*;
         auto SwizzleAccessExpr(AstMatcher* lhsMatcher, StringView swizzle) -> AstMatcher*;
-        auto IndexAccessExpr(AstMatcher* lhsMatcher, std::vector<AstMatcher*> indexMatchers) -> AstMatcher*;
+        auto IndexAccessExpr(AstMatcher* lhsMatcher, AstMatcher* indexMatcher) -> AstMatcher*;
         auto UnaryExpr(UnaryOp op, AstMatcher* operandMatcher) -> AstMatcher*;
         auto BinaryExpr(BinaryOp op, AstMatcher* lhsMatcher, AstMatcher* rhsMatcher) -> AstMatcher*;
         auto SelectExpr(AstMatcher* condMatcher, AstMatcher* trueExprMatcher, AstMatcher* falseExprMatcher)
