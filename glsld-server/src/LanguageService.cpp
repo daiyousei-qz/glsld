@@ -10,8 +10,8 @@
 
 namespace glsld
 {
-    auto ComputeSignatureHelp(const LanguageQueryProvider& provider,
-                              lsp::Position position) -> std::optional<lsp::SignatureHelp>;
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
+        -> std::optional<lsp::SignatureHelp>;
 
     auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
                            bool includeDeclaration) -> std::vector<lsp::Location>;
@@ -204,11 +204,11 @@ namespace glsld
     auto LanguageService::InlayHint(int requestId, lsp::InlayHintParams params) -> void
     {
         auto uri = params.textDocument.uri;
-        ScheduleLanguageQuery(uri,
-                              [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-                                  std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, params.range);
-                                  server->HandleServerResponse(requestId, result, false);
-                              });
+        ScheduleLanguageQuery(
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, config.inlayHint, params.range);
+                server->HandleServerResponse(requestId, result, false);
+            });
     }
 
 #pragma endregion

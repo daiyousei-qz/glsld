@@ -64,7 +64,7 @@ namespace glsld
             while (!scanner.CursorAtEnd()) {
                 auto textPosition = scanner.GetTextPosition();
                 if (scanner.TryConsumeAsciiChar('^')) {
-                    if (scanner.TryConsumeAsciiChar('[')) {
+                    if (!scanner.TryConsumeAsciiChar('[')) {
                         UNSCOPED_INFO("Bad labelled source");
                     }
                     while (!scanner.CursorAtEnd()) {
