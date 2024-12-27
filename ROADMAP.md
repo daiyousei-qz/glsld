@@ -3,8 +3,8 @@
 - Hover on Macro
 - Completion for Macro
 - Find references
-- Fix Random Crash!!!
 - Add proper logging
+- Add decl cascade in AST
 
 # Nice to have improvement
 - Don't read from disk for every include file
