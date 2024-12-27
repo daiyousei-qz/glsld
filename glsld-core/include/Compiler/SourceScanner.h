@@ -203,7 +203,7 @@ namespace glsld
 
         // Try to consume an ascii string and return true if succeeded.
         // Assumption: `text` is an ascii string without '\0' or '\n'
-        // FIXME: line-continuation
+        // FIXME: line-continuation in between?
         auto TryConsumeAsciiText(StringView text) -> bool
         {
             if (StringView{srcCursor, srcEnd}.StartWith(text)) {

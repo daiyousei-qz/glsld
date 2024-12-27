@@ -1,5 +1,4 @@
-#include "Basic/FlatSet.h"
-
+#include "FlatSet.h"
 #include "LexerBuilder.h"
 
 #include <vector>

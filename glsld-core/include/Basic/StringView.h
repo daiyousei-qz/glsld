@@ -126,15 +126,13 @@ namespace glsld
         {
             return StringView{view.substr(n)};
         }
-        [[nodiscard]] constexpr auto TakeUntil(CharPredicate auto predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto TakeUntil(CharPredicate auto&& predicate) const noexcept -> StringView
         {
-            // FIXME: forward predicate
-            return StringView{view.begin(), std::ranges::find_if(view, predicate)};
+            return StringView{view.begin(), std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate))};
         }
-        [[nodiscard]] constexpr auto DropUntil(CharPredicate auto predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto DropUntil(CharPredicate auto&& predicate) const noexcept -> StringView
         {
-            // FIXME: forward predicate
-            return StringView{std::ranges::find_if(view, predicate), view.end()};
+            return StringView{std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate)), view.end()};
         }
 
         [[nodiscard]] constexpr auto TakeBack(size_t n) const noexcept -> StringView;

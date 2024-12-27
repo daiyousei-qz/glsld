@@ -187,7 +187,6 @@ namespace glsld
 
         union
         {
-            // FIXME: This assumes little-endian. Make it better?
             struct
             {
                 uint32_t tokIndex : 28;
@@ -229,22 +228,22 @@ namespace glsld
 
         auto operator++() noexcept -> SyntaxTokenID&
         {
-            ++value;
+            ++tokIndex;
             return *this;
         }
         auto operator--() noexcept -> SyntaxTokenID&
         {
-            --value;
+            --tokIndex;
             return *this;
         }
         auto operator+=(uint32_t diff) noexcept -> SyntaxTokenID&
         {
-            value += diff;
+            tokIndex += diff;
             return *this;
         }
         auto operator-=(uint32_t diff) noexcept -> SyntaxTokenID&
         {
-            value -= diff;
+            tokIndex -= diff;
             return *this;
         }
         auto operator+(uint32_t diff) const noexcept -> SyntaxTokenID
@@ -261,8 +260,9 @@ namespace glsld
         }
         auto operator-(SyntaxTokenID other) const noexcept -> int32_t
         {
-            uint32_t diff = std::max(value, other.value) - std::min(value, other.value);
-            int32_t sign  = value > other.value ? 1 : -1;
+            GLSLD_ASSERT(tuID == other.tuID);
+            uint32_t diff = std::max(tokIndex, other.tokIndex) - std::min(tokIndex, other.tokIndex);
+            int32_t sign  = tokIndex > other.tokIndex ? 1 : -1;
             return sign * static_cast<int32_t>(diff);
         }
     };
