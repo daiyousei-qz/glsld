@@ -81,14 +81,14 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
 
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: glsld-linux
-          asset_path: ${{ github.workspace }}/release-assets/glsld
-          asset_content_type: application/octet-stream
+      # - uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_name: glsld-linux
+      #     asset_path: ${{ github.workspace }}/release-assets/glsld
+      #     asset_content_type: application/octet-stream
 
       - uses: actions/upload-release-asset@v1
         env:
