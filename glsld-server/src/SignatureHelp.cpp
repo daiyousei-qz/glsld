@@ -36,8 +36,8 @@ namespace glsld
     };
 
     // FIXME: implement correctly. Currently this is a placeholder implmentation.
-    auto ComputeSignatureHelp(const LanguageQueryProvider& provider,
-                              lsp::Position position) -> std::optional<lsp::SignatureHelp>
+    auto ComputeSignatureHelp(const LanguageQueryProvider& provider, lsp::Position position)
+        -> std::optional<lsp::SignatureHelp>
     {
         auto expr = SignatureHelpVisitor{provider, FromLspPosition(position)}.Execute();
 
@@ -48,7 +48,7 @@ namespace glsld
 
             // For function in the default library
             // FIXME: handle user preamble
-            for (auto decl : GetStdlibModule()->GetSystemPreambleAst()->GetGlobalDecls()) {
+            for (auto decl : GetStdlibModule()->GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
                 if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetDeclTok().text.StrView() == funcName) {

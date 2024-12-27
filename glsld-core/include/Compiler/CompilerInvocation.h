@@ -151,7 +151,7 @@ namespace glsld
     private:
         auto InitializeCompilation() -> std::unique_ptr<CompilerInvocationState>;
         auto DoPreprocess(CompilerInvocationState& compiler, FileID file, PPCallback* callback) -> void;
-        auto DoParse(CompilerInvocationState& compiler, const LexedTranslationUnit& tu) -> void;
+        auto DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void;
     };
 
 } // namespace glsld

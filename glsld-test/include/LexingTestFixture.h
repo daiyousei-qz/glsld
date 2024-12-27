@@ -48,7 +48,7 @@ namespace glsld
         {
             auto compilerResult = fixture.Compile(sourceText);
 
-            auto tokens = compilerResult->GetUserFileTokens();
+            auto tokens = compilerResult->GetUserFileArtifacts().GetTokens();
             if (tokens.size() != matchers.size()) {
                 UNSCOPED_INFO("Token count mismatch");
                 return false;

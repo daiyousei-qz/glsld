@@ -30,13 +30,48 @@ namespace glsld
         std::unique_ptr<AstContext> astContext;
         std::unique_ptr<DiagnosticStream> diagStream;
 
-        std::unique_ptr<CompilerArtifacts> artifacts;
+        std::unique_ptr<CompilerArtifact> systemPreambleArtifacts;
+        std::unique_ptr<CompilerArtifact> userPreambleArtifacts;
+        std::unique_ptr<CompilerArtifact> userFileArtifacts;
 
 #if defined(GLSLD_DEBUG)
         mutable CompilerTrace trace;
 #endif
 
         auto Initialize() -> void;
+
+        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxTokenEntry> tokens) const -> void
+        {
+            if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
+                if (id == TranslationUnitID::UserPreamble) {
+                    Print("=====Tokens of User Preamble=====\n");
+                }
+                else if (id == TranslationUnitID::UserFile) {
+                    Print("=====Tokens of User File=====\n");
+                }
+
+                for (const auto& token : tokens) {
+                    const auto& expanedRange = token.expandedRange;
+                    Print("[{}]'{}' @ ({},{}~{},{})\n", TokenKlassToString(token.klass), token.text.StrView(),
+                          expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
+                          expanedRange.end.character);
+                }
+            }
+        }
+
+        auto TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
+        {
+            if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
+                if (id == TranslationUnitID::UserPreamble) {
+                    Print("=====AST of User Preamble=====\n");
+                }
+                else if (id == TranslationUnitID::UserFile) {
+                    Print("=====AST of User File=====\n");
+                }
+
+                Print("{}", ast->Print());
+            }
+        }
 
     public:
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
@@ -95,68 +130,38 @@ namespace glsld
         }
 #endif
 
-        auto GetLexedTranslationUnit(TranslationUnitID id) const -> const LexedTranslationUnit*
+        auto GetArtifact(TranslationUnitID id) noexcept -> CompilerArtifact*
         {
-            return artifacts->GetLexedTranslationUnit(id);
+            return id == TranslationUnitID::SystemPreamble ? systemPreambleArtifacts.get()
+                   : id == TranslationUnitID::UserPreamble ? userPreambleArtifacts.get()
+                                                           : userFileArtifacts.get();
         }
-        auto SetLexedTranslationUnit(LexedTranslationUnit tu) -> void
-        {
-            if (compilerConfig.dumpTokens) {
-                if (tu.GetID() == TranslationUnitID::UserPreamble && tu.GetTokens().size() > 1) {
-                    Print("=====Tokens of User Preamble=====\n");
-                    auto index = 0;
-                    for (const auto& token : tu.GetTokens()) {
-                        const auto& expanedRange = token.expandedRange;
-                        Print("{}: [{}]'{}' @ ({},{}~{},{})\n", index++, TokenKlassToString(token.klass),
-                              token.text.StrView(), expanedRange.start.line, expanedRange.start.character,
-                              expanedRange.end.line, expanedRange.end.character);
-                    }
-                }
-                else if (tu.GetID() == TranslationUnitID::UserFile) {
-                    Print("=====Tokens of User File=====\n");
-                    auto index = 0;
-                    for (const auto& token : tu.GetTokens()) {
-                        const auto& expanedRange = token.expandedRange;
-                        Print("{}: [{}]'{}' @ ({},{}~{},{})\n", index++, TokenKlassToString(token.klass),
-                              token.text.StrView(), expanedRange.start.line, expanedRange.start.character,
-                              expanedRange.end.line, expanedRange.end.character);
-                    }
-                }
-            }
 
-            artifacts->UpdateLexInfo(std::move(tu));
+        auto UpdateTokenArtifact(TranslationUnitID id, std::vector<RawSyntaxTokenEntry> tokens,
+                                 std::vector<RawCommentTokenEntry> comments) -> void
+        {
+            TryDumpTokens(id, tokens);
+            GetArtifact(id)->UpdateTokenArtifact(std::move(tokens), std::move(comments));
         }
-        auto GetAstTranslationUnit(TranslationUnitID id) const -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(id);
-        }
-        auto SetAstTranslationUnit(TranslationUnitID id, const AstTranslationUnit* ast) -> void
-        {
-            if (compilerConfig.dumpAst) {
-                if (id == TranslationUnitID::UserPreamble && !ast->GetGlobalDecls().empty()) {
-                    Print("=====AST of User Preamble=====\n");
-                    Print("{}", ast->Print());
-                }
 
-                if (id == TranslationUnitID::UserFile) {
-                    Print("=====AST of User File=====\n");
-                    Print("{}", ast->Print());
-                }
-            }
-
-            artifacts->UpdateAst(ast);
+        auto UpdateAstArtifact(TranslationUnitID id, const AstTranslationUnit* ast) -> void
+        {
+            TryDumpAst(id, ast);
+            GetArtifact(id)->UpdateAstArtifact(ast);
         }
 
         auto CreatePreamble() noexcept -> std::shared_ptr<PrecompiledPreamble>
         {
-            return std::make_shared<PrecompiledPreamble>(languageConfig, sourceManager.GetSystemPreamble(),
-                                                         sourceManager.GetUserPreamble(), std::move(atomTable),
-                                                         std::move(macroTable), std::move(symbolTable),
-                                                         std::move(astContext), std::move(artifacts));
+            return std::make_shared<PrecompiledPreamble>(
+                languageConfig, sourceManager.GetSystemPreamble(), sourceManager.GetUserPreamble(),
+                std::move(atomTable), std::move(macroTable), std::move(symbolTable), std::move(astContext),
+                std::move(systemPreambleArtifacts), std::move(userPreambleArtifacts));
         }
         auto CreateCompileResult() noexcept -> std::unique_ptr<CompilerResult>
         {
-            return std::make_unique<CompilerResult>(std::move(atomTable), std::move(astContext), std::move(artifacts));
+            return std::make_unique<CompilerResult>(std::move(atomTable), std::move(astContext),
+                                                    std::move(systemPreambleArtifacts),
+                                                    std::move(userPreambleArtifacts), std::move(userFileArtifacts));
         }
     };
 } // namespace glsld

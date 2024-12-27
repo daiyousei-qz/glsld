@@ -36,16 +36,19 @@ namespace glsld
         std::unique_ptr<const SymbolTable> symbolTable;
         std::unique_ptr<const AstContext> astContext;
 
-        std::unique_ptr<const CompilerArtifacts> artifacts;
+        std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts;
+        std::unique_ptr<const CompilerArtifact> userPreambleArtifacts;
 
     public:
         PrecompiledPreamble(LanguageConfig languageConfig, StringView systemPreamble, StringView userPreamble,
                             std::unique_ptr<const AtomTable> atomTable, std::unique_ptr<const MacroTable> macroTable,
                             std::unique_ptr<SymbolTable> symbolTable, std::unique_ptr<const AstContext> astContext,
-                            std::unique_ptr<const CompilerArtifacts> artifacts)
+                            std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts,
+                            std::unique_ptr<const CompilerArtifact> userPreambleArtifacts)
             : languageConfig(languageConfig), systemPreambleText(systemPreamble), userPreambleText(userPreamble),
               atomTable(std::move(atomTable)), macroTable(std::move(macroTable)), symbolTable(std::move(symbolTable)),
-              astContext(std::move(astContext)), artifacts(std::move(artifacts))
+              astContext(std::move(astContext)), systemPreambleArtifacts(std::move(systemPreambleArtifacts)),
+              userPreambleArtifacts(std::move(userPreambleArtifacts))
         {
         }
 
@@ -64,16 +67,6 @@ namespace glsld
             return userPreambleText;
         }
 
-        auto GetSystemPreambleAst() const noexcept -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(TranslationUnitID::SystemPreamble);
-        }
-
-        auto GetUserPreambleAst() const noexcept -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(TranslationUnitID::UserPreamble);
-        }
-
         auto GetAstContext() const noexcept -> const AstContext&
         {
             return *astContext;
@@ -90,6 +83,15 @@ namespace glsld
         {
             return *symbolTable;
         }
+
+        auto GetSystemPreambleArtifacts() const noexcept -> const CompilerArtifact&
+        {
+            return *systemPreambleArtifacts;
+        }
+        auto GetUserPreambleArtifacts() const noexcept -> const CompilerArtifact&
+        {
+            return *userPreambleArtifacts;
+        }
     };
 
     class CompilerResult
@@ -99,48 +101,33 @@ namespace glsld
 
         std::unique_ptr<const AtomTable> atomTable   = nullptr;
         std::unique_ptr<const AstContext> astContext = nullptr;
-        std::unique_ptr<const CompilerArtifacts> artifacts;
+
+        std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts = nullptr;
+        std::unique_ptr<const CompilerArtifact> userPreambleArtifacts   = nullptr;
+        std::unique_ptr<const CompilerArtifact> userFileArtifacts       = nullptr;
 
     public:
         CompilerResult(std::unique_ptr<const AtomTable> atomTable, std::unique_ptr<const AstContext> astContext,
-                       std::unique_ptr<const CompilerArtifacts> artifacts)
-            : atomTable(std::move(atomTable)), astContext(std::move(astContext)), artifacts(std::move(artifacts))
+                       std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts,
+                       std::unique_ptr<const CompilerArtifact> userPreambleArtifacts,
+                       std::unique_ptr<const CompilerArtifact> userFileArtifacts)
+            : atomTable(std::move(atomTable)), astContext(std::move(astContext)),
+              systemPreambleArtifacts(std::move(systemPreambleArtifacts)),
+              userPreambleArtifacts(std::move(userPreambleArtifacts)), userFileArtifacts(std::move(userFileArtifacts))
         {
         }
 
-        auto GetSystemPreambleTokens() const noexcept -> ArrayView<RawSyntaxTokenEntry>
+        auto GetSystemPreambleArtifacts() const noexcept -> const CompilerArtifact&
         {
-            return artifacts->GetSyntaxTokens(TranslationUnitID::SystemPreamble);
+            return *systemPreambleArtifacts;
         }
-        auto GetUserPreambleTokens() const noexcept -> ArrayView<RawSyntaxTokenEntry>
+        auto GetUserPreambleArtifacts() const noexcept -> const CompilerArtifact&
         {
-            return artifacts->GetSyntaxTokens(TranslationUnitID::UserPreamble);
+            return *userPreambleArtifacts;
         }
-        auto GetUserFileTokens() const noexcept -> ArrayView<RawSyntaxTokenEntry>
+        auto GetUserFileArtifacts() const noexcept -> const CompilerArtifact&
         {
-            return artifacts->GetSyntaxTokens(TranslationUnitID::UserFile);
-        }
-        auto GetUserFileComments() const noexcept -> ArrayView<RawCommentTokenEntry>
-        {
-            return artifacts->GetCommentTokens(TranslationUnitID::UserFile);
-        }
-
-        auto GetSystemPreambleAst() const noexcept -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(TranslationUnitID::SystemPreamble);
-        }
-        auto GetUserPreambleAst() const noexcept -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(TranslationUnitID::UserPreamble);
-        }
-        auto GetUserFileAst() const noexcept -> const AstTranslationUnit*
-        {
-            return artifacts->GetAst(TranslationUnitID::UserFile);
-        }
-
-        auto GetMainFileID() const noexcept -> FileID
-        {
-            return GetUserFileTokens().back().spelledFile;
+            return *userFileArtifacts;
         }
     };
 

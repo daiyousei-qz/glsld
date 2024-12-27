@@ -172,20 +172,20 @@ namespace glsld
 
     auto LanguageQueryProvider::LookupToken(SyntaxTokenID id) const -> const RawSyntaxTokenEntry*
     {
-        ArrayView<RawSyntaxTokenEntry> tokens;
+        const CompilerArtifact* artifacts = nullptr;
         switch (id.GetTU()) {
         case TranslationUnitID::SystemPreamble:
-            tokens = compilerResult->GetSystemPreambleTokens();
+            artifacts = &compilerResult->GetSystemPreambleArtifacts();
             break;
         case TranslationUnitID::UserPreamble:
-            tokens = compilerResult->GetUserPreambleTokens();
+            artifacts = &compilerResult->GetUserPreambleArtifacts();
             break;
         case TranslationUnitID::UserFile:
-            tokens = compilerResult->GetUserFileTokens();
+            artifacts = &compilerResult->GetUserFileArtifacts();
             break;
         }
 
-        return &tokens[id.GetTokenIndex()];
+        return &artifacts->GetTokens()[id.GetTokenIndex()];
     }
     auto LanguageQueryProvider::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxTokenEntry>
     {
@@ -209,14 +209,14 @@ namespace glsld
     }
     auto LanguageQueryProvider::LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxTokenEntry>
     {
-        auto tokens           = compilerResult->GetUserFileTokens();
+        auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             tokens, position, {}, [](const RawSyntaxTokenEntry& tok) { return tok.expandedRange.start; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
     auto LanguageQueryProvider::LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxTokenEntry>
     {
-        auto tokens           = compilerResult->GetUserFileTokens();
+        auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             tokens, lineNum, {}, [](const RawSyntaxTokenEntry& tok) { return tok.expandedRange.start.line; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
@@ -227,10 +227,9 @@ namespace glsld
             return {};
         }
 
-        auto allComments = compilerResult->GetUserFileComments();
-        auto [itBegin, itEnd] =
-            std::ranges::equal_range(allComments, id.GetTokenIndex(), {},
-                                     [](const RawCommentTokenEntry& entry) { return entry.nextTokenIndex; });
+        auto comments         = compilerResult->GetUserFileArtifacts().GetComments();
+        auto [itBegin, itEnd] = std::ranges::equal_range(
+            comments, id.GetTokenIndex(), {}, [](const RawCommentTokenEntry& entry) { return entry.nextTokenIndex; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
     auto LanguageQueryProvider::LookupSpelledFile(SyntaxTokenID id) const -> FileID
@@ -243,7 +242,7 @@ namespace glsld
             return false;
         }
 
-        return LookupSpelledFile(id) == compilerResult->GetMainFileID();
+        return LookupSpelledFile(id) == compilerResult->GetUserFileArtifacts().GetTokens().back().spelledFile;
     }
     auto LanguageQueryProvider::LookupSpelledTextRange(SyntaxTokenID id) const -> FileTextRange
     {

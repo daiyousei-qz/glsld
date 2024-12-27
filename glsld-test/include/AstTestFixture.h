@@ -193,7 +193,7 @@ namespace glsld
         {
             auto compilerResult = fixture.Compile(sourceText);
 
-            auto matchResult = matcher->Match(compilerResult->GetUserFileAst());
+            auto matchResult = matcher->Match(compilerResult->GetUserFileArtifacts().GetAst());
             if (matchResult.IsSuccess()) {
                 return true;
             }

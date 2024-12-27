@@ -95,7 +95,7 @@ namespace glsld
 
         auto GetUserFileAst() const -> const AstTranslationUnit&
         {
-            return *compilerResult->GetUserFileAst();
+            return *compilerResult->GetUserFileArtifacts().GetAst();
         }
 
         auto GetPreprocessInfoCache() const -> const PreprocessInfoCache&

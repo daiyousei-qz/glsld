@@ -297,7 +297,7 @@ namespace glsld
 
             // Builtins
             // FIXME: support user preamble
-            for (const AstDecl* decl : GetStdlibModule()->GetSystemPreambleAst()->GetGlobalDecls()) {
+            for (const AstDecl* decl : GetStdlibModule()->GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
                 CollectCompletionFromDecl(
                     [&](const SyntaxToken& declTok, lsp::CompletionItemKind kind) {
                         if (seenIds.find(declTok.text) == seenIds.end()) {

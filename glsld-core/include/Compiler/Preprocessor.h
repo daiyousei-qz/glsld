@@ -28,9 +28,9 @@ namespace glsld
         // Add an EOF token to the token stream. This indicates end of a translation unit.
         auto AddEofToken(const PPToken& token, TextRange expandedRange) -> void;
 
-        auto Export(TranslationUnitID id) -> LexedTranslationUnit
+        auto Export() -> std::pair<std::vector<RawSyntaxTokenEntry>, std::vector<RawCommentTokenEntry>>
         {
-            return LexedTranslationUnit{id, std::move(tokens), std::move(comments)};
+            return {std::move(tokens), std::move(comments)};
         }
     };
 
@@ -362,7 +362,8 @@ namespace glsld
                     id = TranslationUnitID::UserFile;
                 }
 
-                compiler.SetLexedTranslationUnit(outputStream.Export(id));
+                auto [tokens, comments] = outputStream.Export();
+                compiler.UpdateTokenArtifact(id, std::move(tokens), std::move(comments));
             }
         }
     };

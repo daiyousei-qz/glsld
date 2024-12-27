@@ -2,39 +2,52 @@
 
 #include "Ast/Misc.h"
 #include "Compiler/SyntaxToken.h"
+#include <memory>
 
 namespace glsld
 {
-    // Tokens parsed from a translation unit. This may not own the token memory but just a view to that of the preamble.
-    class LexedTranslationUnit
+    class CompilerArtifact
     {
     private:
         TranslationUnitID id;
+
         std::vector<RawSyntaxTokenEntry> syntaxTokenBuffer;
         std::vector<RawCommentTokenEntry> commentTokenBuffer;
         ArrayView<RawSyntaxTokenEntry> tokens;
         ArrayView<RawCommentTokenEntry> comments;
 
+        const AstTranslationUnit* ast = nullptr;
+
     public:
-        LexedTranslationUnit(TranslationUnitID id, std::vector<RawSyntaxTokenEntry> tokens,
-                             std::vector<RawCommentTokenEntry> comments)
-            : id(id), syntaxTokenBuffer(std::move(tokens)), commentTokenBuffer(std::move(comments))
+        CompilerArtifact(TranslationUnitID id) : id(id)
         {
-            this->tokens   = this->syntaxTokenBuffer;
-            this->comments = this->commentTokenBuffer;
-            GLSLD_ASSERT(!this->tokens.empty());
-        }
-        LexedTranslationUnit(TranslationUnitID id, ArrayView<RawSyntaxTokenEntry> tokens,
-                             ArrayView<RawCommentTokenEntry> comments)
-            : id(id), tokens(tokens), comments(comments)
-        {
-            GLSLD_ASSERT(!tokens.empty());
         }
 
-        LexedTranslationUnit(const LexedTranslationUnit&)                    = delete;
-        auto operator=(const LexedTranslationUnit&) -> LexedTranslationUnit& = delete;
-        LexedTranslationUnit(LexedTranslationUnit&&)                         = default;
-        auto operator=(LexedTranslationUnit&&) -> LexedTranslationUnit&      = default;
+        auto UpdateTokenArtifact(std::vector<RawSyntaxTokenEntry> lexedTokens,
+                                 std::vector<RawCommentTokenEntry> lexedComments) -> void
+        {
+            GLSLD_ASSERT(tokens.size() == 0 && comments.size() == 0);
+            syntaxTokenBuffer  = std::move(lexedTokens);
+            commentTokenBuffer = std::move(lexedComments);
+            tokens             = syntaxTokenBuffer;
+            comments           = commentTokenBuffer;
+        }
+
+        auto UpdateAstArtifact(const AstTranslationUnit* parsedAst) -> void
+        {
+            GLSLD_ASSERT(ast == nullptr);
+            ast = parsedAst;
+        }
+
+        auto CreateReference() const noexcept -> std::unique_ptr<CompilerArtifact>
+        {
+            auto artifact      = std::make_unique<CompilerArtifact>(id);
+            artifact->tokens   = tokens;
+            artifact->comments = comments;
+            artifact->ast      = ast;
+
+            return artifact;
+        }
 
         auto GetID() const noexcept -> TranslationUnitID
         {
@@ -48,74 +61,9 @@ namespace glsld
         {
             return comments;
         }
-
-        auto CreateSyntaxToken(uint32_t tokIndex) const noexcept -> SyntaxToken
+        auto GetAst() const noexcept -> const AstTranslationUnit*
         {
-            GLSLD_ASSERT(tokIndex < tokens.size());
-            return SyntaxToken{
-                .index = SyntaxTokenID{id, tokIndex},
-                .klass = tokens[tokIndex].klass,
-                .text  = tokens[tokIndex].text,
-            };
-        }
-    };
-
-    class CompilerArtifacts
-    {
-    private:
-        // We have maximum 3 translation unit for one compile right now. They are:
-        // - System preamble
-        // - User preamble
-        // - User file
-        static constexpr size_t NumTranslationUnit = 3;
-
-        std::array<std::optional<LexedTranslationUnit>, NumTranslationUnit> lexInfo;
-        std::array<const AstTranslationUnit*, NumTranslationUnit> astInfo;
-
-    public:
-        auto GetLexedTranslationUnit(TranslationUnitID id) const -> const LexedTranslationUnit*
-        {
-            const auto& info = lexInfo[static_cast<size_t>(id)];
-            if (!info.has_value()) {
-                return nullptr;
-            }
-
-            return &*info;
-        }
-
-        auto GetSyntaxTokens(TranslationUnitID id) const -> ArrayView<RawSyntaxTokenEntry>
-        {
-            const auto& info = lexInfo[static_cast<size_t>(id)];
-            if (!info.has_value()) {
-                return {};
-            }
-
-            return info->GetTokens();
-        }
-
-        auto GetCommentTokens(TranslationUnitID id) const -> ArrayView<RawCommentTokenEntry>
-        {
-            const auto& info = lexInfo[static_cast<size_t>(id)];
-            if (!info.has_value()) {
-                return {};
-            }
-
-            return info->GetComments();
-        }
-
-        auto GetAst(TranslationUnitID id) const -> const AstTranslationUnit*
-        {
-            return astInfo[static_cast<size_t>(id)];
-        }
-
-        auto UpdateLexInfo(LexedTranslationUnit tu) -> void
-        {
-            lexInfo[static_cast<size_t>(tu.GetID())].emplace(std::move(tu));
-        }
-
-        auto UpdateAst(const AstTranslationUnit* ast) -> void
-        {
-            astInfo[static_cast<size_t>(ast->GetSyntaxRange().GetTranslationUnit())] = ast;
+            return ast;
         }
     };
 } // namespace glsld

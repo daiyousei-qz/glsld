@@ -57,14 +57,14 @@ namespace glsld
 
         auto compiler = InitializeCompilation();
 
-        if (compiler->GetAstTranslationUnit(TranslationUnitID::SystemPreamble) == nullptr) {
+        if (compiler->GetArtifact(TranslationUnitID::SystemPreamble)->GetAst() == nullptr) {
             DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::SystemPreamble));
+            DoParse(*compiler, TranslationUnitID::SystemPreamble);
         }
 
-        if (compiler->GetAstTranslationUnit(TranslationUnitID::UserPreamble) == nullptr) {
+        if (compiler->GetArtifact(TranslationUnitID::UserPreamble)->GetAst() == nullptr) {
             DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserPreamble));
+            DoParse(*compiler, TranslationUnitID::UserPreamble);
         }
 
         return compiler->CreatePreamble();
@@ -96,10 +96,10 @@ namespace glsld
         }
 
         if (!preamble) {
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::SystemPreamble));
-            DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserPreamble));
+            DoParse(*compiler, TranslationUnitID::SystemPreamble);
+            DoParse(*compiler, TranslationUnitID::UserPreamble);
         }
-        DoParse(*compiler, *compiler->GetLexedTranslationUnit(TranslationUnitID::UserFile));
+        DoParse(*compiler, TranslationUnitID::UserFile);
 
         return compiler->CreateCompileResult();
     }
@@ -142,14 +142,14 @@ namespace glsld
 
         Preprocessor{compiler, callback, false}.DoPreprocess(file);
     }
-    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, const LexedTranslationUnit& tu) -> void
+    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void
     {
         SimpleTimer timer([this](SimpleTimer& timer) {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.mainFileParsing += elapsedTime;
         });
 
-        Parser{compiler, tu}.DoParse();
+        Parser{compiler, id, compiler.GetArtifact(id)->GetTokens()}.DoParse();
     }
 
 } // namespace glsld

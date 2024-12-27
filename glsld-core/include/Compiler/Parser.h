@@ -133,10 +133,11 @@ namespace glsld
         };
 
     public:
-        Parser(CompilerInvocationState& compiler, const LexedTranslationUnit& tu)
-            : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tu.GetID()),
-              tokens(tu.GetTokens())
+        Parser(CompilerInvocationState& compiler, TranslationUnitID tuID, ArrayView<RawSyntaxTokenEntry> tokens)
+            : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tuID),
+              tokens(tokens)
         {
+            GLSLD_ASSERT(!tokens.empty() && tokens.back().klass == TokenKlass::Eof);
             currentTok = tokens.data();
         }
 

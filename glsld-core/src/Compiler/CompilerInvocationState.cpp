@@ -17,15 +17,21 @@ namespace glsld
             macroTable  = std::make_unique<MacroTable>();
             symbolTable = std::make_unique<SymbolTable>(preamble->GetSymbolTable().GetGlobalLevels());
             astContext  = std::make_unique<AstContext>(&preamble->GetAstContext());
+
+            systemPreambleArtifacts = preamble->GetSystemPreambleArtifacts().CreateReference();
+            userPreambleArtifacts   = preamble->GetUserPreambleArtifacts().CreateReference();
         }
         else {
             atomTable   = std::make_unique<AtomTable>();
             macroTable  = std::make_unique<MacroTable>();
             symbolTable = std::make_unique<SymbolTable>();
             astContext  = std::make_unique<AstContext>(nullptr);
+
+            systemPreambleArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::SystemPreamble);
+            userPreambleArtifacts   = std::make_unique<CompilerArtifact>(TranslationUnitID::UserPreamble);
         }
 
-        diagStream = std::make_unique<DiagnosticStream>();
-        artifacts  = std::make_unique<CompilerArtifacts>();
+        diagStream        = std::make_unique<DiagnosticStream>();
+        userFileArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::UserFile);
     }
 } // namespace glsld
