@@ -5,7 +5,8 @@ on:
     branches: [ "main" ]
   push:
     branches: [ "main" ]
-  create:
+    tags:
+      - "v*"
 
 env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
@@ -41,28 +42,56 @@ jobs:
         sudo apt-get install ninja-build
 
     - name: Configure CMake
-      run: cmake --preset Release -DCMAKE_CXX_COMPILER=clang++
+      run: cmake -B ${{github.workspace}}/build --preset Release -DCMAKE_CXX_COMPILER=clang++
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build-release --parallel
+      run: cmake --build ${{github.workspace}}/build --parallel
 
     - name: Run Tests
-      run: ctest --test-dir ${{github.workspace}}/build-release
+      run: ctest --test-dir ${{github.workspace}}/build
+
+    - name: Upload Artifacts
+      if: github.ref_type == 'tag'
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-assets
+        path: |
+          ${{github.workspace}}/build/glsld[.exe]
 
   release:
     needs: build
-    runs-on: windows-latest
+    runs-on: ubuntu-24.04
     if: github.ref_type == 'tag'
-
     steps:
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          ${{github.workspace}}/build/Release/glsld.exe
-          ${{github.workspace}}/build/Release/glsld-wrapper.exe
-        body: |
-          This is a release
-        draft: false
-        prerelease: false
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: release-assets
+          path: ${{ github.workspace }}/release-assets
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: glsld-linux
+          asset_path: ${{ github.workspace }}/release-assets/glsld
+          asset_content_type: application/octet-stream
+
+      - uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_name: glsld-windows
+          asset_path: ${{ github.workspace }}/release-assets/glsld.exe
+          asset_content_type: application/octet-stream
