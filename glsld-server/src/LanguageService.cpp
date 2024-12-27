@@ -64,7 +64,7 @@ namespace glsld
             .serverInfo =
                 {
                     .name    = "glsld",
-                    .version = "0.0.2",
+                    .version = "0.1.0",
                 },
         };
         server.HandleServerResponse(requestId, result, false);
