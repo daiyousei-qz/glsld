@@ -25,11 +25,11 @@ namespace glsld
     }
 
     // Collect semantic tokens from token stream, including keywords, numbers, etc.
-    auto CollectLexSemanticTokens(const LanguageQueryProvider& provider,
-                                  std::vector<SemanticTokenInfo>& tokenBuffer) -> void
+    auto CollectLexSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
+        -> void
     {
         for (auto tokID : provider.GetUserFileAst().GetSyntaxRange()) {
-            auto tok = provider.GetToken(tokID);
+            auto tok = provider.LookupToken(tokID);
 
             std::optional<SemanticTokenType> type;
             if (IsKeywordToken(tok->klass)) {
@@ -73,8 +73,8 @@ namespace glsld
     }
 
     // Collect semantic tokens from AST, including types, structs, functions, etc.
-    auto CollectAstSemanticTokens(const LanguageQueryProvider& provider,
-                                  std::vector<SemanticTokenInfo>& tokenBuffer) -> void
+    auto CollectAstSemanticTokens(const LanguageQueryProvider& provider, std::vector<SemanticTokenInfo>& tokenBuffer)
+        -> void
     {
         class AstSemanticTokenCollector : public LanguageQueryVisitor<AstSemanticTokenCollector>
         {

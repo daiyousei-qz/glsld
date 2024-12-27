@@ -79,7 +79,7 @@ namespace glsld
         }
         auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
         {
-            if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
+            if (auto dotTokIndex = GetProvider().LookupDotTokenIndex(expr)) {
                 if (GetProvider().ContainsPositionExtended(
                         AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
@@ -89,7 +89,7 @@ namespace glsld
         }
         auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
         {
-            if (auto dotTokIndex = GetProvider().GetDotTokenIndex(expr)) {
+            if (auto dotTokIndex = GetProvider().LookupDotTokenIndex(expr)) {
                 if (GetProvider().ContainsPositionExtended(
                         AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
@@ -325,8 +325,8 @@ namespace glsld
         return cachedCompletionItems;
     }
 
-    auto ComputeCompletion(const LanguageQueryProvider& provider,
-                           lsp::Position lspPosition) -> std::vector<lsp::CompletionItem>
+    auto ComputeCompletion(const LanguageQueryProvider& provider, lsp::Position lspPosition)
+        -> std::vector<lsp::CompletionItem>
     {
         const auto& compilerObject = provider.GetCompilerResult();
 

@@ -9,7 +9,12 @@
 
 namespace glsld
 {
-    auto InitializeStdIO() -> void
+    auto CreateDefaultLanguageService(LanguageServerCallback& server) -> std::unique_ptr<LanguageService>
+    {
+        return std::make_unique<LanguageService>(server);
+    }
+
+    auto CreateStdIOTransportService(LanguageServerCallback& server) -> std::unique_ptr<TransportService>
     {
 #if defined(GLSLD_OS_WIN)
         // Use binary mode for stdin/stdout. We handle "/r/n" conversion inhouse.
@@ -22,14 +27,22 @@ namespace glsld
 #endif
 
         setvbuf(stdin, nullptr, _IOFBF, 64 * 1024);
+        return std::make_unique<TransportService>(server, stdin, stdout);
+    }
+
+    auto LanguageServer::Run() -> void
+    {
+        Initialize();
+
+        while (true) {
+            transport->PullMessage();
+        }
     }
 
     auto LanguageServer::Initialize() -> void
     {
-        InitializeStdIO();
-
-        language  = std::make_unique<LanguageService>(this);
-        transport = std::make_unique<TransportService>(stdin, stdout, this);
+        language  = CreateDefaultLanguageService(static_cast<LanguageServerCallback&>(*this));
+        transport = CreateStdIOTransportService(static_cast<LanguageServerCallback&>(*this));
 
         AddRequestHandler(lsp::LSPMethod_Initialize, &LanguageService::Initialize);
         AddRequestHandler(lsp::LSPMethod_DocumentSymbol, &LanguageService::DocumentSymbol);

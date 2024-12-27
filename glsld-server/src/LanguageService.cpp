@@ -67,7 +67,7 @@ namespace glsld
                     .version = "0.0.2",
                 },
         };
-        server->HandleServerResponse(requestId, result, false);
+        server.HandleServerResponse(requestId, result, false);
     }
 
 #pragma region Document Synchronization
@@ -123,7 +123,7 @@ namespace glsld
         auto uri = params.textDocument.uri;
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
             auto result = ComputeDocumentSymbol(provider);
-            server->HandleServerResponse(requestId, result, false);
+            server.HandleServerResponse(requestId, result, false);
         });
     }
 
@@ -132,7 +132,7 @@ namespace glsld
         auto uri = params.textDocument.uri;
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
             lsp::SemanticTokens result = ComputeSemanticTokens(provider);
-            server->HandleServerResponse(requestId, result, false);
+            server.HandleServerResponse(requestId, result, false);
         });
     }
 
@@ -142,7 +142,7 @@ namespace glsld
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::CompletionItem> result = ComputeCompletion(provider, params.baseParams.position);
-                server->HandleServerResponse(requestId, result, false);
+                server.HandleServerResponse(requestId, result, false);
             });
     }
 
@@ -152,7 +152,7 @@ namespace glsld
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::optional<lsp::SignatureHelp> result = ComputeSignatureHelp(provider, params.baseParams.position);
-                server->HandleServerResponse(requestId, result, false);
+                server.HandleServerResponse(requestId, result, false);
             });
     }
 
@@ -162,7 +162,7 @@ namespace glsld
         ScheduleLanguageQuery(uri,
                               [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                                   std::optional<lsp::Hover> result = ComputeHover(provider, params.baseParams.position);
-                                  server->HandleServerResponse(requestId, result, false);
+                                  server.HandleServerResponse(requestId, result, false);
                               });
     }
 
@@ -173,7 +173,7 @@ namespace glsld
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::Location> result =
                     ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
-                server->HandleServerResponse(requestId, result, false);
+                server.HandleServerResponse(requestId, result, false);
             });
     }
 
@@ -185,7 +185,7 @@ namespace glsld
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::Location> result =
                     ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
-                server->HandleServerResponse(requestId, result, false);
+                server.HandleServerResponse(requestId, result, false);
             });
     }
 
@@ -197,7 +197,7 @@ namespace glsld
                                   std::vector<lsp::Location> result =
                                       ComputeReferences(provider, params.baseParams.textDocument.uri,
                                                         params.baseParams.position, params.context.includeDeclaration);
-                                  server->HandleServerResponse(requestId, result, false);
+                                  server.HandleServerResponse(requestId, result, false);
                               });
     }
 
@@ -207,7 +207,7 @@ namespace glsld
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, config.inlayHint, params.range);
-                server->HandleServerResponse(requestId, result, false);
+                server.HandleServerResponse(requestId, result, false);
             });
     }
 
@@ -217,7 +217,7 @@ namespace glsld
 
     auto LanguageService::ShowMessage(lsp::ShowMessageParams params) -> void
     {
-        server->HandleServerNotification(lsp::LSPMethod_ShowMessage, params);
+        server.HandleServerNotification(lsp::LSPMethod_ShowMessage, params);
     }
 
 #pragma endregion

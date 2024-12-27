@@ -108,7 +108,7 @@ namespace glsld
         {
             // FIXME: Support reference from included files
             if (GetProvider().IsSpelledInMainFile(token.index)) {
-                output.push_back(lsp::Location{documentUri, ToLspRange(GetProvider().GetExpandedTextRange(token))});
+                output.push_back(lsp::Location{documentUri, ToLspRange(GetProvider().LookupExpandedTextRange(token))});
             }
         }
     };

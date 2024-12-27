@@ -75,26 +75,43 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto ComposeCommentDescription(ArrayView<const RawCommentTokenEntry> commentTokens) -> std::string
+    static auto ComposeCommentDescription(TextRange declTextRange, ArrayView<RawCommentTokenEntry> preceedingComments,
+                                          ArrayView<RawCommentTokenEntry> trailingComments) -> std::string
     {
-        if (commentTokens.empty()) {
-            return "";
-        }
-
-        std::string result;
-        for (const auto& entry : commentTokens) {
+        auto unwrapComment = [](const RawCommentTokenEntry& entry) -> StringView {
             auto commentText = entry.text.StrView();
             if (commentText.StartWith("//")) {
-                result += commentText.Drop(2).Trim();
+                return commentText.Drop(2).Trim();
             }
             else if (commentText.StartWith("/*")) {
-                result += commentText.Drop(2).DropBack(2);
+                return commentText.Drop(2).DropBack(2);
             }
+            return commentText;
+        };
 
-            result += "\n";
+        // Case 1: Trailing comment in the same line
+        // e.g. `int a; // comment`
+        if (trailingComments.size() == 1 && declTextRange.GetNumLines() == 1 &&
+            trailingComments.front().spelledRange.end.line == declTextRange.start.line) {
+            return unwrapComment(trailingComments.front()).Str();
         }
 
-        return result;
+        // Case 2: Preceeding comments in the previous lines
+        // e.g. ```
+        //      // comment
+        //      int a;
+        //      ```
+        if (!preceedingComments.empty()) {
+            std::string result;
+            for (const auto& entry : preceedingComments) {
+                result += unwrapComment(entry);
+                result += "\n";
+            }
+
+            return result;
+        }
+
+        return "";
     }
 
     static auto CreateHoverContent(const LanguageQueryProvider& provider, const SymbolAccessInfo& accessInfo)
@@ -105,6 +122,7 @@ namespace glsld
         }
 
         StringView name = accessInfo.token.text.StrView();
+        auto tokenRange = provider.LookupExpandedTextRange(accessInfo.token);
         if (!accessInfo.symbolDecl.IsValid()) {
             bool isUnknown = accessInfo.symbolType != SymbolAccessType::Swizzle &&
                              accessInfo.symbolType != SymbolAccessType::LayoutQualifier;
@@ -114,15 +132,16 @@ namespace glsld
                 .name        = name.Str(),
                 .description = "",
                 .code        = "",
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
                 .unknown     = isUnknown,
             };
         }
 
         auto decl = accessInfo.symbolDecl.GetDecl();
-
         std::string description =
-            ComposeCommentDescription(provider.FindPreceedingCommentTokens(decl->GetSyntaxRange().GetBeginID()));
+            ComposeCommentDescription(provider.LookupExpandedTextRange(decl->GetSyntaxRange()),
+                                      provider.LookupPreceedingComment(decl->GetSyntaxRange().GetBeginID()),
+                                      provider.LookupPreceedingComment(decl->GetSyntaxRange().GetEndID()));
         std::string codeBuffer;
         if (auto funcDecl = decl->As<AstFunctionDecl>();
             funcDecl && accessInfo.symbolType == SymbolAccessType::Function) {
@@ -133,7 +152,7 @@ namespace glsld
                 .description   = std::move(description),
                 .documentation = QueryFunctionDocumentation(name).Str(),
                 .code          = std::move(codeBuffer),
-                .range         = provider.GetExpandedTextRange(accessInfo.token),
+                .range         = tokenRange,
             };
         }
         else if (auto paramDecl = decl->As<AstParamDecl>();
@@ -144,7 +163,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
             };
         }
         else if (auto varDecl = decl->As<AstVariableDecl>();
@@ -156,7 +175,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
             };
         }
         else if (auto memberDecl = decl->As<AstFieldDecl>();
@@ -167,7 +186,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
             };
         }
         else if (auto structDecl = decl->As<AstStructDecl>();
@@ -178,7 +197,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
             };
         }
         else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>();
@@ -190,7 +209,7 @@ namespace glsld
                 .name        = name.Str(),
                 .description = std::move(description),
                 .code        = std::move(codeBuffer),
-                .range       = provider.GetExpandedTextRange(accessInfo.token),
+                .range       = tokenRange,
             };
         }
 

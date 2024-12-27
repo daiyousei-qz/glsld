@@ -35,7 +35,7 @@ namespace glsld
                 return;
             }
 
-            auto exprTextRange = GetProvider().GetExpandedTextRange(expr);
+            auto exprTextRange = GetProvider().LookupExpandedTextRange(expr);
             if (exprTextRange.IsEmpty()) {
                 return;
             }
@@ -60,7 +60,7 @@ namespace glsld
                 auto paramDecl = paramDeclList[i];
                 auto argExpr   = expr.GetArgs()[i];
 
-                auto argTextRange = GetProvider().GetExpandedTextRange(*argExpr);
+                auto argTextRange = GetProvider().LookupExpandedTextRange(*argExpr);
                 if (argTextRange.IsEmpty()) {
                     continue;
                 }
@@ -89,7 +89,7 @@ namespace glsld
                 return;
             }
 
-            auto declTextRange = GetProvider().GetExpandedTextRange(decl);
+            auto declTextRange = GetProvider().LookupExpandedTextRange(decl);
             if (declTextRange.GetNumLines() < config.blockEndHintLineThreshold) {
                 return;
             }

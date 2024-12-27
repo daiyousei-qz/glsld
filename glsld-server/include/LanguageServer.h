@@ -3,7 +3,7 @@
 #include "Basic/Common.h"
 
 #include "Protocol.h"
-#include "LanguageServerInterface.h"
+#include "LanguageServerCallback.h"
 #include "TransportService.h"
 #include "LanguageService.h"
 
@@ -12,7 +12,7 @@
 namespace glsld
 {
     // handles jsonrpc
-    class LanguageServer : public LanguageServerCallback
+    class LanguageServer : private LanguageServerCallback
     {
     private:
         using MessageDispatcherType = std::function<void(LanguageServer& server, const lsp::JsonObject& rpcBlob)>;
@@ -22,25 +22,16 @@ namespace glsld
         std::unique_ptr<TransportService> transport;
 
     public:
-        auto Run() -> void
-        {
-            Initialize();
-
-            while (true) {
-                transport->PullMessage();
-            }
-        }
+        auto Run() -> void;
 
     private:
         auto Initialize() -> void;
 
-    protected:
         auto DoHandleClientMessage(lsp::JsonObject rpcBlob) -> void override;
         auto DoHandleBadClientMessage(StringView messageText) -> void override;
         auto DoHandleServerResponse(int requestId, lsp::JsonObject result, bool isError) -> void override;
         auto DoHandleNotification(const char* method, lsp::JsonObject params) -> void override;
 
-    private:
         template <typename ParamType>
         using RequestHandlerType = void (LanguageService::*)(int requestId, ParamType params);
 

@@ -2,10 +2,8 @@
 
 namespace glsld
 {
-    static auto ReadLine(std::string& buf, FILE* inputFile) -> bool
+    static auto ReadLine(std::vector<char>& buf, FILE* inputFile) -> bool
     {
-        buf.clear();
-
         while (true) {
             int ch = fgetc(inputFile);
             if (ch == EOF) {
@@ -26,18 +24,17 @@ namespace glsld
 
     auto TransportService::PullMessage() -> bool
     {
-        lineBuffer.clear();
-        payloadBuffer.clear();
-
         // Read LSP headers from input file
         // Although LSP requires "\r\n" as end-line, we only use "\n" as the delimitor for simplicity.
         size_t payloadLength = 0;
         while (true) {
-            if (!ReadLine(lineBuffer, inFile)) {
+            messageBuffer.clear();
+
+            if (!ReadLine(messageBuffer, inFile)) {
                 return false;
             }
 
-            StringView headerView = StringView{lineBuffer}.Trim();
+            StringView headerView = StringView{messageBuffer}.Trim();
 
             if (headerView.Empty()) {
                 break;
@@ -62,11 +59,12 @@ namespace glsld
             return false;
         }
 
-        payloadBuffer.resize(payloadLength);
+        messageBuffer.clear();
+        messageBuffer.resize(payloadLength);
 
         size_t readSize = 0;
         while (readSize < payloadLength) {
-            auto len = fread(payloadBuffer.data() + readSize, sizeof(char), payloadLength - readSize, inFile);
+            auto len = fread(messageBuffer.data() + readSize, sizeof(char), payloadLength - readSize, inFile);
 
             if (len == 0) {
                 // See EOF
@@ -76,18 +74,28 @@ namespace glsld
             readSize += len;
         }
 
-        server->HandleClientMessage(std::string_view{payloadBuffer.data(), payloadBuffer.size()});
+        server.HandleClientMessage(StringView{messageBuffer});
         return true;
     }
 
-    auto TransportService::PushMessage(StringView payload) -> void
+    auto TransportService::PushMessage(StringView payload) -> bool
     {
         // TODO: optimize this
         std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
 
-        fwrite(header.data(), sizeof(char), header.size(), outFile);
-        fwrite(payload.data(), sizeof(char), payload.Size(), outFile);
-        fflush(outFile);
+        if (auto writeSize = fwrite(header.data(), sizeof(char), header.size(), outFile); writeSize != header.size()) {
+            return false;
+        }
+        if (auto writeSize = fwrite(payload.data(), sizeof(char), payload.Size(), outFile);
+            writeSize != payload.Size()) {
+            return false;
+        }
+
+        if (fflush(outFile) != 0) {
+            return false;
+        }
+
+        return true;
     }
 
 } // namespace glsld

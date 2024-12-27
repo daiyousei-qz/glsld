@@ -1,7 +1,7 @@
 #pragma once
 #include "Config.h"
 #include "Protocol.h"
-#include "LanguageServerInterface.h"
+#include "LanguageServerCallback.h"
 #include "LanguageQueryProvider.h"
 
 #include <BS_thread_pool.hpp>
@@ -11,16 +11,17 @@ namespace glsld
     class LanguageService
     {
     private:
+        LanguageServerCallback& server;
+
         // uri -> provider
         std::map<std::string, std::shared_ptr<PendingBackgroundCompilation>> providerLookup;
 
         LanguageServerConfig config = LanguageServerConfig::Default();
-        LanguageServerCallback* server;
 
         BS::thread_pool threadPool;
 
     public:
-        LanguageService(LanguageServerCallback* server) : server(server)
+        LanguageService(LanguageServerCallback& server) : server(server)
         {
         }
 

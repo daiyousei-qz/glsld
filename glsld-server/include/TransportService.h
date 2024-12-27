@@ -1,9 +1,8 @@
 #pragma once
 #include "Basic/StringView.h"
-#include "LanguageServerInterface.h"
+#include "LanguageServerCallback.h"
 
 #include <cstdio>
-#include <string>
 #include <vector>
 
 namespace glsld
@@ -11,27 +10,27 @@ namespace glsld
     // This class handles json-rpc transport via standard file interface
     class TransportService
     {
-    public:
-        TransportService(FILE* inFile, FILE* outFile, LanguageServerCallback* server)
-            : inFile(inFile), outFile(outFile), server(server)
-        {
-            payloadBuffer.reserve(4096);
-        }
-
-        // Pull a message from the input stream
-        // Returns true if a message is successfully pulled
-        auto PullMessage() -> bool;
-
-        // Push a message to the output stream
-        auto PushMessage(StringView payload) -> void;
-
     private:
+        LanguageServerCallback& server;
         FILE* inFile;
         FILE* outFile;
-        LanguageServerCallback* server;
 
-        std::string lineBuffer;
-        std::vector<char> payloadBuffer = {};
+        std::vector<char> messageBuffer = {};
+
+    public:
+        TransportService(LanguageServerCallback& server, FILE* inFile, FILE* outFile)
+            : inFile(inFile), outFile(outFile), server(server)
+        {
+            messageBuffer.reserve(4096);
+        }
+
+        // Synchrounously pull a message from the input stream and forward it to the server.
+        // Returns true if a message is successfully pulled.
+        auto PullMessage() -> bool;
+
+        // Synchrounously push a message to the output stream.
+        // Returns true if a message is successfully pushed.
+        auto PushMessage(StringView payload) -> bool;
     };
 
 } // namespace glsld
