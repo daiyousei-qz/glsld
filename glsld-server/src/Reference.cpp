@@ -44,53 +44,53 @@ namespace glsld
         auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
         {
             if (expr.GetResolvedDecl() == referenceDecl) {
-                AddReferenceToken(expr.GetAccessName());
+                AddReferenceToken(expr.GetNameToken());
             }
         }
         auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
         {
             if (expr.GetResolvedDecl() == referenceDecl) {
-                AddReferenceToken(expr.GetAccessName());
+                AddReferenceToken(expr.GetNameToken());
             }
         }
         auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
         {
             if (expr.GetResolvedFunction() == referenceDecl) {
-                AddReferenceToken(expr.GetFunctionName());
+                AddReferenceToken(expr.GetNameToken());
             }
         }
 
         auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                AddReferenceToken(decl.GetDeclTok());
+                AddReferenceToken(decl.GetNameToken());
             }
         }
         auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].declTok);
+                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);
             }
         }
         auto VisitAstFieldDecl(const AstFieldDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].declTok);
+                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);
             }
         }
         auto VisitAstParamDecl(const AstParamDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 if (auto declarator = decl.GetDeclarator()) {
-                    AddReferenceToken(declarator->declTok);
+                    AddReferenceToken(declarator->nameToken);
                 }
             }
         }
         auto VisitAstStructDecl(const AstStructDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                if (decl.GetDeclTok()) {
-                    AddReferenceToken(*decl.GetDeclTok());
+                if (decl.GetNameToken()) {
+                    AddReferenceToken(*decl.GetNameToken());
                 }
             }
         }
@@ -98,16 +98,16 @@ namespace glsld
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
                 if (decl.GetDeclarator()) {
-                    AddReferenceToken(decl.GetDeclarator()->declTok);
+                    AddReferenceToken(decl.GetDeclarator()->nameToken);
                 }
             }
         }
 
     private:
-        auto AddReferenceToken(const SyntaxToken& token) -> void
+        auto AddReferenceToken(const AstSyntaxToken& token) -> void
         {
             // FIXME: Support reference from included files
-            if (GetProvider().IsSpelledInMainFile(token.index)) {
+            if (GetProvider().IsSpelledInMainFile(token.id)) {
                 output.push_back(lsp::Location{documentUri, ToLspRange(GetProvider().LookupExpandedTextRange(token))});
             }
         }

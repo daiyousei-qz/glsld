@@ -5,12 +5,12 @@ namespace glsld
 {
     auto SymbolTableLevel::AddFunctionDecl(AstFunctionDecl& decl) -> void
     {
-        if (!decl.GetDeclTok().IsIdentifier()) {
+        if (!decl.GetNameToken().IsIdentifier()) {
             return;
         }
 
         // FIXME: we need to deduplicate since a function could be declared multiple times
-        auto name = decl.GetDeclTok().text.Str();
+        auto name = decl.GetNameToken().text.Str();
         if (!name.empty()) {
             std::vector<FunctionParamSymbolEntry> paramEntries;
             for (auto paramDecl : decl.GetParams()) {
@@ -28,8 +28,8 @@ namespace glsld
 
     auto SymbolTableLevel::AddStructDecl(AstStructDecl& decl) -> void
     {
-        if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
-            TryAddSymbol(*decl.GetDeclTok(), decl);
+        if (decl.GetNameToken() && decl.GetNameToken()->IsIdentifier()) {
+            TryAddSymbol(*decl.GetNameToken(), decl);
         }
     }
 
@@ -37,14 +37,14 @@ namespace glsld
     {
         if (decl.GetDeclarator()) {
             // For named interface block, add the decl token for the interface block
-            TryAddSymbol(decl.GetDeclarator()->declTok, decl);
+            TryAddSymbol(decl.GetDeclarator()->nameToken, decl);
         }
         else {
             // For unnamed interface block, names of internal members should be directly added to the current scope
             for (auto memberDecl : decl.GetMembers()) {
                 for (const auto& declarator : memberDecl->GetDeclarators()) {
-                    if (declarator.declTok.IsIdentifier()) {
-                        TryAddSymbol(declarator.declTok, *memberDecl);
+                    if (declarator.nameToken.IsIdentifier()) {
+                        TryAddSymbol(declarator.nameToken, *memberDecl);
                     }
                 }
             }
@@ -54,20 +54,20 @@ namespace glsld
     auto SymbolTableLevel::AddVariableDecl(AstVariableDecl& decl) -> void
     {
         for (auto declarator : decl.GetDeclarators()) {
-            if (declarator.declTok.IsIdentifier()) {
-                TryAddSymbol(declarator.declTok, decl);
+            if (declarator.nameToken.IsIdentifier()) {
+                TryAddSymbol(declarator.nameToken, decl);
             }
         }
     }
 
     auto SymbolTableLevel::AddParamDecl(AstParamDecl& decl) -> void
     {
-        if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-            TryAddSymbol(decl.GetDeclarator()->declTok, decl);
+        if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
+            TryAddSymbol(decl.GetDeclarator()->nameToken, decl);
         }
     }
 
-    auto SymbolTableLevel::TryAddSymbol(SyntaxToken declToken, const AstDecl& decl) -> bool
+    auto SymbolTableLevel::TryAddSymbol(AstSyntaxToken nameToken, const AstDecl& decl) -> bool
     {
         if (freezed) {
             assert("Trying to add a symbol to a freezed symbol table");
@@ -75,7 +75,7 @@ namespace glsld
         }
 
         // FIXME: avoid string allocation
-        auto name = declToken.text.Str();
+        auto name = nameToken.text.Str();
         if (name.empty()) {
             return false;
         }

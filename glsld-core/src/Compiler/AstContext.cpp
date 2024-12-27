@@ -16,28 +16,28 @@ namespace glsld
         for (auto memberDecl : decl.GetMembers()) {
             for (const auto& declarator : memberDecl->GetDeclarators()) {
                 auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySize);
-                memberDesc.push_back({declarator.declTok.text.Str(), typeDesc});
+                memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
             }
         }
 
         StringView typeName = "__UnnamedStructType";
-        if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
-            typeName = decl.GetDeclTok()->text.StrView();
+        if (auto nameToken = decl.GetNameToken(); nameToken && nameToken->IsIdentifier()) {
+            typeName = decl.GetNameToken()->text.StrView();
         }
 
         UnorderedStringMap<DeclView> memberLookup;
         for (auto memberDecl : decl.GetMembers()) {
             size_t declIndex = 0;
             for (const auto& declarator : memberDecl->GetDeclarators()) {
-                if (declarator.declTok.IsIdentifier()) {
-                    memberLookup.Insert({declarator.declTok.text.Str(), DeclView{memberDecl, declIndex}});
+                if (declarator.nameToken.IsIdentifier()) {
+                    memberLookup.Insert({declarator.nameToken.text.Str(), DeclView{memberDecl, declIndex}});
                 }
                 declIndex += 1;
             }
         }
 
         auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                .name    = decl.GetDeclTok() ? typeName.Str() : "",
+                                                                .name    = decl.GetNameToken() ? typeName.Str() : "",
                                                                 .members = std::move(memberDesc),
                                                                 .decl    = &decl,
                                                                 .memberDeclLookup = std::move(memberLookup),
@@ -51,21 +51,21 @@ namespace glsld
         for (auto memberDecl : decl.GetMembers()) {
             for (const auto& declarator : memberDecl->GetDeclarators()) {
                 auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySize);
-                memberDesc.push_back({declarator.declTok.text.Str(), typeDesc});
+                memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
             }
         }
 
         StringView typeName = "__UnnamedBlockType";
-        if (decl.GetDeclTok().IsIdentifier()) {
-            typeName = decl.GetDeclTok().text.StrView();
+        if (decl.GetNameToken().IsIdentifier()) {
+            typeName = decl.GetNameToken().text.StrView();
         }
 
         UnorderedStringMap<DeclView> memberLookup;
         for (auto memberDecl : decl.GetMembers()) {
             size_t declIndex = 0;
             for (const auto& declarator : memberDecl->GetDeclarators()) {
-                if (declarator.declTok.IsIdentifier()) {
-                    memberLookup.Insert({declarator.declTok.text.Str(), DeclView{memberDecl, declIndex}});
+                if (declarator.nameToken.IsIdentifier()) {
+                    memberLookup.Insert({declarator.nameToken.text.Str(), DeclView{memberDecl, declIndex}});
                 }
                 declIndex += 1;
             }

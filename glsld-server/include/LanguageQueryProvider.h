@@ -62,7 +62,7 @@ namespace glsld
     struct SymbolAccessInfo
     {
         // The token that the cursor is on.
-        SyntaxToken token;
+        AstSyntaxToken token;
 
         // The declaration of the symbol that the token is accessing.
         DeclView symbolDecl;
@@ -104,20 +104,20 @@ namespace glsld
         }
 
         // Returns the token entry of the specified token.
-        auto LookupToken(SyntaxTokenID id) const -> const RawSyntaxTokenEntry*;
+        auto LookupToken(SyntaxTokenID id) const -> const RawSyntaxToken*;
 
         // Returns the token entries of the specified token range.
-        auto LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxTokenEntry>;
+        auto LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxToken>;
 
         auto LookupDotTokenIndex(const AstExpr& expr) const -> std::optional<SyntaxTokenID>;
 
         // Returns the token entries that is expanded to the specified position.
-        auto LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxTokenEntry>;
+        auto LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxToken>;
 
         // Returns the token entries that is expanded to the specified line.
-        auto LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxTokenEntry>;
+        auto LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxToken>;
 
-        auto LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentTokenEntry>;
+        auto LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentToken>;
 
         auto LookupSpelledFile(SyntaxTokenID id) const -> FileID;
 
@@ -139,9 +139,9 @@ namespace glsld
         // Notably, expanded text range is always in the main file.
         auto LookupExpandedTextRange(AstSyntaxRange range) const -> TextRange;
 
-        auto LookupExpandedTextRange(const SyntaxToken& token) const -> TextRange
+        auto LookupExpandedTextRange(const AstSyntaxToken& token) const -> TextRange
         {
-            return LookupExpandedTextRange(token.index);
+            return LookupExpandedTextRange(token.id);
         }
 
         auto LookupExpandedTextRange(const AstNode& node) const -> TextRange
@@ -153,7 +153,7 @@ namespace glsld
         // Notably, expanded text range is always in the main file.
         auto LookupExpandedTextRangeExtended(AstSyntaxRange range) const -> TextRange;
 
-        auto GetExpandedTextRangeExtended(const SyntaxToken& token) const -> TextRange
+        auto GetExpandedTextRangeExtended(const AstSyntaxToken& token) const -> TextRange
         {
             return LookupExpandedTextRangeExtended(token.GetSyntaxRange());
         }
@@ -184,7 +184,7 @@ namespace glsld
             return LookupExpandedTextRange(node).Contains(position);
         }
 
-        auto ContainsPosition(const SyntaxToken& token, TextPosition position) const -> bool
+        auto ContainsPosition(const AstSyntaxToken& token, TextPosition position) const -> bool
         {
             return LookupExpandedTextRange(token).Contains(position);
         }
@@ -203,7 +203,7 @@ namespace glsld
 
         // True if the expanded range of a token including trailing whitespaces contains the specified position in the
         // main file.
-        auto ContainsPositionExtended(const SyntaxToken& token, TextPosition position) const -> bool
+        auto ContainsPositionExtended(const AstSyntaxToken& token, TextPosition position) const -> bool
         {
             return LookupExpandedTextRangeExtended(token.GetSyntaxRange()).ContainsExtended(position);
         }
@@ -213,7 +213,7 @@ namespace glsld
         auto ContainsPositionExtended(SyntaxTokenID tokIndex, TextPosition position) const -> bool
         {
             // FIXME: implement properly
-            return GetExpandedTextRangeExtended(SyntaxToken{tokIndex, TokenKlass::Invalid, {}})
+            return GetExpandedTextRangeExtended(AstSyntaxToken{tokIndex, TokenKlass::Invalid, {}})
                 .ContainsExtended(position);
         }
     };

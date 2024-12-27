@@ -183,20 +183,20 @@ namespace glsld
     {
     private:
         // [Node]
-        SyntaxToken accessName;
+        AstSyntaxToken nameToken;
 
         // [Payload]
         // The declaration that this name access expression refers to.
         DeclView resolvedDecl = {};
 
     public:
-        AstNameAccessExpr(SyntaxToken name) : accessName(name)
+        AstNameAccessExpr(AstSyntaxToken name) : nameToken(name)
         {
         }
 
-        auto GetAccessName() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return accessName;
+            return nameToken;
         }
 
         auto SetResolvedDecl(DeclView decl) noexcept -> void
@@ -258,7 +258,7 @@ namespace glsld
         auto DoDump(Dumper& d) const -> void
         {
             AstExpr::DoDump(d);
-            d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
             d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.DoDump(d); });
         }
     };
@@ -268,29 +268,29 @@ namespace glsld
     {
     private:
         // [Node]
-        // The left-hand side expression of the field access.
-        NotNull<AstExpr*> lhsExpr;
+        // The base expression evaluating to the object of the field access.
+        NotNull<AstExpr*> baseExpr;
 
         // [Node]
         // The identifier token of the field name or an invalid token.
-        SyntaxToken accessName;
+        AstSyntaxToken nameToken;
 
         // [Payload]
         // The field declaration that this name access expression refers to.
         DeclView resolvedDecl = {};
 
     public:
-        AstFieldAccessExpr(AstExpr* lhsExpr, SyntaxToken name) : lhsExpr(lhsExpr), accessName(name)
+        AstFieldAccessExpr(AstExpr* baseExpr, AstSyntaxToken name) : baseExpr(baseExpr), nameToken(name)
         {
         }
 
-        auto GetLhsExpr() const noexcept -> const AstExpr*
+        auto GetBaseExpr() const noexcept -> const AstExpr*
         {
-            return lhsExpr;
+            return baseExpr;
         }
-        auto GetAccessName() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return accessName;
+            return nameToken;
         }
 
         auto SetResolvedDecl(DeclView decl) noexcept -> void
@@ -309,16 +309,16 @@ namespace glsld
                 return false;
             }
 
-            return visitor.Traverse(*lhsExpr);
+            return visitor.Traverse(*baseExpr);
         }
 
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
             AstExpr::DoDump(d);
-            d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
+            d.DumpChildNode("BaseExpr", *baseExpr);
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
             d.DumpChildItem("ResolvedDecl", [this](Dumper& d) { resolvedDecl.DoDump(d); });
-            d.DumpChildNode("LhsExpr", *lhsExpr);
         }
     };
 
@@ -327,29 +327,29 @@ namespace glsld
     {
     private:
         // [Node]
-        // The left-hand side expression of the swizzle access.
-        NotNull<AstExpr*> lhsExpr;
+        // The base expression evaluating to the object of the swizzle access.
+        NotNull<AstExpr*> baseExpr;
 
         // [Node]
         // The identifier token of the swizzle name or an invalid token.
-        SyntaxToken accessName;
+        AstSyntaxToken nameToken;
 
         // [Payload]
         // The swizzle description parsed from the access name.
         SwizzleDesc swizzleDesc = {};
 
     public:
-        AstSwizzleAccessExpr(AstExpr* lhsExpr, SyntaxToken name) : lhsExpr(lhsExpr), accessName(name)
+        AstSwizzleAccessExpr(AstExpr* baseExpr, AstSyntaxToken name) : baseExpr(baseExpr), nameToken(name)
         {
         }
 
-        auto GetLhsExpr() const noexcept -> const AstExpr*
+        auto GetBaseExpr() const noexcept -> const AstExpr*
         {
-            return lhsExpr;
+            return baseExpr;
         }
-        auto GetAccessName() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return accessName;
+            return nameToken;
         }
 
         auto SetSwizzleDesc(SwizzleDesc swizzleDesc) noexcept -> void
@@ -368,16 +368,16 @@ namespace glsld
                 return false;
             }
 
-            return visitor.Traverse(*lhsExpr);
+            return visitor.Traverse(*baseExpr);
         }
 
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
             AstExpr::DoDump(d);
-            d.DumpAttribute("Name", accessName.IsIdentifier() ? accessName.text.StrView() : "<Error>");
+            d.DumpChildNode("BaseExpr", *baseExpr);
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
             d.DumpAttribute("Swizzle", swizzleDesc.ToString());
-            d.DumpChildNode("LhsExpr", *lhsExpr);
         }
     };
 
@@ -429,7 +429,7 @@ namespace glsld
         {
             AstExpr::DoDump(d);
             d.DumpChildNode("BaseExpr", *baseExpr);
-            d.DumpChildNode("Index", *indexExpr);
+            d.DumpChildNode("IndexExpr", *indexExpr);
         }
     };
 
@@ -639,7 +639,7 @@ namespace glsld
     {
     private:
         // [Node]
-        SyntaxToken functionName;
+        AstSyntaxToken nameToken;
 
         // [Node]
         ArrayView</*NotNull*/ AstExpr*> args;
@@ -648,13 +648,13 @@ namespace glsld
         const AstFunctionDecl* resolvedFunction = nullptr;
 
     public:
-        AstFunctionCallExpr(SyntaxToken functionName, ArrayView<AstExpr*> args) : functionName(functionName), args(args)
+        AstFunctionCallExpr(AstSyntaxToken nameToken, ArrayView<AstExpr*> args) : nameToken(nameToken), args(args)
         {
         }
 
-        auto GetFunctionName() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return functionName;
+            return nameToken;
         }
         auto GetArgs() const noexcept -> ArrayView<const AstExpr*>
         {
@@ -690,7 +690,7 @@ namespace glsld
         auto DoDump(Dumper& d) const -> void
         {
             AstExpr::DoDump(d);
-            d.DumpAttribute("Function", functionName.IsIdentifier() ? functionName.text.StrView() : "<Error>");
+            d.DumpAttribute("Function", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
             for (auto arg : args) {
                 d.DumpChildNode("Arg", *arg);
             }

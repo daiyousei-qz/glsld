@@ -102,37 +102,37 @@ namespace glsld
 
             auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
             {
-                if (expr.GetAccessName().IsIdentifier()) {
+                if (expr.GetNameToken().IsIdentifier()) {
                     auto modifier = SemanticTokenModifier::None;
                     if (expr.IsConstNameAccess()) {
                         modifier |= SemanticTokenModifier::Readonly;
                     }
 
                     if (expr.IsParameter()) {
-                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Parameter, modifier);
+                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Parameter, modifier);
                     }
                     else {
-                        TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable, modifier);
+                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable, modifier);
                     }
                 }
             }
             auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
             {
-                if (expr.GetAccessName().IsIdentifier()) {
-                    TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable);
+                if (expr.GetNameToken().IsIdentifier()) {
+                    TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable);
                 }
             }
             auto VisitSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
             {
-                if (expr.GetAccessName().IsIdentifier()) {
+                if (expr.GetNameToken().IsIdentifier()) {
                     // Note we color the identifier regardless of whether it is a valid swizzle.
-                    TryAddSementicToken(expr.GetAccessName(), SemanticTokenType::Variable);
+                    TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable);
                 }
             }
             auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
             {
-                if (expr.GetFunctionName().IsIdentifier()) {
-                    TryAddSementicToken(expr.GetFunctionName(), SemanticTokenType::Function);
+                if (expr.GetNameToken().IsIdentifier()) {
+                    TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Function);
                 }
             }
 
@@ -144,46 +144,47 @@ namespace glsld
                 }
 
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    if (declarator.declTok.klass == TokenKlass::Identifier) {
-                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable, modifier);
+                    if (declarator.nameToken.klass == TokenKlass::Identifier) {
+                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
                     }
                 }
             }
             auto VisitAstStructDecl(const AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclTok() && decl.GetDeclTok()->IsIdentifier()) {
-                    TryAddSementicToken(*decl.GetDeclTok(), SemanticTokenType::Struct,
+                if (decl.GetNameToken() && decl.GetNameToken()->IsIdentifier()) {
+                    TryAddSementicToken(*decl.GetNameToken(), SemanticTokenType::Struct,
                                         SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
-                if (decl.GetDeclTok().IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclTok(), SemanticTokenType::Type, SemanticTokenModifier::Declaration);
+                if (decl.GetNameToken().IsIdentifier()) {
+                    TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Type,
+                                        SemanticTokenModifier::Declaration);
                 }
 
                 // Interface block decl
-                if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Variable,
+                if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
+                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Variable,
                                         SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
             {
-                if (decl.GetDeclTok().IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclTok(), SemanticTokenType::Function,
+                if (decl.GetNameToken().IsIdentifier()) {
+                    TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Function,
                                         SemanticTokenModifier::Declaration);
                 }
             }
             auto VisitAstParamDecl(const AstParamDecl& decl) -> void
             {
-                if (decl.GetDeclarator() && decl.GetDeclarator()->declTok.IsIdentifier()) {
+                if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
                     SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
                     if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
                         modifier |= SemanticTokenModifier::Readonly;
                     }
-                    TryAddSementicToken(decl.GetDeclarator()->declTok, SemanticTokenType::Parameter, modifier);
+                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Parameter, modifier);
                 }
             }
             auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
@@ -195,18 +196,18 @@ namespace glsld
                 }
 
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    if (declarator.declTok.IsIdentifier()) {
-                        TryAddSementicToken(declarator.declTok, SemanticTokenType::Variable, modifier);
+                    if (declarator.nameToken.IsIdentifier()) {
+                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
                     }
                 }
             }
 
         private:
-            auto TryAddSementicToken(SyntaxToken token, SemanticTokenType type,
+            auto TryAddSementicToken(AstSyntaxToken token, SemanticTokenType type,
                                      SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
             {
                 if (token.IsValid()) {
-                    CreateSemanticTokenInfo(output, GetProvider(), token.index, type, modifier);
+                    CreateSemanticTokenInfo(output, GetProvider(), token.id, type, modifier);
                 }
             }
         };

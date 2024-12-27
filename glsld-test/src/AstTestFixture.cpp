@@ -121,7 +121,7 @@ namespace glsld
     {
         return CreateMatcher("NameAccessExpr", [name = name.Str()](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstNameAccessExpr>() : nullptr;
-            if (!expr || expr->GetAccessName().text != name) {
+            if (!expr || expr->GetNameToken().text != name) {
                 return AstMatchResult::Failure(node);
             }
 
@@ -132,11 +132,11 @@ namespace glsld
     {
         return CreateMatcher("FieldAccessExpr", [lhsMatcher, name = name.Str()](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstFieldAccessExpr>() : nullptr;
-            if (!expr || expr->GetAccessName().text != name) {
+            if (!expr || expr->GetNameToken().text != name) {
                 return AstMatchResult::Failure(node);
             }
 
-            return MatchAll({{expr->GetLhsExpr(), lhsMatcher}});
+            return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
         });
     }
     auto AstTestFixture::SwizzleAccessExpr(AstMatcher* lhsMatcher, StringView swizzle) -> AstMatcher*
@@ -148,7 +148,7 @@ namespace glsld
                                      return AstMatchResult::Failure(node);
                                  }
 
-                                 return MatchAll({{expr->GetLhsExpr(), lhsMatcher}});
+                                 return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
                              });
     }
     auto AstTestFixture::IndexAccessExpr(AstMatcher* lhsMatcher, AstMatcher* indexMatcher) -> AstMatcher*
@@ -217,7 +217,7 @@ namespace glsld
                              [nameMatcher = std::move(nameMatcher),
                               argMatchers = std::move(argMatchers)](const AstNode* node) -> AstMatchResult {
                                  auto expr = node ? node->As<AstFunctionCallExpr>() : nullptr;
-                                 if (!expr || !nameMatcher.Match(expr->GetFunctionName()) ||
+                                 if (!expr || !nameMatcher.Match(expr->GetNameToken()) ||
                                      expr->GetArgs().size() != argMatchers.size()) {
                                      return AstMatchResult::Failure(node);
                                  }
@@ -455,7 +455,7 @@ namespace glsld
                                      const auto& declarator = decl->GetDeclarators()[i];
                                      const auto& matcher    = declaratorMatchers[i];
 
-                                     if (!matcher.nameMatcher.Match(declarator.declTok)) {
+                                     if (!matcher.nameMatcher.Match(declarator.nameToken)) {
                                          return AstMatchResult::Failure(node);
                                      }
 
@@ -489,7 +489,7 @@ namespace glsld
                                      const auto& declarator = decl->GetDeclarators()[i];
                                      const auto& matcher    = declaratorMatchers[i];
 
-                                     if (!matcher.nameMatcher.Match(declarator.declTok)) {
+                                     if (!matcher.nameMatcher.Match(declarator.nameToken)) {
                                          return AstMatchResult::Failure(node);
                                      }
 
@@ -510,18 +510,18 @@ namespace glsld
     }
     auto AstTestFixture::StructDecl(TokenMatcher nameMatcher, std::vector<AstMatcher*> fieldMatchers) -> AstMatcher*
     {
-        return CreateMatcher("StructDecl",
-                             [nameMatcher   = std::move(nameMatcher),
-                              fieldMatchers = std::move(fieldMatchers)](const AstNode* node) -> AstMatchResult {
-                                 auto decl = node ? node->As<AstStructDecl>() : nullptr;
-                                 if (!decl ||
-                                     !nameMatcher.Match(decl->GetDeclTok() ? *decl->GetDeclTok() : SyntaxToken{}) ||
-                                     decl->GetMembers().size() != fieldMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateMatcher(
+            "StructDecl",
+            [nameMatcher   = std::move(nameMatcher),
+             fieldMatchers = std::move(fieldMatchers)](const AstNode* node) -> AstMatchResult {
+                auto decl = node ? node->As<AstStructDecl>() : nullptr;
+                if (!decl || !nameMatcher.Match(decl->GetNameToken() ? *decl->GetNameToken() : AstSyntaxToken{}) ||
+                    decl->GetMembers().size() != fieldMatchers.size()) {
+                    return AstMatchResult::Failure(node);
+                }
 
-                                 return MatchAll(decl->GetMembers(), fieldMatchers);
-                             });
+                return MatchAll(decl->GetMembers(), fieldMatchers);
+            });
     }
     auto AstTestFixture::ParamDecl(AstMatcher* qualTypeMatcher, TokenMatcher nameMatcher, AstMatcher* arraySpecMatcher)
         -> AstMatcher*
@@ -532,7 +532,7 @@ namespace glsld
              arraySpecMatcher](const AstNode* node) -> AstMatchResult {
                 auto decl = node ? node->As<AstParamDecl>() : nullptr;
                 if (!decl ||
-                    !nameMatcher.Match(decl->GetDeclarator() ? decl->GetDeclarator()->declTok : SyntaxToken{})) {
+                    !nameMatcher.Match(decl->GetDeclarator() ? decl->GetDeclarator()->nameToken : AstSyntaxToken{})) {
                     return AstMatchResult::Failure(node);
                 }
 
@@ -554,7 +554,7 @@ namespace glsld
                 }
 
                 auto decl = node->As<AstFunctionDecl>();
-                if (!decl || !nameMatcher.Match(decl->GetDeclTok()) ||
+                if (!decl || !nameMatcher.Match(decl->GetNameToken()) ||
                     decl->GetParams().size() != paramMatchers.size()) {
                     return AstMatchResult::Failure(node);
                 }

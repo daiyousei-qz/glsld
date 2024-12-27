@@ -122,7 +122,7 @@ namespace glsld
     {
         // The identifier token that defines the symbol name
         // Maybe an error token, which means the declarator is invalid.
-        SyntaxToken declTok = {};
+        AstSyntaxToken nameToken = {};
 
         // Array specifier. May be nullptr if none is specified.
         const AstArraySpec* arraySize = nullptr;
@@ -133,7 +133,7 @@ namespace glsld
         template <AstDumperT Dumper>
         auto DoDump(Dumper& d) const -> void
         {
-            d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
             if (arraySize) {
                 d.DumpChildNode("ArraySize", *arraySize);
             }
@@ -292,7 +292,7 @@ namespace glsld
     {
     private:
         // [Node]
-        std::optional<SyntaxToken> declTok;
+        std::optional<AstSyntaxToken> nameToken;
 
         // [Node]
         ArrayView</*NotNull*/ AstFieldDecl*> members;
@@ -301,14 +301,14 @@ namespace glsld
         const Type* declaredType = nullptr;
 
     public:
-        AstStructDecl(std::optional<SyntaxToken> declTok, ArrayView<AstFieldDecl*> members)
-            : declTok(declTok), members(std::move(members))
+        AstStructDecl(std::optional<AstSyntaxToken> nameToken, ArrayView<AstFieldDecl*> members)
+            : nameToken(nameToken), members(std::move(members))
         {
         }
 
-        auto GetDeclTok() const noexcept -> const std::optional<SyntaxToken>&
+        auto GetNameToken() const noexcept -> const std::optional<AstSyntaxToken>&
         {
-            return declTok;
+            return nameToken;
         }
         auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
         {
@@ -343,8 +343,8 @@ namespace glsld
         auto DoDump(Dumper& d) const -> void
         {
             AstDecl::DoDump(d);
-            if (declTok) {
-                d.DumpAttribute("DeclToken", declTok->IsIdentifier() ? declTok->text.StrView() : "<Error>");
+            if (nameToken) {
+                d.DumpAttribute("Name", nameToken->IsIdentifier() ? nameToken->text.StrView() : "<Error>");
             }
             for (const auto& member : members) {
                 d.DumpChildItem("Member", [&](Dumper& d) { member->DoDump(d); });
@@ -446,7 +446,7 @@ namespace glsld
         NotNull<AstQualType*> returnType;
 
         // [Node]
-        SyntaxToken declTok;
+        AstSyntaxToken nameToken;
 
         // [Node]
         ArrayView</*NotNull*/ AstParamDecl*> params;
@@ -459,8 +459,9 @@ namespace glsld
         AstFunctionDecl* firstDeclaration = nullptr;
 
     public:
-        AstFunctionDecl(AstQualType* returnType, SyntaxToken declTok, ArrayView<AstParamDecl*> params, AstStmt* body)
-            : returnType(returnType), declTok(declTok), params(params), body(body)
+        AstFunctionDecl(AstQualType* returnType, AstSyntaxToken nameToken, ArrayView<AstParamDecl*> params,
+                        AstStmt* body)
+            : returnType(returnType), nameToken(nameToken), params(params), body(body)
         {
         }
 
@@ -468,9 +469,9 @@ namespace glsld
         {
             return returnType;
         }
-        auto GetDeclTok() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return declTok;
+            return nameToken;
         }
         auto GetParams() const noexcept -> ArrayView<const AstParamDecl*>
         {
@@ -515,7 +516,7 @@ namespace glsld
         auto DoDump(Dumper& d) const -> void
         {
             AstDecl::DoDump(d);
-            d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
 
             d.DumpChildNode("ReturnType", *returnType);
             for (auto param : params) {
@@ -531,7 +532,7 @@ namespace glsld
     {
     private:
         NotNull<AstTypeQualifierSeq*> quals;
-        SyntaxToken declTok;
+        AstSyntaxToken nameToken;
         ArrayView</*NotNull*/ AstFieldDecl*> members;
         std::optional<Declarator> declarator;
 
@@ -542,9 +543,9 @@ namespace glsld
         const Type* resolvedInstanceType = nullptr;
 
     public:
-        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, SyntaxToken declTok, ArrayView<AstFieldDecl*> members,
+        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, AstSyntaxToken nameToken, ArrayView<AstFieldDecl*> members,
                               std::optional<Declarator> declarator)
-            : quals(quals), declTok(declTok), members(std::move(members)), declarator(declarator)
+            : quals(quals), nameToken(nameToken), members(std::move(members)), declarator(declarator)
         {
         }
 
@@ -552,9 +553,9 @@ namespace glsld
         {
             return quals;
         }
-        auto GetDeclTok() const noexcept -> SyntaxToken
+        auto GetNameToken() const noexcept -> AstSyntaxToken
         {
-            return declTok;
+            return nameToken;
         }
         auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
         {
@@ -617,7 +618,7 @@ namespace glsld
                 d.DumpAttribute("ResolvedInstanceType", resolvedInstanceType->GetDebugName());
             }
 
-            d.DumpAttribute("DeclToken", declTok.IsIdentifier() ? declTok.text.StrView() : "<Error>");
+            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
 
             d.DumpChildNode("Quals", *quals);
             for (auto member : members) {

@@ -296,14 +296,14 @@ namespace glsld
         else if (auto fieldAccessExpr = init.As<AstFieldAccessExpr>(); fieldAccessExpr) {
             if (auto decl = fieldAccessExpr->GetResolvedDecl(); decl.IsValid()) {
                 if (auto fieldDecl = decl.GetDecl()->As<AstFieldDecl>(); fieldDecl) {
-                    auto lhsResult = EvalAstInitializerLazy(*fieldAccessExpr->GetLhsExpr());
+                    auto lhsResult = EvalAstInitializerLazy(*fieldAccessExpr->GetBaseExpr());
                     return UnwrapConstEvalResult(lhsResult, fieldDecl->GetFieldIndex());
                 }
             }
         }
         else if (auto swizzleAccessExpr = init.As<AstSwizzleAccessExpr>(); swizzleAccessExpr) {
             // All swizzle access should be evaluated eagerly
-            return EvalAstExpr(*swizzleAccessExpr->GetLhsExpr()).GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
+            return EvalAstExpr(*swizzleAccessExpr->GetBaseExpr()).GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
         }
         else if (auto indexAccessExpr = init.As<AstIndexAccessExpr>(); indexAccessExpr) {
             auto baseResult  = EvalAstInitializerLazy(*indexAccessExpr->GetBaseExpr());
@@ -360,14 +360,14 @@ namespace glsld
         }
         else if (auto fnCallExpr = init.As<AstFunctionCallExpr>(); fnCallExpr) {
             if (fnCallExpr->GetArgs().size() == 1) {
-                return EvalBuiltinFunction1(fnCallExpr->GetFunctionName().text.StrView(), fnCallExpr->GetArgs()[0]);
+                return EvalBuiltinFunction1(fnCallExpr->GetNameToken().text.StrView(), fnCallExpr->GetArgs()[0]);
             }
             else if (fnCallExpr->GetArgs().size() == 2) {
-                return EvalBuiltinFunction2(fnCallExpr->GetFunctionName().text.StrView(), fnCallExpr->GetArgs()[0],
+                return EvalBuiltinFunction2(fnCallExpr->GetNameToken().text.StrView(), fnCallExpr->GetArgs()[0],
                                             fnCallExpr->GetArgs()[1]);
             }
             else if (fnCallExpr->GetArgs().size() == 3) {
-                return EvalBuiltinFunction3(fnCallExpr->GetFunctionName().text.StrView(), fnCallExpr->GetArgs()[0],
+                return EvalBuiltinFunction3(fnCallExpr->GetNameToken().text.StrView(), fnCallExpr->GetArgs()[0],
                                             fnCallExpr->GetArgs()[1], fnCallExpr->GetArgs()[2]);
             }
         }

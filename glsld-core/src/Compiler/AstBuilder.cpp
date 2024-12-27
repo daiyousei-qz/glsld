@@ -74,7 +74,7 @@ namespace glsld
         return CreateAstNode<AstTypeQualifierSeq>(range, quals, CopyArray(layoutQuals));
     }
 
-    auto AstBuilder::BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, SyntaxToken typeName,
+    auto AstBuilder::BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, AstSyntaxToken typeName,
                                    AstArraySpec* arraySpec) -> AstQualType*
     {
         auto result = CreateAstNode<AstQualType>(range, qualifiers, typeName, arraySpec);
@@ -147,7 +147,7 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken) -> AstNameAccessExpr*
+    auto AstBuilder::BuildNameAccessExpr(AstSyntaxRange range, AstSyntaxToken idToken) -> AstNameAccessExpr*
     {
         auto result = CreateAstNode<AstNameAccessExpr>(range, idToken);
 
@@ -254,7 +254,7 @@ namespace glsld
         }
     }
 
-    auto AstBuilder::BuildDotAccessExpr(AstSyntaxRange range, AstExpr* lhsExpr, SyntaxToken idToken) -> AstExpr*
+    auto AstBuilder::BuildDotAccessExpr(AstSyntaxRange range, AstExpr* lhsExpr, AstSyntaxToken idToken) -> AstExpr*
     {
         auto baseType = lhsExpr->GetDeducedType();
         if (baseType->IsScalar() || baseType->IsVector()) {
@@ -898,7 +898,7 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
+    auto AstBuilder::BuildFuntionCallExpr(AstSyntaxRange range, AstSyntaxToken functionName, std::vector<AstExpr*> args)
         -> AstFunctionCallExpr*
     {
         bool isConst                            = false;
@@ -1097,7 +1097,7 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
+    auto AstBuilder::BuildStructDecl(AstSyntaxRange range, std::optional<AstSyntaxToken> declTok,
                                      std::vector<AstFieldDecl*> members) -> AstStructDecl*
     {
         auto result = CreateAstNode<AstStructDecl>(range, declTok, CopyArray(members));
@@ -1128,7 +1128,7 @@ namespace glsld
         symbolTable.GetCurrentLevel()->AddParamDecl(*result);
         return result;
     }
-    auto AstBuilder::BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, SyntaxToken declTok,
+    auto AstBuilder::BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, AstSyntaxToken declTok,
                                        std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*
     {
         // FIXME: don't build AST for local function decl?
@@ -1143,7 +1143,7 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, SyntaxToken declTok,
+    auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
                                              std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
         -> AstInterfaceBlockDecl*
     {

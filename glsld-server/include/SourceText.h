@@ -82,8 +82,8 @@ namespace glsld
     // FIXME: where to put these functions?
     inline auto ReconstructSourceText(std::string& buffer, const Declarator& declarator) -> void
     {
-        if (declarator.declTok.IsIdentifier()) {
-            buffer += declarator.declTok.text.StrView();
+        if (declarator.nameToken.IsIdentifier()) {
+            buffer += declarator.nameToken.text.StrView();
             if (declarator.arraySize) {
                 for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
                     if (dimSizeExpr) {
@@ -237,8 +237,8 @@ namespace glsld
         // FIXME: reconstruct from Type
         if (auto structDecl = type.GetStructDecl()) {
             buffer += "struct ";
-            if (structDecl->GetDeclTok()) {
-                buffer += structDecl->GetDeclTok()->text.StrView();
+            if (structDecl->GetNameToken()) {
+                buffer += structDecl->GetNameToken()->text.StrView();
             }
             buffer += " { ... }";
         }
@@ -281,7 +281,7 @@ namespace glsld
         ReconstructSourceText(buffer, *decl.GetReturnType());
         buffer += " ";
 
-        buffer += decl.GetDeclTok().text.StrView();
+        buffer += decl.GetNameToken().text.StrView();
 
         buffer += "(";
         for (auto paramDecl : decl.GetParams()) {
@@ -297,9 +297,9 @@ namespace glsld
     inline auto ReconstructSourceText(std::string& buffer, const AstStructDecl& decl) -> void
     {
         buffer += "struct";
-        if (decl.GetDeclTok()) {
+        if (decl.GetNameToken()) {
             buffer += " ";
-            buffer += decl.GetDeclTok()->text.StrView();
+            buffer += decl.GetNameToken()->text.StrView();
         }
 
         buffer += " {\n";
@@ -345,7 +345,7 @@ namespace glsld
             buffer += "callableDataInEXT ";
         }
 
-        buffer += decl.GetDeclTok().text.StrView();
+        buffer += decl.GetNameToken().text.StrView();
         buffer += " {\n";
 
         for (auto member : decl.GetMembers()) {

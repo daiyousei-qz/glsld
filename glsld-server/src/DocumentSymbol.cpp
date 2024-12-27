@@ -33,21 +33,21 @@ namespace glsld
 
         auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
         {
-            TryAddSymbol(decl.GetDeclTok(), lsp::SymbolKind::Function);
+            TryAddSymbol(decl.GetNameToken(), lsp::SymbolKind::Function);
         }
 
         auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
         {
             if (auto structDecl = decl.GetQualType()->GetStructDecl()) {
-                if (structDecl->GetDeclTok()) {
-                    if (TryAddSymbol(*structDecl->GetDeclTok(), lsp::SymbolKind::Struct)) {
+                if (structDecl->GetNameToken()) {
+                    if (TryAddSymbol(*structDecl->GetNameToken(), lsp::SymbolKind::Struct)) {
                         TryAddStructMembers(result.back().children, structDecl->GetMembers(), lsp::SymbolKind::Field);
                     }
                 }
             }
 
             for (const auto& declarator : decl.GetDeclarators()) {
-                TryAddSymbol(declarator.declTok, lsp::SymbolKind::Variable);
+                TryAddSymbol(declarator.nameToken, lsp::SymbolKind::Variable);
             }
         }
 
@@ -56,7 +56,7 @@ namespace glsld
             if (decl.GetDeclarator()) {
                 // Named block
                 // FIXME: should block name be added as a symbol?
-                if (TryAddSymbol(decl.GetDeclarator()->declTok, lsp::SymbolKind::Variable)) {
+                if (TryAddSymbol(decl.GetDeclarator()->nameToken, lsp::SymbolKind::Variable)) {
                     TryAddStructMembers(result.back().children, decl.GetMembers(), lsp::SymbolKind::Field);
                 }
             }
@@ -68,18 +68,18 @@ namespace glsld
         }
 
     private:
-        auto TryAddSymbol(SyntaxToken token, lsp::SymbolKind kind) -> bool
+        auto TryAddSymbol(AstSyntaxToken token, lsp::SymbolKind kind) -> bool
         {
             return TryAddSymbol(result, token, kind);
         }
 
-        auto TryAddSymbol(std::vector<lsp::DocumentSymbol>& buffer, SyntaxToken token, lsp::SymbolKind kind) -> bool
+        auto TryAddSymbol(std::vector<lsp::DocumentSymbol>& buffer, AstSyntaxToken token, lsp::SymbolKind kind) -> bool
         {
             if (!token.IsIdentifier()) {
                 return false;
             }
 
-            if (auto spelledRange = GetProvider().LookupSpelledTextRangeInMainFile(token.index)) {
+            if (auto spelledRange = GetProvider().LookupSpelledTextRangeInMainFile(token.id)) {
                 auto lspSpelledRange = ToLspRange(*spelledRange);
                 buffer.push_back(lsp::DocumentSymbol{
                     .name           = token.text.Str(),
@@ -100,7 +100,7 @@ namespace glsld
         {
             for (auto memberDecl : memberDecls) {
                 for (const auto& declarator : memberDecl->GetDeclarators()) {
-                    TryAddSymbol(buffer, declarator.declTok, kind);
+                    TryAddSymbol(buffer, declarator.nameToken, kind);
                 }
             }
         }

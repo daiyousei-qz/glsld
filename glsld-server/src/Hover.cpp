@@ -75,11 +75,11 @@ namespace glsld
         return builder.Export();
     }
 
-    static auto ComposeCommentDescription(TextRange declTextRange, ArrayView<RawCommentTokenEntry> preceedingComments,
-                                          ArrayView<RawCommentTokenEntry> trailingComments) -> std::string
+    static auto ComposeCommentDescription(TextRange declTextRange, ArrayView<RawCommentToken> preceedingComments,
+                                          ArrayView<RawCommentToken> trailingComments) -> std::string
     {
-        auto unwrapComment = [](const RawCommentTokenEntry& entry) -> StringView {
-            auto commentText = entry.text.StrView();
+        auto unwrapComment = [](const RawCommentToken& token) -> StringView {
+            auto commentText = token.text.StrView();
             if (commentText.StartWith("//")) {
                 return commentText.Drop(2).Trim();
             }
@@ -103,8 +103,8 @@ namespace glsld
         //      ```
         if (!preceedingComments.empty()) {
             std::string result;
-            for (const auto& entry : preceedingComments) {
-                result += unwrapComment(entry);
+            for (const auto& token : preceedingComments) {
+                result += unwrapComment(token);
                 result += "\n";
             }
 

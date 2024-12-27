@@ -18,8 +18,8 @@ namespace glsld
     class TokenStream
     {
     private:
-        std::vector<RawSyntaxTokenEntry> tokens;
-        std::vector<RawCommentTokenEntry> comments;
+        std::vector<RawSyntaxToken> tokens;
+        std::vector<RawCommentToken> comments;
 
     public:
         // Add a new token to the token stream.
@@ -28,7 +28,7 @@ namespace glsld
         // Add an EOF token to the token stream. This indicates end of a translation unit.
         auto AddEofToken(const PPToken& token, TextRange expandedRange) -> void;
 
-        auto Export() -> std::pair<std::vector<RawSyntaxTokenEntry>, std::vector<RawCommentTokenEntry>>
+        auto Export() -> std::pair<std::vector<RawSyntaxToken>, std::vector<RawCommentToken>>
         {
             return {std::move(tokens), std::move(comments)};
         }

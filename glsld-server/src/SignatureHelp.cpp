@@ -42,7 +42,7 @@ namespace glsld
         auto expr = SignatureHelpVisitor{provider, FromLspPosition(position)}.Execute();
 
         if (expr) {
-            auto funcName = expr->GetFunctionName().text.StrView();
+            auto funcName = expr->GetNameToken().text.StrView();
 
             std::vector<lsp::SignatureInformation> result;
 
@@ -51,7 +51,7 @@ namespace glsld
             for (auto decl : GetStdlibModule()->GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
                 if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
+                    if (funcDecl->GetNameToken().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
                         std::string documentation = QueryFunctionDocumentation(funcName).Str();
@@ -68,7 +68,7 @@ namespace glsld
             for (auto decl : provider.GetUserFileAst().GetGlobalDecls()) {
                 if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
-                    if (funcDecl->GetDeclTok().text.StrView() == funcName) {
+                    if (funcDecl->GetNameToken().text.StrView() == funcName) {
                         std::string label;
                         ReconstructSourceText(label, *funcDecl);
 

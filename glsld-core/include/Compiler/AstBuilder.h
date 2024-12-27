@@ -78,7 +78,7 @@ namespace glsld
         auto BuildTypeQualifierSeq(AstSyntaxRange range, QualifierGroup quals, std::vector<LayoutItem> layoutQuals)
             -> AstTypeQualifierSeq*;
 
-        auto BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, SyntaxToken typeName,
+        auto BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, AstSyntaxToken typeName,
                            AstArraySpec* arraySpec) -> AstQualType*;
 
         auto BuildQualType(AstSyntaxRange range, AstTypeQualifierSeq* qualifiers, AstStructDecl* structDecl,
@@ -95,10 +95,10 @@ namespace glsld
 
         auto BuildLiteralExpr(AstSyntaxRange range, ConstValue value) -> AstLiteralExpr*;
 
-        auto BuildNameAccessExpr(AstSyntaxRange range, SyntaxToken idToken) -> AstNameAccessExpr*;
+        auto BuildNameAccessExpr(AstSyntaxRange range, AstSyntaxToken idToken) -> AstNameAccessExpr*;
 
         // Build either a swizzle or a field access expression
-        auto BuildDotAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, SyntaxToken idToken) -> AstExpr*;
+        auto BuildDotAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstSyntaxToken idToken) -> AstExpr*;
 
         auto BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstExpr* index) -> AstIndexAccessExpr*;
 
@@ -111,7 +111,7 @@ namespace glsld
 
         auto BuildImplicitCastExpr(AstSyntaxRange range, AstExpr* expr, const Type* castType) -> AstImplicitCastExpr*;
 
-        auto BuildFuntionCallExpr(AstSyntaxRange range, SyntaxToken functionName, std::vector<AstExpr*> args)
+        auto BuildFuntionCallExpr(AstSyntaxRange range, AstSyntaxToken functionName, std::vector<AstExpr*> args)
             -> AstFunctionCallExpr*;
 
         auto BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
@@ -166,16 +166,16 @@ namespace glsld
         auto BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
             -> AstFieldDecl*;
 
-        auto BuildStructDecl(AstSyntaxRange range, std::optional<SyntaxToken> declTok,
+        auto BuildStructDecl(AstSyntaxRange range, std::optional<AstSyntaxToken> declTok,
                              std::vector<AstFieldDecl*> members) -> AstStructDecl*;
 
         auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, std::optional<Declarator> declarator)
             -> AstParamDecl*;
 
-        auto BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, SyntaxToken declTok,
+        auto BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, AstSyntaxToken declTok,
                                std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*;
 
-        auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, SyntaxToken declTok,
+        auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
                                      std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
             -> AstInterfaceBlockDecl*;
 

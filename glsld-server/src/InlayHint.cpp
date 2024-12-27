@@ -70,8 +70,8 @@ namespace glsld
                     outputHint = "&";
                 }
                 StringView paramNameHint = "";
-                if (paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
-                    paramNameHint = paramDecl->GetDeclarator()->declTok.text.StrView();
+                if (paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->nameToken.IsIdentifier()) {
+                    paramNameHint = paramDecl->GetDeclarator()->nameToken.text.StrView();
                 }
 
                 if (!outputHint.Empty() || !paramNameHint.Empty()) {
@@ -85,7 +85,7 @@ namespace glsld
             if (!config.enableBlockEndHint) {
                 return;
             }
-            if (!decl.GetDeclTok().IsIdentifier()) {
+            if (!decl.GetNameToken().IsIdentifier()) {
                 return;
             }
 
@@ -95,7 +95,7 @@ namespace glsld
             }
 
             // FIXME: don't show hints if any additional tokens are present in the line
-            TryAddInlayHint(declTextRange.end, fmt::format("// {}", decl.GetDeclTok().text.StrView()), true, false);
+            TryAddInlayHint(declTextRange.end, fmt::format("// {}", decl.GetNameToken().text.StrView()), true, false);
         }
 
     private:

@@ -70,7 +70,7 @@ namespace glsld
         }
     }
 
-    auto Parser::HandleSystemCommand(StringView cmd, ArrayView<SyntaxToken> args) -> void
+    auto Parser::HandleSystemCommand(StringView cmd, ArrayView<AstSyntaxToken> args) -> void
     {
         if (cmd == "__glsld_syscmd_begin_context__") {
             GLSLD_ASSERT(args.empty());
@@ -120,7 +120,7 @@ namespace glsld
     {
         GLSLD_TRACE_PARSER();
 
-        std::vector<SyntaxToken> argBuffer;
+        std::vector<AstSyntaxToken> argBuffer;
         while (!Eof()) {
             argBuffer.clear();
 
@@ -287,21 +287,21 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseOptionalDeclIdHelper() -> SyntaxToken
+    auto Parser::ParseOptionalDeclIdHelper() -> AstSyntaxToken
     {
         if (TryTestToken(TokenKlass::Identifier)) {
             return ParseDeclIdHelper();
         }
         else {
             ReportError("Expect identifier");
-            return SyntaxToken{};
+            return AstSyntaxToken{};
         }
     }
 
-    auto Parser::ParseDeclIdHelper() -> SyntaxToken
+    auto Parser::ParseDeclIdHelper() -> AstSyntaxToken
     {
         GLSLD_ASSERT(PeekToken().klass == TokenKlass::Identifier);
-        SyntaxToken result = GetCurrentToken();
+        AstSyntaxToken result = GetCurrentToken();
         ConsumeToken();
         return result;
     }
@@ -607,7 +607,7 @@ namespace glsld
         ConsumeToken();
 
         // Parse the declared struct type name
-        std::optional<SyntaxToken> declTok = std::nullopt;
+        std::optional<AstSyntaxToken> declTok = std::nullopt;
         if (TryTestToken(TokenKlass::Identifier)) {
             declTok = GetCurrentToken();
             ConsumeToken();
@@ -669,7 +669,7 @@ namespace glsld
         }
         else {
             EnterRecoveryMode();
-            return astBuilder.BuildQualType(CreateAstSyntaxRange(beginTokID), quals, SyntaxToken{}, nullptr);
+            return astBuilder.BuildQualType(CreateAstSyntaxRange(beginTokID), quals, AstSyntaxToken{}, nullptr);
         }
     }
 
@@ -854,7 +854,7 @@ namespace glsld
         Declarator result;
 
         // Parse declaration identifier
-        result.declTok = ParseOptionalDeclIdHelper();
+        result.nameToken = ParseOptionalDeclIdHelper();
 
         // Parse array specifier
         auto declType = type;
@@ -895,7 +895,7 @@ namespace glsld
         Declarator result;
 
         // Parse declaration identifier
-        result.declTok = ParseOptionalDeclIdHelper();
+        result.nameToken = ParseOptionalDeclIdHelper();
 
         // Parse array specifier
         if (TryTestToken(TokenKlass::LBracket)) {

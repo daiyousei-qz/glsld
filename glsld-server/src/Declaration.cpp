@@ -3,8 +3,8 @@
 
 namespace glsld
 {
-    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri,
-                            lsp::Position position) -> std::vector<lsp::Location>
+    auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
+        -> std::vector<lsp::Location>
     {
         auto declTokenResult = provider.LookupSymbolAccess(FromLspPosition(position));
         if (declTokenResult && declTokenResult->symbolDecl.IsValid()) {
@@ -17,31 +17,31 @@ namespace glsld
             //     return {};
             // }
 
-            std::optional<SyntaxToken> accessedDeclTok;
+            std::optional<AstSyntaxToken> accessedDeclTok;
             if (auto funcDecl = accessedDecl.As<AstFunctionDecl>(); funcDecl) {
-                accessedDeclTok = funcDecl->GetDeclTok();
+                accessedDeclTok = funcDecl->GetNameToken();
             }
             else if (auto paramDecl = accessedDecl.As<AstParamDecl>();
-                     paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->declTok.IsIdentifier()) {
-                accessedDeclTok = paramDecl->GetDeclarator()->declTok;
+                     paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->nameToken.IsIdentifier()) {
+                accessedDeclTok = paramDecl->GetDeclarator()->nameToken;
             }
             else if (auto varDecl = accessedDecl.As<AstVariableDecl>(); varDecl) {
-                accessedDeclTok = varDecl->GetDeclarators()[declaratorIndex].declTok;
+                accessedDeclTok = varDecl->GetDeclarators()[declaratorIndex].nameToken;
             }
             else if (auto memberDecl = accessedDecl.As<AstFieldDecl>(); memberDecl) {
-                accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].declTok;
+                accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].nameToken;
             }
             else if (auto structDecl = accessedDecl.As<AstStructDecl>();
-                     structDecl && structDecl->GetDeclTok() && structDecl->GetDeclTok()->IsIdentifier()) {
-                accessedDeclTok = *structDecl->GetDeclTok();
+                     structDecl && structDecl->GetNameToken() && structDecl->GetNameToken()->IsIdentifier()) {
+                accessedDeclTok = *structDecl->GetNameToken();
             }
             else if (auto blockDecl = accessedDecl.As<AstInterfaceBlockDecl>(); blockDecl) {
-                accessedDeclTok = blockDecl->GetDeclarator()->declTok;
+                accessedDeclTok = blockDecl->GetDeclarator()->nameToken;
             }
 
             // FIXME: Support goto declaration in included files
-            if (accessedDeclTok && provider.IsSpelledInMainFile(accessedDeclTok->index)) {
-                if (auto spelledRange = provider.LookupSpelledTextRangeInMainFile(accessedDeclTok->index)) {
+            if (accessedDeclTok && provider.IsSpelledInMainFile(accessedDeclTok->id)) {
+                if (auto spelledRange = provider.LookupSpelledTextRangeInMainFile(accessedDeclTok->id)) {
                     return {lsp::Location{
                         .uri   = uri,
                         .range = ToLspRange(*spelledRange),

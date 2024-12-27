@@ -91,7 +91,7 @@ namespace glsld
     // Key-value pair in "layout(key = value)".
     struct LayoutItem
     {
-        SyntaxToken idToken;
+        AstSyntaxToken idToken;
 
         // Could be `nullptr` if there's no value, like "layout(xxx)".
         AstExpr* value;
@@ -166,7 +166,7 @@ namespace glsld
 
         // [Node]
         // Type specifier: type name like "int", "float", "vec3", etc. or a struct name.
-        SyntaxToken typeName = {};
+        AstSyntaxToken typeName = {};
 
         // [Node]
         // Array size specifiers like "[x][y]" and .etc after the type specifier.
@@ -181,7 +181,7 @@ namespace glsld
             : qualifiers(qualifiers), structDecl(structDecl), arraySpec(arraySpec)
         {
         }
-        AstQualType(AstTypeQualifierSeq* qualifiers, SyntaxToken typeName, AstArraySpec* arraySpec)
+        AstQualType(AstTypeQualifierSeq* qualifiers, AstSyntaxToken typeName, AstArraySpec* arraySpec)
             : qualifiers(qualifiers), typeName(typeName), arraySpec(arraySpec)
         {
         }
@@ -194,7 +194,7 @@ namespace glsld
         {
             return arraySpec;
         }
-        auto GetTypeNameTok() const -> SyntaxToken
+        auto GetTypeNameTok() const -> AstSyntaxToken
         {
             return typeName;
         }

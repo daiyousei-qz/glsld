@@ -27,7 +27,7 @@ namespace glsld
             return desc;
         }
 
-        auto Match(const SyntaxToken& token) const -> bool
+        auto Match(const AstSyntaxToken& token) const -> bool
         {
             if (expectedKlass && token.klass != *expectedKlass) {
                 return false;

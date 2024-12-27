@@ -17,7 +17,7 @@ namespace glsld
         // }
 
         if (token.klass != TokenKlass::Comment) {
-            tokens.push_back(RawSyntaxTokenEntry{
+            tokens.push_back(RawSyntaxToken{
                 .klass         = token.klass,
                 .spelledFile   = token.spelledFile,
                 .spelledRange  = token.spelledRange,
@@ -27,7 +27,7 @@ namespace glsld
         }
         else {
             // FIXME: make a toggle for this
-            comments.push_back(RawCommentTokenEntry{
+            comments.push_back(RawCommentToken{
                 .spelledFile    = token.spelledFile,
                 .spelledRange   = token.spelledRange,
                 .text           = token.text,
@@ -39,7 +39,7 @@ namespace glsld
     auto TokenStream::AddEofToken(const PPToken& token, TextRange expandedRange) -> void
     {
         GLSLD_ASSERT(token.klass == TokenKlass::Eof);
-        tokens.push_back(RawSyntaxTokenEntry{
+        tokens.push_back(RawSyntaxToken{
             .klass         = token.klass,
             .spelledFile   = token.spelledFile,
             .spelledRange  = token.spelledRange,

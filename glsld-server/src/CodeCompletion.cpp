@@ -83,7 +83,7 @@ namespace glsld
                 if (GetProvider().ContainsPositionExtended(
                         AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
-                    accessChainExpr = expr.GetLhsExpr();
+                    accessChainExpr = expr.GetBaseExpr();
                 }
             }
         }
@@ -93,7 +93,7 @@ namespace glsld
                 if (GetProvider().ContainsPositionExtended(
                         AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()}, cursorPosition)) {
                     // FIXME: this also includes "^.xxx", which is not a valid position.
-                    accessChainExpr = expr.GetLhsExpr();
+                    accessChainExpr = expr.GetBaseExpr();
                 }
             }
         }
@@ -115,7 +115,7 @@ namespace glsld
 
         auto VisitAstStructDecl(const AstStructDecl& decl) -> void
         {
-            if (decl.GetDeclTok() && GetProvider().ContainsPositionExtended(*decl.GetDeclTok(), cursorPosition)) {
+            if (decl.GetNameToken() && GetProvider().ContainsPositionExtended(*decl.GetNameToken(), cursorPosition)) {
                 inDeclarator = true;
             }
 
@@ -147,43 +147,43 @@ namespace glsld
     private:
         auto TestDeclarator(const Declarator& declarator) -> void
         {
-            if (GetProvider().ContainsPositionExtended(declarator.declTok, cursorPosition)) {
+            if (GetProvider().ContainsPositionExtended(declarator.nameToken, cursorPosition)) {
                 inDeclarator = true;
             }
         }
     };
 
     template <typename F>
-        requires std::invocable<F, const SyntaxToken&, lsp::CompletionItemKind>
+        requires std::invocable<F, const AstSyntaxToken&, lsp::CompletionItemKind>
     auto CollectCompletionFromDecl(F&& callback, const AstDecl& decl)
     {
         if (auto funcDecl = decl.As<AstFunctionDecl>()) {
-            callback(funcDecl->GetDeclTok(), lsp::CompletionItemKind::Function);
+            callback(funcDecl->GetNameToken(), lsp::CompletionItemKind::Function);
         }
         else if (auto paramDecl = decl.As<AstParamDecl>()) {
             if (paramDecl->GetDeclarator()) {
-                callback(paramDecl->GetDeclarator()->declTok, lsp::CompletionItemKind::Variable);
+                callback(paramDecl->GetDeclarator()->nameToken, lsp::CompletionItemKind::Variable);
             }
         }
         else if (auto varDecl = decl.As<AstVariableDecl>()) {
             for (const auto& declarator : varDecl->GetDeclarators()) {
-                callback(declarator.declTok, lsp::CompletionItemKind::Variable);
+                callback(declarator.nameToken, lsp::CompletionItemKind::Variable);
             }
 
             if (auto structDecl = varDecl->GetQualType()->GetStructDecl()) {
-                if (structDecl->GetDeclTok()) {
-                    callback(*structDecl->GetDeclTok(), lsp::CompletionItemKind::Struct);
+                if (structDecl->GetNameToken()) {
+                    callback(*structDecl->GetNameToken(), lsp::CompletionItemKind::Struct);
                 }
             }
         }
         else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>()) {
             if (blockDecl->GetDeclarator()) {
-                callback(blockDecl->GetDeclarator()->declTok, lsp::CompletionItemKind::Variable);
+                callback(blockDecl->GetDeclarator()->nameToken, lsp::CompletionItemKind::Variable);
             }
             else {
                 for (auto memberDecl : blockDecl->GetMembers()) {
                     for (const auto& declarator : memberDecl->GetDeclarators()) {
-                        callback(declarator.declTok, lsp::CompletionItemKind::Variable);
+                        callback(declarator.nameToken, lsp::CompletionItemKind::Variable);
                     }
                 }
             }
@@ -244,14 +244,14 @@ namespace glsld
         auto VisitAstNode(const AstNode& node) -> void
         {
             if (auto decl = node.As<AstDecl>()) {
-                CollectCompletionFromDecl([this](const SyntaxToken& token,
+                CollectCompletionFromDecl([this](const AstSyntaxToken& token,
                                                  lsp::CompletionItemKind kind) { TryAddCompletionItem(token, kind); },
                                           *decl);
             }
         }
 
     private:
-        auto TryAddCompletionItem(const SyntaxToken& declTok, lsp::CompletionItemKind kind) -> void
+        auto TryAddCompletionItem(const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) -> void
         {
             switch (kind) {
             // We only populate completion items of these kinds
@@ -299,7 +299,7 @@ namespace glsld
             // FIXME: support user preamble
             for (const AstDecl* decl : GetStdlibModule()->GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
                 CollectCompletionFromDecl(
-                    [&](const SyntaxToken& declTok, lsp::CompletionItemKind kind) {
+                    [&](const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) {
                         if (seenIds.find(declTok.text) == seenIds.end()) {
                             seenIds.insert(declTok.text);
                             result.push_back({lsp::CompletionItem{

@@ -84,15 +84,15 @@ namespace glsld
                         }
                     }
                 }
-                TryDeclToken(expr.GetAccessName(), expr.GetResolvedDecl(), accessType, false);
+                TryDeclToken(expr.GetNameToken(), expr.GetResolvedDecl(), accessType, false);
             }
             auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
             {
-                TryDeclToken(expr.GetAccessName(), expr.GetResolvedDecl(), SymbolAccessType::MemberVariable, false);
+                TryDeclToken(expr.GetNameToken(), expr.GetResolvedDecl(), SymbolAccessType::MemberVariable, false);
             }
             auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
             {
-                TryDeclToken(expr.GetAccessName(), {}, SymbolAccessType::Swizzle, false);
+                TryDeclToken(expr.GetNameToken(), {}, SymbolAccessType::Swizzle, false);
             }
             auto VisitAstUnaryExpr(const AstUnaryExpr& expr) -> void
             {
@@ -100,14 +100,14 @@ namespace glsld
             }
             auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
             {
-                TryDeclToken(expr.GetFunctionName(), expr.GetResolvedFunction(), SymbolAccessType::Function, false);
+                TryDeclToken(expr.GetNameToken(), expr.GetResolvedFunction(), SymbolAccessType::Function, false);
             }
 
             auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex},
+                    TryDeclToken(declarator.nameToken, DeclView{&decl, declaratorIndex},
                                  decl.GetScope() == DeclScope::Global ? SymbolAccessType::GlobalVariable
                                                                       : SymbolAccessType::LocalVariable,
                                  true);
@@ -119,38 +119,39 @@ namespace glsld
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    TryDeclToken(declarator.declTok, DeclView{&decl, declaratorIndex}, SymbolAccessType::MemberVariable,
-                                 true);
+                    TryDeclToken(declarator.nameToken, DeclView{&decl, declaratorIndex},
+                                 SymbolAccessType::MemberVariable, true);
 
                     declaratorIndex += 1;
                 }
             }
             auto VisitAstStructDecl(const AstStructDecl& decl) -> void
             {
-                if (decl.GetDeclTok()) {
-                    TryDeclToken(*decl.GetDeclTok(), &decl, SymbolAccessType::Type, true);
+                if (decl.GetNameToken()) {
+                    TryDeclToken(*decl.GetNameToken(), &decl, SymbolAccessType::Type, true);
                 }
             }
             auto VisitAstParamDecl(const AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::Parameter, true);
+                    TryDeclToken(decl.GetDeclarator()->nameToken, &decl, SymbolAccessType::Parameter, true);
                 }
             }
             auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
             {
-                TryDeclToken(decl.GetDeclTok(), &decl, SymbolAccessType::Function, true);
+                TryDeclToken(decl.GetNameToken(), &decl, SymbolAccessType::Function, true);
             }
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
                 // FIXME: explain the symbol access type
-                TryDeclToken(decl.GetDeclTok(), &decl, SymbolAccessType::InterfaceBlock, true);
+                TryDeclToken(decl.GetNameToken(), &decl, SymbolAccessType::InterfaceBlock, true);
                 if (decl.GetDeclarator()) {
-                    TryDeclToken(decl.GetDeclarator()->declTok, &decl, SymbolAccessType::InterfaceBlockInstance, true);
+                    TryDeclToken(decl.GetDeclarator()->nameToken, &decl, SymbolAccessType::InterfaceBlockInstance,
+                                 true);
                 }
             }
 
-            auto TryDeclToken(const SyntaxToken& token, DeclView declView, SymbolAccessType type, bool isDeclName)
+            auto TryDeclToken(const AstSyntaxToken& token, DeclView declView, SymbolAccessType type, bool isDeclName)
                 -> void
             {
                 if (token.IsIdentifier()) {
@@ -170,7 +171,7 @@ namespace glsld
         return DeclTokenVisitor{*this, position}.Execute();
     }
 
-    auto LanguageQueryProvider::LookupToken(SyntaxTokenID id) const -> const RawSyntaxTokenEntry*
+    auto LanguageQueryProvider::LookupToken(SyntaxTokenID id) const -> const RawSyntaxToken*
     {
         const CompilerArtifact* artifacts = nullptr;
         switch (id.GetTU()) {
@@ -187,7 +188,7 @@ namespace glsld
 
         return &artifacts->GetTokens()[id.GetTokenIndex()];
     }
-    auto LanguageQueryProvider::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxTokenEntry>
+    auto LanguageQueryProvider::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxToken>
     {
         return {LookupToken(range.GetBeginID()), LookupToken(range.GetEndID())};
     }
@@ -207,21 +208,21 @@ namespace glsld
             return std::nullopt;
         }
     }
-    auto LanguageQueryProvider::LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxTokenEntry>
+    auto LanguageQueryProvider::LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxToken>
     {
         auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
-            tokens, position, {}, [](const RawSyntaxTokenEntry& tok) { return tok.expandedRange.start; });
+            tokens, position, {}, [](const RawSyntaxToken& tok) { return tok.expandedRange.start; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
-    auto LanguageQueryProvider::LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxTokenEntry>
+    auto LanguageQueryProvider::LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxToken>
     {
         auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
-            tokens, lineNum, {}, [](const RawSyntaxTokenEntry& tok) { return tok.expandedRange.start.line; });
+            tokens, lineNum, {}, [](const RawSyntaxToken& tok) { return tok.expandedRange.start.line; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
-    auto LanguageQueryProvider::LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentTokenEntry>
+    auto LanguageQueryProvider::LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentToken>
     {
         if (id.GetTU() != TranslationUnitID::UserFile) {
             return {};
@@ -229,7 +230,7 @@ namespace glsld
 
         auto comments         = compilerResult->GetUserFileArtifacts().GetComments();
         auto [itBegin, itEnd] = std::ranges::equal_range(
-            comments, id.GetTokenIndex(), {}, [](const RawCommentTokenEntry& entry) { return entry.nextTokenIndex; });
+            comments, id.GetTokenIndex(), {}, [](const RawCommentToken& token) { return token.nextTokenIndex; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
     auto LanguageQueryProvider::LookupSpelledFile(SyntaxTokenID id) const -> FileID

@@ -89,7 +89,7 @@ namespace glsld
             EmitTraceMessage(CompilerTraceSource::Preprocessor, "Exiting include file '{}'", path);
         }
 
-        auto TraceTokenConsumed(const RawSyntaxTokenEntry& tok) -> void
+        auto TraceTokenConsumed(const RawSyntaxToken& tok) -> void
         {
             EmitTraceMessage(CompilerTraceSource::Parser, "Consumed token [{}]'{}'", TokenKlassToString(tok.klass),
                              tok.text.StrView());

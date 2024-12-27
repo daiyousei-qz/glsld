@@ -110,7 +110,7 @@ namespace glsld
         }
 
     private:
-        auto TryAddSymbol(SyntaxToken declToken, const AstDecl& decl) -> bool;
+        auto TryAddSymbol(AstSyntaxToken nameToken, const AstDecl& decl) -> bool;
     };
 
     class SymbolTable

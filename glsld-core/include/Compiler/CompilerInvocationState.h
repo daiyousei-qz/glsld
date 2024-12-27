@@ -40,7 +40,7 @@ namespace glsld
 
         auto Initialize() -> void;
 
-        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxTokenEntry> tokens) const -> void
+        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
         {
             if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
                 if (id == TranslationUnitID::UserPreamble) {
@@ -137,8 +137,8 @@ namespace glsld
                                                            : userFileArtifacts.get();
         }
 
-        auto UpdateTokenArtifact(TranslationUnitID id, std::vector<RawSyntaxTokenEntry> tokens,
-                                 std::vector<RawCommentTokenEntry> comments) -> void
+        auto UpdateTokenArtifact(TranslationUnitID id, std::vector<RawSyntaxToken> tokens,
+                                 std::vector<RawCommentToken> comments) -> void
         {
             TryDumpTokens(id, tokens);
             GetArtifact(id)->UpdateTokenArtifact(std::move(tokens), std::move(comments));

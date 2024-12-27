@@ -358,13 +358,13 @@ namespace glsld
         }
     };
 
-    // A syntax token that is part of the source token stream.
-    // It is pointing to a raw token that is managed by the LexContext.
-    struct SyntaxToken final
+    // A syntax token representation in the AST. It only possesses the basic information of a token.
+    // The raw token may be looked up via the token ID if the token stream is preserved.
+    struct AstSyntaxToken final
     {
-        SyntaxTokenID index = {};
-        TokenKlass klass    = TokenKlass::Invalid;
-        AtomString text     = {};
+        SyntaxTokenID id = {};
+        TokenKlass klass = TokenKlass::Invalid;
+        AtomString text  = {};
 
         auto IsValid() const noexcept -> bool
         {
@@ -385,11 +385,11 @@ namespace glsld
 
         auto GetSyntaxRange() const noexcept -> AstSyntaxRange
         {
-            return AstSyntaxRange(index);
+            return AstSyntaxRange(id);
         }
     };
 
-    struct RawSyntaxTokenEntry final
+    struct RawSyntaxToken final
     {
         // The token class.
         TokenKlass klass;
@@ -412,7 +412,7 @@ namespace glsld
         AtomString text;
     };
 
-    struct RawCommentTokenEntry final
+    struct RawCommentToken final
     {
         // The source file where the token is spelled.
         FileID spelledFile;

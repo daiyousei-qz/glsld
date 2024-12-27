@@ -38,9 +38,9 @@ namespace glsld
 
         TranslationUnitID tuID;
 
-        ArrayView<RawSyntaxTokenEntry> tokens;
+        ArrayView<RawSyntaxToken> tokens;
 
-        const RawSyntaxTokenEntry* currentTok = nullptr;
+        const RawSyntaxToken* currentTok = nullptr;
 
         enum class ParsingState
         {
@@ -133,7 +133,7 @@ namespace glsld
         };
 
     public:
-        Parser(CompilerInvocationState& compiler, TranslationUnitID tuID, ArrayView<RawSyntaxTokenEntry> tokens)
+        Parser(CompilerInvocationState& compiler, TranslationUnitID tuID, ArrayView<RawSyntaxToken> tokens)
             : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tuID),
               tokens(tokens)
         {
@@ -144,7 +144,7 @@ namespace glsld
         auto DoParse() -> void;
 
     private:
-        auto HandleSystemCommand(StringView cmd, ArrayView<SyntaxToken> args) -> void;
+        auto HandleSystemCommand(StringView cmd, ArrayView<AstSyntaxToken> args) -> void;
 
         // Parse a sequence of system commands in the global scope.
         // System commands are `__glsld_syscmd_XXX__ <args>... ;` in the system preamble, which are used to
@@ -199,9 +199,9 @@ namespace glsld
         // PARSE: 'ID'
         //
         // ACCEPT: null
-        auto ParseOptionalDeclIdHelper() -> SyntaxToken;
+        auto ParseOptionalDeclIdHelper() -> AstSyntaxToken;
 
-        auto ParseDeclIdHelper() -> SyntaxToken;
+        auto ParseDeclIdHelper() -> AstSyntaxToken;
 
         // Try to parse an expression wrapped in parenthesis. If we don't see a '(', enter recovery mode and return
         // error expr.
@@ -756,13 +756,13 @@ namespace glsld
         //         semi_recovery := ...
         auto RecoverFromError(RecoveryMode mode) -> void;
 
-        auto PeekToken() const noexcept -> const RawSyntaxTokenEntry&
+        auto PeekToken() const noexcept -> const RawSyntaxToken&
         {
             GLSLD_ASSERT(currentTok != nullptr);
             return *currentTok;
         }
 
-        auto PeekToken(size_t lookahead) const noexcept -> const RawSyntaxTokenEntry&
+        auto PeekToken(size_t lookahead) const noexcept -> const RawSyntaxToken&
         {
             GLSLD_ASSERT(currentTok != nullptr);
             if (currentTok + lookahead < tokens.data() + tokens.size()) {
@@ -779,10 +779,10 @@ namespace glsld
             return SyntaxTokenID{tuID, static_cast<uint32_t>(currentTok - tokens.data())};
         }
 
-        auto GetCurrentToken() const noexcept -> SyntaxToken
+        auto GetCurrentToken() const noexcept -> AstSyntaxToken
         {
-            return SyntaxToken{
-                .index = GetCurrentTokenID(),
+            return AstSyntaxToken{
+                .id    = GetCurrentTokenID(),
                 .klass = PeekToken().klass,
                 .text  = PeekToken().text,
             };

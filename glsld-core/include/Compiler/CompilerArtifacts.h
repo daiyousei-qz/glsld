@@ -11,10 +11,10 @@ namespace glsld
     private:
         TranslationUnitID id;
 
-        std::vector<RawSyntaxTokenEntry> syntaxTokenBuffer;
-        std::vector<RawCommentTokenEntry> commentTokenBuffer;
-        ArrayView<RawSyntaxTokenEntry> tokens;
-        ArrayView<RawCommentTokenEntry> comments;
+        std::vector<RawSyntaxToken> syntaxTokenBuffer;
+        std::vector<RawCommentToken> commentTokenBuffer;
+        ArrayView<RawSyntaxToken> tokens;
+        ArrayView<RawCommentToken> comments;
 
         const AstTranslationUnit* ast = nullptr;
 
@@ -23,8 +23,8 @@ namespace glsld
         {
         }
 
-        auto UpdateTokenArtifact(std::vector<RawSyntaxTokenEntry> lexedTokens,
-                                 std::vector<RawCommentTokenEntry> lexedComments) -> void
+        auto UpdateTokenArtifact(std::vector<RawSyntaxToken> lexedTokens, std::vector<RawCommentToken> lexedComments)
+            -> void
         {
             GLSLD_ASSERT(tokens.size() == 0 && comments.size() == 0);
             syntaxTokenBuffer  = std::move(lexedTokens);
@@ -53,11 +53,11 @@ namespace glsld
         {
             return id;
         }
-        auto GetTokens() const noexcept -> ArrayView<RawSyntaxTokenEntry>
+        auto GetTokens() const noexcept -> ArrayView<RawSyntaxToken>
         {
             return tokens;
         }
-        auto GetComments() const noexcept -> ArrayView<RawCommentTokenEntry>
+        auto GetComments() const noexcept -> ArrayView<RawCommentToken>
         {
             return comments;
         }
