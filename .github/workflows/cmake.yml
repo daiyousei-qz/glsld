@@ -21,9 +21,9 @@ jobs:
           - name: Windows
             os: windows-2022
             preinstall: choco install ninja --no-progress --yes
-          - name: Linux
-            os: ubuntu-24.04
-            preinstall: sudo apt-get update && sudo apt-get install ninja-build
+          # - name: Linux
+          #   os: ubuntu-24.04
+          #   preinstall: sudo apt-get update && sudo apt-get install ninja-build
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
