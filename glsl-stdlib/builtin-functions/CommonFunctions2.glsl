@@ -31,8 +31,7 @@ dvec2  ldexp(dvec2 x, ivec2 exp);
 dvec3  ldexp(dvec3 x, ivec3 exp);
 dvec4  ldexp(dvec4 x, ivec4 exp);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int64;
+#if __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 int64_t doubleBitsToInt64(float64_t value);
 uint64_t doubleBitsToUint64(float64_t value);
@@ -51,10 +50,9 @@ f64vec2  uint64BitsToDouble(u64vec2 value);
 f64vec3  uint64BitsToDouble(u64vec3 value);
 f64vec4  uint64BitsToDouble(u64vec4 value);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int16 GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_INT16_TYPE && __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 int16_t halfBitsToInt16(float16_t value);
 uint16_t halfBitsToUint16(float16_t value);
@@ -105,4 +103,4 @@ f16vec2   ldexp(f16vec2 x,   ivec2 exp);
 f16vec3   ldexp(f16vec3 x,   ivec3 exp);
 f16vec4   ldexp(f16vec4 x,   ivec4 exp);
 
-__glsld_syscmd_end_context__;
+#endif

@@ -15,8 +15,7 @@ uint atomicExchange(coherent volatile inout uint mem,uint data);
 int atomicCompSwap(coherent volatile inout int mem,int compare,int data);
 uint atomicCompSwap(coherent volatile inout uint mem,uint compare,uint data);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int64;
+#if __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 uint64_t atomicMin(coherent volatile inout uint64_t mem, uint64_t data);
 int64_t atomicMin(coherent volatile inout  int64_t mem,  int64_t data);
@@ -35,14 +34,13 @@ int64_t atomicExchange(coherent volatile inout  int64_t mem,  int64_t data);
 uint64_t atomicCompSwap(coherent volatile inout uint64_t mem, uint64_t compare, uint64_t data);
 int64_t atomicCompSwap(coherent volatile inout  int64_t mem,  int64_t compare,  int64_t data);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t atomicMin(coherent volatile inout float16_t mem, float16_t data);
 float16_t atomicMax(coherent volatile inout float16_t mem, float16_t data);
 float16_t atomicAdd(coherent volatile inout float16_t mem, float16_t data);
 float16_t atomicExchange(coherent volatile inout float16_t mem, float16_t data);
 
-__glsld_syscmd_end_context__;
+#endif

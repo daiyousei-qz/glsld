@@ -1,5 +1,4 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_ray_query;
+#if __GLSLD_FEATURE_ENABLE_RAY_QUERY
 
 const uint gl_RayFlagsNoneEXT = 0U;
 const uint gl_RayFlagsOpaqueEXT = 1U;
@@ -48,4 +47,4 @@ vec3 rayQueryGetIntersectionObjectRayOriginEXT(rayQueryEXT rayQuery, bool commit
 mat4x3 rayQueryGetIntersectionObjectToWorldEXT(rayQueryEXT rayQuery, bool committed);
 mat4x3 rayQueryGetIntersectionWorldToObjectEXT(rayQueryEXT rayQuery, bool committed);
 
-__glsld_syscmd_end_context__;
+#endif

@@ -1,5 +1,4 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ tessEval;
+#if __GLSLD_SHADER_STAGE_TESS_EVAL
 
 in gl_PerVertex {
     vec4 gl_Position;
@@ -21,4 +20,4 @@ out gl_PerVertex {
     float gl_CullDistance[];
 };
 
-__glsld_syscmd_end_context__;
+#endif

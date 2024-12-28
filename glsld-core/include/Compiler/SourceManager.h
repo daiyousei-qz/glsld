@@ -58,13 +58,11 @@ namespace glsld
 
         auto SetSystemPreamble(StringView content) -> void
         {
-            GLSLD_REQUIRE(systemPreamble.Empty() && "Cannot change set system preamble");
             systemPreamble = content;
         }
 
         auto SetUserPreamble(StringView content) -> void
         {
-            GLSLD_REQUIRE(userPreamble.Empty() && "Cannot change set user preamble");
             userPreamble = content;
         }
 

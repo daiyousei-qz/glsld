@@ -1,5 +1,4 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ geometry;
+#if __GLSLD_SHADER_STAGE_GEOMETRY
 
 void EmitStreamVertex(int stream);
 void EndStreamPrimitive(int stream);
@@ -25,4 +24,4 @@ out int gl_PrimitiveID;
 out int gl_Layer;
 out int gl_ViewportIndex;
 
-__glsld_syscmd_end_context__;
+#endif

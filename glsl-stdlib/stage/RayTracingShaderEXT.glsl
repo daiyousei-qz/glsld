@@ -1,7 +1,6 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_ray_tracing;
+#if __GLSLD_FEATURE_ENABLE_RAY_TRACING_EXT
 
-__glsld_syscmd_require_stage__ rayGen rayAnyHit rayClosestHit rayIntersect rayMiss rayCallable;
+#if __GLSLD_SHADER_STAGE_RAY_GEN || __GLSLD_SHADER_STAGE_ANY_HIT || __GLSLD_SHADER_STAGE_CLOSEST_HIT || __GLSLD_SHADER_STAGE_RAY_INTERSECT || __GLSLD_SHADER_STAGE_RAY_MISS || __GLSLD_SHADER_STAGE_RAY_CALLABLE
 const uint gl_RayFlagsNoneEXT = 0U;
 const uint gl_RayFlagsOpaqueEXT = 1U;
 const uint gl_RayFlagsNoOpaqueEXT = 2U;
@@ -19,22 +18,26 @@ const uint gl_HitKindBackFacingTriangleEXT = 255U;
 
 in    uvec3  gl_LaunchIDEXT;
 in    uvec3  gl_LaunchSizeEXT;
+#endif
 
-__glsld_syscmd_require_stage__ rayGen rayClosestHit rayMiss rayCallable;
+#if __GLSLD_SHADER_STAGE_RAY_GEN || __GLSLD_SHADER_STAGE_CLOSEST_HIT || __GLSLD_SHADER_STAGE_RAY_MISS || __GLSLD_SHADER_STAGE_RAY_CALLABLE
 void executeCallableEXT(uint sbtRecordIndex, int callable);
+#endif
 
-__glsld_syscmd_require_stage__ rayGen rayClosestHit rayMiss;
+#if __GLSLD_SHADER_STAGE_RAY_GEN || __GLSLD_SHADER_STAGE_CLOSEST_HIT || __GLSLD_SHADER_STAGE_RAY_MISS
 void traceRayEXT(accelerationStructureEXT topLevel,uint rayFlags,uint cullMask,uint sbtRecordOffset,uint sbtRecordStride,uint missIndex,vec3 origin,float tMin,vec3 direction,float tMax,int payload);
+#endif
 
-__glsld_syscmd_require_stage__ rayAnyHit rayClosestHit rayIntersect rayMiss;
+#if __GLSLD_SHADER_STAGE_ANY_HIT || __GLSLD_SHADER_STAGE_CLOSEST_HIT || __GLSLD_SHADER_STAGE_RAY_INTERSECT || __GLSLD_SHADER_STAGE_RAY_MISS
 in    vec3   gl_WorldRayOriginEXT;
 in    vec3   gl_WorldRayDirectionEXT;
 in    float  gl_RayTminEXT;
 in    float  gl_RayTmaxEXT;
 in    uint   gl_IncomingRayFlagsEXT;
 in    uint   gl_CullMaskEXT;
+#endif
 
-__glsld_syscmd_require_stage__ rayAnyHit rayClosestHit rayIntersect;
+#if __GLSLD_SHADER_STAGE_ANY_HIT || __GLSLD_SHADER_STAGE_CLOSEST_HIT || __GLSLD_SHADER_STAGE_RAY_INTERSECT
 in     int   gl_PrimitiveID;
 in     int   gl_InstanceID;
 in     int   gl_InstanceCustomIndexEXT;
@@ -47,8 +50,10 @@ in    mat4x3 gl_ObjectToWorldEXT;
 in    mat3x4 gl_ObjectToWorld3x4EXT;
 in    mat4x3 gl_WorldToObjectEXT;
 in    mat3x4 gl_WorldToObject3x4EXT;
+#endif
 
-__glsld_syscmd_require_stage__ rayIntersect;
+#if __GLSLD_SHADER_STAGE_RAY_INTERSECT
 bool reportIntersectionEXT(float hitT, uint hitKind);
+#endif
 
-__glsld_syscmd_end_context__;
+#endif

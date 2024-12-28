@@ -1,7 +1,6 @@
 // FIXME: support SPV_NV_compute_shader_derivatives, aka. derivative functions in compute shader
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ fragment;
+#if defined(__GLSLD_SHADER_STAGE_FRAGMENT)
 
 float dFdx(float);
 vec2 dFdx(vec2);
@@ -40,10 +39,10 @@ vec2  fwidthCoarse(vec2  p);
 vec3  fwidthCoarse(vec3  p);
 vec4  fwidthCoarse(vec4  p);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ fragment;
+// FIXME: support SPV_NV_compute_shader_derivatives, aka. derivative functions in compute shader???
+#if defined(__GLSLD_SHADER_STAGE_FRAGMENT)
 
 // float64_t dFdx(float64_t);
 // f64vec2   dFdx(f64vec2);
@@ -118,4 +117,4 @@ __glsld_syscmd_require_stage__ fragment;
 // f16vec3   fwidthCoarse(f16vec3);
 // f16vec4   fwidthCoarse(f16vec4);
 
-__glsld_syscmd_end_context__;
+#endif

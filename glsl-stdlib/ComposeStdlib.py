@@ -54,7 +54,7 @@ LoadFile("extension/GL_NV_shader_sm_builtins.glsl", result)
 LoadFile("extension/GL_KHR_memory_scope_semantics.glsl", result)
 
 with open(
-    os.path.join(SCRIPT_PATH, "../glsld-common/include/Language/Stdlib.Generated.h"),
+    os.path.join(SCRIPT_PATH, "../glsld-core/include/Language/Stdlib.Generated.h"),
     "w",
 ) as file:
     file.write("// clang-format off\n")

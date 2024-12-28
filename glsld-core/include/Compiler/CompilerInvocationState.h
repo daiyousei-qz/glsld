@@ -16,6 +16,21 @@
 
 namespace glsld
 {
+    struct CompilerFeatureConfig
+    {
+        bool enableInt8Type             = false;
+        bool enableInt16Type            = false;
+        bool enableInt32Type            = false;
+        bool enableInt64Type            = false;
+        bool enableFloat16Type          = false;
+        bool enableFloat32Type          = false;
+        bool enableFloat64Type          = false;
+        bool enableMemoryScopeSemantics = false;
+        bool enableRayQuery             = false;
+        bool enableRayTracingEXT        = false;
+        bool enableRayTracingNV         = false;
+    };
+
     class CompilerInvocationState
     {
     private:
@@ -39,6 +54,7 @@ namespace glsld
 #endif
 
         auto Initialize() -> void;
+        auto InitializeStdlib() -> void;
 
         auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
         {
@@ -81,12 +97,14 @@ namespace glsld
         {
             GLSLD_ASSERT(this->preamble != nullptr);
             Initialize();
+            // stdlib imported from preamble if any.
         }
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
                                 LanguageConfig languageConfig)
             : sourceManager(sourceManager), compilerConfig(compilerConfig), languageConfig(languageConfig)
         {
             Initialize();
+            InitializeStdlib();
         }
 
         auto GetSourceManager() noexcept -> SourceManager&

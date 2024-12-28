@@ -71,8 +71,7 @@ const int gl_MaxAtomicCounterBufferSize = 32;
 const int gl_MaxTransformFeedbackBuffers = 4;
 const int gl_MaxTransformFeedbackInterleavedComponents = 64;
 
-#if __GLSLD_TARGET_VULKAN
-
+// FIXME: support these
+#if VULKAN
 const highp int gl_MaxInputAttachments = 1; // only present when targeting Vulkan
-
 #endif

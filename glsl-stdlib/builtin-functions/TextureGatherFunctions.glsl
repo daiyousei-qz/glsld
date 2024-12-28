@@ -76,8 +76,7 @@ vec4 textureGatherOffsets(sampler2DShadow sampler_,vec2 P,float refZ,ivec2 offse
 vec4 textureGatherOffsets(sampler2DRectShadow sampler_,vec2 P,float refZ,ivec2 offsets[4]);
 vec4 textureGatherOffsets(sampler2DArrayShadow sampler_,vec3 P,float refZ,ivec2 offsets[4]);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 f16vec4 textureGather(f16sampler2D sampler_,vec2 P);
 f16vec4 textureGather(f16sampler2D sampler_,vec2 P,int comp);
@@ -146,4 +145,4 @@ f16vec4 textureGatherOffsets(f16sampler2DRectShadow sampler_,f16vec2 P,float ref
 f16vec4 textureGatherOffsets(f16sampler2DArrayShadow sampler_,vec3 P,float refZ,ivec2 offsets[4]);
 f16vec4 textureGatherOffsets(f16sampler2DArrayShadow sampler_,f16vec3 P,float refZ,ivec2 offsets[4]);
 
-__glsld_syscmd_end_context__;
+#endif

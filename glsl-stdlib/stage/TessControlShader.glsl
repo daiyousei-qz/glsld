@@ -1,5 +1,4 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ tessControl;
+#if __GLSLD_SHADER_STAGE_TESS_CTRL
 
 in gl_PerVertex {
     vec4 gl_Position;
@@ -26,4 +25,4 @@ out gl_PerVertex {
 patch out float gl_TessLevelOuter[4];
 patch out float gl_TessLevelInner[2];
 
-__glsld_syscmd_end_context__;
+#endif

@@ -66,8 +66,7 @@ dmat3 inverse(dmat3 m);
 dmat4 inverse(dmat4 m);
 
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 f16mat2   matrixCompMult(f16mat2 x,   f16mat2 y);
 f16mat3   matrixCompMult(f16mat3 x,   f16mat3 y);
@@ -103,4 +102,4 @@ f16mat2 inverse(f16mat2 m);
 f16mat3 inverse(f16mat3 m);
 f16mat4 inverse(f16mat4 m);
 
-__glsld_syscmd_end_context__;
+#endif

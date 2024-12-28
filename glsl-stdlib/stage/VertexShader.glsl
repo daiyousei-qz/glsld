@@ -1,25 +1,17 @@
+#if __GLSLD_SHADER_STAGE_VERTEX
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_target__ opengl;
-__glsld_syscmd_require_stage__ vertex;
-
+// FIXME: support these
+#if OPENGL
 in int gl_VertexID;
 in int gl_InstanceID;
+#endif
 
-__glsld_syscmd_end_context__;
 
-
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_target__ vulkan;
-__glsld_syscmd_require_stage__ vertex;
-
+// FIXME: support these
+#if VULKAN
 in int gl_VertexIndex;
 in int gl_InstanceIndex;
-
-__glsld_syscmd_end_context__;
-
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ vertex;
+#endif
 
 in int gl_DrawID;
 in int gl_BaseVertex;
@@ -32,4 +24,4 @@ out gl_PerVertex {
     float gl_CullDistance[];
 };
 
-__glsld_syscmd_end_context__;
+#endif

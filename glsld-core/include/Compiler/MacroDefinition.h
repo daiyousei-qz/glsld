@@ -7,9 +7,14 @@ namespace glsld
     class MacroDefinition final
     {
     private:
+        // FIXME: avoid using mutable bit inside macro definition, this may cause data race.
         // This is mutable during the compilation process. We may need to disable a macro temporarily
         // when it is currently being expanded to avoid infinite recursion.
         bool isDisabled = false;
+
+        // A compiler defined macro is a macro that is defined by the compiler itself.
+        // Therefore, it cannot be redefined or undefined by the user.
+        bool isCompilerDefined = false;
 
         // If the macro is function-like. This is only valid if `isUndef` is false.
         bool isFunctionLike;
@@ -30,10 +35,10 @@ namespace glsld
         // e.g. `#define FOO(a, b) a + b` -> `a + b`
         std::vector<PPToken> expansionTokens;
 
-        MacroDefinition(bool isFunctionLike, PPToken defToken, std::vector<PPToken> paramTokens,
+        MacroDefinition(bool isCompilerDefined, bool isFunctionLike, PPToken defToken, std::vector<PPToken> paramTokens,
                         std::vector<PPToken> expansionTokens)
-            : isFunctionLike(isFunctionLike), defToken(defToken), paramTokens(std::move(paramTokens)),
-              expansionTokens(std::move(expansionTokens))
+            : isCompilerDefined(isCompilerDefined), isFunctionLike(isFunctionLike), defToken(defToken),
+              paramTokens(std::move(paramTokens)), expansionTokens(std::move(expansionTokens))
         {
         }
 
@@ -41,10 +46,7 @@ namespace glsld
         static auto CreateObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> MacroDefinition
         {
             return MacroDefinition{
-                false,
-                defToken,
-                {},
-                std::move(expansionTokens),
+                false, false, defToken, {}, std::move(expansionTokens),
             };
         }
 
@@ -52,16 +54,41 @@ namespace glsld
                                             std::vector<PPToken> expansionTokens) -> MacroDefinition
         {
             return MacroDefinition{
-                true,
-                defToken,
-                std::move(paramTokens),
-                std::move(expansionTokens),
+                false, true, defToken, std::move(paramTokens), std::move(expansionTokens),
+            };
+        }
+
+        static auto CreateFeatureMacro(AtomString name, AtomString number) -> MacroDefinition
+        {
+            auto defToken = PPToken{
+                .klass                = TokenKlass::Identifier,
+                .spelledFile          = FileID::SystemPreamble(),
+                .spelledRange         = {},
+                .text                 = name,
+                .isFirstTokenOfLine   = false,
+                .hasLeadingWhitespace = false,
+            };
+            auto oneToken = PPToken{
+                .klass                = TokenKlass::IntegerConstant,
+                .spelledFile          = FileID::SystemPreamble(),
+                .spelledRange         = {},
+                .text                 = number,
+                .isFirstTokenOfLine   = false,
+                .hasLeadingWhitespace = false,
+            };
+            return MacroDefinition{
+                true, false, defToken, {}, {oneToken},
             };
         }
 
         auto IsEnabled() const noexcept -> bool
         {
             return !isDisabled;
+        }
+
+        auto IsCompilerDefined() const noexcept -> bool
+        {
+            return isCompilerDefined;
         }
 
         auto IsFunctionLike() const noexcept -> bool

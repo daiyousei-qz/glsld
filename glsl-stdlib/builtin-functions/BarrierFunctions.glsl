@@ -1,7 +1,6 @@
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ compute;
+#if __GLSLD_SHADER_STAGE_COMPUTE
 
 void barrier();
 
-__glsld_syscmd_end_context__;
+#endif

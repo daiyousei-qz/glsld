@@ -86,8 +86,7 @@ bvec2 not(bvec2 x);
 bvec3 not(bvec3 x);
 bvec4 not(bvec4 x);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int64;
+#if __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 bvec2 lessThan(i64vec2 x, i64vec2 y);
 bvec3 lessThan(i64vec3 x, i64vec3 y);
@@ -127,10 +126,9 @@ bvec2 notEqual(u64vec2 x, u64vec2 y);
 bvec3 notEqual(u64vec3 x, u64vec3 y);
 bvec4 notEqual(u64vec4 x, u64vec4 y);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int16;
+#if __GLSLD_FEATURE_ENABLE_INT16_TYPE
 
 bvec2 lessThan(i16vec2 x, i16vec2 y);
 bvec3 lessThan(i16vec3 x, i16vec3 y);
@@ -170,11 +168,9 @@ bvec2 notEqual(u16vec2 x, u16vec2 y);
 bvec3 notEqual(u16vec3 x, u16vec3 y);
 bvec4 notEqual(u16vec4 x, u16vec4 y);
 
-__glsld_syscmd_end_context__;
+#endif
 
-
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int8;
+#if __GLSLD_FEATURE_ENABLE_INT8_TYPE
 
 bvec2 lessThan(i8vec2 x, i8vec2 y);
 bvec3 lessThan(i8vec3 x, i8vec3 y);
@@ -214,10 +210,9 @@ bvec2 notEqual(u8vec2 x, u8vec2 y);
 bvec3 notEqual(u8vec3 x, u8vec3 y);
 bvec4 notEqual(u8vec4 x, u8vec4 y);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 bvec2 lessThan(f16vec2 x, f16vec2 y);
 bvec3 lessThan(f16vec3 x, f16vec3 y);
@@ -238,4 +233,4 @@ bvec2 notEqual(f16vec2 x, f16vec2 y);
 bvec3 notEqual(f16vec3 x, f16vec3 y);
 bvec4 notEqual(f16vec4 x, f16vec4 y);
 
-__glsld_syscmd_end_context__;
+#endif

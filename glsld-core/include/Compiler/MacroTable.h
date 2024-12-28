@@ -15,6 +15,8 @@ namespace glsld
         auto DefineFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,
                                      std::vector<PPToken> expansionTokens) -> void;
 
+        auto DefineFeatureMacro(AtomString macroName, AtomString one) -> void;
+
         auto UndefineMacro(AtomString macroName) -> void;
 
         auto IsMacroDefined(AtomString macroName) const -> bool;

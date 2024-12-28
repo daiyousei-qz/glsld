@@ -326,8 +326,7 @@ float textureProjGradOffset(sampler1DShadow sampler_,vec4 P,float dPdx,float dPd
 float textureProjGradOffset(sampler2DShadow sampler_,vec4 P,vec2 dPdx,vec2 dPdy,ivec2 offset);
 float textureProjGradOffset(sampler2DRectShadow sampler_,vec4 P,vec2 dPdx,vec2 dPdy,ivec2 offset);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t texture(f16sampler2DShadow,vec3);
 float16_t texture(f16sampler2DShadow,f16vec2,float);
@@ -608,4 +607,4 @@ float16_t textureProjGradOffset(f16sampler2DShadow,f16vec3,float,f16vec2,f16vec2
 float16_t textureProjGradOffset(f16sampler2DRectShadow,vec4,vec2,vec2,ivec2);
 float16_t textureProjGradOffset(f16sampler2DRectShadow,f16vec3,float,f16vec2,f16vec2,ivec2);
 
-__glsld_syscmd_end_context__;
+#endif

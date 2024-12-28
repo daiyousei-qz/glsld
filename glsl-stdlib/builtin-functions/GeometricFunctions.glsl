@@ -58,8 +58,7 @@ dvec2  refract(dvec2 I, dvec2 N, double eta);
 dvec3  refract(dvec3 I, dvec3 N, double eta);
 dvec4  refract(dvec4 I, dvec4 N, double eta);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t length(float16_t x);
 float16_t length(f16vec2 x);
@@ -91,4 +90,4 @@ f16vec2   refract(f16vec2 I,   f16vec2 N,   float16_t eta);
 f16vec3   refract(f16vec3 I,   f16vec3 N,   float16_t eta);
 f16vec4   refract(f16vec4 I,   f16vec4 N,   float16_t eta);
 
-__glsld_syscmd_end_context__;
+#endif

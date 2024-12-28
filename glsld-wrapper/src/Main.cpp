@@ -26,7 +26,7 @@ namespace glsld
 
         ArgumentParser program("glsld-wrapper");
         program.add_argument("input-file").help("Input file to be compiled").required().store_into(result.inputFile);
-        program.add_argument("--dump-tokens")
+        program.add_argument("--dump-token")
             .help("Dumps tokens when a translation unit is preprocessed.")
             .default_value(false)
             .store_into(result.dumpTokens);

@@ -59,8 +59,7 @@ vec2 atanh(vec2 x);
 vec3 atanh(vec3 x);
 vec4 atanh(vec4 x);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t radians(float16_t x);
 f16vec2   radians(f16vec2 x);
@@ -123,4 +122,4 @@ f16vec2   atanh(f16vec2 x);
 f16vec3   atanh(f16vec3 x);
 f16vec4   atanh(f16vec4 x);
 
-__glsld_syscmd_end_context__;
+#endif

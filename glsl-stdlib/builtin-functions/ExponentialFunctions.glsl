@@ -36,8 +36,7 @@ dvec2  inversesqrt(dvec2);
 dvec3  inversesqrt(dvec3);
 dvec4  inversesqrt(dvec4);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t pow(float16_t x, float16_t y);
 f16vec2   pow(f16vec2 x,   f16vec2 y);
@@ -68,4 +67,4 @@ f16vec2   inversesqrt(f16vec2 x);
 f16vec3   inversesqrt(f16vec3 x);
 f16vec4   inversesqrt(f16vec4 x);
 
-__glsld_syscmd_end_context__;
+#endif

@@ -106,18 +106,6 @@ namespace glsld
 
     auto CompilerInvocation::InitializeCompilation() -> std::unique_ptr<CompilerInvocationState>
     {
-        // FIXME: We enable all extensions by default for now. Support properly scanning the source code for extension
-#define DECL_EXTENSION(EXTENSION_NAME) EnableExtension(ExtensionId::EXTENSION_NAME);
-#include "GlslExtension.inc"
-#undef DECL_EXTENSION
-        // Initialize system preamble
-        if (!preamble && !languageConfig.noStdlib) {
-            StringView systemPreamble =
-#include "Language/Stdlib.Generated.h"
-                ;
-            sourceManager.SetSystemPreamble(systemPreamble);
-        }
-
         if (preamble) {
             return std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, preamble);
         }

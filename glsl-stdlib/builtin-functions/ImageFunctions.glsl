@@ -104,8 +104,7 @@ void imageStore(writeonly volatile coherent image2DMSArray image, ivec3 P, int s
 void imageStore(writeonly volatile coherent iimage2DMSArray image, ivec3 P, int sample, ivec4 data);
 void imageStore(writeonly volatile coherent uimage2DMSArray image, ivec3 P, int sample, uvec4 data);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int64;
+#if __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 int imageSize(readonly writeonly volatile coherent i64image1D image);
 ivec2 imageSize(readonly writeonly volatile coherent i64image2D image);
@@ -179,10 +178,9 @@ void imageStore(writeonly volatile coherent u64imageCubeArray image, ivec3 P, u6
 void imageStore(writeonly volatile coherent u64image2DMS image, ivec2 P, int sample, u64vec4 data);
 void imageStore(writeonly volatile coherent u64image2DMSArray image, ivec3 P, int sample, u64vec4 data);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 int imageSize(readonly writeonly volatile coherent f16image1D image);
 ivec2 imageSize(readonly writeonly volatile coherent f16image2D image);
@@ -220,4 +218,4 @@ void imageStore(writeonly volatile coherent f16imageCubeArray image, ivec3 P, f1
 void imageStore(writeonly volatile coherent f16image2DMS image, ivec2 P, int sample, f16vec4 data);
 void imageStore(writeonly volatile coherent f16image2DMSArray image, ivec3 P, int sample, f16vec4 data);
 
-__glsld_syscmd_end_context__;
+#endif

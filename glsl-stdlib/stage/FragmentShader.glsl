@@ -1,7 +1,6 @@
 // FIXME: correct qualifiers
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ fragment;
+#if __GLSLD_SHADER_STAGE_FRAGMENT
 
 in vec4  gl_FragCoord;
 in bool  gl_FrontFacing;
@@ -19,4 +18,4 @@ in bool gl_HelperInvocation;
 out float gl_FragDepth;
 out int  gl_SampleMask[];
 
-__glsld_syscmd_end_context__;
+#endif

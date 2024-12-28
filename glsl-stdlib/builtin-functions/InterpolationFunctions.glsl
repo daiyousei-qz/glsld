@@ -1,6 +1,5 @@
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ fragment;
+#if __GLSLD_SHADER_STAGE_FRAGMENT
 
 float interpolateAtCentroid(float interpolant);
 vec2  interpolateAtCentroid(vec2 interpolant);
@@ -15,7 +14,7 @@ vec2  interpolateAtOffset(vec2 interpolant,  vec2 offset);
 vec3  interpolateAtOffset(vec3 interpolant,  vec2 offset);
 vec4  interpolateAtOffset(vec4 interpolant,  vec2 offset);
 
-__glsld_syscmd_end_context__;
+#endif
 
 // float64_t interpolateAtCentroid(float64_t interpolant);
 // f64vec2   interpolateAtCentroid(f64vec2 interpolant);
@@ -30,9 +29,7 @@ __glsld_syscmd_end_context__;
 // f64vec3   interpolateAtOffset(f64vec3 interpolant,   f64vec2 offset);
 // f64vec4   interpolateAtOffset(f64vec4 interpolant,   f64vec2 offset);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_stage__ fragment;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_SHADER_STAGE_FRAGMENT && __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t interpolateAtCentroid(float16_t interpolant);
 f16vec2   interpolateAtCentroid(f16vec2 interpolant);
@@ -47,4 +44,4 @@ f16vec2   interpolateAtOffset(f16vec2 interpolant,   f16vec2 offset);
 f16vec3   interpolateAtOffset(f16vec3 interpolant,   f16vec2 offset);
 f16vec4   interpolateAtOffset(f16vec4 interpolant,   f16vec2 offset);
 
-__glsld_syscmd_end_context__;
+#endif

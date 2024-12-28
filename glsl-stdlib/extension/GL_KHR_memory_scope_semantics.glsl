@@ -1,6 +1,5 @@
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_KHR_memory_scope_semantics;
+#if __GLSLD_FEATURE_ENABLE_MEMORY_SCOPE_SEMANTICS
 
 const int gl_ScopeDevice      = 1;
 const int gl_ScopeWorkgroup   = 2;
@@ -23,4 +22,4 @@ const int gl_StorageSemanticsShared   = 0x100;
 const int gl_StorageSemanticsImage    = 0x800;
 const int gl_StorageSemanticsOutput   = 0x1000;
 
-__glsld_syscmd_end_context__;
+#endif

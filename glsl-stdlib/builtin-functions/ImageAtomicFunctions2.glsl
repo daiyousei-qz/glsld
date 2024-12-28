@@ -1,5 +1,4 @@
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_KHR_memory_scope_semantics;
+#if __GLSLD_FEATURE_ENABLE_MEMORY_SCOPE_SEMANTICS
 
 float imageAtomicAdd(volatile coherent image1D image, int P, float data, int scope, int storage, int semantic);
 highp int imageAtomicAdd(volatile coherent iimage1D image, int P, highp int data, int scope, int storage, int semantic);
@@ -222,8 +221,9 @@ highp uint imageAtomicCompSwap(volatile coherent uimage2DMS image, ivec2 P, int 
 highp int imageAtomicCompSwap(volatile coherent iimage2DMSArray image, ivec3 P, int sample_, highp int compare, highp int data, int scope, int storage, int semantic);
 highp uint imageAtomicCompSwap(volatile coherent uimage2DMSArray image, ivec3 P, int sample_, highp uint compare, highp uint data, int scope, int storage, int semantic);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_KHR_memory_scope_semantics GL_EXT_shader_explicit_arithmetic_types_int64;
+#endif
+
+#if __GLSLD_FEATURE_ENABLE_MEMORY_SCOPE_SEMANTICS && __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 highp int64_t imageAtomicAdd(volatile coherent i64image1D image, int P, highp int64_t data, int scope, int storage, int semantic);
 highp int64_t imageAtomicAdd(volatile coherent i64image2D image, ivec2 P, highp int64_t data, int scope, int storage, int semantic);
@@ -403,10 +403,9 @@ highp uint64_t imageAtomicCompSwap(volatile coherent u64imageCubeArray image, iv
 highp uint64_t imageAtomicCompSwap(volatile coherent u64image2DMS image, ivec2 P, int sample_, highp uint64_t compare, highp uint64_t data, int scope, int storage, int semantic);
 highp uint64_t imageAtomicCompSwap(volatile coherent u64image2DMSArray image, ivec3 P, int sample_, highp uint64_t compare, highp uint64_t data, int scope, int storage, int semantic);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_KHR_memory_scope_semantics GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_MEMORY_SCOPE_SEMANTICS && __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float imageAtomicAdd(volatile coherent f16image1D image, int P, float data, int scope, int storage, int semantic);
 float imageAtomicAdd(volatile coherent f16image2D image, ivec2 P, float data, int scope, int storage, int semantic);
@@ -453,4 +452,4 @@ float imageAtomicExchange(volatile coherent f16imageCubeArray image, ivec3 P, fl
 float imageAtomicExchange(volatile coherent f16image2DMS image, ivec2 P, int sample_, float data, int scope, int storage, int semantic);
 float imageAtomicExchange(volatile coherent f16image2DMSArray image, ivec3 P, int sample_, float data, int scope, int storage, int semantic);
 
-__glsld_syscmd_end_context__;
+#endif

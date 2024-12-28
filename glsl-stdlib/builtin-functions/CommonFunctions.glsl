@@ -218,8 +218,7 @@ dvec2  fma(dvec2 a,  dvec2 b,  dvec2 c );
 dvec3  fma(dvec3 a,  dvec3 b,  dvec3 c );
 dvec4  fma(dvec4 a,  dvec4 b,  dvec4 c );
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int64;
+#if __GLSLD_FEATURE_ENABLE_INT64_TYPE
 
 int64_t abs(int64_t x);
 i64vec2 abs(i64vec2 x);
@@ -280,11 +279,9 @@ u64vec2  mix(u64vec2 x,  u64vec2 y,  bvec2 a);
 u64vec3  mix(u64vec3 x,  u64vec3 y,  bvec3 a);
 u64vec4  mix(u64vec4 x,  u64vec4 y,  bvec4 a);
 
-__glsld_syscmd_end_context__;
+#endif
 
-
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int16;
+#if __GLSLD_FEATURE_ENABLE_INT16_TYPE
 
 int16_t abs(int16_t x);
 i16vec2 abs(i16vec2 x);
@@ -345,10 +342,9 @@ u16vec2  mix(u16vec2 x,  u16vec2 y,  bvec2 a);
 u16vec3  mix(u16vec3 x,  u16vec3 y,  bvec3 a);
 u16vec4  mix(u16vec4 x,  u16vec4 y,  bvec4 a);
 
-__glsld_syscmd_end_context__;
+#endif
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_int8;
+#if __GLSLD_FEATURE_ENABLE_INT8_TYPE
 
 int8_t abs(int8_t x);
 i8vec2 abs(i8vec2 x);
@@ -409,11 +405,9 @@ u8vec2  mix(u8vec2 x,  u8vec2 y,  bvec2 a);
 u8vec3  mix(u8vec3 x,  u8vec3 y,  bvec3 a);
 u8vec4  mix(u8vec4 x,  u8vec4 y,  bvec4 a);
 
-__glsld_syscmd_end_context__;
+#endif
 
-
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 float16_t abs(float16_t x);
 f16vec2   abs(f16vec2 x);
@@ -517,4 +511,4 @@ f16vec2   fma(f16vec2 a,   f16vec2 b,   f16vec2 c);
 f16vec3   fma(f16vec3 a,   f16vec3 b,   f16vec3 c);
 f16vec4   fma(f16vec4 a,   f16vec4 b,   f16vec4 c);
 
-__glsld_syscmd_end_context__;
+#endif

@@ -128,8 +128,7 @@ int textureSamples(usampler2DMSArray sampler_);
 // vec2 textureQueryLOD(sampler2DArrayShadow sampler_, vec2 P);
 // vec2 textureQueryLOD(samplerCubeArrayShadow sampler_, vec3 P);
 
-__glsld_syscmd_begin_context__;
-__glsld_syscmd_require_extension__ GL_EXT_shader_explicit_arithmetic_types_float16;
+#if __GLSLD_FEATURE_ENABLE_FLOAT16_TYPE
 
 int textureSize(f16sampler1D sampler_,int lod);
 ivec2 textureSize(f16sampler2D sampler_,int lod);
@@ -193,4 +192,4 @@ int textureSamples(f16sampler2DMSArray sampler_);
 // vec2 textureQueryLOD(f16sampler2DArrayShadow sampler_, vec2 P);
 // vec2 textureQueryLOD(f16samplerCubeArrayShadow sampler_, vec3 P);
 
-__glsld_syscmd_end_context__;
+#endif
