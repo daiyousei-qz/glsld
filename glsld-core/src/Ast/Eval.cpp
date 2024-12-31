@@ -341,22 +341,8 @@ namespace glsld
             }
         }
         else if (auto implicitCastExpr = init.As<AstImplicitCastExpr>(); implicitCastExpr) {
-            // Only primitive type can be casted implicitly.
-            auto operandResult = EvalAstExpr(*implicitCastExpr->GetOperand());
-            auto toType        = implicitCastExpr->GetDeducedType();
-            if (auto toScalarDesc = toType->GetScalarDesc(); operandResult.IsScalar() && toScalarDesc) {
-                return operandResult.CastScalar(toScalarDesc->type);
-            }
-            else if (auto toVectorDesc = toType->GetVectorDesc();
-                     operandResult.IsVector() && toVectorDesc &&
-                     operandResult.GetArraySize() == toVectorDesc->vectorSize) {
-                return operandResult.CastScalar(toVectorDesc->scalarType);
-            }
-            else if (auto toMatrixDesc = toType->GetMatrixDesc();
-                     operandResult.IsMatrix() && toMatrixDesc && operandResult.GetRowSize() == toMatrixDesc->dimRow &&
-                     operandResult.GetColumnSize() == toMatrixDesc->dimCol) {
-                return operandResult.CastScalar(toMatrixDesc->scalarType);
-            }
+            // Only primitive type can be casted implicitly, so we can evaluate it eagerly.
+            return EvalAstInitializer(*implicitCastExpr->GetOperand(), implicitCastExpr->GetDeducedType());
         }
         else if (auto fnCallExpr = init.As<AstFunctionCallExpr>(); fnCallExpr) {
             if (fnCallExpr->GetArgs().size() == 1) {
@@ -431,5 +417,26 @@ namespace glsld
     auto EvalAstExpr(const AstExpr& expr) -> ConstValue
     {
         return EvalAstInitializerLazy(expr).AsConstValue();
+    }
+
+    auto EvalAstInitializer(const AstInitializer& init, const Type* type) -> ConstValue
+    {
+        auto result = EvalAstInitializerLazy(init).AsConstValue();
+
+        if (auto toScalarDesc = type->GetScalarDesc(); result.IsScalar() && toScalarDesc) {
+            return result.CastScalar(toScalarDesc->type);
+        }
+        else if (auto toVectorDesc = type->GetVectorDesc();
+                 result.IsVector() && toVectorDesc && result.GetArraySize() == toVectorDesc->vectorSize) {
+            return result.CastScalar(toVectorDesc->scalarType);
+        }
+        else if (auto toMatrixDesc = type->GetMatrixDesc(); result.IsMatrix() && toMatrixDesc &&
+                                                            result.GetRowSize() == toMatrixDesc->dimRow &&
+                                                            result.GetColumnSize() == toMatrixDesc->dimCol) {
+            return result.CastScalar(toMatrixDesc->scalarType);
+        }
+        else {
+            return ConstValue{};
+        }
     }
 } // namespace glsld

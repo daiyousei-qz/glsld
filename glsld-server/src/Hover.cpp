@@ -123,6 +123,14 @@ namespace glsld
                 hoverInfo += fmt::format("Value: `{}`\n\n", constValue.ToString());
             }
         }
+        else if (auto varDecl = symbolInfo.symbolOwner->As<AstVariableDecl>(); varDecl) {
+            const auto& declarator = varDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
+            auto resolvedType      = varDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
+            hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+            if (auto init = declarator.initializer; init && varDecl->IsConstVariable()) {
+                hoverInfo += fmt::format("Value: `{}`\n\n", EvalAstInitializer(*init, resolvedType).ToString());
+            }
+        }
 
         if (!symbolInfo.symbolDecl.IsValid()) {
             bool isUnknown = symbolInfo.symbolType != SymbolDeclType::Swizzle &&
