@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(AstTestFixture, "Simple Global Decl")
+TEST_CASE_METHOD(AstTestFixture, "AstDecl::Global")
 {
     SetTestTemplate("{}", [this](AstMatcher* matcher) { return TranslationUnit({matcher}); });
 
@@ -91,7 +91,7 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Global Decl")
     }
 }
 
-TEST_CASE_METHOD(AstTestFixture, "Simple Local Decl")
+TEST_CASE_METHOD(AstTestFixture, "AstDecl::Local")
 {
     SetTestTemplate("void main() {{ {} }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),

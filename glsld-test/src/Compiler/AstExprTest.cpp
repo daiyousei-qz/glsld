@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
+TEST_CASE_METHOD(AstTestFixture, "AstExpr")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
@@ -175,32 +175,28 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Expr")
                                                                                               }));
         }
     }
-}
 
-TEST_CASE_METHOD(AstTestFixture, "Paren Wrapped Expr")
-{
-    SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
-        return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
-                         VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
-    });
-
-    GLSLD_CHECK_AST("(1)", LiteralExpr(1));
-    GLSLD_CHECK_AST("((1))", LiteralExpr(1));
-    GLSLD_CHECK_AST("(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
-    GLSLD_CHECK_AST("(1 + 2) * 3", BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)),
-                                              LiteralExpr(3)));
-
-    SECTION("Permissive")
+    SECTION("Paren Wrapped Expr")
     {
-        GLSLD_CHECK_AST("(", ErrorExpr());
-        GLSLD_CHECK_AST("()", ErrorExpr());
-        GLSLD_CHECK_AST("(())", ErrorExpr());
-        GLSLD_CHECK_AST("(1", LiteralExpr(1));
-        GLSLD_CHECK_AST("(1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
+        GLSLD_CHECK_AST("(1)", LiteralExpr(1));
+        GLSLD_CHECK_AST("((1))", LiteralExpr(1));
+        GLSLD_CHECK_AST("(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST(
+            "(1 + 2) * 3",
+            BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("(", ErrorExpr());
+            GLSLD_CHECK_AST("()", ErrorExpr());
+            GLSLD_CHECK_AST("(())", ErrorExpr());
+            GLSLD_CHECK_AST("(1", LiteralExpr(1));
+            GLSLD_CHECK_AST("(1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
+        }
     }
 }
 
-TEST_CASE_METHOD(AstTestFixture, "Initializer List")
+TEST_CASE_METHOD(AstTestFixture, "AstInitializerList")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyQualType(), IdTok("test__"), AnyAst(), AnyInitializer()),
@@ -265,7 +261,7 @@ TEST_CASE_METHOD(AstTestFixture, "Initializer List")
     }
 }
 
-TEST_CASE_METHOD(AstTestFixture, "Implicit Cast")
+TEST_CASE_METHOD(AstTestFixture, "AstImplicitCast")
 {
     SetTestTemplate("void main() {{ {}; }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),

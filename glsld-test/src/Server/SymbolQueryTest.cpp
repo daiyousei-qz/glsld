@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(ServerTestFixture, "Hover")
+TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
 {
     auto checkSymbol = [this](const ServerTestContext& ctx, StringView label, SymbolDeclType type, StringView name,
                               bool unknown = false) {
