@@ -4,7 +4,10 @@
 - Completion for Macro
 - Find references
 - Add proper logging
-- Add decl cascade in AST
+- Add decl cascade in AST?
+- Improve hover with more information
+- PP builtins like __FILE__ and __LINE__
+- Support rename
 
 # Nice to have improvement
 - Don't read from disk for every include file

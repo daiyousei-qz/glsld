@@ -221,7 +221,7 @@ namespace glsld
     {
         const auto& compilerObject = provider.GetCompilerResult();
 
-        auto accessInfo = provider.LookupSymbolAccess(position);
+        auto accessInfo = provider.QuerySymbolByPosition(position);
         if (accessInfo) {
 
             // Decl token that's either builtin or unknown

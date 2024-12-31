@@ -2,12 +2,17 @@
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/PPCallback.h"
 
+#include <memory>
 #include <vector>
 
 namespace glsld
 {
     class PreprocessInfoCache
     {
+    private:
+        std::vector<PPToken> headerNames;
+        std::vector<PPToken> macroUses;
+
     public:
         auto GetCollectionCallback() -> std::unique_ptr<PPCallback>
         {
@@ -76,10 +81,6 @@ namespace glsld
         {
             return macroUses;
         }
-
-    private:
-        std::vector<PPToken> headerNames;
-        std::vector<PPToken> macroUses;
     };
 
 } // namespace glsld

@@ -6,7 +6,7 @@ namespace glsld
     auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
-        auto declTokenResult = provider.LookupSymbolAccess(FromLspPosition(position));
+        auto declTokenResult = provider.QuerySymbolByPosition(FromLspPosition(position));
         if (declTokenResult && declTokenResult->symbolDecl.IsValid()) {
             const AstDecl& accessedDecl = *declTokenResult->symbolDecl.GetDecl();
             size_t declaratorIndex      = declTokenResult->symbolDecl.GetIndex();

@@ -120,7 +120,7 @@ namespace glsld
     auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
                            bool includeDeclaration) -> std::vector<lsp::Location>
     {
-        auto accessInfo = provider.LookupSymbolAccess(FromLspPosition(position));
+        auto accessInfo = provider.QuerySymbolByPosition(FromLspPosition(position));
         if (!accessInfo || !accessInfo->token.IsIdentifier() || !accessInfo->symbolDecl.IsValid()) {
             return {};
         }

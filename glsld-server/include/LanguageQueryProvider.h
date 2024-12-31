@@ -153,18 +153,18 @@ namespace glsld
         // Notably, expanded text range is always in the main file.
         auto LookupExpandedTextRangeExtended(AstSyntaxRange range) const -> TextRange;
 
-        auto GetExpandedTextRangeExtended(const AstSyntaxToken& token) const -> TextRange
+        auto LookupExpandedTextRangeExtended(const AstSyntaxToken& token) const -> TextRange
         {
             return LookupExpandedTextRangeExtended(token.GetSyntaxRange());
         }
 
-        auto GetExpandedTextRangeExtended(const AstNode& node) const -> TextRange
+        auto LookupExpandedTextRangeExtended(const AstNode& node) const -> TextRange
         {
             return LookupExpandedTextRangeExtended(node.GetSyntaxRange());
         }
 
         // Returns the related information if the cursor position hits an identifier that's accessing a symbol.
-        auto LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>;
+        auto QuerySymbolByPosition(TextPosition position) const -> std::optional<SymbolAccessInfo>;
 
         // True if the expanded range of an AST node precedes the specified position in the main file.
         auto PrecedesPosition(const AstNode& node, TextPosition position) const -> bool
@@ -213,7 +213,7 @@ namespace glsld
         auto ContainsPositionExtended(SyntaxTokenID tokIndex, TextPosition position) const -> bool
         {
             // FIXME: implement properly
-            return GetExpandedTextRangeExtended(AstSyntaxToken{tokIndex, TokenKlass::Invalid, {}})
+            return LookupExpandedTextRangeExtended(AstSyntaxToken{tokIndex, TokenKlass::Invalid, {}})
                 .ContainsExtended(position);
         }
     };

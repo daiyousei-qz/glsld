@@ -3,7 +3,7 @@
 
 namespace glsld
 {
-    auto LanguageQueryProvider::LookupSymbolAccess(TextPosition position) const -> std::optional<SymbolAccessInfo>
+    auto LanguageQueryProvider::QuerySymbolByPosition(TextPosition position) const -> std::optional<SymbolAccessInfo>
     {
         class DeclTokenVisitor : public LanguageQueryVisitor<DeclTokenVisitor>
         {
