@@ -3,6 +3,7 @@
 #include "LanguageQueryVisitor.h"
 #include "Protocol.h"
 #include "SourceText.h"
+#include "SymbolQuery.h"
 
 #include <vector>
 
@@ -120,7 +121,7 @@ namespace glsld
     auto ComputeReferences(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position,
                            bool includeDeclaration) -> std::vector<lsp::Location>
     {
-        auto accessInfo = provider.QuerySymbolByPosition(FromLspPosition(position));
+        auto accessInfo = QuerySymbolByPosition(provider, FromLspPosition(position));
         if (!accessInfo || !accessInfo->token.IsIdentifier() || !accessInfo->symbolDecl.IsValid()) {
             return {};
         }

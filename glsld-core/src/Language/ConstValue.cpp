@@ -135,40 +135,148 @@ namespace glsld
             return "<error>";
         }
 
-        if (!IsScalar()) {
-            // FIXME: handle non-scalar types
-            return "<non-scalar>";
+        std::string result;
+        if (IsVector()) {
+            switch (GetScalarKind()) {
+            case ScalarKind::Bool:
+                result += "bvec";
+                break;
+            case ScalarKind::Int:
+                result += "ivec";
+                break;
+            case ScalarKind::Uint:
+                result += "uvec";
+                break;
+            case ScalarKind::Float:
+                result += "vec";
+                break;
+            case ScalarKind::Double:
+                result += "dvec";
+                break;
+            case ScalarKind::Int8:
+                result += "i8vec";
+                break;
+            case ScalarKind::Uint8:
+                result += "u8vec";
+                break;
+            case ScalarKind::Int16:
+                result += "i16vec";
+                break;
+            case ScalarKind::Uint16:
+                result += "u16vec";
+                break;
+            case ScalarKind::Int64:
+                result += "i64vec";
+                break;
+            case ScalarKind::Uint64:
+                result += "u64vec";
+                break;
+            case ScalarKind::Float16:
+                result += "f16vec";
+                break;
+            default:
+                return "<vector>";
+            }
+            result += std::to_string(GetArraySize());
+            result += "(";
+        }
+        else if (IsMatrix()) {
+            switch (GetScalarKind()) {
+            case ScalarKind::Bool:
+                result += "bmat";
+                break;
+            case ScalarKind::Int:
+                result += "imat";
+                break;
+            case ScalarKind::Uint:
+                result += "umat";
+                break;
+            case ScalarKind::Float:
+                result += "mat";
+                break;
+            case ScalarKind::Double:
+                result += "dmat";
+                break;
+            case ScalarKind::Int8:
+                result += "i8mat";
+                break;
+            case ScalarKind::Uint8:
+                result += "u8mat";
+                break;
+            case ScalarKind::Int16:
+                result += "i16mat";
+                break;
+            case ScalarKind::Uint16:
+                result += "u16mat";
+                break;
+            case ScalarKind::Int64:
+                result += "i64mat";
+                break;
+            case ScalarKind::Uint64:
+                result += "u64mat";
+                break;
+            case ScalarKind::Float16:
+                result += "f16mat";
+                break;
+            default:
+                return "<matrix>";
+            }
+
+            result += std::to_string(GetRowSize());
+            result += "x";
+            result += std::to_string(GetColumnSize());
+            result += "(";
         }
 
-        switch (GetScalarKind()) {
-        case ScalarKind::Bool:
-            return GetBufferAs<bool>()[0] ? "true" : "false";
-        case ScalarKind::Int:
-            return std::to_string(GetBufferAs<int32_t>()[0]);
-        case ScalarKind::Uint:
-            return std::to_string(GetBufferAs<uint32_t>()[0]);
-        case ScalarKind::Float:
-            return std::to_string(GetBufferAs<float>()[0]);
-        case ScalarKind::Double:
-            return std::to_string(GetBufferAs<double>()[0]);
-        case ScalarKind::Int8:
-            return std::to_string(GetBufferAs<int8_t>()[0]);
-        case ScalarKind::Int16:
-            return std::to_string(GetBufferAs<int16_t>()[0]);
-        case ScalarKind::Int64:
-            return std::to_string(GetBufferAs<int64_t>()[0]);
-        case ScalarKind::Uint8:
-            return std::to_string(GetBufferAs<uint8_t>()[0]);
-        case ScalarKind::Uint16:
-            return std::to_string(GetBufferAs<uint16_t>()[0]);
-        case ScalarKind::Uint64:
-            return std::to_string(GetBufferAs<uint64_t>()[0]);
-        case ScalarKind::Float16:
-            GLSLD_NO_IMPL();
-            return "<float16>";
-        default:
-            return "<other>";
+        for (int index = 0; index < GetArraySize(); ++index) {
+            if (index > 0) {
+                result += ", ";
+            }
+
+            switch (GetScalarKind()) {
+            case ScalarKind::Bool:
+                result += GetBufferAs<bool>()[0] ? "true" : "false";
+                break;
+            case ScalarKind::Int:
+                result += std::to_string(GetBufferAs<int32_t>()[index]);
+                break;
+            case ScalarKind::Uint:
+                result += std::to_string(GetBufferAs<uint32_t>()[index]);
+                break;
+            case ScalarKind::Float:
+                result += std::to_string(GetBufferAs<float>()[index]);
+                break;
+            case ScalarKind::Double:
+                result += std::to_string(GetBufferAs<double>()[index]);
+                break;
+            case ScalarKind::Int8:
+                result += std::to_string(GetBufferAs<int8_t>()[index]);
+                break;
+            case ScalarKind::Int16:
+                result += std::to_string(GetBufferAs<int16_t>()[index]);
+                break;
+            case ScalarKind::Int64:
+                result += std::to_string(GetBufferAs<int64_t>()[index]);
+                break;
+            case ScalarKind::Uint8:
+                result += std::to_string(GetBufferAs<uint8_t>()[index]);
+                break;
+            case ScalarKind::Uint16:
+                result += std::to_string(GetBufferAs<uint16_t>()[index]);
+                break;
+            case ScalarKind::Uint64:
+                result += std::to_string(GetBufferAs<uint64_t>()[index]);
+                break;
+            case ScalarKind::Float16:
+                result += "<float16>";
+            }
         }
+
+        if (IsVectorOrMatrix()) {
+            result += ")";
+        }
+
+        return result;
     }
 
     auto ConstValue::Clone() const -> ConstValue
@@ -224,7 +332,7 @@ namespace glsld
     auto ConstValue::GetElement(int index) const -> ConstValue
     {
         // FIXME: verify this is correct
-        if (colSize <= 1 || index < 0 || index >= colSize) {
+        if (index < 0 || index > colSize) {
             return ConstValue{};
         }
 

@@ -79,4 +79,11 @@ TEST_CASE_METHOD(AstTestFixture, "Simple Const Eval")
         GLSLD_CHECK_AST("true ? 1 : 2", checkScalar(1));
         GLSLD_CHECK_AST("false ? 1 : 2", checkScalar(2));
     }
+
+    SECTION("SwizzleExpr")
+    {
+        GLSLD_CHECK_AST("vec4(1, 2, 3, 4).xy", checkVector(1.f, 2.f));
+        GLSLD_CHECK_AST("vec4(1, 2, 3, 4).xxx", checkVector(1.f, 1.f, 1.f));
+        GLSLD_CHECK_AST("1.0.xxx", checkVector(1.f, 1.f, 1.f));
+    }
 }

@@ -501,7 +501,7 @@ namespace glsld
         //      - postfix_expr := postfix_expr '.' 'ID'
         //      - postfix_expr := postfix_expr bracket_wrapped_expr
         //      - function_call := postfix_expr func_arg_list
-        auto ParsePostfixExpr() -> AstExpr*;
+        auto ParsePostfixExpr(AstExpr* parsedExpr) -> AstExpr*;
 
         // Parse an constructor call expression, assuming the type specifier has already been parsed.
         //

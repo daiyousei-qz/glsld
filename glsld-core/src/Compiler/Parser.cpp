@@ -1337,45 +1337,47 @@ namespace glsld
             return astBuilder.BuildUnaryExpr(CreateAstSyntaxRange(beginTokID), operandExpr, *parsedOp);
         }
         else {
-            return ParsePostfixExpr();
+            return ParsePostfixExpr(nullptr);
         }
     }
 
-    auto Parser::ParsePostfixExpr() -> AstExpr*
+    auto Parser::ParsePostfixExpr(AstExpr* parsedExpr) -> AstExpr*
     {
         GLSLD_TRACE_PARSER();
 
-        auto beginTokID = GetCurrentTokenID();
+        auto beginTokID = parsedExpr ? parsedExpr->GetSyntaxRange().GetBeginID() : GetCurrentTokenID();
 
         // Parse primary_expr or constructor call
-        AstExpr* result = nullptr;
-        if (GetGlslBuiltinType(PeekToken().klass) || PeekToken().klass == TokenKlass::K_struct) {
-            // Obviously this is a constructor call
-            auto typeSpec = ParseTypeSpec(nullptr);
-            result        = ParseConstructorCallExpr(typeSpec);
-        }
-        else {
-            if (TryTestToken(TokenKlass::Identifier)) {
-                // Could still be constructor call if it's a unknown type name
-                // Though we are conservative here and need to peek a following '(' to confirm.
-                // This means we'll parse a isolated type identifier as a bad name access.
-                if (astBuilder.IsStructName(PeekToken().text.StrView()) && TryTestToken(TokenKlass::LParen, 1)) {
-                    auto typeSpec = ParseTypeSpec(nullptr);
-                    result        = ParseConstructorCallExpr(typeSpec);
-                }
-                else if (TryTestToken(TokenKlass::LParen, 1)) {
-                    // Note there's no function pointer in GLSL.
-                    auto functionName = GetCurrentToken();
-                    ConsumeToken();
-                    auto args = ParseFunctionArgumentList();
-                    result    = astBuilder.BuildFuntionCallExpr(CreateAstSyntaxRange(beginTokID), functionName,
-                                                                std::move(args));
-                }
+        AstExpr* result = parsedExpr;
+        if (parsedExpr == nullptr) {
+            if (GetGlslBuiltinType(PeekToken().klass) || PeekToken().klass == TokenKlass::K_struct) {
+                // Obviously this is a constructor call
+                auto typeSpec = ParseTypeSpec(nullptr);
+                result        = ParseConstructorCallExpr(typeSpec);
             }
+            else {
+                if (TryTestToken(TokenKlass::Identifier)) {
+                    // Could still be constructor call if it's a unknown type name
+                    // Though we are conservative here and need to peek a following '(' to confirm.
+                    // This means we'll parse a isolated type identifier as a bad name access.
+                    if (astBuilder.IsStructName(PeekToken().text.StrView()) && TryTestToken(TokenKlass::LParen, 1)) {
+                        auto typeSpec = ParseTypeSpec(nullptr);
+                        result        = ParseConstructorCallExpr(typeSpec);
+                    }
+                    else if (TryTestToken(TokenKlass::LParen, 1)) {
+                        // Note there's no function pointer in GLSL.
+                        auto functionName = GetCurrentToken();
+                        ConsumeToken();
+                        auto args = ParseFunctionArgumentList();
+                        result    = astBuilder.BuildFuntionCallExpr(CreateAstSyntaxRange(beginTokID), functionName,
+                                                                    std::move(args));
+                    }
+                }
 
-            if (result == nullptr) {
-                // Parse a primary expression if the logic above failed to parse a call
-                result = ParsePrimaryExpr();
+                if (result == nullptr) {
+                    // Parse a primary expression if the logic above failed to parse a call
+                    result = ParsePrimaryExpr();
+                }
             }
         }
 
@@ -1872,7 +1874,7 @@ namespace glsld
         if (typeSpec) {
             // We know for sure this starts with a constructor call
             GLSLD_ASSERT(TryTestToken(TokenKlass::LParen));
-            expr = ParseAssignmentExprWithLhs(ParseConstructorCallExpr(typeSpec));
+            expr = ParseAssignmentExprWithLhs(ParsePostfixExpr(ParseConstructorCallExpr(typeSpec)));
         }
         else {
             expr = ParseExpr();

@@ -8,6 +8,7 @@
 - Improve hover with more information
 - PP builtins like __FILE__ and __LINE__
 - Support rename
+- Support pragma shader_stage(...)
 
 # Nice to have improvement
 - Don't read from disk for every include file
