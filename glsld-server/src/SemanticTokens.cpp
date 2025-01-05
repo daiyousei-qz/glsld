@@ -136,7 +136,7 @@ namespace glsld
                 }
             }
 
-            auto VisitAstFieldDecl(const AstFieldDecl& decl) -> void
+            auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {

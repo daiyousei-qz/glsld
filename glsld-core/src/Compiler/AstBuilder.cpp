@@ -45,8 +45,8 @@ namespace glsld
                 .isConst = false,
             };
         }
-        else if (auto fieldDecl = declView.GetDecl()->As<AstFieldDecl>()) {
-            GLSLD_ASSERT(fieldDecl->GetParentDecl()->Is<AstInterfaceBlockDecl>());
+        else if (auto fieldDecl = declView.GetDecl()->As<AstBlockFieldDecl>()) {
+            // TODO: GLSLD_ASSERT(fieldDecl->GetScope() == DeclScope::Global);
             return SymbolReferenceInfo{
                 .type    = fieldDecl->GetResolvedTypes()[declView.GetIndex()],
                 .isConst = false,
@@ -289,7 +289,7 @@ namespace glsld
 
                         result->SetConst(lhsExpr->IsConst()); // FIXME: but types also matter
                         result->SetDeducedType(
-                            memberDecl.GetDecl()->As<AstFieldDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
+                            memberDecl.GetDecl()->As<AstStructFieldDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
                         result->SetResolvedDecl(memberDecl);
                     }
                 }
@@ -1057,7 +1057,7 @@ namespace glsld
     {
         std::vector<const Type*> types;
         for (const auto& declarator : declarators) {
-            types.push_back(astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySize));
+            types.push_back(astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec));
         }
         return types;
     }
@@ -1085,33 +1085,58 @@ namespace glsld
         return result;
     }
 
-    auto AstBuilder::BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
-        -> AstFieldDecl*
+    auto AstBuilder::BuildStructFieldDecl(AstSyntaxRange range, AstQualType* qualType,
+                                          std::vector<Declarator> declarators) -> AstStructFieldDecl*
     {
         auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
 
-        auto result = CreateAstNode<AstFieldDecl>(range, qualType, CopyArray(declarators));
+        auto result = CreateAstNode<AstStructFieldDecl>(range, qualType, CopyArray(declarators));
         result->SetScope(DeclScope::Struct);
         result->SetResolvedTypes(CopyArray(resolvedType));
-        // Note payloads of AstFieldDecl is resolved in parent decl build process.
+        return result;
+    }
+
+    auto AstBuilder::BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType,
+                                         std::vector<Declarator> declarators) -> AstBlockFieldDecl*
+    {
+        auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
+
+        auto result = CreateAstNode<AstBlockFieldDecl>(range, qualType, CopyArray(declarators));
+        // TODO: set global scope for unnamed block field decl
+        result->SetScope(DeclScope::Struct);
+        result->SetResolvedTypes(CopyArray(resolvedType));
         return result;
     }
 
     auto AstBuilder::BuildStructDecl(AstSyntaxRange range, std::optional<AstSyntaxToken> declTok,
-                                     std::vector<AstFieldDecl*> members) -> AstStructDecl*
+                                     std::vector<AstStructFieldDecl*> members) -> AstStructDecl*
     {
         auto result = CreateAstNode<AstStructDecl>(range, declTok, CopyArray(members));
-
-        size_t fieldIndex = 0;
-        for (auto fieldDecl : members) {
-            fieldDecl->SetParentDecl(result);
-            fieldDecl->SetFieldIndex(fieldIndex++);
-        }
-
         result->SetScope(GetCurrentScope());
         result->SetDeclaredType(astContext.CreateStructType(*result));
 
         symbolTable.GetCurrentLevel()->AddStructDecl(*result);
+        return result;
+    }
+
+    auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
+                                             std::vector<AstBlockFieldDecl*> members,
+                                             std::optional<Declarator> declarator) -> AstInterfaceBlockDecl*
+    {
+        GLSLD_ASSERT(GetCurrentScope() == DeclScope::Global);
+        auto result = CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, CopyArray(members), declarator);
+
+        auto blockType = astContext.CreateInterfaceBlockType(*result);
+        result->SetScope(GetCurrentScope());
+        result->SetResolvedBlockType(blockType);
+        if (declarator) {
+            result->SetResolvedInstanceType(astContext.GetArrayType(blockType, declarator->arraySpec));
+        }
+        else {
+            result->SetResolvedInstanceType(Type::GetErrorType());
+        }
+
+        symbolTable.GetCurrentLevel()->AddInterfaceBlockDecl(*result);
         return result;
     }
 
@@ -1123,11 +1148,12 @@ namespace glsld
 
         result->SetScope(GetCurrentScope());
         result->SetResolvedType(
-            astContext.GetArrayType(qualType->GetResolvedType(), declarator ? declarator->arraySize : nullptr));
+            astContext.GetArrayType(qualType->GetResolvedType(), declarator ? declarator->arraySpec : nullptr));
 
         symbolTable.GetCurrentLevel()->AddParamDecl(*result);
         return result;
     }
+
     auto AstBuilder::BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, AstSyntaxToken declTok,
                                        std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*
     {
@@ -1140,30 +1166,6 @@ namespace glsld
         result->SetFirstDeclaration(result);
 
         symbolTable.GetCurrentLevel()->AddFunctionDecl(*result);
-        return result;
-    }
-
-    auto AstBuilder::BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
-                                             std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
-        -> AstInterfaceBlockDecl*
-    {
-        GLSLD_ASSERT(GetCurrentScope() == DeclScope::Global);
-        auto result = CreateAstNode<AstInterfaceBlockDecl>(range, quals, declTok, CopyArray(members), declarator);
-        for (auto fieldDecl : members) {
-            fieldDecl->SetParentDecl(result);
-        }
-
-        auto blockType = astContext.CreateInterfaceBlockType(*result);
-        result->SetScope(GetCurrentScope());
-        result->SetResolvedBlockType(blockType);
-        if (declarator) {
-            result->SetResolvedInstanceType(astContext.GetArrayType(blockType, declarator->arraySize));
-        }
-        else {
-            result->SetResolvedInstanceType(Type::GetErrorType());
-        }
-
-        symbolTable.GetCurrentLevel()->AddInterfaceBlockDecl(*result);
         return result;
     }
 

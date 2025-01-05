@@ -132,7 +132,7 @@ namespace glsld
                     declaratorIndex += 1;
                 }
             }
-            auto VisitAstFieldDecl(const AstFieldDecl& decl) -> void
+            auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {

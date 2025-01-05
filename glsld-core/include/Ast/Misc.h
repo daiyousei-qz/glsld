@@ -34,11 +34,11 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
             for (auto decl : globalDecls) {
-                d.DumpChildNode("Decl", *decl);
+                printer.PrintChildNode("Decl", *decl);
             }
         }
     };
@@ -74,15 +74,15 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
             for (auto expr : sizes) {
                 if (expr) {
-                    d.DumpChildNode("Size", *expr);
+                    printer.PrintChildNode("Size", *expr);
                 }
                 else {
-                    d.DumpAttribute("Size", "<Empty>");
+                    printer.PrintAttribute("Size", "<Empty>");
                 }
             }
         }
@@ -133,16 +133,16 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            d.DumpAttribute("QualGroup", "FIXME");
+            printer.PrintAttribute("QualGroup", "FIXME");
             for (const auto& layoutItem : layoutQuals) {
-                d.DumpChildItem("LayoutQual", [&](Dumper& d) {
-                    d.DumpAttribute("Key",
-                                    layoutItem.idToken.IsIdentifier() ? layoutItem.idToken.text.Str() : "<Error>");
+                printer.PrintChildItem("LayoutQual", [&](Printer& printer) {
+                    printer.PrintAttribute("Key", layoutItem.idToken.IsIdentifier() ? layoutItem.idToken.text.Str()
+                                                                                    : "<Error>");
                     if (layoutItem.value) {
-                        d.DumpChildNode("Value", *layoutItem.value);
+                        printer.PrintChildNode("Value", *layoutItem.value);
                     }
                 });
             }
@@ -228,20 +228,20 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
             if (qualifiers) {
-                d.DumpChildNode("Qualifiers", *qualifiers);
+                printer.PrintChildNode("Qualifiers", *qualifiers);
             }
             if (structDecl) {
-                d.DumpChildNode("StructDecl", *structDecl);
+                printer.PrintChildNode("StructDecl", *structDecl);
             }
             else {
-                d.DumpAttribute("TypeName", !typeName.IsUnknown() ? typeName.text.StrView() : "<Error>");
+                printer.PrintAttribute("TypeName", !typeName.IsUnknown() ? typeName.text.StrView() : "<Error>");
             }
             if (arraySpec) {
-                d.DumpChildNode("ArraySpec", *arraySpec);
+                printer.PrintChildNode("ArraySpec", *arraySpec);
             }
         }
     };

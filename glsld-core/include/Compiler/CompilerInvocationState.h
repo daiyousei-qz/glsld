@@ -85,7 +85,7 @@ namespace glsld
                     Print("=====AST of User File=====\n");
                 }
 
-                Print("{}", ast->Print());
+                Print("{}", ast->ToString());
             }
         }
 

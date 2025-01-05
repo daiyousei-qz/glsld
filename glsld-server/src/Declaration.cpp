@@ -29,7 +29,7 @@ namespace glsld
             else if (auto varDecl = accessedDecl.As<AstVariableDecl>(); varDecl) {
                 accessedDeclTok = varDecl->GetDeclarators()[declaratorIndex].nameToken;
             }
-            else if (auto memberDecl = accessedDecl.As<AstFieldDecl>(); memberDecl) {
+            else if (auto memberDecl = accessedDecl.As<AstStructFieldDecl>(); memberDecl) {
                 accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].nameToken;
             }
             else if (auto structDecl = accessedDecl.As<AstStructDecl>();

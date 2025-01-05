@@ -15,7 +15,7 @@ namespace glsld
         std::vector<std::pair<std::string, const Type*>> memberDesc;
         for (auto memberDecl : decl.GetMembers()) {
             for (const auto& declarator : memberDecl->GetDeclarators()) {
-                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySize);
+                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec);
                 memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
             }
         }
@@ -50,7 +50,7 @@ namespace glsld
         std::vector<std::pair<std::string, const Type*>> memberDesc;
         for (auto memberDecl : decl.GetMembers()) {
             for (const auto& declarator : memberDecl->GetDeclarators()) {
-                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySize);
+                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec);
                 memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
             }
         }

@@ -198,7 +198,7 @@ namespace glsld
                 return true;
             }
             else {
-                UNSCOPED_INFO(matchResult.GetFailedNode()->Print());
+                UNSCOPED_INFO(matchResult.GetFailedNode()->ToString());
                 UNSCOPED_INFO(matchResult.GetErrorTrace());
                 return false;
             }

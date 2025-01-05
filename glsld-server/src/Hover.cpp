@@ -168,7 +168,7 @@ namespace glsld
                              symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
             ReconstructSourceText(codeBuffer, *varDecl, symbolInfo.symbolDecl.GetIndex());
         }
-        else if (auto memberDecl = decl->As<AstFieldDecl>();
+        else if (auto memberDecl = decl->As<AstStructFieldDecl>();
                  memberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
             ReconstructSourceText(codeBuffer, *memberDecl, symbolInfo.symbolDecl.GetIndex());
         }

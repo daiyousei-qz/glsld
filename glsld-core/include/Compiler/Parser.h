@@ -251,7 +251,7 @@ namespace glsld
         //      - field_decl := qualified_type_spec declarator_list_no_init
         //      - field_decl := qualified_type_spec declarator_list_no_init semi_recovery [';']
         //
-        auto ParseStructBody() -> std::vector<AstFieldDecl*>;
+        auto ParseStructBody() -> std::vector<AstStructFieldDecl*>;
 
         // EXPECT: 'K_struct'
         //
@@ -412,6 +412,20 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';' or ^'}'
         auto ParseTypeOrVariableDecl(SyntaxTokenID beginTokIndex, AstQualType* variableType) -> AstDecl*;
+
+        // EXPECT: '{'
+        //
+        // PARSE: block_body
+        //      - block_body := '{' [field_decl]... '}'
+        //      - field_decl := ';'
+        //      - field_decl := qualified_type_spec declarator_list_no_init ';'
+        //
+        // ACCEPT:
+        //      - block_body := '{' [field_decl]... brace_recovery ['}']
+        //      - field_decl := qualified_type_spec declarator_list_no_init
+        //      - field_decl := qualified_type_spec declarator_list_no_init semi_recovery [';']
+        //
+        auto ParseBlockBody() -> std::vector<AstBlockFieldDecl*>;
 
         // EXPECT: 'ID' '{' or '{'
         //

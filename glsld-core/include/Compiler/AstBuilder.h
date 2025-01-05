@@ -163,21 +163,24 @@ namespace glsld
         auto BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
             -> AstVariableDecl*;
 
-        auto BuildFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
-            -> AstFieldDecl*;
+        auto BuildStructFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+            -> AstStructFieldDecl*;
+
+        auto BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+            -> AstBlockFieldDecl*;
 
         auto BuildStructDecl(AstSyntaxRange range, std::optional<AstSyntaxToken> declTok,
-                             std::vector<AstFieldDecl*> members) -> AstStructDecl*;
+                             std::vector<AstStructFieldDecl*> members) -> AstStructDecl*;
+
+        auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
+                                     std::vector<AstBlockFieldDecl*> members, std::optional<Declarator> declarator)
+            -> AstInterfaceBlockDecl*;
 
         auto BuildParamDecl(AstSyntaxRange range, AstQualType* qualType, std::optional<Declarator> declarator)
             -> AstParamDecl*;
 
         auto BuildFunctionDecl(AstSyntaxRange range, AstQualType* returnType, AstSyntaxToken declTok,
                                std::vector<AstParamDecl*> params, AstStmt* body) -> AstFunctionDecl*;
-
-        auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
-                                     std::vector<AstFieldDecl*> members, std::optional<Declarator> declarator)
-            -> AstInterfaceBlockDecl*;
 
 #pragma endregion
 

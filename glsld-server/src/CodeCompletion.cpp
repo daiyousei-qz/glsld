@@ -129,7 +129,7 @@ namespace glsld
             inStructDefinition = true;
         }
 
-        auto VisitAstFieldDecl(const AstFieldDecl& decl) -> void
+        auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
         {
             // FIXME: layout?
             for (const auto& declarator : decl.GetDeclarators()) {

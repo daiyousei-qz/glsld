@@ -295,7 +295,7 @@ namespace glsld
         }
         else if (auto fieldAccessExpr = init.As<AstFieldAccessExpr>(); fieldAccessExpr) {
             if (auto decl = fieldAccessExpr->GetResolvedDecl(); decl.IsValid()) {
-                if (auto fieldDecl = decl.GetDecl()->As<AstFieldDecl>(); fieldDecl) {
+                if (auto fieldDecl = decl.GetDecl()->As<AstStructFieldDecl>(); fieldDecl) {
                     auto lhsResult = EvalAstInitializerLazy(*fieldAccessExpr->GetBaseExpr());
                     return UnwrapConstEvalResult(lhsResult, fieldDecl->GetFieldIndex());
                 }

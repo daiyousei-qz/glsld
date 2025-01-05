@@ -33,8 +33,8 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
         }
 
@@ -60,10 +60,10 @@ namespace glsld
             return AstDecl::DoTraverse(visitor);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
+            AstDecl::DoPrint(printer);
         }
     };
 
@@ -79,10 +79,10 @@ namespace glsld
             return AstDecl::DoTraverse(visitor);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
+            AstDecl::DoPrint(printer);
         }
     };
 
@@ -104,11 +104,11 @@ namespace glsld
             return visitor.Traverse(*type);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
-            d.DumpChildNode("Type", *type);
+            AstDecl::DoPrint(printer);
+            printer.PrintChildNode("Type", *type);
         }
 
         auto GetType() const noexcept -> const AstQualType*
@@ -125,20 +125,20 @@ namespace glsld
         AstSyntaxToken nameToken = {};
 
         // Array specifier. May be nullptr if none is specified.
-        const AstArraySpec* arraySize = nullptr;
+        const AstArraySpec* arraySpec = nullptr;
 
         // Initializer. May be nullptr if none is specified.
         const AstInitializer* initializer = nullptr;
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
-            if (arraySize) {
-                d.DumpChildNode("ArraySize", *arraySize);
+            printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
+            if (arraySpec) {
+                printer.PrintChildNode("ArraySize", *arraySpec);
             }
             if (initializer) {
-                d.DumpChildNode("Initializer", *initializer);
+                printer.PrintChildNode("Initializer", *initializer);
             }
         }
     };
@@ -170,7 +170,7 @@ namespace glsld
             }
 
             for (const auto& declarator : declarators) {
-                if (declarator.arraySize && !visitor.Traverse(*declarator.arraySize)) {
+                if (declarator.arraySpec && !visitor.Traverse(*declarator.arraySpec)) {
                     return false;
                 }
                 if (declarator.initializer && !visitor.Traverse(*declarator.initializer)) {
@@ -181,13 +181,13 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
-            d.DumpChildNode("QualType", *qualType);
+            AstDecl::DoPrint(printer);
+            printer.PrintChildNode("QualType", *qualType);
             for (const auto& declarator : declarators) {
-                d.DumpChildItem("Declarator", [&](Dumper& d) { declarator.DoDump(d); });
+                printer.PrintChildItem("Declarator", [&](Printer& printer) { declarator.DoPrint(printer); });
             }
         }
 
@@ -230,48 +230,19 @@ namespace glsld
             return AstDeclaratorDecl::DoTraverse(visitor);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDeclaratorDecl::DoDump(d);
+            AstDeclaratorDecl::DoPrint(printer);
         }
     };
 
     // Represents a declaration of a struct member.
-    class AstFieldDecl final : public AstDeclaratorDecl
+    class AstStructFieldDecl final : public AstDeclaratorDecl
     {
-    private:
-        // [Payload]
-        // The declaration of struct or interface block that this field belongs to.
-        AstDecl* parentDecl = nullptr;
-
-        // [Payload]
-        // The index of this field in the parent declaration.
-        size_t fieldIndex;
-
     public:
-        AstFieldDecl(AstQualType* type, ArrayView<Declarator> declarators)
-            : AstDeclaratorDecl(type, std::move(declarators))
+        AstStructFieldDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
         {
-        }
-
-        auto SetParentDecl(AstDecl* parentDecl) -> void
-        {
-            GLSLD_ASSERT(parentDecl && (parentDecl->Is<AstStructDecl>() || parentDecl->Is<AstInterfaceBlockDecl>()));
-            this->parentDecl = parentDecl;
-        }
-        auto GetParentDecl() const -> const AstDecl*
-        {
-            return parentDecl;
-        }
-
-        auto SetFieldIndex(size_t index) -> void
-        {
-            this->fieldIndex = index;
-        }
-        auto GetFieldIndex() const noexcept -> size_t
-        {
-            return fieldIndex;
         }
 
         template <AstVisitorT Visitor>
@@ -280,10 +251,30 @@ namespace glsld
             return AstDeclaratorDecl::DoTraverse(visitor);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDeclaratorDecl::DoDump(d);
+            AstDeclaratorDecl::DoPrint(printer);
+        }
+    };
+
+    class AstBlockFieldDecl final : public AstDeclaratorDecl
+    {
+    public:
+        AstBlockFieldDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return AstDeclaratorDecl::DoTraverse(visitor);
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDeclaratorDecl::DoPrint(printer);
         }
     };
 
@@ -295,13 +286,13 @@ namespace glsld
         std::optional<AstSyntaxToken> nameToken;
 
         // [Node]
-        ArrayView</*NotNull*/ AstFieldDecl*> members;
+        ArrayView</*NotNull*/ AstStructFieldDecl*> members;
 
         // [Payload]
         const Type* declaredType = nullptr;
 
     public:
-        AstStructDecl(std::optional<AstSyntaxToken> nameToken, ArrayView<AstFieldDecl*> members)
+        AstStructDecl(std::optional<AstSyntaxToken> nameToken, ArrayView<AstStructFieldDecl*> members)
             : nameToken(nameToken), members(std::move(members))
         {
         }
@@ -310,7 +301,7 @@ namespace glsld
         {
             return nameToken;
         }
-        auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
+        auto GetMembers() const noexcept -> ArrayView<const AstStructFieldDecl*>
         {
             return members;
         }
@@ -339,17 +330,119 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
+            AstDecl::DoPrint(printer);
             if (nameToken) {
-                d.DumpAttribute("Name", nameToken->IsIdentifier() ? nameToken->text.StrView() : "<Error>");
+                printer.PrintAttribute("Name", nameToken->IsIdentifier() ? nameToken->text.StrView() : "<Error>");
             }
             for (const auto& member : members) {
-                d.DumpChildItem("Member", [&](Dumper& d) { member->DoDump(d); });
+                printer.PrintChildItem("Member", [&](Printer& printer) { member->DoPrint(printer); });
             }
-            d.DumpAttribute("DeclaredType", declaredType->GetDebugName());
+            printer.PrintAttribute("DeclaredType", declaredType->GetDebugName());
+        }
+    };
+
+    class AstInterfaceBlockDecl final : public AstDecl
+    {
+    private:
+        NotNull<AstTypeQualifierSeq*> quals;
+        AstSyntaxToken nameToken;
+        ArrayView</*NotNull*/ AstBlockFieldDecl*> members;
+        std::optional<Declarator> declarator;
+
+        // Payload:
+        const Type* resolvedBlockType = nullptr;
+
+        // Payload:
+        const Type* resolvedInstanceType = nullptr;
+
+    public:
+        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, AstSyntaxToken nameToken,
+                              ArrayView<AstBlockFieldDecl*> members, std::optional<Declarator> declarator)
+            : quals(quals), nameToken(nameToken), members(std::move(members)), declarator(declarator)
+        {
+        }
+
+        auto GetQuals() const noexcept -> const AstTypeQualifierSeq*
+        {
+            return quals;
+        }
+        auto GetNameToken() const noexcept -> AstSyntaxToken
+        {
+            return nameToken;
+        }
+        auto GetMembers() const noexcept -> ArrayView<const AstBlockFieldDecl*>
+        {
+            return members;
+        }
+        auto GetDeclarator() const noexcept -> std::optional<Declarator>
+        {
+            return declarator;
+        }
+
+        auto SetResolvedBlockType(const Type* type) -> void
+        {
+            this->resolvedBlockType = type;
+        }
+        auto GetResolvedBlockType() const noexcept -> const Type*
+        {
+            return resolvedBlockType;
+        }
+        auto SetResolvedInstanceType(const Type* type) -> void
+        {
+            this->resolvedInstanceType = type;
+        }
+        auto GetResolvedInstanceType() const noexcept -> const Type*
+        {
+            return resolvedInstanceType;
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
+            if (quals && !visitor.Traverse(*quals)) {
+                return false;
+            }
+            for (auto member : members) {
+                if (!visitor.Traverse(*member)) {
+                    return false;
+                }
+            }
+            if (declarator) {
+                if (declarator->arraySpec && !visitor.Traverse(*declarator->arraySpec)) {
+                    return false;
+                }
+                if (declarator->initializer && !visitor.Traverse(*declarator->initializer)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDecl::DoPrint(printer);
+            printer.PrintAttribute("ResolvedBlockType", resolvedBlockType->GetDebugName());
+            if (declarator) {
+                printer.PrintAttribute("ResolvedInstanceType", resolvedInstanceType->GetDebugName());
+            }
+
+            printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
+
+            printer.PrintChildNode("Quals", *quals);
+            for (auto member : members) {
+                printer.PrintChildNode("Member", *member);
+            }
+            if (declarator) {
+                printer.PrintChildItem("InstanceDeclarator", [&](Printer& printer) { declarator->DoPrint(printer); });
+            }
         }
     };
 
@@ -415,7 +508,7 @@ namespace glsld
                 return false;
             }
             if (declarator) {
-                if (declarator->arraySize && !visitor.Traverse(*declarator->arraySize)) {
+                if (declarator->arraySpec && !visitor.Traverse(*declarator->arraySpec)) {
                     return false;
                 }
                 if (declarator->initializer && !visitor.Traverse(*declarator->initializer)) {
@@ -426,15 +519,15 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
-            d.DumpChildNode("QualType", *qualType);
+            AstDecl::DoPrint(printer);
+            printer.PrintChildNode("QualType", *qualType);
             if (declarator) {
-                declarator->DoDump(d);
+                declarator->DoPrint(printer);
             }
-            d.DumpAttribute("ResolvedType", resolvedType->GetDebugName());
+            printer.PrintAttribute("ResolvedType", resolvedType->GetDebugName());
         }
     };
 
@@ -512,122 +605,19 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoDump(d);
-            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
+            AstDecl::DoPrint(printer);
+            printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
 
-            d.DumpChildNode("ReturnType", *returnType);
+            printer.PrintChildNode("ReturnType", *returnType);
             for (auto param : params) {
-                d.DumpChildNode("Param", *param);
+                printer.PrintChildNode("Param", *param);
             }
             if (body) {
-                d.DumpChildNode("Body", *body);
+                printer.PrintChildNode("Body", *body);
             }
         }
     };
-
-    class AstInterfaceBlockDecl final : public AstDecl
-    {
-    private:
-        NotNull<AstTypeQualifierSeq*> quals;
-        AstSyntaxToken nameToken;
-        ArrayView</*NotNull*/ AstFieldDecl*> members;
-        std::optional<Declarator> declarator;
-
-        // Payload:
-        const Type* resolvedBlockType = nullptr;
-
-        // Payload:
-        const Type* resolvedInstanceType = nullptr;
-
-    public:
-        AstInterfaceBlockDecl(AstTypeQualifierSeq* quals, AstSyntaxToken nameToken, ArrayView<AstFieldDecl*> members,
-                              std::optional<Declarator> declarator)
-            : quals(quals), nameToken(nameToken), members(std::move(members)), declarator(declarator)
-        {
-        }
-
-        auto GetQuals() const noexcept -> const AstTypeQualifierSeq*
-        {
-            return quals;
-        }
-        auto GetNameToken() const noexcept -> AstSyntaxToken
-        {
-            return nameToken;
-        }
-        auto GetMembers() const noexcept -> ArrayView<const AstFieldDecl*>
-        {
-            return members;
-        }
-        auto GetDeclarator() const noexcept -> std::optional<Declarator>
-        {
-            return declarator;
-        }
-
-        auto SetResolvedBlockType(const Type* type) -> void
-        {
-            this->resolvedBlockType = type;
-        }
-        auto GetResolvedBlockType() const noexcept -> const Type*
-        {
-            return resolvedBlockType;
-        }
-        auto SetResolvedInstanceType(const Type* type) -> void
-        {
-            this->resolvedInstanceType = type;
-        }
-        auto GetResolvedInstanceType() const noexcept -> const Type*
-        {
-            return resolvedInstanceType;
-        }
-
-        template <AstVisitorT Visitor>
-        auto DoTraverse(Visitor& visitor) const -> bool
-        {
-            if (!AstDecl::DoTraverse(visitor)) {
-                return false;
-            }
-            if (quals && !visitor.Traverse(*quals)) {
-                return false;
-            }
-            for (auto member : members) {
-                if (!visitor.Traverse(*member)) {
-                    return false;
-                }
-            }
-            if (declarator) {
-                if (declarator->arraySize && !visitor.Traverse(*declarator->arraySize)) {
-                    return false;
-                }
-                if (declarator->initializer && !visitor.Traverse(*declarator->initializer)) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
-        {
-            AstDecl::DoDump(d);
-            d.DumpAttribute("ResolvedBlockType", resolvedBlockType->GetDebugName());
-            if (declarator) {
-                d.DumpAttribute("ResolvedInstanceType", resolvedInstanceType->GetDebugName());
-            }
-
-            d.DumpAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
-
-            d.DumpChildNode("Quals", *quals);
-            for (auto member : members) {
-                d.DumpChildNode("Member", *member);
-            }
-            if (declarator) {
-                d.DumpChildItem("InstanceDeclarator", [&](Dumper& d) { declarator->DoDump(d); });
-            }
-        }
-    };
-
 } // namespace glsld

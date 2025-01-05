@@ -459,7 +459,7 @@ namespace glsld
                                          return AstMatchResult::Failure(node);
                                      }
 
-                                     if (auto result = MatchAll({{declarator.arraySize, matcher.arraySpecMatcher},
+                                     if (auto result = MatchAll({{declarator.arraySpec, matcher.arraySpecMatcher},
                                                                  {declarator.initializer, matcher.initializerMatcher}});
                                          !result.IsSuccess()) {
                                          return result;
@@ -480,7 +480,7 @@ namespace glsld
         return CreateMatcher("FieldDecl",
                              [qualTypeMatcher, declaratorMatchers = std::move(declaratorMatchers)](
                                  const AstNode* node) -> AstMatchResult {
-                                 auto decl = node ? node->As<AstFieldDecl>() : nullptr;
+                                 auto decl = node ? node->As<AstStructFieldDecl>() : nullptr;
                                  if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
                                      return AstMatchResult::Failure(node);
                                  }
@@ -493,7 +493,7 @@ namespace glsld
                                          return AstMatchResult::Failure(node);
                                      }
 
-                                     if (auto result = MatchAll({{declarator.arraySize, matcher.arraySpecMatcher},
+                                     if (auto result = MatchAll({{declarator.arraySpec, matcher.arraySpecMatcher},
                                                                  {declarator.initializer, matcher.initializerMatcher}});
                                          !result.IsSuccess()) {
                                          return result;
@@ -538,7 +538,7 @@ namespace glsld
 
                 return MatchAll({
                     {decl->GetQualType(), qualTypeMatcher},
-                    {decl->GetDeclarator() ? decl->GetDeclarator()->arraySize : nullptr, arraySpecMatcher},
+                    {decl->GetDeclarator() ? decl->GetDeclarator()->arraySpec : nullptr, arraySpecMatcher},
                 });
             });
     }

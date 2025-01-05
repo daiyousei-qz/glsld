@@ -73,7 +73,7 @@ namespace glsld
                 AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);
             }
         }
-        auto VisitAstFieldDecl(const AstFieldDecl& decl) -> void
+        auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
         {
             if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
                 AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);

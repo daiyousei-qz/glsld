@@ -17,8 +17,8 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
         }
     };
@@ -40,10 +40,10 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
+            AstStmt::DoPrint(printer);
         }
     };
 
@@ -65,10 +65,10 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
+            AstStmt::DoPrint(printer);
         }
     };
 
@@ -105,12 +105,12 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
+            AstStmt::DoPrint(printer);
             for (auto stmt : children) {
-                d.DumpChildNode("Stmt", *stmt);
+                printer.PrintChildNode("Stmt", *stmt);
             }
         }
     };
@@ -140,11 +140,11 @@ namespace glsld
             return visitor.Traverse(*expr);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Expr", *expr);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Expr", *expr);
         }
     };
 
@@ -173,11 +173,11 @@ namespace glsld
             return visitor.Traverse(*decl);
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Decl", *decl);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Decl", *decl);
         }
     };
 
@@ -227,14 +227,14 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Condition", *condition);
-            d.DumpChildNode("Then", *thenStmt);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Condition", *condition);
+            printer.PrintChildNode("Then", *thenStmt);
             if (elseStmt) {
-                d.DumpChildNode("Else", *elseStmt);
+                printer.PrintChildNode("Else", *elseStmt);
             }
         }
     };
@@ -293,18 +293,18 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Init", *init);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Init", *init);
             if (condition) {
-                d.DumpChildNode("Condition", *condition);
+                printer.PrintChildNode("Condition", *condition);
             }
             if (iter) {
-                d.DumpChildNode("Iter", *iter);
+                printer.PrintChildNode("Iter", *iter);
             }
-            d.DumpChildNode("Body", *body);
+            printer.PrintChildNode("Body", *body);
         }
     };
 
@@ -345,12 +345,12 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Condition", *condition);
-            d.DumpChildNode("Body", *body);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Condition", *condition);
+            printer.PrintChildNode("Body", *body);
         }
     };
 
@@ -391,12 +391,12 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("Condition", *condition);
-            d.DumpChildNode("Body", *body);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("Condition", *condition);
+            printer.PrintChildNode("Body", *body);
         }
     };
 
@@ -433,16 +433,16 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
+            AstStmt::DoPrint(printer);
             if (caseExpr) {
-                d.DumpAttribute("Kind", "CaseLabel");
-                d.DumpChildNode("CaseExpr", *caseExpr);
+                printer.PrintAttribute("Kind", "CaseLabel");
+                printer.PrintChildNode("CaseExpr", *caseExpr);
             }
             else {
-                d.DumpAttribute("Kind", "DefaultLabel");
+                printer.PrintAttribute("Kind", "DefaultLabel");
             }
         }
     };
@@ -484,12 +484,12 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpChildNode("TestExpr", *testExpr);
-            d.DumpChildNode("Body", *body);
+            AstStmt::DoPrint(printer);
+            printer.PrintChildNode("TestExpr", *testExpr);
+            printer.PrintChildNode("Body", *body);
         }
     };
 
@@ -518,11 +518,11 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
-            d.DumpAttribute("JumpType", JumpTypeToString(jumpType));
+            AstStmt::DoPrint(printer);
+            printer.PrintAttribute("JumpType", JumpTypeToString(jumpType));
         }
     };
 
@@ -555,12 +555,12 @@ namespace glsld
             return true;
         }
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            AstStmt::DoDump(d);
+            AstStmt::DoPrint(printer);
             if (expr) {
-                d.DumpChildNode("Expr", *expr);
+                printer.PrintChildNode("Expr", *expr);
             }
         }
     };

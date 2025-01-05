@@ -1,18 +1,17 @@
-#include "Basic/Print.h"
 #include "Ast/Base.h"
-#include "Ast/AstDumper.h"
+#include "Ast/AstPrinter.h"
 
 namespace glsld
 {
-    auto AstNode::Print() const -> std::string
+    auto AstNode::ToString() const -> std::string
     {
-        AstDumper dumper;
-        dumper.DumpChildNode("AstNode", *this);
-        return dumper.GetBufferView().Str();
+        AstPrinter printer;
+        printer.PrintChildNode("AstNode", *this);
+        return printer.GetBufferView().Str();
     }
 
-    auto AstNode::DebugPrint() const -> void
+    auto AstNode::Dump() const -> void
     {
-        glsld::DebugPrint("{}\n", Print());
+        glsld::DebugPrint("{}\n", ToString());
     }
 } // namespace glsld

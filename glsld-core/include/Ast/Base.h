@@ -272,8 +272,8 @@ namespace glsld
             return Is<AstType>() ? static_cast<const AstType*>(this) : nullptr;
         }
 
-        auto Print() const -> std::string;
-        auto DebugPrint() const -> void;
+        auto ToString() const -> std::string;
+        auto Dump() const -> void;
     };
 
     template <typename AstType>
@@ -285,14 +285,14 @@ namespace glsld
     template <typename VisitorType>
     concept AstVisitorT = requires(VisitorType visitor, const AstNode& astNode) { visitor.Traverse(astNode); };
 
-    template <typename DumperType>
-    concept AstDumperT = requires(DumperType d, StringView key, const AstNode& astNode) {
-        { d.GetPointerIdentifier(static_cast<void*>(nullptr)) } -> std::convertible_to<uintptr_t>;
-        d.DumpAttribute(key, false);
-        d.DumpAttribute(key, 0);
-        d.DumpAttribute(key, "value");
-        d.DumpChildNode(key, astNode);
-        d.DumpChildItem(key, [](DumperType& d) {});
+    template <typename PrinterType>
+    concept AstPrinterT = requires(PrinterType printer, StringView key, const AstNode& astNode) {
+        { printer.GetPointerIdentifier(static_cast<void*>(nullptr)) } -> std::convertible_to<uintptr_t>;
+        printer.PrintAttribute(key, false);
+        printer.PrintAttribute(key, 0);
+        printer.PrintAttribute(key, "value");
+        printer.PrintChildNode(key, astNode);
+        printer.PrintChildItem(key, [](PrinterType& d) {});
     };
 
     // An observing pointer into a declaration, including an index of declarator.
@@ -336,11 +336,12 @@ namespace glsld
 
         auto operator==(const DeclView&) const -> bool = default;
 
-        template <AstDumperT Dumper>
-        auto DoDump(Dumper& d) const -> void
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
         {
-            d.DumpAttribute("DeclNode", IsValid() ? fmt::format("#{:x}", d.GetPointerIdentifier(decl)) : "<Error>");
-            d.DumpAttribute("DeclIndex", index);
+            printer.PrintAttribute("DeclNode",
+                                   IsValid() ? fmt::format("#{:x}", printer.GetPointerIdentifier(decl)) : "<Error>");
+            printer.PrintAttribute("DeclIndex", index);
         }
     };
 } // namespace glsld

@@ -84,8 +84,8 @@ namespace glsld
     {
         if (declarator.nameToken.IsIdentifier()) {
             buffer += declarator.nameToken.text.StrView();
-            if (declarator.arraySize) {
-                for (auto dimSizeExpr : declarator.arraySize->GetSizeList()) {
+            if (declarator.arraySpec) {
+                for (auto dimSizeExpr : declarator.arraySpec->GetSizeList()) {
                     if (dimSizeExpr) {
                         auto dimSizeExprValue = EvalAstExpr(*dimSizeExpr);
                         if (dimSizeExprValue.IsScalarInt32()) {
@@ -259,7 +259,16 @@ namespace glsld
 
         ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
     }
-    inline auto ReconstructSourceText(std::string& buffer, const AstFieldDecl& decl, size_t index) -> void
+    inline auto ReconstructSourceText(std::string& buffer, const AstStructFieldDecl& decl, size_t index) -> void
+    {
+        GLSLD_ASSERT(index < decl.GetDeclarators().size());
+
+        ReconstructSourceText(buffer, *decl.GetQualType());
+        buffer += " ";
+
+        ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
+    }
+    inline auto ReconstructSourceText(std::string& buffer, const AstBlockFieldDecl& decl, size_t index) -> void
     {
         GLSLD_ASSERT(index < decl.GetDeclarators().size());
 

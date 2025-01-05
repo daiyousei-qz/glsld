@@ -40,7 +40,17 @@ namespace glsld
             }
 
             auto TryAddStructMembers(std::vector<lsp::DocumentSymbol>& buffer,
-                                     ArrayView<const AstFieldDecl*> memberDecls, lsp::SymbolKind kind) -> void
+                                     ArrayView<const AstStructFieldDecl*> memberDecls, lsp::SymbolKind kind) -> void
+            {
+                for (auto memberDecl : memberDecls) {
+                    for (const auto& declarator : memberDecl->GetDeclarators()) {
+                        TryAddSymbol(buffer, declarator.nameToken, kind);
+                    }
+                }
+            }
+
+            auto TryAddBlockMembers(std::vector<lsp::DocumentSymbol>& buffer,
+                                    ArrayView<const AstBlockFieldDecl*> memberDecls, lsp::SymbolKind kind) -> void
             {
                 for (auto memberDecl : memberDecls) {
                     for (const auto& declarator : memberDecl->GetDeclarators()) {
@@ -98,13 +108,13 @@ namespace glsld
                     // Named block
                     // FIXME: should block name be added as a symbol?
                     if (TryAddSymbol(decl.GetDeclarator()->nameToken, lsp::SymbolKind::Variable)) {
-                        TryAddStructMembers(result.back().children, decl.GetMembers(), lsp::SymbolKind::Field);
+                        TryAddBlockMembers(result.back().children, decl.GetMembers(), lsp::SymbolKind::Field);
                     }
                 }
                 else {
                     // Unnamed block.
                     // We add members to global scope as if they are global variables.
-                    TryAddStructMembers(result, decl.GetMembers(), lsp::SymbolKind::Variable);
+                    TryAddBlockMembers(result, decl.GetMembers(), lsp::SymbolKind::Variable);
                 }
             }
         };

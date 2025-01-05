@@ -543,7 +543,7 @@ namespace glsld
         }
     }
 
-    auto Parser::ParseStructBody() -> std::vector<AstFieldDecl*>
+    auto Parser::ParseStructBody() -> std::vector<AstStructFieldDecl*>
     {
         GLSLD_TRACE_PARSER();
 
@@ -555,7 +555,7 @@ namespace glsld
             return {};
         }
 
-        std::vector<AstFieldDecl*> result;
+        std::vector<AstStructFieldDecl*> result;
         while (!Eof()) {
             // Fast path. Parse an empty decl
             if (TryConsumeToken(TokenKlass::Semicolon)) {
@@ -569,8 +569,8 @@ namespace glsld
             auto declarators = ParseDeclaratorListNoInit();
 
             if (!InRecoveryMode()) {
-                result.push_back(
-                    astBuilder.BuildFieldDecl(CreateAstSyntaxRange(beginTokID), typeResult, std::move(declarators)));
+                result.push_back(astBuilder.BuildStructFieldDecl(CreateAstSyntaxRange(beginTokID), typeResult,
+                                                                 std::move(declarators)));
                 ParseOrInferSemicolonHelper();
             }
             else {
@@ -859,8 +859,8 @@ namespace glsld
         // Parse array specifier
         auto declType = type;
         if (TryTestToken(TokenKlass::LBracket)) {
-            result.arraySize = ParseArraySpec();
-            declType         = astBuilder.GetAstContext().GetArrayType(type, result.arraySize);
+            result.arraySpec = ParseArraySpec();
+            declType         = astBuilder.GetAstContext().GetArrayType(type, result.arraySpec);
         }
 
         if (TryConsumeToken(TokenKlass::Assign)) {
@@ -899,7 +899,7 @@ namespace glsld
 
         // Parse array specifier
         if (TryTestToken(TokenKlass::LBracket)) {
-            result.arraySize = ParseArraySpec();
+            result.arraySpec = ParseArraySpec();
         }
 
         return result;
@@ -1017,6 +1017,61 @@ namespace glsld
         return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokID), variableType, std::move(declarators));
     }
 
+    auto Parser::ParseBlockBody() -> std::vector<AstBlockFieldDecl*>
+    {
+        GLSLD_TRACE_PARSER();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
+        ConsumeToken();
+
+        if (TryConsumeToken(TokenKlass::RBrace)) {
+            // Empty block body
+            return {};
+        }
+
+        std::vector<AstBlockFieldDecl*> result;
+        while (!Eof()) {
+            // Fast path. Parse an empty decl
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                // TODO: report warning
+                continue;
+            }
+
+            // Parse a member decl
+            auto beginTokID  = GetCurrentTokenID();
+            auto typeResult  = ParseQualType();
+            auto declarators = ParseDeclaratorListNoInit();
+
+            if (!InRecoveryMode()) {
+                result.push_back(astBuilder.BuildBlockFieldDecl(CreateAstSyntaxRange(beginTokID), typeResult,
+                                                                std::move(declarators)));
+                ParseOrInferSemicolonHelper();
+            }
+            else {
+                // Try to resume if we see a ';'
+                if (TryConsumeToken(TokenKlass::Semicolon)) {
+                    ExitRecoveryMode();
+                }
+                else {
+                    break;
+                }
+            }
+
+            if (TryTestToken(TokenKlass::RBrace)) {
+                break;
+            }
+        }
+
+        if (!TryConsumeToken(TokenKlass::RBrace)) {
+            RecoverFromError(RecoveryMode::Brace);
+            if (TryConsumeToken(TokenKlass::RBrace) && InRecoveryMode()) {
+                ExitRecoveryMode();
+            }
+        }
+
+        return result;
+    }
+
     auto Parser::ParseInterfaceBlockDecl(SyntaxTokenID beginTokID, AstTypeQualifierSeq* quals) -> AstDecl*
     {
         GLSLD_TRACE_PARSER();
@@ -1027,7 +1082,7 @@ namespace glsld
 
         // Parse interface block body
         GLSLD_ASSERT(TryTestToken(TokenKlass::LBrace));
-        auto blockBody = ParseStructBody();
+        auto blockBody = ParseBlockBody();
         if (InRecoveryMode() || TryConsumeToken(TokenKlass::Semicolon)) {
             return astBuilder.BuildInterfaceBlockDecl(CreateAstSyntaxRange(beginTokID), quals, declTok,
                                                       std::move(blockBody), std::nullopt);
