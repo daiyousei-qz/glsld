@@ -129,7 +129,7 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "documentSymbol", uri);
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
-            auto result = ComputeDocumentSymbol(provider);
+            auto result = lsp::ComputeDocumentSymbol(provider);
             server.HandleServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}", requestId, "documentSymbol");
         });

@@ -5,7 +5,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbol")
+TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbolTest")
 {
     auto sourceText = R"(
         struct ^[S.begin]S^[S.end]
@@ -24,7 +24,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbol")
     )";
 
     auto ctx             = CompileLabelledSource(sourceText);
-    auto documentSymbols = ComputeDocumentSymbol(ctx.GetProvider());
+    auto documentSymbols = lsp::ComputeDocumentSymbol(ctx.GetProvider());
     auto checkSymbol     = [&](const lsp::DocumentSymbol& symbol, StringView name, lsp::SymbolKind kind,
                            StringView labelBegin, StringView labelEnd) {
         REQUIRE(symbol.name == name);

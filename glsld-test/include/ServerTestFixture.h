@@ -24,8 +24,9 @@ namespace glsld
         StringMap<TextPosition> labels;
 
     public:
-        ServerTestContext(std::unique_ptr<CompilerResult> result, StringMap<TextPosition> labels)
-            : provider(std::make_unique<LanguageQueryProvider>(std::move(result), PreprocessInfoCache())),
+        ServerTestContext(std::unique_ptr<CompilerResult> result, PreprocessInfoCache ppInfo,
+                          StringMap<TextPosition> labels)
+            : provider(std::make_unique<LanguageQueryProvider>(std::move(result), std::move(ppInfo))),
               labels(std::move(labels))
         {
         }
@@ -94,12 +95,14 @@ namespace glsld
         auto CompileLabelledSource(StringView labelledSourceText) const -> ServerTestContext
         {
             auto [sourceText, labels] = ParseLabelledSource(labelledSourceText);
-            auto compiler             = std::make_unique<CompilerInvocation>();
+            PreprocessInfoCache ppInfoCache;
+            auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
 
-            auto result = compiler->CompileMainFile(nullptr, CompileMode::ParseOnly);
-            return ServerTestContext(std::move(result), std::move(labels));
+            auto ppCallback = ppInfoCache.GetCollectionCallback();
+            auto result     = compiler->CompileMainFile(ppCallback.get(), CompileMode::ParseOnly);
+            return ServerTestContext{std::move(result), std::move(ppInfoCache), std::move(labels)};
         }
     };
 } // namespace glsld

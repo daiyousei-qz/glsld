@@ -4,5 +4,8 @@
 
 namespace glsld
 {
-    auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>;
-}
+    namespace lsp
+    {
+        auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<DocumentSymbol>;
+    }
+} // namespace glsld
