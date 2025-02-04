@@ -247,7 +247,7 @@ namespace glsld
         return result;
     }
 
-    auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> lsp::SemanticTokens
+    auto CollectSemanticTokens(const LanguageQueryProvider& provider) -> std::vector<SemanticTokenInfo>
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
         CollectLexSemanticTokens(provider, tokenBuffer);
@@ -257,12 +257,20 @@ namespace glsld
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {
             return std::tie(lhs.line, lhs.character) < std::tie(rhs.line, rhs.character);
         });
-
-        return ToLspSemanticTokens(tokenBuffer);
+        return tokenBuffer;
     }
 
-    auto ComputeSemanticTokensDelta(const LanguageQueryProvider& provider) -> lsp::SemanticTokensDelta
+    namespace lsp
     {
-        GLSLD_NO_IMPL();
-    }
+        auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> SemanticTokens
+        {
+            return ToLspSemanticTokens(CollectSemanticTokens(provider));
+        }
+
+        auto ComputeSemanticTokensDelta(const LanguageQueryProvider& provider) -> SemanticTokensDelta
+        {
+            GLSLD_NO_IMPL();
+        }
+    } // namespace lsp
+
 } // namespace glsld

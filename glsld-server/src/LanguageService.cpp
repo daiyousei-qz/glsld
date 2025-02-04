@@ -140,7 +140,7 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
-            lsp::SemanticTokens result = ComputeSemanticTokens(provider);
+            lsp::SemanticTokens result = lsp::ComputeSemanticTokens(provider);
             server.HandleServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}", requestId, "semanticTokensFull");
         });
@@ -174,12 +174,12 @@ namespace glsld
     {
         auto uri = params.baseParams.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "hover", uri);
-        ScheduleLanguageQuery(uri,
-                              [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-                                  std::optional<lsp::Hover> result = ComputeHover(provider, params.baseParams.position);
-                                  server.HandleServerResponse(requestId, result, false);
-                                  server.LogInfo("Responded to request {} {}", requestId, "hover");
-                              });
+        ScheduleLanguageQuery(
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
+                std::optional<lsp::Hover> result = lsp::ComputeHover(provider, params.baseParams.position);
+                server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "hover");
+            });
     }
 
     auto LanguageService::Declaration(int requestId, lsp::DeclarationParams params) -> void

@@ -199,8 +199,7 @@ namespace glsld
         };
     }
 
-    auto ComputeHoverContent(const LanguageQueryProvider& provider, TextPosition position)
-        -> std::optional<HoverContent>
+    auto QueryHoverContent(const LanguageQueryProvider& provider, TextPosition position) -> std::optional<HoverContent>
     {
         const auto& compilerObject = provider.GetCompilerResult();
 
@@ -222,14 +221,19 @@ namespace glsld
         return std::nullopt;
     }
 
-    auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>
+    namespace lsp
     {
-        return ComputeHoverContent(provider, FromLspPosition(position)).transform([](const HoverContent& hoverContent) {
-            return lsp::Hover{
-                .contents = ComputeHoverText(hoverContent),
-                .range    = ToLspRange(hoverContent.range),
-            };
-        });
-    }
+        auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<Hover>
+        {
+            return QueryHoverContent(provider, FromLspPosition(position))
+                .transform([](const HoverContent& hoverContent) {
+                    return lsp::Hover{
+                        .contents = ComputeHoverText(hoverContent),
+                        .range    = ToLspRange(hoverContent.range),
+                    };
+                });
+        }
+
+    } // namespace lsp
 
 } // namespace glsld

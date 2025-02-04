@@ -79,6 +79,12 @@ namespace glsld
         SemanticTokenModifier modifier;
     };
 
-    auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> lsp::SemanticTokens;
-    auto ComputeSemanticTokensDelta(const LanguageQueryProvider& provider) -> lsp::SemanticTokensDelta;
+    auto CollectSemanticTokens(const LanguageQueryProvider& provider) -> std::vector<SemanticTokenInfo>;
+
+    namespace lsp
+    {
+        auto ComputeSemanticTokens(const LanguageQueryProvider& provider) -> lsp::SemanticTokens;
+        auto ComputeSemanticTokensDelta(const LanguageQueryProvider& provider) -> lsp::SemanticTokensDelta;
+    } // namespace lsp
+
 } // namespace glsld

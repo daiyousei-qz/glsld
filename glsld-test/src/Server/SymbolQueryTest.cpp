@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
+TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 {
     auto checkSymbol = [this](const ServerTestContext& ctx, StringView label, SymbolDeclType type, StringView name,
                               bool unknown = false) {
@@ -14,7 +14,28 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
         REQUIRE(hover->token.text == name);
     };
 
-    SECTION("Range")
+    SECTION("CursorNotHit")
+    {
+        auto sourceText = R"(
+        void main(^[pos.1])^[pos.2]
+        {^[pos.3]
+         ^[pos.4]
+        }
+    )";
+
+        auto ctx = CompileLabelledSource(sourceText);
+
+        auto result1 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.1"));
+        auto result2 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.2"));
+        auto result3 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.3"));
+        auto result4 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.4"));
+        REQUIRE(!result1.has_value());
+        REQUIRE(!result2.has_value());
+        REQUIRE(!result3.has_value());
+        REQUIRE(!result4.has_value());
+    }
+
+    SECTION("CursorOnIdentifier")
     {
         auto sourceText = R"(
         void ^[pos.begin]ma^[pos.mid]in^[pos.end]()
@@ -38,7 +59,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
         REQUIRE(!result3.has_value());
     }
 
-    SECTION("TypeName")
+    SECTION("CursorOnTypeName")
     {
         auto sourceText = R"(
         struct ^[struct.decl.pos]S
@@ -59,7 +80,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
         checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::Type, "unknown", true);
     }
 
-    SECTION("VariableName")
+    SECTION("CursorOnVariableName")
     {
         auto sourceText = R"(
         int ^[global.decl.pos]global;
@@ -85,7 +106,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
         checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::GlobalVariable, "unknown", true);
     }
 
-    SECTION("FunctionName")
+    SECTION("CursorOnFunctionName")
     {
         auto sourceText = R"(
         void ^[func.decl.pos]foo()
@@ -106,7 +127,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQuery")
         checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::Function, "unknown", true);
     }
 
-    SECTION("DotAccessName")
+    SECTION("CursorOnDotAccessName")
     {
         auto sourceText = R"(
         struct S

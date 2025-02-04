@@ -32,8 +32,10 @@ namespace glsld
         bool unknown = false;
     };
 
-    auto ComputeHoverContent(const LanguageQueryProvider& provider, TextPosition position)
-        -> std::optional<HoverContent>;
+    auto QueryHoverContent(const LanguageQueryProvider& provider, TextPosition position) -> std::optional<HoverContent>;
 
-    auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<lsp::Hover>;
+    namespace lsp
+    {
+        auto ComputeHover(const LanguageQueryProvider& provider, lsp::Position position) -> std::optional<Hover>;
+    }
 } // namespace glsld
