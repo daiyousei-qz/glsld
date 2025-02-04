@@ -120,9 +120,12 @@ namespace glsld
         };
     } // namespace
 
-    auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>
+    namespace lsp
     {
-        return DocumentSymbolCollector{provider}.Execute();
-    }
+        auto ComputeDocumentSymbol(const LanguageQueryProvider& provider) -> std::vector<lsp::DocumentSymbol>
+        {
+            return DocumentSymbolCollector{provider}.Execute();
+        }
+    } // namespace lsp
 
 } // namespace glsld
