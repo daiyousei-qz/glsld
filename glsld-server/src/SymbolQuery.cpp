@@ -132,7 +132,7 @@ namespace glsld
                     declaratorIndex += 1;
                 }
             }
-            auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
+            auto VisitAstStructFieldDecl(const AstStructFieldDecl& decl) -> void
             {
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
@@ -148,15 +148,15 @@ namespace glsld
                     TryAstToken(*decl.GetNameToken(), &decl, &decl, SymbolDeclType::Type, true);
                 }
             }
-            auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+            auto VisitAstBlockFieldDecl(const AstBlockFieldDecl& decl) -> void
             {
-                if (decl.GetDeclarator()) {
-                    TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::Parameter, true);
+                size_t declaratorIndex = 0;
+                for (const auto& declarator : decl.GetDeclarators()) {
+                    TryAstToken(declarator.nameToken, &decl, DeclView{&decl, declaratorIndex},
+                                SymbolDeclType::MemberVariable, true);
+
+                    declaratorIndex += 1;
                 }
-            }
-            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
-            {
-                TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::Function, true);
             }
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
@@ -166,6 +166,16 @@ namespace glsld
                     TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::InterfaceBlockInstance,
                                 true);
                 }
+            }
+            auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+            {
+                if (decl.GetDeclarator()) {
+                    TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::Parameter, true);
+                }
+            }
+            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+            {
+                TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::Function, true);
             }
         };
     } // namespace

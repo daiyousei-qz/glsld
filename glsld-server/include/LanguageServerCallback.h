@@ -25,7 +25,7 @@ namespace glsld
         LanguageServerCallback(const LanguageServerConfig& config) : config(config)
         {
             logger = spdlog::stderr_color_mt("glsld_logger");
-            logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
+            logger->set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
             switch (config.loggingLevel) {
             case LoggingLevel::Trace:
                 logger->set_level(spdlog::level::trace);
