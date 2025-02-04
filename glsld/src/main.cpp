@@ -102,10 +102,10 @@ namespace glsld
 
     static auto LoadConfig(const std::string& configFilePath) -> LanguageServerConfig
     {
-        auto path = "E:/Project/glsld/.vscode/glsldConfig.json";
-        std::ifstream configFileStream(path);
+        std::ifstream configFileStream(configFilePath);
         if (!configFileStream.is_open()) {
-            throw std::runtime_error("Failed to open config file: " + configFilePath);
+            fmt::print(stderr, "Failed to open config file: {}\n", configFilePath);
+            std::exit(1);
         }
         std::stringstream buffer;
         buffer << configFileStream.rdbuf();
@@ -114,7 +114,8 @@ namespace glsld
         auto config               = ParseLanguageServerConfig(configContent);
 
         if (!config) {
-            throw std::runtime_error("Failed to parse config file: " + configFilePath);
+            fmt::print(stderr, "Failed to parse config file: {}\n", configFilePath);
+            std::exit(1);
         }
 
         return *config;
