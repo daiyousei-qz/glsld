@@ -102,6 +102,10 @@ namespace glsld
 
     static auto LoadConfig(const std::string& configFilePath) -> LanguageServerConfig
     {
+        if (configFilePath.empty()) {
+            return LanguageServerConfig{};
+        }
+
         std::ifstream configFileStream(configFilePath);
         if (!configFileStream.is_open()) {
             fmt::print(stderr, "Failed to open config file: {}\n", configFilePath);

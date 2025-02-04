@@ -168,13 +168,17 @@ namespace glsld
                              symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
             ReconstructSourceText(codeBuffer, *varDecl, symbolInfo.symbolDecl.GetIndex());
         }
-        else if (auto memberDecl = decl->As<AstStructFieldDecl>();
-                 memberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
-            ReconstructSourceText(codeBuffer, *memberDecl, symbolInfo.symbolDecl.GetIndex());
+        else if (auto structMemberDecl = decl->As<AstStructFieldDecl>();
+                 structMemberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
+            ReconstructSourceText(codeBuffer, *structMemberDecl, symbolInfo.symbolDecl.GetIndex());
         }
         else if (auto structDecl = decl->As<AstStructDecl>();
                  structDecl && symbolInfo.symbolType == SymbolDeclType::Type) {
             ReconstructSourceText(codeBuffer, *structDecl);
+        }
+        else if (auto blockMemberDecl = decl->As<AstBlockFieldDecl>();
+                 blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
+            ReconstructSourceText(codeBuffer, *blockMemberDecl, symbolInfo.symbolDecl.GetIndex());
         }
         else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>();
                  blockDecl && (symbolInfo.symbolType == SymbolDeclType::InterfaceBlock ||
