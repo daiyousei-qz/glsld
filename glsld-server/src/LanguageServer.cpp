@@ -32,8 +32,6 @@ namespace glsld
 
     auto LanguageServer::Run() -> void
     {
-        Initialize();
-
         while (true) {
             transport->PullMessage();
         }
@@ -60,7 +58,7 @@ namespace glsld
         AddNotificationHandler(lsp::LSPMethod_DidCloseTextDocument, &LanguageService::DidCloseTextDocument);
     }
 
-    auto LanguageServer::DoHandleClientMessage(lsp::JsonObject rpcBlob) -> void
+    auto LanguageServer::DoHandleClientMessage(JsonObject rpcBlob) -> void
     {
         const auto& jmethod = rpcBlob["method"];
         if (!jmethod.is_string()) {
@@ -82,9 +80,9 @@ namespace glsld
         // FIXME: log this?
     }
 
-    auto LanguageServer::DoHandleServerResponse(int requestId, lsp::JsonObject result, bool isError) -> void
+    auto LanguageServer::DoHandleServerResponse(int requestId, JsonObject result, bool isError) -> void
     {
-        lsp::JsonObject rpcBlob;
+        JsonObject rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";
         rpcBlob["id"]      = requestId;
         if (isError) {
@@ -98,9 +96,9 @@ namespace glsld
         transport->PushMessage(StringView{payload});
     }
 
-    auto LanguageServer::DoHandleNotification(const char* method, lsp::JsonObject params) -> void
+    auto LanguageServer::DoHandleNotification(const char* method, JsonObject params) -> void
     {
-        lsp::JsonObject rpcBlob;
+        JsonObject rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";
         rpcBlob["method"]  = method;
         rpcBlob["params"]  = std::move(params);

@@ -344,9 +344,9 @@ namespace glsld
                 }});
             }
             else if (auto structDesc = type->GetStructDesc()) {
-                for (const auto& [memberName, memberType] : structDesc->members) {
+                for (const auto& memberDesc : structDesc->members) {
                     result.push_back({lsp::CompletionItem{
-                        .label = memberName,
+                        .label = memberDesc.name,
                         .kind  = lsp::CompletionItemKind::Field,
                     }});
                 }

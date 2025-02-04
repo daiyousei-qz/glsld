@@ -6,7 +6,7 @@
 
 #include <optional>
 
-namespace glsld::lsp
+namespace glsld
 {
     using JsonObject = nlohmann::json;
 
@@ -15,38 +15,6 @@ namespace glsld::lsp
 
     class ObjectFromJsonMapper;
     class ObjectToJsonMapper;
-
-    enum class JsonMappingMode
-    {
-        FromJson,
-        ToJson,
-    };
-
-    template <JsonMappingMode Mode>
-    struct JsonMappingTrait;
-
-    template <>
-    struct JsonMappingTrait<JsonMappingMode::FromJson>
-    {
-        using MapperType = ObjectFromJsonMapper;
-
-        template <typename T>
-        using ReferenceType = T&;
-    };
-    template <>
-    struct JsonMappingTrait<JsonMappingMode::ToJson>
-    {
-        using MapperType = ObjectToJsonMapper;
-
-        template <typename T>
-        using ReferenceType = const T&;
-    };
-
-    template <JsonMappingMode Mode>
-    using JsonObjectMapper = typename JsonMappingTrait<Mode>::MapperType;
-
-    template <JsonMappingMode Mode, typename T>
-    using JsonMappingRef = typename JsonMappingTrait<Mode>::template ReferenceType<T>;
 
     template <typename T>
     inline auto FromJson(const JsonObject& j, T& value) -> bool
@@ -205,6 +173,9 @@ namespace glsld::lsp
     template <typename Mapper>
     class JsonObjectMapperScope
     {
+    private:
+        Mapper* mapper = nullptr;
+
     public:
         JsonObjectMapperScope(Mapper* mapper, const char* key) : mapper(mapper)
         {
@@ -235,13 +206,14 @@ namespace glsld::lsp
                 mapper = nullptr;
             }
         }
-
-    private:
-        Mapper* mapper = nullptr;
     };
 
     class ObjectFromJsonMapper
     {
+    private:
+        const JsonObject* root;
+        std::vector<const JsonObject*> traversalStack;
+
     public:
         ObjectFromJsonMapper(const JsonObject& root) : root(&root), traversalStack({&root})
         {
@@ -271,7 +243,7 @@ namespace glsld::lsp
         }
 
         template <typename T>
-        [[nodiscard]] auto Map(const char* key, T& value) -> bool
+        [[nodiscard]] auto Map(const char* key, T& value, bool optional = false) -> bool
         {
             // json[key] = JsonSerializer<T>::ToJson(value);
             auto currentNode = GetCurrentNode();
@@ -281,7 +253,7 @@ namespace glsld::lsp
 
             auto it = currentNode->find(key);
             if (it == currentNode->end()) {
-                return false;
+                return optional;
             }
 
             return JsonSerializer<T>::FromJson(it.value(), value);
@@ -305,18 +277,27 @@ namespace glsld::lsp
             return JsonSerializer<std::optional<T>>::FromJson(it.value(), value);
         }
 
+        template <typename F>
+            requires std::predicate<F>
+        [[nodiscard]] auto MapObject(const char* key, F&& callback) -> bool
+        {
+            auto scope = EnterObjectScoped(key);
+            return callback();
+        }
+
     private:
         auto GetCurrentNode() -> const JsonObject*
         {
             return traversalStack.back();
         }
-
-        const JsonObject* root;
-        std::vector<const JsonObject*> traversalStack;
     };
 
     class ObjectToJsonMapper
     {
+    private:
+        JsonObject root = JsonObject::object_t{};
+        std::vector<JsonObject*> traversalStack;
+
     public:
         ObjectToJsonMapper()
         {
@@ -342,10 +323,18 @@ namespace glsld::lsp
         }
 
         template <typename T>
-        auto Map(const char* key, const T& value) -> bool
+        [[nodiscard]] auto Map(const char* key, const T& value) -> bool
         {
             (*GetCurrentNode())[key] = JsonSerializer<T>::ToJson(value);
             return true;
+        }
+
+        template <typename F>
+            requires std::predicate<F>
+        [[nodiscard]] auto MapObject(const char* key, F&& callback) -> bool
+        {
+            auto scope = EnterObjectScoped(key);
+            return callback();
         }
 
         auto ExportJson() -> JsonObject
@@ -359,9 +348,6 @@ namespace glsld::lsp
         {
             return traversalStack.back();
         }
-
-        JsonObject root = JsonObject::object_t{};
-        std::vector<JsonObject*> traversalStack;
     };
 
     namespace detail
@@ -395,4 +381,4 @@ namespace glsld::lsp
         }
 
     } // namespace detail
-} // namespace glsld::lsp
+} // namespace glsld

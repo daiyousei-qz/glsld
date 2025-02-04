@@ -6,7 +6,8 @@
 #include "Compiler/SourceScanner.h"
 
 #include "LanguageQueryProvider.h"
-#include "catch2/catch_all.hpp"
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_all.hpp>
 
 namespace glsld
 {

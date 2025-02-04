@@ -1,6 +1,7 @@
 #include "LanguageServer.h"
 
 #include <argparse/argparse.hpp>
+#include <fstream>
 
 #if defined(GLSLD_OS_WIN)
 #define NOMINMAX
@@ -54,6 +55,8 @@ namespace glsld
     {
         struct ProgramArgs
         {
+            // Path to the configuration file
+            std::string configFile;
         };
     } // namespace
 
@@ -65,6 +68,10 @@ namespace glsld
 
         ArgumentParser program("glsld");
         program.add_argument("--stdio").help("Use stdio for communication").default_value(true);
+        program.add_argument("--configFile")
+            .help("Path to the configuration file")
+            .default_value(std::string{})
+            .store_into(result.configFile);
 
         program.parse_args(argc, argv);
         return result;
@@ -93,13 +100,34 @@ namespace glsld
     }
 #endif
 
+    static auto LoadConfig(const std::string& configFilePath) -> LanguageServerConfig
+    {
+        auto path = "E:/Project/glsld/.vscode/glsldConfig.json";
+        std::ifstream configFileStream(path);
+        if (!configFileStream.is_open()) {
+            throw std::runtime_error("Failed to open config file: " + configFilePath);
+        }
+        std::stringstream buffer;
+        buffer << configFileStream.rdbuf();
+
+        std::string configContent = buffer.str();
+        auto config               = ParseLanguageServerConfig(configContent);
+
+        if (!config) {
+            throw std::runtime_error("Failed to parse config file: " + configFilePath);
+        }
+
+        return *config;
+    }
+
     static auto DoMain(ProgramArgs args) -> void
     {
 #if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
         WaitDebuggerToAttach();
 #endif
 
-        glsld::LanguageServer{}.Run();
+        auto config = LoadConfig(args.configFile);
+        glsld::LanguageServer{config}.Run();
     }
 } // namespace glsld
 

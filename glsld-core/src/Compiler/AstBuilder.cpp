@@ -282,15 +282,11 @@ namespace glsld
 
             if (idToken.IsIdentifier()) {
                 if (auto structDesc = baseType->GetStructDesc()) {
-                    if (auto it = structDesc->memberDeclLookup.Find(idToken.text.Str());
-                        it != structDesc->memberDeclLookup.end()) {
-                        auto memberDecl = it->second;
-                        GLSLD_ASSERT(memberDecl.IsValid());
-
+                    if (auto memberDesc = structDesc->FindMember(idToken.text.Str()); memberDesc) {
+                        GLSLD_ASSERT(memberDesc->decl.IsValid());
                         result->SetConst(lhsExpr->IsConst()); // FIXME: but types also matter
-                        result->SetDeducedType(
-                            memberDecl.GetDecl()->As<AstStructFieldDecl>()->GetResolvedTypes()[memberDecl.GetIndex()]);
-                        result->SetResolvedDecl(memberDecl);
+                        result->SetDeducedType(memberDesc->type);
+                        result->SetResolvedDecl(memberDesc->decl);
                     }
                 }
             }
@@ -298,29 +294,21 @@ namespace glsld
         }
     }
 
-    // FIXME: remove dimToUnwrap as it's no longer used
-    static auto DeduceIndexAccessType(const Type* baseType, size_t dimToUnwrap) -> const Type*
+    static auto DeduceIndexAccessType(const Type* baseType) -> const Type*
     {
-        if (baseType->IsError() || dimToUnwrap == 0) {
+        if (baseType->IsError()) {
             return baseType;
         }
 
         if (auto arrayDesc = baseType->GetArrayDesc()) {
-            return DeduceIndexAccessType(arrayDesc->elementType, dimToUnwrap - 1);
+            return arrayDesc->elementType;
         }
         else if (auto vectorDesc = baseType->GetVectorDesc()) {
-            if (dimToUnwrap == 1) {
-                return Type::GetScalarType(vectorDesc->scalarType);
-            }
+            return Type::GetScalarType(vectorDesc->scalarType);
         }
         else if (auto matrixDesc = baseType->GetMatrixDesc()) {
-            if (dimToUnwrap == 2) {
-                return Type::GetScalarType(matrixDesc->scalarType);
-            }
-            else if (dimToUnwrap == 1) {
-                // Note we are indexing to a column vector here.
-                return Type::GetVectorType(matrixDesc->scalarType, matrixDesc->dimCol);
-            }
+            // Note we are indexing to a column vector here.
+            return Type::GetVectorType(matrixDesc->scalarType, matrixDesc->dimCol);
         }
 
         return Type::GetErrorType();
@@ -331,7 +319,7 @@ namespace glsld
     {
         auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indexExpr);
 
-        result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType(), 1));
+        result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType()));
         result->SetConst(baseExpr->IsConst() && indexExpr->IsConst());
         return result;
     }

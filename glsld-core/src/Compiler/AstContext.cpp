@@ -12,11 +12,15 @@ namespace glsld
 
     auto AstContext::CreateStructType(AstStructDecl& decl) -> const Type*
     {
-        std::vector<std::pair<std::string, const Type*>> memberDesc;
+        std::vector<StructTypeDesc::StructMemberDesc> members;
         for (auto memberDecl : decl.GetMembers()) {
-            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec);
-                memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
+            for (const auto& [i, declarator] : std::views::enumerate(memberDecl->GetDeclarators())) {
+                members.push_back({
+                    .index = members.size(),
+                    .name  = declarator.nameToken.text.Str(),
+                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec),
+                    .decl  = DeclView{memberDecl, static_cast<size_t>(i)},
+                });
             }
         }
 
@@ -25,33 +29,25 @@ namespace glsld
             typeName = decl.GetNameToken()->text.StrView();
         }
 
-        UnorderedStringMap<DeclView> memberLookup;
-        for (auto memberDecl : decl.GetMembers()) {
-            size_t declIndex = 0;
-            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                if (declarator.nameToken.IsIdentifier()) {
-                    memberLookup.Insert({declarator.nameToken.text.Str(), DeclView{memberDecl, declIndex}});
-                }
-                declIndex += 1;
-            }
-        }
-
         auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
                                                                 .name    = decl.GetNameToken() ? typeName.Str() : "",
-                                                                .members = std::move(memberDesc),
                                                                 .decl    = &decl,
-                                                                .memberDeclLookup = std::move(memberLookup),
+                                                                .members = std::move(members),
                                                             });
         return result;
     }
 
     auto AstContext::CreateInterfaceBlockType(AstInterfaceBlockDecl& decl) -> const Type*
     {
-        std::vector<std::pair<std::string, const Type*>> memberDesc;
-        for (auto memberDecl : decl.GetMembers()) {
-            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                auto typeDesc = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec);
-                memberDesc.push_back({declarator.nameToken.text.Str(), typeDesc});
+        std::vector<StructTypeDesc::StructMemberDesc> members;
+        for (const auto& memberDecl : decl.GetMembers()) {
+            for (const auto& [i, declarator] : std::views::enumerate(memberDecl->GetDeclarators())) {
+                members.push_back({
+                    .index = members.size(),
+                    .name  = declarator.nameToken.text.Str(),
+                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec),
+                    .decl  = DeclView{memberDecl, static_cast<size_t>(i)},
+                });
             }
         }
 
@@ -60,22 +56,10 @@ namespace glsld
             typeName = decl.GetNameToken().text.StrView();
         }
 
-        UnorderedStringMap<DeclView> memberLookup;
-        for (auto memberDecl : decl.GetMembers()) {
-            size_t declIndex = 0;
-            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                if (declarator.nameToken.IsIdentifier()) {
-                    memberLookup.Insert({declarator.nameToken.text.Str(), DeclView{memberDecl, declIndex}});
-                }
-                declIndex += 1;
-            }
-        }
-
         auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                .name             = typeName.Str(),
-                                                                .members          = std::move(memberDesc),
-                                                                .decl             = &decl,
-                                                                .memberDeclLookup = std::move(memberLookup),
+                                                                .name    = typeName.Str(),
+                                                                .decl    = &decl,
+                                                                .members = std::move(members),
                                                             });
         return result;
     }

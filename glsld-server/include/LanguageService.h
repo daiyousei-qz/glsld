@@ -4,8 +4,6 @@
 #include "LanguageServerCallback.h"
 #include "LanguageQueryProvider.h"
 
-#include <BS_thread_pool.hpp>
-
 namespace glsld
 {
     class LanguageService
@@ -15,10 +13,6 @@ namespace glsld
 
         // uri -> provider
         std::map<std::string, std::shared_ptr<PendingBackgroundCompilation>> providerLookup;
-
-        LanguageServerConfig config = LanguageServerConfig::Default();
-
-        BS::thread_pool threadPool;
 
     public:
         LanguageService(LanguageServerCallback& server) : server(server)
@@ -66,24 +60,20 @@ namespace glsld
 #pragma endregion
 
     private:
+        // Schedule a language query for the given uri in a background thread, which waits for the compilation and then
+        // runs the callback.
         auto ScheduleLanguageQuery(const std::string& uri,
                                    std::function<auto(const LanguageQueryProvider&)->void> callback) -> void
         {
             // NOTE we need to make a copy of the provider here so it doesn't get released while in analysis
             auto provider = providerLookup[uri];
             if (provider != nullptr) {
-                ScheduleTask([this, provider = std::move(provider), callback = std::move(callback)] {
+                server.ScheduleTask([this, provider = std::move(provider), callback = std::move(callback)] {
                     if (provider->WaitAvailable()) {
                         callback(provider->GetProvider());
                     }
                 });
             }
-        }
-
-        template <typename F, typename... Args>
-        auto ScheduleTask(F&& f, Args&&... args) -> void
-        {
-            threadPool.detach_task(std::forward<F>(f), std::forward<Args>(args)...);
         }
     };
 } // namespace glsld

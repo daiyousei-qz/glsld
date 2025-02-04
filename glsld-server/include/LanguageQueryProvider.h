@@ -226,6 +226,11 @@ namespace glsld
             }
         }
 
+        auto GetBuffer() const -> StringView
+        {
+            return sourceString;
+        }
+
         auto GetProvider() -> const LanguageQueryProvider&
         {
             GLSLD_ASSERT(available);

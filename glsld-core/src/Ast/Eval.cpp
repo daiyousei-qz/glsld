@@ -294,10 +294,12 @@ namespace glsld
             }
         }
         else if (auto fieldAccessExpr = init.As<AstFieldAccessExpr>(); fieldAccessExpr) {
-            if (auto decl = fieldAccessExpr->GetResolvedDecl(); decl.IsValid()) {
-                if (auto fieldDecl = decl.GetDecl()->As<AstStructFieldDecl>(); fieldDecl) {
+            auto baseType = fieldAccessExpr->GetBaseExpr()->GetDeducedType();
+            if (auto structDesc = baseType->GetStructDesc(); structDesc) {
+                if (auto memberDesc = structDesc->FindMember(fieldAccessExpr->GetNameToken().text.StrView());
+                    memberDesc) {
                     auto lhsResult = EvalAstInitializerLazy(*fieldAccessExpr->GetBaseExpr());
-                    return UnwrapConstEvalResult(lhsResult, fieldDecl->GetFieldIndex());
+                    return UnwrapConstEvalResult(lhsResult, memberDesc->index);
                 }
             }
         }

@@ -68,6 +68,7 @@ namespace glsld
                 },
         };
         server.HandleServerResponse(requestId, result, false);
+        server.LogInfo("GLSLD initialized");
     }
 
 #pragma region Document Synchronization
@@ -83,7 +84,9 @@ namespace glsld
         providerEntry = std::make_shared<PendingBackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text));
 
-        ScheduleTask([provider = providerEntry]() { provider->Setup(); });
+        server.ScheduleTask([provider = providerEntry]() { provider->Setup(); });
+        server.LogInfo("Opened document: {}", params.textDocument.uri);
+        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
     }
     auto LanguageService::DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
     {
@@ -107,11 +110,14 @@ namespace glsld
         providerEntry = std::make_shared<PendingBackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
-        ScheduleTask([provider = providerEntry]() { provider->Setup(); });
+        server.ScheduleTask([provider = providerEntry]() { provider->Setup(); });
+        server.LogInfo("Edited document: {}", params.textDocument.uri);
+        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
     }
     auto LanguageService::DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
     {
         providerLookup.erase(params.textDocument.uri);
+        server.LogInfo("Closed document: {}", params.textDocument.uri);
     }
 
 #pragma endregion
@@ -121,59 +127,71 @@ namespace glsld
     auto LanguageService::DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
     {
         auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "documentSymbol", uri);
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
             auto result = ComputeDocumentSymbol(provider);
             server.HandleServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}", requestId, "documentSymbol");
         });
     }
 
     auto LanguageService::SemanticTokensFull(int requestId, lsp::SemanticTokensParam params) -> void
     {
         auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
         ScheduleLanguageQuery(uri, [this, requestId](const LanguageQueryProvider& provider) {
             lsp::SemanticTokens result = ComputeSemanticTokens(provider);
             server.HandleServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}", requestId, "semanticTokensFull");
         });
     }
 
     auto LanguageService::Completion(int requestId, lsp::CompletionParams params) -> void
     {
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "completion", uri);
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::CompletionItem> result = ComputeCompletion(provider, params.baseParams.position);
                 server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "completion");
             });
     }
 
     auto LanguageService::SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
     {
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "signatureHelp", uri);
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::optional<lsp::SignatureHelp> result = ComputeSignatureHelp(provider, params.baseParams.position);
                 server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "signatureHelp");
             });
     }
 
     auto LanguageService::Hover(int requestId, lsp::HoverParams params) -> void
     {
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "hover", uri);
         ScheduleLanguageQuery(uri,
                               [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                                   std::optional<lsp::Hover> result = ComputeHover(provider, params.baseParams.position);
                                   server.HandleServerResponse(requestId, result, false);
+                                  server.LogInfo("Responded to request {} {}", requestId, "hover");
                               });
     }
 
     auto LanguageService::Declaration(int requestId, lsp::DeclarationParams params) -> void
     {
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "declaration", uri);
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::Location> result =
                     ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
                 server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "declaration");
             });
     }
 
@@ -181,33 +199,40 @@ namespace glsld
     {
         // FIXME: compute definition properly
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "definition", uri);
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                 std::vector<lsp::Location> result =
                     ComputeDeclaration(provider, params.baseParams.textDocument.uri, params.baseParams.position);
                 server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "definition");
             });
     }
 
     auto LanguageService::References(int requestId, lsp::ReferenceParams params) -> void
     {
         auto uri = params.baseParams.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "references", uri);
         ScheduleLanguageQuery(uri,
                               [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
                                   std::vector<lsp::Location> result =
                                       ComputeReferences(provider, params.baseParams.textDocument.uri,
                                                         params.baseParams.position, params.context.includeDeclaration);
                                   server.HandleServerResponse(requestId, result, false);
+                                  server.LogInfo("Responded to request {} {}", requestId, "references");
                               });
     }
 
     auto LanguageService::InlayHint(int requestId, lsp::InlayHintParams params) -> void
     {
         auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "inlayHint", uri);
         ScheduleLanguageQuery(
             uri, [this, requestId, params = std::move(params)](const LanguageQueryProvider& provider) {
-                std::vector<lsp::InlayHint> result = ComputeInlayHint(provider, config.inlayHint, params.range);
+                std::vector<lsp::InlayHint> result =
+                    ComputeInlayHint(provider, server.GetConfig().languageService.inlayHint, params.range);
                 server.HandleServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}", requestId, "inlayHint");
             });
     }
 

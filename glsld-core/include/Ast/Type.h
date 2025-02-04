@@ -72,12 +72,27 @@ namespace glsld
         // The linkage name of the struct type.
         std::string name;
 
-        std::vector<std::pair<std::string, const Type*>> members;
-
         // The AST node of the (first) declaration of this type.
         const AstDecl* decl;
 
-        UnorderedStringMap<DeclView> memberDeclLookup;
+        struct StructMemberDesc
+        {
+            size_t index;
+            std::string name;
+            const Type* type;
+            DeclView decl;
+        };
+
+        std::vector<StructMemberDesc> members;
+
+        auto FindMember(StringView name) const -> const StructMemberDesc*
+        {
+            if (auto it = std::ranges::find(members, name, &StructMemberDesc::name); it != members.end()) {
+                return &*it;
+            }
+
+            return nullptr;
+        }
     };
 
     struct ValueDimension
@@ -119,8 +134,8 @@ namespace glsld
                 containsOpaqueType = desc->elementType->containsOpaqueType;
             }
             else if (auto desc = GetStructDesc()) {
-                for (const auto& [_, type] : desc->members) {
-                    if (type->containsOpaqueType) {
+                for (const auto& memberDesc : desc->members) {
+                    if (memberDesc.type->containsOpaqueType) {
                         containsOpaqueType = true;
                         break;
                     }
@@ -258,7 +273,7 @@ namespace glsld
             }
             else if (auto structDesc = GetStructDesc(); structDesc) {
                 if (index < structDesc->members.size()) {
-                    return structDesc->members[index].second;
+                    return structDesc->members[index].type;
                 }
             }
 

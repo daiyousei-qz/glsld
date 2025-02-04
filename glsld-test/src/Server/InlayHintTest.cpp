@@ -25,7 +25,12 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
     )";
 
         auto ctx    = CompileLabelledSource(sourceText);
-        auto config = InlayHintConfig::Default();
+        auto config = InlayHintConfig{
+            .enableArgumentNameHint    = true,
+            .enableImplicitCastHint    = true,
+            .enableBlockEndHint        = true,
+            .blockEndHintLineThreshold = 4,
+        };
 
         {
             auto hints =

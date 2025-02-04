@@ -25,19 +25,11 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const TextDocumentIdentifier& value) -> bool
     {
-        if (!mapper.Map("uri", value.uri)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("uri", value.uri);
     }
     inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentIdentifier& value) -> bool
     {
-        if (!mapper.Map("uri", value.uri)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("uri", value.uri);
     }
 
     struct VersionedTextDocumentIdentifier
@@ -78,25 +70,11 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const Position& value) -> bool
     {
-        if (!mapper.Map("line", value.line)) {
-            return false;
-        }
-        if (!mapper.Map("character", value.character)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("line", value.line) && mapper.Map("character", value.character);
     }
     inline auto MapJson(ObjectFromJsonMapper& mapper, Position& value) -> bool
     {
-        if (!mapper.Map("line", value.line)) {
-            return false;
-        }
-        if (!mapper.Map("character", value.character)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("line", value.line) && mapper.Map("character", value.character);
     }
 
     struct Range
@@ -115,25 +93,11 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const Range& value) -> bool
     {
-        if (!mapper.Map("start", value.start)) {
-            return false;
-        }
-        if (!mapper.Map("end", value.end)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("start", value.start) && mapper.Map("end", value.end);
     }
     inline auto MapJson(ObjectFromJsonMapper& mapper, Range& value) -> bool
     {
-        if (!mapper.Map("start", value.start)) {
-            return false;
-        }
-        if (!mapper.Map("end", value.end)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("start", value.start) && mapper.Map("end", value.end);
     }
 
     struct TextEdit
@@ -154,14 +118,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const TextEdit& value) -> bool
     {
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("newText", value.newText)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("range", value.range) && mapper.Map("newText", value.newText);
     }
 
     struct Location
@@ -174,25 +131,11 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const Location& value) -> bool
     {
-        if (!mapper.Map("uri", value.uri)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("uri", value.uri) && mapper.Map("range", value.range);
     }
     inline auto MapJson(ObjectFromJsonMapper& mapper, Location& value) -> bool
     {
-        if (!mapper.Map("uri", value.uri)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("uri", value.uri) && mapper.Map("range", value.range);
     }
 
     struct TextDocumentPositionParams
@@ -318,14 +261,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const ShowMessageParams& value) -> bool
     {
-        if (!mapper.Map("type", static_cast<int32_t>(value.type))) {
-            return false;
-        }
-        if (!mapper.Map("message", value.message)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("type", static_cast<int32_t>(value.type)) && mapper.Map("message", value.message);
     }
 
 #pragma endregion
@@ -359,14 +295,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DeclarationParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
 #pragma endregion
@@ -400,14 +330,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DefinitionParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
 #pragma endregion
@@ -445,14 +369,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, HoverParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
     // /**
@@ -475,14 +393,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const Hover& value) -> bool
     {
-        if (!mapper.Map("contents", value.contents)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("contents", value.contents) && mapper.Map("range", value.range);
     }
 
 #pragma endregion
@@ -524,21 +435,10 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, ReferenceParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("context");
-            if (!mapper.Map("includeDeclaration", value.context.includeDeclaration)) {
-                return false;
-            }
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position) && mapper.MapObject("context", [&] {
+                   return mapper.Map("includeDeclaration", value.context.includeDeclaration);
+               });
     }
 
 #pragma endregion
@@ -614,11 +514,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DocumentSymbolParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument);
     }
 
     // /**
@@ -753,22 +649,9 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const DocumentSymbol& value) -> bool
     {
-        if (!mapper.Map("name", value.name)) {
-            return false;
-        }
-        if (!mapper.Map("kind", static_cast<int32_t>(value.kind))) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("selectionRange", value.selectionRange)) {
-            return false;
-        }
-        if (!mapper.Map("children", value.children)) {
-            return false;
-        }
-        return true;
+        return mapper.Map("name", value.name) && mapper.Map("kind", static_cast<int32_t>(value.kind)) &&
+               mapper.Map("range", value.range) && mapper.Map("selectionRange", value.selectionRange) &&
+               mapper.Map("children", value.children);
     }
 
 #pragma endregion
@@ -933,21 +816,19 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokenClientsCapabilities& value) -> bool
     {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("requests");
+        return mapper.MapObject("requests", [&] {
             if (!mapper.Map("full", value.requests.full)) {
                 return false;
             }
 
             if (!value.requests.full.has_value()) {
-                auto scopeGuard = mapper.EnterObjectScoped("full");
-                if (!mapper.Map("delta", value.requests.delta)) {
+                if (!mapper.MapObject("full", [&] { return mapper.Map("delta", value.requests.delta); })) {
                     return false;
                 }
             }
-        }
 
-        return true;
+            return true;
+        });
     }
 
     struct SemanticTokensLegend
@@ -966,14 +847,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokensLegend& value) -> bool
     {
-        if (!mapper.Map("tokenTypes", value.tokenTypes)) {
-            return false;
-        }
-        if (!mapper.Map("tokenModifiers", value.tokenModifiers)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("tokenTypes", value.tokenTypes) && mapper.Map("tokenModifiers", value.tokenModifiers);
     }
 
     struct SemanticTokenOptions /*: WorkDoneProgressOptions*/
@@ -1007,37 +881,13 @@ namespace glsld::lsp
     template <typename Mapper>
     inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokenOptions& value) -> bool
     {
-        if (!mapper.Map("legend", value.legend)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("full", value.full)) {
-            return false;
-        }
-        if (!mapper.Map("delta", value.delta)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("legend", value.legend) && mapper.Map("range", value.range) &&
+               mapper.Map("full", value.full) && mapper.Map("delta", value.delta);
     }
     inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokenOptions& value) -> bool
     {
-        if (!mapper.Map("legend", value.legend)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("full", value.full)) {
-            return false;
-        }
-        if (!mapper.Map("delta", value.delta)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("legend", value.legend) && mapper.Map("range", value.range) &&
+               mapper.Map("full", value.full) && mapper.Map("delta", value.delta);
     }
 
     struct SemanticTokensParam /*: WorkDoneProgressParams,PartialResultParams*/
@@ -1050,11 +900,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, SemanticTokensParam& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument);
     }
 
     struct SemanticTokens
@@ -1076,14 +922,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const SemanticTokens& value) -> bool
     {
-        if (!mapper.Map("resultId", value.resultId)) {
-            return false;
-        }
-        if (!mapper.Map("data", value.data)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("resultId", value.resultId) && mapper.Map("data", value.data);
     }
 
     struct SemanticTokensEdit
@@ -1171,11 +1010,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const InlayHintOptions& value) -> bool
     {
-        if (!mapper.Map("resolveProvider", value.resolveProvider)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("resolveProvider", value.resolveProvider);
     }
 
     // /**
@@ -1199,14 +1034,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, InlayHintParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument) && mapper.Map("range", value.range);
     }
 
     // /**
@@ -1285,20 +1113,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const InlayHint& value) -> bool
     {
-        if (!mapper.Map("position", value.position)) {
-            return false;
-        }
-        if (!mapper.Map("label", value.label)) {
-            return false;
-        }
-        if (!mapper.Map("paddingLeft", value.paddingLeft)) {
-            return false;
-        }
-        if (!mapper.Map("paddingRight", value.paddingRight)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("position", value.position) && mapper.Map("label", value.label) &&
+               mapper.Map("paddingLeft", value.paddingLeft) && mapper.Map("paddingRight", value.paddingRight);
     }
 
 #pragma endregion
@@ -1524,17 +1340,9 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const CompletionOptions& value) -> bool
     {
-        if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
-            return false;
-        }
-        if (!mapper.Map("allCommitCharacters", value.allCommitCharacters)) {
-            return false;
-        }
-        if (!mapper.Map("resolveProvider", value.resolveProvider)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("triggerCharacters", value.triggerCharacters) &&
+               mapper.Map("allCommitCharacters", value.allCommitCharacters) &&
+               mapper.Map("resolveProvider", value.resolveProvider);
     }
 
     // /**
@@ -1613,17 +1421,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, CompletionParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-        // if (!mapper.Map("context", value.context)) {
-        //     return false;
-        // }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
     // /**
@@ -1989,14 +1788,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const CompletionItem& value) -> bool
     {
-        if (!mapper.Map("label", value.label)) {
-            return false;
-        }
-        if (!mapper.Map("kind", static_cast<int32_t>(value.kind))) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("label", value.label) && mapper.Map("kind", static_cast<int32_t>(value.kind));
     }
 
     // /**
@@ -2159,11 +1951,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const SignatureHelpOptions& value) -> bool
     {
-        if (!mapper.Map("triggerCharacters", value.triggerCharacters)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("triggerCharacters", value.triggerCharacters);
     }
 
     enum SignatureHelpTriggerKind
@@ -2240,14 +2028,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, SignatureHelpParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
     // /**
@@ -2381,11 +2163,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const SignatureHelp& value) -> bool
     {
-        if (!mapper.Map("signatures", value.signatures)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("signatures", value.signatures);
     }
 
 #pragma endregion
@@ -2420,11 +2198,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DocumentColorParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument);
     }
 
     // /**
@@ -2458,37 +2232,13 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const Color& value) -> bool
     {
-        if (!mapper.Map("red", value.red)) {
-            return false;
-        }
-        if (!mapper.Map("green", value.green)) {
-            return false;
-        }
-        if (!mapper.Map("blue", value.blue)) {
-            return false;
-        }
-        if (!mapper.Map("alpha", value.alpha)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("red", value.red) && mapper.Map("green", value.green) && mapper.Map("blue", value.blue) &&
+               mapper.Map("alpha", value.alpha);
     }
     inline auto MapJson(ObjectFromJsonMapper& mapper, Color& value) -> bool
     {
-        if (!mapper.Map("red", value.red)) {
-            return false;
-        }
-        if (!mapper.Map("green", value.green)) {
-            return false;
-        }
-        if (!mapper.Map("blue", value.blue)) {
-            return false;
-        }
-        if (!mapper.Map("alpha", value.alpha)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("red", value.red) && mapper.Map("green", value.green) && mapper.Map("blue", value.blue) &&
+               mapper.Map("alpha", value.alpha);
     }
 
     struct ColorInformation
@@ -2507,14 +2257,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const ColorInformation& value) -> bool
     {
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("color", value.color)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("range", value.range) && mapper.Map("color", value.color);
     }
 
     struct ColorPresentationParams
@@ -2539,17 +2282,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, ColorPresentationParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("color", value.color)) {
-            return false;
-        }
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument) && mapper.Map("color", value.color) &&
+               mapper.Map("range", value.range);
     }
 
     struct ColorPresentation
@@ -2579,14 +2313,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const ColorPresentation& value) -> bool
     {
-        if (!mapper.Map("label", value.label)) {
-            return false;
-        }
-        if (!mapper.Map("textEdit", value.textEdit)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("label", value.label) && mapper.Map("textEdit", value.textEdit);
     }
 
 #pragma endregion
@@ -2610,11 +2337,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const RenameOptions& value) -> bool
     {
-        if (!mapper.Map("prepareProvider", value.prepareProvider)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("prepareProvider", value.prepareProvider);
     }
 
     struct RenameParams
@@ -2631,17 +2354,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, RenameParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-        if (!mapper.Map("newName", value.newName)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position) && mapper.Map("newName", value.newName);
     }
 
     struct PrepareRenameParams
@@ -2650,14 +2364,8 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, PrepareRenameParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.baseParams.textDocument)) {
-            return false;
-        }
-        if (!mapper.Map("position", value.baseParams.position)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.baseParams.textDocument) &&
+               mapper.Map("position", value.baseParams.position);
     }
 
 #pragma endregion
@@ -2676,11 +2384,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentClientCapabilities& value) -> bool
     {
-        if (!mapper.Map("semanticTokens", value.semanticTokens)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("semanticTokens", value.semanticTokens);
     }
 
     // /**
@@ -2731,14 +2435,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const TextDocumentSyncOptions& value) -> bool
     {
-        if (!mapper.Map("openClose", value.openClose)) {
-            return false;
-        }
-        if (!mapper.Map("change", static_cast<int32_t>(value.change))) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("openClose", value.openClose) && mapper.Map("change", static_cast<int32_t>(value.change));
     }
 
     struct TextDocumentItem
@@ -2781,23 +2478,11 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DidOpenTextDocumentParams& value) -> bool
     {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument.uri)) {
-                return false;
-            }
-            if (!mapper.Map("languageId", value.textDocument.languageId)) {
-                return false;
-            }
-            if (!mapper.Map("version", value.textDocument.version)) {
-                return false;
-            }
-            if (!mapper.Map("text", value.textDocument.text)) {
-                return false;
-            }
-        }
-
-        return true;
+        return mapper.MapObject("textDocument", [&] {
+            return mapper.Map("uri", value.textDocument.uri) &&
+                   mapper.Map("languageId", value.textDocument.languageId) &&
+                   mapper.Map("version", value.textDocument.version) && mapper.Map("text", value.textDocument.text);
+        });
     }
 
     // Although the LSP defines TextDocumentContentChangeEvent as a union type, we use an optional flag on
@@ -2832,14 +2517,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, TextDocumentContentChangeEvent& value) -> bool
     {
-        if (!mapper.Map("range", value.range)) {
-            return false;
-        }
-        if (!mapper.Map("text", value.text)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("range", value.range) && mapper.Map("text", value.text);
     }
 
     inline constexpr const char* LSPMethod_DidChangeTextDocument = "textDocument/didChange";
@@ -2878,21 +2556,9 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DidChangeTextDocumentParams& value) -> bool
     {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("textDocument");
-            if (!mapper.Map("uri", value.textDocument.uri)) {
-                return false;
-            }
-            if (!mapper.Map("version", value.textDocument.version)) {
-                return false;
-            }
-        }
-
-        if (!mapper.Map("contentChanges", value.contentChanges)) {
-            return false;
-        }
-
-        return true;
+        return mapper.MapObject("textDocument", [&] {
+            return mapper.Map("uri", value.textDocument.uri) && mapper.Map("version", value.textDocument.version);
+        }) && mapper.Map("contentChanges", value.contentChanges);
     }
 
     inline constexpr const char* LSPMethod_DidCloseTextDocument = "textDocument/didClose";
@@ -2907,11 +2573,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, DidCloseTextDocumentParams& value) -> bool
     {
-        if (!mapper.Map("textDocument", value.textDocument)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocument", value.textDocument);
     }
 
 #pragma endregion
@@ -2948,13 +2610,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectFromJsonMapper& mapper, ClientCapabilities& value) -> bool
     {
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("general");
-            if (!mapper.Map("positionEncodings", value.positionEncodings)) {
-                return false;
-            }
-        }
-        return true;
+        return mapper.MapObject("general", [&] { return mapper.Map("positionEncodings", value.positionEncodings); });
     }
 
     struct ServerCapabilities
@@ -3064,44 +2720,17 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const ServerCapabilities& value) -> bool
     {
-        if (!mapper.Map("textDocumentSync", value.textDocumentSync)) {
-            return false;
-        }
-        if (!mapper.Map("completionProvider", value.completionProvider)) {
-            return false;
-        }
-        if (!mapper.Map("hoverProvider", value.hoverProvider)) {
-            return false;
-        }
-        if (!mapper.Map("signatureHelpProvider", value.signatureHelpProvider)) {
-            return false;
-        }
-        if (!mapper.Map("declarationProvider", value.declarationProvider)) {
-            return false;
-        }
-        if (!mapper.Map("definitionProvider", value.definitionProvider)) {
-            return false;
-        }
-        if (!mapper.Map("referencesProvider", value.referenceProvider)) {
-            return false;
-        }
-        if (!mapper.Map("documentSymbolProvider", value.documentSymbolProvider)) {
-            return false;
-        }
-        if (!mapper.Map("semanticTokensProvider", value.semanticTokensProvider)) {
-            return false;
-        }
-        if (!mapper.Map("inlayHintProvider", value.inlayHintProvider)) {
-            return false;
-        }
-        if (!mapper.Map("colorProvider", value.colorProvider)) {
-            return false;
-        }
-        if (!mapper.Map("renameProvider", value.renameProvider)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("textDocumentSync", value.textDocumentSync) &&
+               mapper.Map("completionProvider", value.completionProvider) &&
+               mapper.Map("hoverProvider", value.hoverProvider) &&
+               mapper.Map("signatureHelpProvider", value.signatureHelpProvider) &&
+               mapper.Map("declarationProvider", value.declarationProvider) &&
+               mapper.Map("definitionProvider", value.definitionProvider) &&
+               mapper.Map("referenceProvider", value.referenceProvider) &&
+               mapper.Map("documentSymbolProvider", value.documentSymbolProvider) &&
+               mapper.Map("semanticTokensProvider", value.semanticTokensProvider) &&
+               mapper.Map("inlayHintProvider", value.inlayHintProvider) &&
+               mapper.Map("colorProvider", value.colorProvider) && mapper.Map("renameProvider", value.renameProvider);
     }
 
     //
@@ -3242,22 +2871,9 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const InitializedResult& value) -> bool
     {
-        if (!mapper.Map("capabilities", value.capabilities)) {
-            return false;
-        }
-
-        {
-            auto scopeGuard = mapper.EnterObjectScoped("serverInfo");
-
-            if (!mapper.Map("name", value.serverInfo.name)) {
-                return false;
-            }
-            if (!mapper.Map("version", value.serverInfo.version)) {
-                return false;
-            }
-        }
-
-        return true;
+        return mapper.Map("capabilities", value.capabilities) && mapper.MapObject("serverInfo", [&] {
+            return mapper.Map("name", value.serverInfo.name) && mapper.Map("version", value.serverInfo.version);
+        });
     }
 
     struct InitializeError
@@ -3273,11 +2889,7 @@ namespace glsld::lsp
     };
     inline auto MapJson(ObjectToJsonMapper& mapper, const InitializeError& value) -> bool
     {
-        if (!mapper.Map("retry", value.retry)) {
-            return false;
-        }
-
-        return true;
+        return mapper.Map("retry", value.retry);
     }
 
 } // namespace glsld::lsp
