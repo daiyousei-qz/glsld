@@ -24,7 +24,7 @@ namespace glsld
         Swizzle,
 
         // The symbol is accessing of a struct member. e.g. `x` in `s.x;`
-        MemberVariable,
+        StructMember,
 
         // The symbol is a function parameter name.
         Parameter,
@@ -36,10 +36,13 @@ namespace glsld
         Type,
 
         // The symbol is a block name. e.g. `Block` in `uniform Block { ... }`
-        InterfaceBlock,
+        Block,
 
         // The symbol is a block instance name. e.g. `block` in `uniform Block { ... } block;`
-        InterfaceBlockInstance,
+        BlockInstance,
+
+        // The symbol is a block member name. e.g. `member` in `uniform Block { int member; }`
+        BlockMember,
     };
 
     struct SymbolQueryResult

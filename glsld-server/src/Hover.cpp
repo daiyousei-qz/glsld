@@ -23,7 +23,7 @@ namespace glsld
                 return "Local Variable";
             case SymbolDeclType::Swizzle:
                 return "Swizzle";
-            case SymbolDeclType::MemberVariable:
+            case SymbolDeclType::StructMember:
                 return "Member Variable";
             case SymbolDeclType::Parameter:
                 return "Parameter";
@@ -31,10 +31,12 @@ namespace glsld
                 return "Function";
             case SymbolDeclType::Type:
                 return "Type";
-            case SymbolDeclType::InterfaceBlock:
+            case SymbolDeclType::Block:
                 return "Interface Block";
-            case SymbolDeclType::InterfaceBlockInstance:
+            case SymbolDeclType::BlockInstance:
                 return "Interface Block Instance";
+            case SymbolDeclType::BlockMember:
+                return "Interface Block Member";
             case SymbolDeclType::Unknown:
                 GLSLD_UNREACHABLE();
             }
@@ -169,7 +171,7 @@ namespace glsld
             ReconstructSourceText(codeBuffer, *varDecl, symbolInfo.symbolDecl.GetIndex());
         }
         else if (auto structMemberDecl = decl->As<AstStructFieldDecl>();
-                 structMemberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
+                 structMemberDecl && symbolInfo.symbolType == SymbolDeclType::StructMember) {
             ReconstructSourceText(codeBuffer, *structMemberDecl, symbolInfo.symbolDecl.GetIndex());
         }
         else if (auto structDecl = decl->As<AstStructDecl>();
@@ -177,12 +179,12 @@ namespace glsld
             ReconstructSourceText(codeBuffer, *structDecl);
         }
         else if (auto blockMemberDecl = decl->As<AstBlockFieldDecl>();
-                 blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::MemberVariable) {
+                 blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::BlockMember) {
             ReconstructSourceText(codeBuffer, *blockMemberDecl, symbolInfo.symbolDecl.GetIndex());
         }
         else if (auto blockDecl = decl->As<AstInterfaceBlockDecl>();
-                 blockDecl && (symbolInfo.symbolType == SymbolDeclType::InterfaceBlock ||
-                               symbolInfo.symbolType == SymbolDeclType::InterfaceBlockInstance)) {
+                 blockDecl && (symbolInfo.symbolType == SymbolDeclType::Block ||
+                               symbolInfo.symbolType == SymbolDeclType::BlockInstance)) {
             ReconstructSourceText(codeBuffer, *blockDecl);
         }
         else {

@@ -8,10 +8,10 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 {
     auto checkSymbol = [this](const ServerTestContext& ctx, StringView label, SymbolDeclType type, StringView name,
                               bool unknown = false) {
-        auto hover = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition(label));
-        REQUIRE(hover.has_value());
-        REQUIRE(hover->symbolType == type);
-        REQUIRE(hover->token.text == name);
+        auto queryResult = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition(label));
+        REQUIRE(queryResult.has_value());
+        REQUIRE(queryResult->symbolType == type);
+        REQUIRE(queryResult->token.text == name);
     };
 
     SECTION("CursorNotHit")
@@ -106,6 +106,34 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
         checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::GlobalVariable, "unknown", true);
     }
 
+    SECTION("CursorOnBlockName")
+    {
+        auto sourceText = R"(
+        uniform ^[ubo.decl.pos]UBO
+        {
+            int ^[ubo.member.decl.pos]value;
+        } ^[ubo.instance.decl.pos]block;
+        buffer SSBO
+        {
+            int ^[ssbo.member.decl.pos]test;
+        };
+        void foo()
+        {
+            ^[ssbo.member.access.pos]test = ^[ubo.instance.access.pos]block.^[ubo.member.access.pos]value;
+        }
+        )";
+
+        auto ctx = CompileLabelledSource(sourceText);
+
+        checkSymbol(ctx, "ubo.decl.pos", SymbolDeclType::Block, "UBO");
+        checkSymbol(ctx, "ubo.member.decl.pos", SymbolDeclType::BlockMember, "value");
+        checkSymbol(ctx, "ubo.instance.decl.pos", SymbolDeclType::BlockInstance, "block");
+        checkSymbol(ctx, "ssbo.member.decl.pos", SymbolDeclType::BlockMember, "test");
+        checkSymbol(ctx, "ssbo.member.access.pos", SymbolDeclType::BlockMember, "test");
+        checkSymbol(ctx, "ubo.instance.access.pos", SymbolDeclType::BlockInstance, "block");
+        checkSymbol(ctx, "ubo.member.access.pos", SymbolDeclType::BlockMember, "value");
+    }
+
     SECTION("CursorOnFunctionName")
     {
         auto sourceText = R"(
@@ -149,9 +177,9 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 
         auto ctx = CompileLabelledSource(sourceText);
 
-        checkSymbol(ctx, "member.decl.pos", SymbolDeclType::MemberVariable, "member");
-        checkSymbol(ctx, "member.access.pos", SymbolDeclType::MemberVariable, "member");
-        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::MemberVariable, "unknown", true);
+        checkSymbol(ctx, "member.decl.pos", SymbolDeclType::StructMember, "member");
+        checkSymbol(ctx, "member.access.pos", SymbolDeclType::StructMember, "member");
+        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::StructMember, "unknown", true);
         checkSymbol(ctx, "swizzle1.access.pos", SymbolDeclType::Swizzle, "x");
         checkSymbol(ctx, "swizzle2.access.pos", SymbolDeclType::Swizzle, "xyzw");
     }

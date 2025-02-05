@@ -45,6 +45,10 @@ namespace glsld
 
             auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
             {
+                if (result.has_value()) {
+                    return AstVisitPolicy::Halt;
+                }
+
                 if (GetProvider().ContainsPosition(node, cursorPos)) {
                     return AstVisitPolicy::Traverse;
                 }
@@ -93,7 +97,10 @@ namespace glsld
                         accessType = SymbolDeclType::Parameter;
                     }
                     else if (decl->Is<AstInterfaceBlockDecl>()) {
-                        accessType = SymbolDeclType::InterfaceBlockInstance;
+                        accessType = SymbolDeclType::BlockInstance;
+                    }
+                    else if (decl->Is<AstBlockFieldDecl>()) {
+                        accessType = SymbolDeclType::BlockMember;
                     }
                     else if (auto varDecl = decl->As<AstVariableDecl>()) {
                         if (varDecl->GetScope() != DeclScope::Global) {
@@ -105,7 +112,12 @@ namespace glsld
             }
             auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
             {
-                TryAstToken(expr.GetNameToken(), &expr, expr.GetResolvedDecl(), SymbolDeclType::MemberVariable, false);
+                auto declType =
+                    (expr.GetResolvedDecl().IsValid() && expr.GetResolvedDecl().GetDecl()->Is<AstBlockFieldDecl>())
+                        ? SymbolDeclType::BlockMember
+                        : SymbolDeclType::StructMember;
+
+                TryAstToken(expr.GetNameToken(), &expr, expr.GetResolvedDecl(), declType, false);
             }
             auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
             {
@@ -137,7 +149,7 @@ namespace glsld
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
                     TryAstToken(declarator.nameToken, &decl, DeclView{&decl, declaratorIndex},
-                                SymbolDeclType::MemberVariable, true);
+                                SymbolDeclType::StructMember, true);
 
                     declaratorIndex += 1;
                 }
@@ -153,7 +165,7 @@ namespace glsld
                 size_t declaratorIndex = 0;
                 for (const auto& declarator : decl.GetDeclarators()) {
                     TryAstToken(declarator.nameToken, &decl, DeclView{&decl, declaratorIndex},
-                                SymbolDeclType::MemberVariable, true);
+                                SymbolDeclType::BlockMember, true);
 
                     declaratorIndex += 1;
                 }
@@ -161,10 +173,9 @@ namespace glsld
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
                 // FIXME: explain the symbol access type
-                TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::InterfaceBlock, true);
+                TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::Block, true);
                 if (decl.GetDeclarator()) {
-                    TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::InterfaceBlockInstance,
-                                true);
+                    TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::BlockInstance, true);
                 }
             }
             auto VisitAstParamDecl(const AstParamDecl& decl) -> void
