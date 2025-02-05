@@ -135,8 +135,7 @@ namespace glsld
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Function);
                 }
             }
-
-            auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
+            auto VisitAstStructFieldDecl(const AstStructFieldDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
@@ -156,6 +155,17 @@ namespace glsld
                                         SemanticTokenModifier::Declaration);
                 }
             }
+            auto VisitAstBlockFieldDecl(const AstBlockFieldDecl& decl) -> void
+            {
+                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                // TODO: say uniform block member is readonly
+
+                for (const auto& declarator : decl.GetDeclarators()) {
+                    if (declarator.nameToken.klass == TokenKlass::Identifier) {
+                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
+                    }
+                }
+            }
             auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
             {
                 // Interface block name
@@ -165,9 +175,10 @@ namespace glsld
                 }
 
                 // Interface block decl
+                SemanticTokenModifier instanceModifier = SemanticTokenModifier::Declaration;
+                // TODO: say uniform block member is readonly
                 if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
-                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Variable,
-                                        SemanticTokenModifier::Declaration);
+                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Variable, instanceModifier);
                 }
             }
             auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void

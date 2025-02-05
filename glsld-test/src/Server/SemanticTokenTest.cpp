@@ -88,10 +88,10 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         auto sourceText = R"(
         uniform ^[ubo.decl.begin]UBO^[ubo.decl.end]
         {
-            int x;
+            int ^[x.decl.begin]x^[x.decl.end];
         } ^[block.decl.begin]block^[block.decl.end];
         void foo() {
-            ^[block.access.begin]block^[block.access.end].x;
+            ^[block.use.begin]block^[block.use.end].^[x.use.begin]x^[x.use.end];
         }
     )";
 
@@ -100,9 +100,13 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("ubo.decl.begin"), ctx.GetPosition("ubo.decl.end"),
                            SemanticTokenType::Type, SemanticTokenModifier::Declaration);
+        checkSemanticToken(semanticTokens, ctx.GetPosition("x.decl.begin"), ctx.GetPosition("x.decl.end"),
+                           SemanticTokenType::Variable, SemanticTokenModifier::Declaration);
         checkSemanticToken(semanticTokens, ctx.GetPosition("block.decl.begin"), ctx.GetPosition("block.decl.end"),
                            SemanticTokenType::Variable, SemanticTokenModifier::Declaration);
-        checkSemanticToken(semanticTokens, ctx.GetPosition("block.access.begin"), ctx.GetPosition("block.access.end"),
+        checkSemanticToken(semanticTokens, ctx.GetPosition("block.use.begin"), ctx.GetPosition("block.use.end"),
+                           SemanticTokenType::Variable, SemanticTokenModifier::None);
+        checkSemanticToken(semanticTokens, ctx.GetPosition("x.use.begin"), ctx.GetPosition("x.use.end"),
                            SemanticTokenType::Variable, SemanticTokenModifier::None);
     }
 

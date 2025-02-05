@@ -24,7 +24,7 @@ namespace glsld
             case SymbolDeclType::Swizzle:
                 return "Swizzle";
             case SymbolDeclType::StructMember:
-                return "Member Variable";
+                return "Struct Member";
             case SymbolDeclType::Parameter:
                 return "Parameter";
             case SymbolDeclType::Function:
@@ -43,6 +43,7 @@ namespace glsld
         }();
         builder.Append(fmt::format("### {}{} `{}`\n", hover.unknown ? "Unknown " : "", hoverTypeName, hover.name));
 
+        // Hover Info
         if (!hover.hoverInfo.empty()) {
             builder.AppendRuler();
             builder.AppendParagraph(hover.hoverInfo);
@@ -119,18 +120,68 @@ namespace glsld
         auto tokenRange = provider.LookupExpandedTextRange(symbolInfo.token);
 
         std::string hoverInfo;
-        if (auto expr = symbolInfo.symbolOwner->As<AstExpr>(); expr) {
-            hoverInfo += fmt::format("Type: `{}`\n\n", expr->GetDeducedType()->GetDebugName());
-            if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
-                hoverInfo += fmt::format("Value: `{}`\n\n", constValue.ToString());
+        {
+            if (!symbolInfo.symbolDecl.IsValid()) {
+                // This branch is only used to filter out symbols without known declaration.
             }
-        }
-        else if (auto varDecl = symbolInfo.symbolOwner->As<AstVariableDecl>(); varDecl) {
-            const auto& declarator = varDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
-            auto resolvedType      = varDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
-            hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
-            if (auto init = declarator.initializer; init && varDecl->IsConstVariable()) {
-                hoverInfo += fmt::format("Value: `{}`\n\n", EvalAstInitializer(*init, resolvedType).ToString());
+            else if (auto funcDecl = symbolInfo.symbolDecl.GetDecl()->As<AstFunctionDecl>();
+                     funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
+                hoverInfo +=
+                    fmt::format("Return Type: `{}`\n\n", funcDecl->GetReturnType()->GetResolvedType()->GetDebugName());
+                if (!funcDecl->GetParams().empty()) {
+                    hoverInfo += "Parameters:\n";
+                    for (auto paramDecl : funcDecl->GetParams()) {
+                        hoverInfo += " - `";
+                        ReconstructSourceText(hoverInfo, *paramDecl);
+                        hoverInfo += "`\n";
+                    }
+                    hoverInfo += "\n";
+                }
+            }
+            else if (auto paramDecl = symbolInfo.symbolDecl.GetDecl()->As<AstParamDecl>();
+                     paramDecl && symbolInfo.symbolType == SymbolDeclType::Parameter) {
+                hoverInfo += fmt::format("Type: `{}`\n\n", paramDecl->GetResolvedType()->GetDebugName());
+            }
+            else if (auto varDecl = symbolInfo.symbolDecl.GetDecl()->As<AstVariableDecl>();
+                     varDecl && (symbolInfo.symbolType == SymbolDeclType::GlobalVariable ||
+                                 symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
+                const auto& declarator = varDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
+                auto resolvedType      = varDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
+                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+
+                // We only compute value for declaration here. Const variable value in expression will be handled later.
+                if (symbolInfo.isDeclaration && varDecl->IsConstVariable()) {
+                    if (auto init = declarator.initializer; init) {
+                        hoverInfo += fmt::format("Value: `{}`\n\n", EvalAstInitializer(*init, resolvedType).ToString());
+                    }
+                }
+            }
+            else if (auto structMemberDecl = symbolInfo.symbolDecl.GetDecl()->As<AstStructFieldDecl>();
+                     structMemberDecl && symbolInfo.symbolType == SymbolDeclType::StructMember) {
+                const auto& declarator = structMemberDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
+                auto resolvedType      = structMemberDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
+                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+            }
+            else if (auto structDecl = symbolInfo.symbolDecl.GetDecl()->As<AstStructDecl>();
+                     structDecl && symbolInfo.symbolType == SymbolDeclType::Type) {
+                // TODO: maybe show struct size and alignment?
+            }
+            else if (auto blockMemberDecl = symbolInfo.symbolDecl.GetDecl()->As<AstBlockFieldDecl>();
+                     blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::BlockMember) {
+                const auto& declarator = blockMemberDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
+                auto resolvedType      = blockMemberDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
+                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+            }
+            else if (auto blockDecl = symbolInfo.symbolDecl.GetDecl()->As<AstInterfaceBlockDecl>();
+                     blockDecl && (symbolInfo.symbolType == SymbolDeclType::Block ||
+                                   symbolInfo.symbolType == SymbolDeclType::BlockInstance)) {
+                // TODO: maybe show block layouts?
+            }
+
+            if (auto expr = symbolInfo.symbolOwner->As<AstExpr>(); expr) {
+                if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
+                    hoverInfo += fmt::format("Value: `{}`\n\n", constValue.ToString());
+                }
             }
         }
 
