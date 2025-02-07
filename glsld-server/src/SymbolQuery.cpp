@@ -19,11 +19,13 @@ namespace glsld
                     if (GetProvider().ContainsPosition(token, cursorPos)) {
                         GLSLD_ASSERT(!result);
                         result = SymbolQueryResult{
-                            .token         = token,
-                            .symbolOwner   = owner,
-                            .symbolDecl    = declView,
-                            .symbolType    = type,
-                            .isDeclaration = isDeclaration,
+                            .symbolType          = type,
+                            .symbolRange         = token.GetSyntaxRange(),
+                            .spelledText         = token.text.Str(),
+                            .spelledRange        = GetProvider().LookupExpandedTextRange(token),
+                            .astSymbolOccurrence = owner,
+                            .symbolDecl          = declView,
+                            .isDeclaration       = isDeclaration,
                         };
                     }
                 }
@@ -194,6 +196,35 @@ namespace glsld
     auto QuerySymbolByPosition(const LanguageQueryProvider& provider, TextPosition position)
         -> std::optional<SymbolQueryResult>
     {
+        // First, we need to do a binary search to see if the cursor is on a macro/header name.
+        // These are not in the AST, so we need to check them first.
+        if (auto ppSymbolOccurence = provider.GetPreprocessInfoCache().FindPPSymbolOccurrence(position);
+            ppSymbolOccurence) {
+            SymbolDeclType symbolType;
+            std::string spelledText;
+            if (auto headerNameInfo = ppSymbolOccurence->GetHeaderNameInfo(); headerNameInfo) {
+                symbolType  = SymbolDeclType::HeaderName;
+                spelledText = headerNameInfo->headerName;
+            }
+            else if (auto macroDefinitionInfo = ppSymbolOccurence->GetMacroDefinitionInfo(); macroDefinitionInfo) {
+                symbolType  = SymbolDeclType::Macro;
+                spelledText = macroDefinitionInfo->macroName.text.Str();
+            }
+            else if (auto macroUsageInfo = ppSymbolOccurence->GetMacroUsageInfo(); macroUsageInfo) {
+                symbolType  = SymbolDeclType::Macro;
+                spelledText = macroUsageInfo->macroName.text.Str();
+            }
+
+            return SymbolQueryResult{
+                .symbolType         = symbolType,
+                .symbolRange        = {},
+                .spelledText        = std::move(spelledText),
+                .spelledRange       = ppSymbolOccurence->GetSpelledRange(),
+                .ppSymbolOccurrence = ppSymbolOccurence,
+            };
+        }
+
+        // Then, we traverse the AST to search for the identifier that the cursor is on, if any.
         return SymbolQueryVisitor{provider, position}.Execute();
     }
 } // namespace glsld

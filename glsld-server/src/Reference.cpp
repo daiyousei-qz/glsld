@@ -122,7 +122,7 @@ namespace glsld
                            bool includeDeclaration) -> std::vector<lsp::Location>
     {
         auto accessInfo = QuerySymbolByPosition(provider, FromLspPosition(position));
-        if (!accessInfo || !accessInfo->token.IsIdentifier() || !accessInfo->symbolDecl.IsValid()) {
+        if (!accessInfo || !accessInfo->symbolDecl.IsValid()) {
             return {};
         }
 

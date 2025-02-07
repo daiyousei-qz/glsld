@@ -269,11 +269,6 @@ namespace glsld
                 // FIXME: report warning, extra tokens after the header file name
             }
 
-            // Run PP callback event if any
-            if (callback) {
-                callback->OnIncludeDirective(*headerNameToken);
-            }
-
             // Search for the header file in the include paths and load the source text.
             StringView headerName = headerNameToken->text.StrView().Drop(1).DropBack(1);
             FileID includeFile;
@@ -283,6 +278,11 @@ namespace glsld
                 if (includeFile.IsValid()) {
                     break;
                 }
+            }
+
+            // Run PP callback event if any
+            if (callback) {
+                callback->OnIncludeDirective(*headerNameToken, sourceManager.GetAbsolutePath(includeFile));
             }
 
             if (!includeFile.IsValid()) {
@@ -301,6 +301,7 @@ namespace glsld
             PreprocessStateMachine nextPP{
                 compiler,
                 outputStream,
+                tuId,
                 callback,
                 includeExpansionRange ? includeExpansionRange : TextRange{headerNameToken->spelledRange.start},
                 includeDepth + 1,
@@ -397,7 +398,7 @@ namespace glsld
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnDefineDirective(macroName, paramTokens);
+            callback->OnDefineDirective(macroName, paramTokens, expansionTokens, isFunctionLike);
         }
 
         // Register the macro

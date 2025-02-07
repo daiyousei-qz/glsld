@@ -9,20 +9,30 @@ namespace glsld
 {
     auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
 
+    template <typename Callback>
+    concept MacroExpansionCallbackT = requires(Callback& callback) {
+        { callback.OnYieldToken(std::declval<PPToken>()) } -> std::same_as<void>;
+        { callback.OnEnterMacroExpansion(std::declval<PPToken>()) } -> std::same_as<void>;
+        { callback.OnExitMacroExpansion(std::declval<PPToken>()) } -> std::same_as<void>;
+    };
+
     // Flexible, could either
     // - Output token to token stream
     // - Add token to a buffer
     class EmptyMacroExpansionCallback
     {
     public:
+        // This is called when a concrete token is yielded from the source stream.
         auto OnYieldToken(const PPToken& token) -> void
         {
         }
 
+        // This is called when macro invocation (including arguments) tokens are all consumed.
         auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
         {
         }
 
+        // This is called when a macro invocation is fully expanded.
         auto OnExitMacroExpansion(const PPToken& macroUse) -> void
         {
         }
@@ -30,7 +40,10 @@ namespace glsld
 
     namespace detail
     {
-        template <typename BaseCallback>
+        // This callback type wraps around a base macro expansion callback to:
+        // 1. Intercepts macro expansion tokens to a buffer for further processing.
+        // 2. Forwards macro expansion signals to the base callback.
+        template <MacroExpansionCallbackT BaseCallback>
         class MacroArgumentExpansionCallback final : public EmptyMacroExpansionCallback
         {
         private:
@@ -68,7 +81,7 @@ namespace glsld
 
         // This class implement a recursive feedback-driven macro expansion. Tokens that are not eligible for
         // further expansion will be yielded to the callback.
-        template <typename Callback, bool ArgExpansionMode = false>
+        template <MacroExpansionCallbackT Callback, bool ArgExpansionMode = false>
         class MacroExpansionProcessorImpl
         {
         private:
@@ -76,10 +89,20 @@ namespace glsld
             MacroTable& macroTable;
             Callback callback;
 
+            // Buffer to store function-like macro arguments, including ','.
             std::vector<PPToken> argBuffer;
 
-            int argLParenCounter                 = 0;
+            // This is the counter of processed '(' while parsing the argument list of a function-like macro.
+            // We need to reach 0 to finish the argument list.
+            int argLParenCounter = 0;
+
+            // This is the (function-like) macro that is possibly being expanded.
+            // Note that we have consumed the macro name token, but not yet reached the ')'.
             MacroDefinition* pendingInvokedMacro = nullptr;
+
+            // This is the (function-like) macro name token that is possibly being expanded.
+            // Because we need to fully parse the argument list before we can determine if it's a macro invocation,
+            // we withhold the token until we are sure.
             PPToken pendingInvokedMacroToken;
             std::optional<PPToken> pendingExitMacroToken;
 
@@ -400,6 +423,6 @@ namespace glsld
         };
     } // namespace detail
 
-    template <typename Callback>
+    template <MacroExpansionCallbackT Callback>
     using MacroExpansionProcessor = detail::MacroExpansionProcessorImpl<Callback, false>;
 } // namespace glsld

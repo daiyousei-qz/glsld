@@ -8,8 +8,11 @@ namespace glsld
 {
     enum class SymbolDeclType
     {
-        // The symbol is an identifier with none of the following categoty.
-        Unknown,
+        // The symbol is a header name. e.g. `"header.h"` in `#include "header.h"`
+        HeaderName,
+
+        // The symbol is a macro name. e.g. `MACRO` in `#define MACRO 1`
+        Macro,
 
         // The symbol is a key in the layout qualifier. e.g. `location` in `layout(location = 0) in vec4 a;`
         LayoutQualifier,
@@ -47,17 +50,27 @@ namespace glsld
 
     struct SymbolQueryResult
     {
-        // The token that the cursor is on.
-        AstSyntaxToken token;
-
-        // The AST node that possesses the token.
-        const AstNode* symbolOwner;
-
-        // The declaration of the symbol that the token is referring to.
-        DeclView symbolDecl;
-
         // The type of the symbol that the token is accessing.
         SymbolDeclType symbolType;
+
+        // Usually, this is the range of the identifier token.
+        // But in case we hit a macro expansion, this is the range of the expaned tokens.
+        AstSyntaxRange symbolRange;
+
+        // The text of the symbol spelled in the source file.
+        std::string spelledText;
+
+        // The range of the spelled text.
+        TextRange spelledRange;
+
+        // The absolute path of the header file if the symbol is a header name.
+        const PPSymbolOccurrence* ppSymbolOccurrence = nullptr;
+
+        // The smallest AST node that possesses the symbol.
+        const AstNode* astSymbolOccurrence = nullptr;
+
+        // The declaration AST node of the symbol, if any.
+        DeclView symbolDecl = {};
 
         // True if the token is from the declaration. e.g. `a` in `int a;`
         bool isDeclaration = false;

@@ -43,7 +43,7 @@ namespace glsld
         });
 
         CompilerInvocationState compiler{sourceManager, compilerConfig, languageConfig};
-        Preprocessor{compiler, ppCallback, true}.DoPreprocess(mainFileId);
+        Preprocessor{compiler, mainFileId, ppCallback, true}.DoPreprocess();
     }
 
     auto CompilerInvocation::CompilePreamble(PPCallback* ppCallback) -> std::shared_ptr<PrecompiledPreamble>
@@ -128,7 +128,7 @@ namespace glsld
             }
         });
 
-        Preprocessor{compiler, callback, false}.DoPreprocess(file);
+        Preprocessor{compiler, file, callback, false}.DoPreprocess();
     }
     auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void
     {

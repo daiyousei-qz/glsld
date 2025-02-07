@@ -22,6 +22,11 @@ namespace glsld
         std::vector<RawCommentToken> comments;
 
     public:
+        auto GetNextTokenIndex() const noexcept -> uint32_t
+        {
+            return tokens.size();
+        }
+
         // Add a new token to the token stream.
         auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
 
@@ -85,16 +90,25 @@ namespace glsld
 
         TokenStream& outputStream;
 
+        // The current translation unit ID.
+        TranslationUnitID tuId = TranslationUnitID::UserFile;
+
         // The callback interface for the preprocessor.
         PPCallback* callback = nullptr;
 
         // The current state of the preprocessor.
         PreprocessorState state = PreprocessorState::Default;
 
+        struct MacroExpansionInfo
+        {
+            SyntaxTokenID startTokenId;
+        };
+
+        // This callback is used to expand tokens in regular context.
         struct ExpandToTokenStreamCallback final
         {
             PreprocessStateMachine& pp;
-            int expansionDepth = 0;
+            std::vector<MacroExpansionInfo> expansionStack;
             TextRange firstExpansionRange;
 
             ExpandToTokenStreamCallback(PreprocessStateMachine& pp) : pp(pp)
@@ -105,12 +119,15 @@ namespace glsld
             {
                 const TextRange* expandedRange = nullptr;
                 if (pp.includeExpansionRange) {
+                    // If the token is from an included file, use the expanded range for that header.
                     expandedRange = &*pp.includeExpansionRange;
                 }
-                else if (expansionDepth > 0) {
+                else if (!expansionStack.empty()) {
+                    // If the token is from a macro expansion, use the expanded range for that macro.
                     expandedRange = &firstExpansionRange;
                 }
                 else {
+                    // Otherwise, use the spelled range.
                     expandedRange = &token.spelledRange;
                 }
 
@@ -122,22 +139,24 @@ namespace glsld
 
             auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
             {
-                expansionDepth += 1;
-                if (expansionDepth == 1) {
+                if (expansionStack.empty()) {
                     firstExpansionRange = TextRange{macroUse.spelledRange.start};
                 }
 
-                if (pp.callback) {
-                    pp.callback->OnMacroExpansion(macroUse);
-                }
+                expansionStack.push_back(MacroExpansionInfo{pp.GetNextTokenId()});
             }
 
             auto OnExitMacroExpansion(const PPToken& macroUse) -> void
             {
-                expansionDepth -= 1;
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(
+                        macroUse, AstSyntaxRange{expansionStack.back().startTokenId, pp.GetNextTokenId()});
+                }
+                expansionStack.pop_back();
             }
         };
 
+        // This callback is used to expand tokens in preprocessing directives.
         struct ExpandToVectorCallback final
         {
             PreprocessStateMachine& pp;
@@ -155,13 +174,13 @@ namespace glsld
 
             auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
             {
-                if (pp.callback) {
-                    pp.callback->OnMacroExpansion(macroUse);
-                }
             }
 
             auto OnExitMacroExpansion(const PPToken& macroUse) -> void
             {
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(macroUse, {});
+                }
             }
         };
 
@@ -194,11 +213,12 @@ namespace glsld
         std::vector<PPConditionalInfo> conditionalStack = {};
 
     public:
-        PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, PPCallback* callback,
-                               std::optional<TextRange> includeExpansionRange, size_t includeDepth)
+        PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, TranslationUnitID tuId,
+                               PPCallback* callback, std::optional<TextRange> includeExpansionRange,
+                               size_t includeDepth)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
-              outputStream(outputStream), callback(callback),
+              outputStream(outputStream), tuId(tuId), callback(callback),
               macroExpansionProcessor(compiler.GetAtomTable(), compiler.GetMacroTable(),
                                       ExpandToTokenStreamCallback{*this}),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
@@ -208,6 +228,11 @@ namespace glsld
         auto GetState() const noexcept -> PreprocessorState
         {
             return state;
+        }
+
+        auto GetNextTokenId() const noexcept -> SyntaxTokenID
+        {
+            return SyntaxTokenID{tuId, outputStream.GetNextTokenIndex()};
         }
 
         auto IsVersionScanningMode() const noexcept -> bool
@@ -332,11 +357,27 @@ namespace glsld
     {
     private:
         CompilerInvocationState& compiler;
+        FileID sourceFile;
         TokenStream outputStream;
 
+        static auto GetTUId(FileID sourceFile) -> TranslationUnitID
+        {
+            if (sourceFile.IsSystemPreamble()) {
+                return TranslationUnitID::SystemPreamble;
+            }
+            else if (sourceFile.IsUserPreamble()) {
+                return TranslationUnitID::UserPreamble;
+            }
+            else {
+                return TranslationUnitID::UserFile;
+            }
+        }
+
     public:
-        Preprocessor(CompilerInvocationState& compiler, PPCallback* callback, bool versionScanningMode)
-            : PreprocessStateMachine(compiler, outputStream, callback, std::nullopt, 0), compiler(compiler)
+        Preprocessor(CompilerInvocationState& compiler, FileID sourceFile, PPCallback* callback,
+                     bool versionScanningMode)
+            : PreprocessStateMachine(compiler, outputStream, GetTUId(sourceFile), callback, std::nullopt, 0),
+              sourceFile(sourceFile), compiler(compiler)
         {
             if (versionScanningMode) {
                 InitializeForVersionScanning();
@@ -346,24 +387,13 @@ namespace glsld
             }
         }
 
-        auto DoPreprocess(FileID sourceFile) -> void
+        auto DoPreprocess() -> void
         {
             PreprocessSourceFile(sourceFile);
 
             if (!IsVersionScanningMode()) {
-                TranslationUnitID id;
-                if (sourceFile.IsSystemPreamble()) {
-                    id = TranslationUnitID::SystemPreamble;
-                }
-                else if (sourceFile.IsUserPreamble()) {
-                    id = TranslationUnitID::UserPreamble;
-                }
-                else {
-                    id = TranslationUnitID::UserFile;
-                }
-
                 auto [tokens, comments] = outputStream.Export();
-                compiler.UpdateTokenArtifact(id, std::move(tokens), std::move(comments));
+                compiler.UpdateTokenArtifact(GetTUId(sourceFile), std::move(tokens), std::move(comments));
             }
         }
     };

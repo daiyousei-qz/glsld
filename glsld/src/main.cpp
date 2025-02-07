@@ -127,10 +127,6 @@ namespace glsld
 
     static auto DoMain(ProgramArgs args) -> void
     {
-#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
-        WaitDebuggerToAttach();
-#endif
-
         auto config = LoadConfig(args.configFile);
         glsld::LanguageServer{config}.Run();
     }
@@ -138,9 +134,14 @@ namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
+#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
+    glsld::WaitDebuggerToAttach();
+#endif
+
 #if defined(GLSLD_OS_WIN)
     SetUnhandledExceptionFilter();
 #endif
+
     glsld::DoMain(glsld::ParseArguments(argc, argv));
     return 0;
 }

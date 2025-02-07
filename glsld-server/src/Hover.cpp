@@ -15,6 +15,10 @@ namespace glsld
         // Header explaining what the hover symbol is
         StringView hoverTypeName = [&]() {
             switch (hover.type) {
+            case SymbolDeclType::HeaderName:
+                return "Header Name";
+            case SymbolDeclType::Macro:
+                return "Macro";
             case SymbolDeclType::LayoutQualifier:
                 return "Layout Qualifier";
             case SymbolDeclType::GlobalVariable:
@@ -37,16 +41,26 @@ namespace glsld
                 return "Interface Block Instance";
             case SymbolDeclType::BlockMember:
                 return "Interface Block Member";
-            case SymbolDeclType::Unknown:
-                GLSLD_UNREACHABLE();
             }
         }();
         builder.Append(fmt::format("### {}{} `{}`\n", hover.unknown ? "Unknown " : "", hoverTypeName, hover.name));
 
         // Hover Info
-        if (!hover.hoverInfo.empty()) {
-            builder.AppendRuler();
-            builder.AppendParagraph(hover.hoverInfo);
+        if (!hover.returnType.empty()) {
+            builder.AppendParagraph(fmt::format("Return Type: `{}`", hover.returnType));
+        }
+        if (!hover.parameters.empty()) {
+            builder.AppendParagraph("Parameters:");
+            for (const auto& param : hover.parameters) {
+                builder.Append(fmt::format(" - `{}`\n", param));
+            }
+        }
+        if (!hover.exprType.empty() && hover.returnType.empty()) {
+            // We omit the expression type if the return type is already shown.
+            builder.AppendParagraph(fmt::format("Type: `{}`", hover.exprType));
+        }
+        if (!hover.exprValue.empty()) {
+            builder.AppendParagraph(fmt::format("Value: `{}`", hover.exprValue));
         }
 
         // Description
@@ -109,50 +123,102 @@ namespace glsld
         return "";
     }
 
-    static auto CreateHoverContent(const LanguageQueryProvider& provider, const SymbolQueryResult& symbolInfo)
-        -> std::optional<HoverContent>
+    static auto CreateHoverContentForPPSymbol(const LanguageQueryProvider& provider,
+                                              const SymbolQueryResult& symbolInfo) -> std::optional<HoverContent>
     {
-        if (!symbolInfo.token.IsIdentifier()) {
-            return std::nullopt;
+        GLSLD_ASSERT(symbolInfo.ppSymbolOccurrence);
+        if (auto headerNameInfo = symbolInfo.ppSymbolOccurrence->GetHeaderNameInfo(); headerNameInfo) {
+            return HoverContent{
+                .type        = SymbolDeclType::HeaderName,
+                .name        = symbolInfo.spelledText,
+                .description = fmt::format("See `{}`", headerNameInfo->headerAbsolutePath),
+                .range       = symbolInfo.spelledRange,
+            };
+        }
+        else if (auto macroDefinitionInfo = symbolInfo.ppSymbolOccurrence->GetMacroDefinitionInfo();
+                 macroDefinitionInfo) {
+            std::vector<std::string> params;
+            for (const auto& param : macroDefinitionInfo->params) {
+                params.push_back(param.text.Str());
+            }
+
+            std::string codeBuffer = "#define " + macroDefinitionInfo->macroName.text.Str();
+            if (macroDefinitionInfo->isFunctionLike) {
+                codeBuffer += "(";
+                for (size_t i = 0; i < params.size(); ++i) {
+                    if (i > 0) {
+                        codeBuffer += ", ";
+                    }
+                    codeBuffer += params[i];
+                }
+                codeBuffer += ")";
+            }
+
+            for (const auto& token : macroDefinitionInfo->tokens) {
+                codeBuffer += " ";
+                codeBuffer += token.text.StrView();
+            }
+
+            return HoverContent{
+                .type        = SymbolDeclType::Macro,
+                .name        = symbolInfo.spelledText,
+                .parameters  = std::move(params),
+                .description = "",
+                .code        = std::move(codeBuffer),
+                .range       = symbolInfo.spelledRange,
+            };
+        }
+        else if (auto macroUsageInfo = symbolInfo.ppSymbolOccurrence->GetMacroUsageInfo(); macroUsageInfo) {
+            return HoverContent{
+                .type        = SymbolDeclType::Macro,
+                .name        = symbolInfo.spelledText,
+                .description = "",
+                // .code        = "",
+                .range = symbolInfo.spelledRange,
+            };
         }
 
-        StringView name = symbolInfo.token.text.StrView();
-        auto tokenRange = provider.LookupExpandedTextRange(symbolInfo.token);
+        return std::nullopt;
+    }
 
-        std::string hoverInfo;
+    static auto CreateHoverContentForAstSymbol(const LanguageQueryProvider& provider,
+                                               const SymbolQueryResult& symbolInfo) -> std::optional<HoverContent>
+    {
+        GLSLD_ASSERT(symbolInfo.astSymbolOccurrence);
+        std::string returnType;
+        std::vector<std::string> parameters;
+        std::string exprType;
+        std::string exprValue;
         {
             if (!symbolInfo.symbolDecl.IsValid()) {
                 // This branch is only used to filter out symbols without known declaration.
             }
             else if (auto funcDecl = symbolInfo.symbolDecl.GetDecl()->As<AstFunctionDecl>();
                      funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
-                hoverInfo +=
-                    fmt::format("Return Type: `{}`\n\n", funcDecl->GetReturnType()->GetResolvedType()->GetDebugName());
+                returnType = funcDecl->GetReturnType()->GetResolvedType()->GetDebugName().Str();
                 if (!funcDecl->GetParams().empty()) {
-                    hoverInfo += "Parameters:\n";
                     for (auto paramDecl : funcDecl->GetParams()) {
-                        hoverInfo += " - `";
-                        ReconstructSourceText(hoverInfo, *paramDecl);
-                        hoverInfo += "`\n";
+                        std::string paramText;
+                        ReconstructSourceText(paramText, *paramDecl);
+                        parameters.push_back(std::move(paramText));
                     }
-                    hoverInfo += "\n";
                 }
             }
             else if (auto paramDecl = symbolInfo.symbolDecl.GetDecl()->As<AstParamDecl>();
                      paramDecl && symbolInfo.symbolType == SymbolDeclType::Parameter) {
-                hoverInfo += fmt::format("Type: `{}`\n\n", paramDecl->GetResolvedType()->GetDebugName());
+                exprType = paramDecl->GetResolvedType()->GetDebugName().Str();
             }
             else if (auto varDecl = symbolInfo.symbolDecl.GetDecl()->As<AstVariableDecl>();
                      varDecl && (symbolInfo.symbolType == SymbolDeclType::GlobalVariable ||
                                  symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
                 const auto& declarator = varDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
                 auto resolvedType      = varDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
-                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+                exprType               = resolvedType->GetDebugName().Str();
 
                 // We only compute value for declaration here. Const variable value in expression will be handled later.
                 if (symbolInfo.isDeclaration && varDecl->IsConstVariable()) {
                     if (auto init = declarator.initializer; init) {
-                        hoverInfo += fmt::format("Value: `{}`\n\n", EvalAstInitializer(*init, resolvedType).ToString());
+                        exprValue = EvalAstInitializer(*init, resolvedType).ToString();
                     }
                 }
             }
@@ -160,7 +226,7 @@ namespace glsld
                      structMemberDecl && symbolInfo.symbolType == SymbolDeclType::StructMember) {
                 const auto& declarator = structMemberDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
                 auto resolvedType      = structMemberDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
-                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+                exprType               = resolvedType->GetDebugName().Str();
             }
             else if (auto structDecl = symbolInfo.symbolDecl.GetDecl()->As<AstStructDecl>();
                      structDecl && symbolInfo.symbolType == SymbolDeclType::Type) {
@@ -170,7 +236,7 @@ namespace glsld
                      blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::BlockMember) {
                 const auto& declarator = blockMemberDecl->GetDeclarators()[symbolInfo.symbolDecl.GetIndex()];
                 auto resolvedType      = blockMemberDecl->GetResolvedTypes()[symbolInfo.symbolDecl.GetIndex()];
-                hoverInfo += fmt::format("Type: `{}`\n\n", resolvedType->GetDebugName());
+                exprType               = resolvedType->GetDebugName().Str();
             }
             else if (auto blockDecl = symbolInfo.symbolDecl.GetDecl()->As<AstInterfaceBlockDecl>();
                      blockDecl && (symbolInfo.symbolType == SymbolDeclType::Block ||
@@ -178,9 +244,11 @@ namespace glsld
                 // TODO: maybe show block layouts?
             }
 
-            if (auto expr = symbolInfo.symbolOwner->As<AstExpr>(); expr) {
-                if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
-                    hoverInfo += fmt::format("Value: `{}`\n\n", constValue.ToString());
+            if (symbolInfo.astSymbolOccurrence) {
+                if (auto expr = symbolInfo.astSymbolOccurrence->As<AstExpr>(); expr) {
+                    if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
+                        exprValue = constValue.ToString();
+                    }
                 }
             }
         }
@@ -191,11 +259,14 @@ namespace glsld
 
             return HoverContent{
                 .type        = symbolInfo.symbolType,
-                .name        = name.Str(),
-                .hoverInfo   = std::move(hoverInfo),
+                .name        = symbolInfo.spelledText,
+                .returnType  = returnType,
+                .parameters  = parameters,
+                .exprType    = exprType,
+                .exprValue   = exprValue,
                 .description = "",
                 .code        = "",
-                .range       = tokenRange,
+                .range       = symbolInfo.spelledRange,
                 .unknown     = isUnknown,
             };
         }
@@ -244,11 +315,14 @@ namespace glsld
 
         return HoverContent{
             .type        = symbolInfo.symbolType,
-            .name        = name.Str(),
-            .hoverInfo   = std::move(hoverInfo),
-            .description = std::move(description),
-            .code        = std::move(codeBuffer),
-            .range       = tokenRange,
+            .name        = symbolInfo.spelledText,
+            .returnType  = returnType,
+            .parameters  = parameters,
+            .exprType    = exprType,
+            .exprValue   = exprValue,
+            .description = description,
+            .code        = codeBuffer,
+            .range       = symbolInfo.spelledRange,
         };
     }
 
@@ -257,18 +331,18 @@ namespace glsld
         const auto& compilerObject = provider.GetCompilerResult();
 
         if (auto symbolInfo = QuerySymbolByPosition(provider, position); symbolInfo) {
-            // Decl token that's either builtin or unknown
-            if (symbolInfo->symbolType == SymbolDeclType::Unknown) {
-                return std::nullopt;
-            }
-
             // FIXME: is the following needed?
-            if (symbolInfo->token.IsKeyword()) {
-                // Don't provide hover for keyword
-                return std::nullopt;
-            }
+            // if (symbolInfo->token.IsKeyword()) {
+            //     // Don't provide hover for keyword
+            //     return std::nullopt;
+            // }
 
-            return CreateHoverContent(provider, *symbolInfo);
+            if (symbolInfo->ppSymbolOccurrence) {
+                return CreateHoverContentForPPSymbol(provider, *symbolInfo);
+            }
+            else if (symbolInfo->astSymbolOccurrence) {
+                return CreateHoverContentForAstSymbol(provider, *symbolInfo);
+            }
         }
 
         return std::nullopt;

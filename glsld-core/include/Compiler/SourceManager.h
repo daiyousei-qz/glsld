@@ -76,6 +76,22 @@ namespace glsld
             return userPreamble;
         }
 
+        auto GetAbsolutePath(FileID fileId) -> StringView
+        {
+            if (!fileId.IsValid()) {
+                return "";
+            }
+            else if (fileId.IsSystemPreamble()) {
+                return "system_preamble";
+            }
+            else if (fileId.IsUserPreamble()) {
+                return "user_preamble";
+            }
+            else {
+                return GetUserFileEntry(fileId).canonicalPath;
+            }
+        }
+
         auto GetSourceText(FileID fileId) -> StringView
         {
             if (!fileId.IsValid()) {

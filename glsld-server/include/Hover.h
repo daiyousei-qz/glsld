@@ -13,8 +13,13 @@ namespace glsld
         // The name of the hovered symbol.
         std::string name;
 
-        // The type/value information of the hovered symbol.
-        std::string hoverInfo;
+        std::string returnType;
+
+        std::vector<std::string> parameters;
+
+        std::string exprType;
+
+        std::string exprValue;
 
         // The description of the hovered symbol, typically parsed from nearby comments or documentation.
         std::string description;

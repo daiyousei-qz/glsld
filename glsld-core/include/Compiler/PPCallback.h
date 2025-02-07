@@ -17,12 +17,25 @@ namespace glsld
         {
         }
 
-        virtual auto OnIncludeDirective(const PPToken& headerName) -> void
+        // Called when a `#include "header.h"` directive is encountered
+        // - headerName is the name token of the header file
+        // - resolvedPath is the resolved absolute path of the header file, or "" if not found
+        virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void
         {
         }
-        virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params) -> void
+
+        // Called when a `#define MACRO XXX` directive is encountered
+        // - macroName is the name token of the macro
+        // - params is the list of parameters if the macro is a function-like macro
+        // - tokens is the list of tokens that make up the macro replacement list
+        // - isFunctionLike is true if the macro is a function-like macro
+        virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
+                                       bool isFunctionLike) -> void
         {
         }
+
+        // Called when a `#undef MACRO` directive is encountered
+        // - macroName is the name token of the macro
         virtual auto OnUndefDirective(const PPToken& macroName) -> void
         {
         }
@@ -48,7 +61,7 @@ namespace glsld
         virtual auto OnExitIncludedFile() -> void
         {
         }
-        virtual auto OnMacroExpansion(const PPToken& macroUse) -> void
+        virtual auto OnMacroExpansion(const PPToken& macroName, AstSyntaxRange expandedTokens) -> void
         {
         }
     };
