@@ -135,15 +135,14 @@ namespace glsld
                 .range       = symbolInfo.spelledRange,
             };
         }
-        else if (auto macroDefinitionInfo = symbolInfo.ppSymbolOccurrence->GetMacroDefinitionInfo();
-                 macroDefinitionInfo) {
+        else if (auto macroInfo = symbolInfo.ppSymbolOccurrence->GetMacroInfo(); macroInfo) {
             std::vector<std::string> params;
-            for (const auto& param : macroDefinitionInfo->params) {
+            for (const auto& param : macroInfo->definition->params) {
                 params.push_back(param.text.Str());
             }
 
-            std::string codeBuffer = "#define " + macroDefinitionInfo->macroName.text.Str();
-            if (macroDefinitionInfo->isFunctionLike) {
+            std::string codeBuffer = "#define " + macroInfo->macroName.text.Str();
+            if (macroInfo->definition->isFunctionLike) {
                 codeBuffer += "(";
                 for (size_t i = 0; i < params.size(); ++i) {
                     if (i > 0) {
@@ -154,7 +153,7 @@ namespace glsld
                 codeBuffer += ")";
             }
 
-            for (const auto& token : macroDefinitionInfo->tokens) {
+            for (const auto& token : macroInfo->definition->tokens) {
                 codeBuffer += " ";
                 codeBuffer += token.text.StrView();
             }
@@ -168,7 +167,7 @@ namespace glsld
                 .range       = symbolInfo.spelledRange,
             };
         }
-        else if (auto macroUsageInfo = symbolInfo.ppSymbolOccurrence->GetMacroUsageInfo(); macroUsageInfo) {
+        else if (auto macroUsageInfo = symbolInfo.ppSymbolOccurrence->GetMacroInfo(); macroUsageInfo) {
             return HoverContent{
                 .type        = SymbolDeclType::Macro,
                 .name        = symbolInfo.spelledText,

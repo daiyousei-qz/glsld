@@ -198,19 +198,14 @@ namespace glsld
     {
         // First, we need to do a binary search to see if the cursor is on a macro/header name.
         // These are not in the AST, so we need to check them first.
-        if (auto ppSymbolOccurence = provider.GetPreprocessInfoCache().FindPPSymbolOccurrence(position);
-            ppSymbolOccurence) {
+        if (auto ppSymbolOccurence = provider.GetPreprocessInfo().FindPPSymbolOccurrence(position); ppSymbolOccurence) {
             SymbolDeclType symbolType;
             std::string spelledText;
             if (auto headerNameInfo = ppSymbolOccurence->GetHeaderNameInfo(); headerNameInfo) {
                 symbolType  = SymbolDeclType::HeaderName;
-                spelledText = headerNameInfo->headerName;
+                spelledText = headerNameInfo->headerName.text.Str();
             }
-            else if (auto macroDefinitionInfo = ppSymbolOccurence->GetMacroDefinitionInfo(); macroDefinitionInfo) {
-                symbolType  = SymbolDeclType::Macro;
-                spelledText = macroDefinitionInfo->macroName.text.Str();
-            }
-            else if (auto macroUsageInfo = ppSymbolOccurence->GetMacroUsageInfo(); macroUsageInfo) {
+            else if (auto macroUsageInfo = ppSymbolOccurence->GetMacroInfo(); macroUsageInfo) {
                 symbolType  = SymbolDeclType::Macro;
                 spelledText = macroUsageInfo->macroName.text.Str();
             }

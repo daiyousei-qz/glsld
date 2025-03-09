@@ -1,4 +1,5 @@
 #include "Compiler/Preprocessor.h"
+#include "Basic/ScopeExit.h"
 #include "Compiler/Tokenizer.h"
 #include "Compiler/SyntaxToken.h"
 #include "Language/ShaderTarget.h"
@@ -6,6 +7,7 @@
 
 namespace glsld
 {
+#pragma region TokenStream
     auto TokenStream::AddToken(const PPToken& token, TextRange expandedRange) -> void
     {
         GLSLD_ASSERT(token.klass != TokenKlass::Eof && "EOF is handled separately");
@@ -47,7 +49,236 @@ namespace glsld
             .text          = token.text,
         });
     }
+#pragma endregion
 
+#pragma region MacroExpansionProcessor
+    auto PreprocessStateMachine::MacroExpansionProcessor::Feed(const PPToken& token) -> void
+    {
+        GLSLD_ASSERT(token.klass != TokenKlass::Eof);
+
+        if (witheldTokens.empty()) {
+            FeedTokenWithoutMacroContext(token);
+        }
+        else {
+            FeedTokenWithMacroContext(token);
+        }
+    }
+    auto PreprocessStateMachine::MacroExpansionProcessor::Finalize() -> void
+    {
+        if (pendingInvokedMacro) {
+            if (argLParenCounter > 0) {
+                // FIXME: unterminated argument list
+            }
+
+            RevokePendingMacroInvocation();
+        }
+    }
+    auto PreprocessStateMachine::MacroExpansionProcessor::FeedTokenWithMacroContext(const PPToken& token) -> void
+    {
+        GLSLD_ASSERT(!witheldTokens.empty());
+
+        if (invocationArguments.empty()) {
+            // We have witheld a single token, which is the macro name.
+            // We are looking for a '(' to start the argument list of a function-like macro.
+            GLSLD_ASSERT(argLParenCounter == 0);
+
+            if (token.klass == TokenKlass::LParen) {
+                // We are seeing `MACRO (`. This is likely a function-like macro invocation.
+                NewPendingInvocationArgument();
+                argLParenCounter += 1;
+            }
+            else {
+                // This is not a function-like macro invocation.
+                RevokePendingMacroInvocation();
+                FeedTokenWithoutMacroContext(token);
+            }
+        }
+        else {
+            // We are collecting the argument list of a function-like macro.
+            // So try to close the list with ')' or continue collecting arguments.
+            GLSLD_ASSERT(argLParenCounter >= 1);
+
+            if (token.klass == TokenKlass::LParen) {
+                // NOTE if we see '(' inside the argument list, we have to increment the paranthesis
+                // counter for balancing.
+                argLParenCounter += 1;
+            }
+            else if (token.klass == TokenKlass::RParen) {
+                argLParenCounter -= 1;
+            }
+
+            if (argLParenCounter == 0) {
+                // The argument list has been fully collected.
+                GLSLD_ASSERT(token.klass == TokenKlass::RParen);
+                FinishPendingInvocationArgument();
+                if (invocationArguments.size() == 1 && invocationArguments.front().numArgumentToken == 0) {
+                    invocationArguments.clear();
+                }
+                if (invocationArguments.size() != pendingInvokedMacro->GetParamTokens().size()) {
+                    // FIXME: Not exact number of arguments provided. Report error.
+                }
+
+                FeedMacroExpansion(witheldTokens.front(), *pendingInvokedMacro, witheldTokens, invocationArguments,
+                                   pendingExpansionTokenId);
+                FinishPendingMacroInvocation();
+            }
+            else if (argLParenCounter == 1 && token.klass == TokenKlass::Comma) {
+                // This is the delimiting comma of the argument list.
+                FinishPendingInvocationArgument();
+                NewPendingInvocationArgument();
+                witheldTokens.push_back(token);
+            }
+            else {
+                // This is a regular token in the argument list.
+                auto& currentArg = invocationArguments.back();
+                if (currentArg.numArgumentToken == 0) {
+                    currentArg.pasteToken = token;
+                }
+                currentArg.numArgumentToken += 1;
+
+                argProcessor->Feed(token);
+            }
+        }
+    }
+    auto PreprocessStateMachine::MacroExpansionProcessor::FeedTokenWithoutMacroContext(const PPToken& token) -> void
+    {
+        // No context, we are either looking for a macro invocation or just yield the token.
+        GLSLD_ASSERT(witheldTokens.empty() && argLParenCounter == 0);
+
+        if (token.klass == TokenKlass::Identifier) {
+            if (auto macroDefinition = pp.FindEnabledMacroDefinition(token.text); macroDefinition) {
+                if (macroDefinition->IsFunctionLike()) {
+                    // Could be a function-like macro invocation. We withold the token for potential expansion.
+                    witheldTokens.push_back(token);
+                    pendingInvokedMacro     = macroDefinition;
+                    pendingExpansionTokenId = pp.GetNextTokenId();
+                }
+                else {
+                    // An object-like macro invocation.
+                    FeedMacroExpansion(token, *macroDefinition, {}, {}, pp.GetNextTokenId());
+                }
+            }
+            else {
+                YieldToken(token);
+            }
+        }
+        else {
+            YieldToken(token);
+        }
+    }
+    auto PreprocessStateMachine::MacroExpansionProcessor::FeedMacroExpansion(const PPToken& macroNameTok,
+                                                                             const MacroDefinition& macroDefinition,
+                                                                             ArrayView<PPToken> invocationTokens,
+                                                                             ArrayView<InvocationArgumentInfo> args,
+                                                                             SyntaxTokenID expansionStartId) -> void
+    {
+        // Disable this macro to avoid recursive expansion during rescan.
+        EnterMacroExpansion(macroNameTok, macroDefinition);
+        auto _ = ScopeExit{[this, &macroNameTok, &macroDefinition, &expansionStartId] {
+            ExitMacroExpansion(macroNameTok, macroDefinition, AstSyntaxRange{expansionStartId, pp.GetNextTokenId()});
+        }};
+
+        const auto& paramTokens = macroDefinition.GetParamTokens();
+
+        PPTokenScanner macroScanner{macroDefinition.GetExpansionTokens()};
+        MacroExpansionProcessor nextProcessor{pp};
+        while (!macroScanner.CursorAtEnd()) {
+            // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
+            PPToken token              = macroScanner.ConsumeToken();
+            token.spelledFile          = macroNameTok.spelledFile;
+            token.spelledRange         = TextRange{macroNameTok.spelledRange.start};
+            token.isFirstTokenOfLine   = false;
+            token.hasLeadingWhitespace = false;
+
+            // FIXME: properly handle comments
+            if (token.klass == TokenKlass::Hash) {
+                if (macroScanner.TryTestToken(TokenKlass::Identifier, 1)) {
+                    // #identifier, aka. stringification
+                    // However, as GLSL doesn't have string literal, we just discard two tokens.
+                    // FIXME: report error, stringification is not supported.
+                    macroScanner.ConsumeToken();
+                    continue;
+                }
+
+                // Fallthrough to be handled as regular token.
+            }
+            else if (macroScanner.TryTestToken(TokenKlass::HashHash)) {
+                // token##token, aka. token pasting
+                bool pastingFailure = false;
+                std::string pastedText;
+                auto pasteTokenText = [&](const PPToken& tok) {
+                    if (tok.klass == TokenKlass::Identifier) {
+                        // Try substitute the parameter names with the unexpanded argument.
+                        for (size_t i = 0; i < paramTokens.size(); ++i) {
+                            if (tok.text == paramTokens[i].text) {
+                                if (args[i].numArgumentToken == 1) {
+                                    pastedText += args[i].pasteToken.text.StrView();
+                                }
+                                else if (args[i].numArgumentToken > 1) {
+                                    pastingFailure = true;
+                                }
+                                return;
+                            }
+                        }
+                    }
+
+                    pastedText += tok.text.StrView();
+                };
+
+                // Paste all token text into a single string buffer.
+                pasteTokenText(token);
+                while (macroScanner.TryConsumeToken(TokenKlass::HashHash)) {
+                    if (!macroScanner.CursorAtEnd()) {
+                        pasteTokenText(macroScanner.ConsumeToken());
+                    }
+                    else {
+                        pastingFailure = true;
+                    }
+                }
+
+                // Try to tokenize the pasted text.
+                auto [klass, tokText, remText] = TokenizeOnce(pastedText);
+                if (!pastingFailure && remText.Empty()) {
+                    token.klass = klass;
+                    token.text  = pp.atomTable.GetAtom(tokText);
+                    nextProcessor.Feed(token);
+                }
+                else {
+                    // FIXME: report error, bad token pasting
+                }
+
+                continue;
+            }
+            else if (token.klass == TokenKlass::Identifier) {
+                // Try substitute the parameter names with the expanded argument.
+                bool substituted = false;
+                for (size_t i = 0; i < paramTokens.size(); ++i) {
+                    if (token.text == paramTokens[i].text) {
+                        auto expandedArgs = ArrayView<PPToken>{invocationTokens.begin() + args[i].indexBegin,
+                                                               invocationTokens.begin() + args[i].indexEnd};
+                        for (const PPToken& argToken : expandedArgs) {
+                            nextProcessor.Feed(argToken);
+                        }
+                        substituted = true;
+                        break;
+                    }
+                }
+
+                if (substituted) {
+                    continue;
+                }
+
+                // Fallthrough to be handled as regular token.
+            }
+
+            nextProcessor.Feed(token);
+        }
+
+        nextProcessor.Finalize();
+    }
+#pragma endregion
+
+#pragma region PreprocessStateMachine
     auto PreprocessStateMachine::PreprocessSourceFile(FileID sourceFile) -> void
     {
         if (!sourceFile.IsValid()) {
@@ -1074,8 +1305,7 @@ namespace glsld
     {
         // Expand macros and evaluate the expression.
         std::vector<PPToken> tokenBuffer;
-        MacroExpansionProcessor<ExpandToVectorCallback> processor{atomTable, macroTable,
-                                                                  ExpandToVectorCallback{*this, tokenBuffer}};
+        MacroExpansionProcessor processor{*this, &tokenBuffer};
 
         // Our approach handling defined(X) is going to conflict with the macro expansion.
         // However, it is not a problem since it's a UB.
@@ -1115,4 +1345,6 @@ namespace glsld
 
         return EvaluatePPExpressionAux(tokenBuffer);
     }
+#pragma endregion
+
 } // namespace glsld

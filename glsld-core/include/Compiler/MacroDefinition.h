@@ -7,11 +7,6 @@ namespace glsld
     class MacroDefinition final
     {
     private:
-        // FIXME: avoid using mutable bit inside macro definition, this may cause data race.
-        // This is mutable during the compilation process. We may need to disable a macro temporarily
-        // when it is currently being expanded to avoid infinite recursion.
-        bool isDisabled = false;
-
         // A compiler defined macro is a macro that is defined by the compiler itself.
         // Therefore, it cannot be redefined or undefined by the user.
         bool isCompilerDefined = false;
@@ -81,11 +76,6 @@ namespace glsld
             };
         }
 
-        auto IsEnabled() const noexcept -> bool
-        {
-            return !isDisabled;
-        }
-
         auto IsCompilerDefined() const noexcept -> bool
         {
             return isCompilerDefined;
@@ -109,18 +99,6 @@ namespace glsld
         auto GetExpansionTokens() const noexcept -> ArrayView<PPToken>
         {
             return expansionTokens;
-        }
-
-        auto Enable() -> void
-        {
-            GLSLD_ASSERT(isDisabled);
-            isDisabled = false;
-        }
-
-        auto Disable() -> void
-        {
-            GLSLD_ASSERT(!isDisabled);
-            isDisabled = true;
         }
     };
 } // namespace glsld

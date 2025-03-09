@@ -49,15 +49,4 @@ namespace glsld
         }
         return nullptr;
     }
-
-    auto MacroTable::FindEnabledMacroDefinition(AtomString macroName) -> MacroDefinition*
-    {
-        auto it = macroLookup.find(macroName);
-        if (it != macroLookup.end()) {
-            if (it->second.IsEnabled()) {
-                return &it->second;
-            }
-        }
-        return nullptr;
-    }
 } // namespace glsld

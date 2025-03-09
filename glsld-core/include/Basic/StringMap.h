@@ -77,6 +77,19 @@ namespace glsld
                 baseMap.insert(ilist);
             }
 
+            auto Erase(StringView key) -> IteratorType
+            {
+                if (auto it = Find(key); it != end()) {
+                    return baseMap.erase(it);
+                }
+
+                return baseMap.end();
+            }
+            auto Erase(IteratorType it) -> IteratorType
+            {
+                return baseMap.erase(it);
+            }
+
             auto Clear() noexcept -> void
             {
                 baseMap.clear();
@@ -105,9 +118,9 @@ namespace glsld
                 // Since transparent operator[] needs c++26, we have to implement it manually
                 auto it = Find(key);
                 if (it == end()) {
-                    return Insert(ValueType{key, {}}).first->second;
+                    return (Insert(ValueType{key, {}}).first->second);
                 }
-                return it->second;
+                return (it->second);
             }
             [[nodiscard]] auto operator==(const BasicStringMap& rhs) const noexcept -> bool
                 requires std::equality_comparable<BaseMapType>

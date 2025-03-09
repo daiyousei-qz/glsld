@@ -5,7 +5,7 @@
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/CompilerResult.h"
 #include "Compiler/SyntaxToken.h"
-#include "PreprocessInfoCache.h"
+#include "PreprocessSymbolStore.h"
 #include "Uri.h"
 
 #include <mutex>
@@ -29,11 +29,11 @@ namespace glsld
         friend class PendingBackgroundCompilation;
 
         std::unique_ptr<CompilerResult> compilerResult = nullptr;
-        PreprocessInfoCache ppInfoCache;
+        PreprocessSymbolStore ppInfoStore;
 
     public:
-        LanguageQueryProvider(std::unique_ptr<CompilerResult> result, PreprocessInfoCache ppInfo)
-            : compilerResult(std::move(result)), ppInfoCache(std::move(ppInfo))
+        LanguageQueryProvider(std::unique_ptr<CompilerResult> result, PreprocessSymbolStore ppInfoStore)
+            : compilerResult(std::move(result)), ppInfoStore(std::move(ppInfoStore))
         {
         }
 
@@ -47,9 +47,9 @@ namespace glsld
             return *compilerResult->GetUserFileArtifacts().GetAst();
         }
 
-        auto GetPreprocessInfoCache() const -> const PreprocessInfoCache&
+        auto GetPreprocessInfo() const -> const PreprocessSymbolStore&
         {
-            return ppInfoCache;
+            return ppInfoStore;
         }
 
         // Returns the token entry of the specified token.
@@ -187,8 +187,8 @@ namespace glsld
 
         auto Setup()
         {
-            PreprocessInfoCache ppInfoCache;
-            auto ppCallback = ppInfoCache.GetCollectionCallback();
+            PreprocessSymbolStore ppInfoStore;
+            auto ppCallback = ppInfoStore.GetCollectionCallback();
 
             compiler = std::make_unique<CompilerInvocation>(GetStdlibModule());
             compiler->SetCountUtf16Characters(true);
@@ -196,7 +196,7 @@ namespace glsld
             compiler->SetMainFileFromBuffer(sourceString);
             auto result = compiler->CompileMainFile(ppCallback.get());
 
-            provider = std::make_unique<LanguageQueryProvider>(std::move(result), std::move(ppInfoCache));
+            provider = std::make_unique<LanguageQueryProvider>(std::move(result), std::move(ppInfoStore));
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

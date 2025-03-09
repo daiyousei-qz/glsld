@@ -1,4 +1,5 @@
 #pragma once
+#include "Basic/StringMap.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/PPCallback.h"
 
@@ -9,13 +10,12 @@
 
 namespace glsld
 {
-    struct CachedHeaderName
+    struct PPMacroIdentifier
     {
-        std::string headerName;
-        std::string headerAbsolutePath;
+        PPToken macroName;
     };
 
-    struct CachedMacroDefinition
+    struct PPMacroDefinition
     {
         PPToken macroName;
         std::vector<PPToken> params;
@@ -23,11 +23,17 @@ namespace glsld
         bool isFunctionLike;
     };
 
-    struct CachedMacroUsage
+    struct PPHeaderNameSymbol
+    {
+        PPToken headerName;
+        std::string headerAbsolutePath;
+    };
+
+    struct PPMacroSymbol
     {
         PPToken macroName;
         AstSyntaxRange expandedTokens;
-        const CachedMacroDefinition* definition;
+        const PPMacroDefinition* definition;
     };
 
     class PPSymbolOccurrence
@@ -35,21 +41,16 @@ namespace glsld
     private:
         TextRange spelledRange;
 
-        using DataVariant = std::variant<CachedHeaderName, CachedMacroDefinition, CachedMacroUsage>;
+        using DataVariant = std::variant<PPHeaderNameSymbol, PPMacroSymbol>;
         std::unique_ptr<DataVariant> data;
 
     public:
-        PPSymbolOccurrence(TextRange spelledRange, CachedHeaderName headerName)
+        PPSymbolOccurrence(TextRange spelledRange, PPHeaderNameSymbol headerName)
             : spelledRange(spelledRange), data(std::make_unique<DataVariant>(std::move(headerName)))
         {
         }
 
-        PPSymbolOccurrence(TextRange spelledRange, CachedMacroDefinition macroDefinition)
-            : spelledRange(spelledRange), data(std::make_unique<DataVariant>(std::move(macroDefinition)))
-        {
-        }
-
-        PPSymbolOccurrence(TextRange spelledRange, CachedMacroUsage macroUsage)
+        PPSymbolOccurrence(TextRange spelledRange, PPMacroSymbol macroUsage)
             : spelledRange(spelledRange), data(std::make_unique<DataVariant>(std::move(macroUsage)))
         {
         }
@@ -59,31 +60,27 @@ namespace glsld
             return spelledRange;
         }
 
-        auto GetHeaderNameInfo() const -> const CachedHeaderName*
+        auto GetHeaderNameInfo() const -> const PPHeaderNameSymbol*
         {
-            return std::get_if<CachedHeaderName>(&*data);
+            return std::get_if<PPHeaderNameSymbol>(&*data);
         }
 
-        auto GetMacroDefinitionInfo() const -> const CachedMacroDefinition*
+        auto GetMacroInfo() const -> const PPMacroSymbol*
         {
-            return std::get_if<CachedMacroDefinition>(&*data);
-        }
-
-        auto GetMacroUsageInfo() const -> const CachedMacroUsage*
-        {
-            return std::get_if<CachedMacroUsage>(&*data);
+            return std::get_if<PPMacroSymbol>(&*data);
         }
     };
 
     // TODO: collect all header name occurrences, including the path to the header file
     // TODO: collect all spelled macro uses in the main file, including the definition and expansion?
     // TODO: 1) support basic hover on macro, showing name only. 2) support definition tokens 3) support expansion
-    class PreprocessInfoCache
+    class PreprocessSymbolStore
     {
     private:
         std::vector<PPToken> headerNames;
         std::vector<PPToken> macroUses;
 
+        std::vector<std::unique_ptr<PPMacroDefinition>> macroDefinitions;
         std::vector<PPSymbolOccurrence> occurrences;
 
     public:
@@ -92,45 +89,60 @@ namespace glsld
             class PreprocessInfoCollector final : public PPCallback
             {
             private:
-                PreprocessInfoCache& cache;
+                PreprocessSymbolStore& store;
 
                 int includeDepth = 0;
-                std::unordered_map<std::string, const CachedMacroDefinition*> macroDefinitions;
+                UnorderedStringMap<const PPMacroDefinition*> macroLookup;
+
+                auto DefineMacro(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
+                                 bool isFunctionLike) -> const PPMacroDefinition*
+                {
+                    store.macroDefinitions.push_back(std::make_unique<PPMacroDefinition>(
+                        macroName, std::vector<PPToken>(params.begin(), params.end()),
+                        std::vector<PPToken>(tokens.begin(), tokens.end()), isFunctionLike));
+
+                    return macroLookup[macroName.text.StrView()] = store.macroDefinitions.back().get();
+                }
+
+                auto UndefMacro(const PPToken& macroName) -> void
+                {
+                    macroLookup.Erase(macroName.text.StrView());
+                }
 
             public:
-                PreprocessInfoCollector(PreprocessInfoCache& cache) : cache(cache)
+                PreprocessInfoCollector(PreprocessSymbolStore& cache) : store(cache)
                 {
                 }
 
                 virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
                 {
                     if (includeDepth == 0) {
-                        cache.headerNames.push_back(headerName);
-                        cache.occurrences.push_back(PPSymbolOccurrence{
-                            headerName.spelledRange, CachedHeaderName{headerName.text.Str(), resolvedPath.Str()}});
+                        store.headerNames.push_back(headerName);
+                        store.occurrences.push_back(PPSymbolOccurrence{
+                            headerName.spelledRange, PPHeaderNameSymbol{headerName, resolvedPath.Str()}});
                     }
                 }
                 virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params,
                                                ArrayView<PPToken> tokens, bool isFunctionLike) -> void override
                 {
                     if (includeDepth == 0) {
-                        cache.macroUses.push_back(macroName);
-                        cache.occurrences.push_back(PPSymbolOccurrence{
-                            macroName.spelledRange,
-                            CachedMacroDefinition{macroName, std::vector<PPToken>(params.begin(), params.end()),
-                                                  std::vector<PPToken>(tokens.begin(), tokens.end()), isFunctionLike}});
+                        store.macroUses.push_back(macroName);
+                        auto macro = DefineMacro(macroName, params, tokens, isFunctionLike);
+                        store.occurrences.push_back(
+                            PPSymbolOccurrence{macroName.spelledRange, PPMacroSymbol{macroName, {}, macro}});
                     }
                 }
                 virtual auto OnUndefDirective(const PPToken& macroName) -> void override
                 {
                     if (includeDepth == 0) {
-                        cache.macroUses.push_back(macroName);
+                        store.macroUses.push_back(macroName);
+                        UndefMacro(macroName);
                     }
                 }
                 virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
                 {
                     if (includeDepth == 0) {
-                        cache.macroUses.push_back(macroName);
+                        store.macroUses.push_back(macroName);
                     }
                 }
 
@@ -145,9 +157,9 @@ namespace glsld
                 virtual auto OnMacroExpansion(const PPToken& macroUse, AstSyntaxRange expansionRange) -> void override
                 {
                     if (includeDepth == 0 && !macroUse.spelledRange.IsEmpty()) {
-                        cache.macroUses.push_back(macroUse);
-                        cache.occurrences.push_back(PPSymbolOccurrence{
-                            macroUse.spelledRange, CachedMacroUsage{macroUse, expansionRange, nullptr}});
+                        store.macroUses.push_back(macroUse);
+                        store.occurrences.push_back(PPSymbolOccurrence{
+                            macroUse.spelledRange, PPMacroSymbol{macroUse, expansionRange, nullptr}});
                     }
                 }
             };
@@ -165,7 +177,7 @@ namespace glsld
             return macroUses;
         }
 
-        auto GetInterestingOccurrences() const -> ArrayView<PPSymbolOccurrence>
+        auto GetAllOccurrences() const -> ArrayView<PPSymbolOccurrence>
         {
             return occurrences;
         }

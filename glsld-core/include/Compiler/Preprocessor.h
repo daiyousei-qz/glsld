@@ -7,11 +7,11 @@
 #include "Compiler/PPCallback.h"
 #include "Compiler/SourceManager.h"
 #include "Compiler/SyntaxToken.h"
-#include "Compiler/MacroExpansion.h"
 #include "Compiler/CompilerTrace.h"
 #include "Compiler/PPTokenScanner.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace glsld
 {
@@ -71,6 +71,8 @@ namespace glsld
         // If an #else directive has been encountered, this flag is set to true.
         bool seenElse;
     };
+
+    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
 
     // The preprocessor acts as a state machine which accepts PP tokens issued by the Tokenizer and
     // transforms them according to the current state. The fully preproccessed tokens are then
@@ -184,8 +186,126 @@ namespace glsld
             }
         };
 
+        std::unordered_set<const MacroDefinition*> disabledMacros = {};
+
+        class MacroExpansionProcessor
+        {
+        private:
+            PreprocessStateMachine& pp;
+
+            std::vector<PPToken>* outputBuffer = nullptr;
+
+            // Tokens witheld for potential function-like macro expansion.
+            std::vector<PPToken> witheldTokens;
+
+            struct InvocationArgumentInfo
+            {
+                // The number of tokens originally provided as the macro invocation argument.
+                size_t numArgumentToken;
+
+                // The token that is being pasted, aka. the first token of the argument.
+                PPToken pasteToken;
+
+                // The index range of the expanded argument in tokens witheld.
+                size_t indexBegin;
+                size_t indexEnd;
+            };
+
+            std::vector<InvocationArgumentInfo> invocationArguments;
+
+            // The pending function-like macro that is being witheld for expansion.
+            const MacroDefinition* pendingInvokedMacro = nullptr;
+
+            // The first token ID of the pending macro expansion, if any.
+            SyntaxTokenID pendingExpansionTokenId = {};
+
+            // Tracks unclosed '(' in the tokens witheld.
+            int argLParenCounter = 0;
+
+            std::unique_ptr<MacroExpansionProcessor> argProcessor = nullptr;
+
+        public:
+            MacroExpansionProcessor(PreprocessStateMachine& pp, std::vector<PPToken>* outputBuffer = nullptr)
+                : pp(pp), outputBuffer(outputBuffer)
+            {
+            }
+
+            // Feed a token to the macro expansion processor, which will be either:
+            // 1. Witheld for potential macro expansion later.
+            // 2. Trigger macro expansion.
+            // 3. Yielded to the output.
+            auto Feed(const PPToken& token) -> void;
+
+            // Release all witheld tokens and finalize the macro expansion.
+            auto Finalize() -> void;
+
+        private:
+            // Feed a token while collecting arguments for a function-like macro.
+            auto FeedTokenWithMacroContext(const PPToken& token) -> void;
+            auto FeedTokenWithoutMacroContext(const PPToken& token) -> void;
+            auto FeedMacroExpansion(const PPToken& macroNameTok, const MacroDefinition& macroDefinition,
+                                    ArrayView<PPToken> invocationTokens, ArrayView<InvocationArgumentInfo> args,
+                                    SyntaxTokenID expansionStartId) -> void;
+
+            auto NewPendingInvocationArgument() -> void
+            {
+                invocationArguments.push_back(InvocationArgumentInfo{
+                    .numArgumentToken = 0,
+                    .pasteToken       = {},
+                    .indexBegin       = witheldTokens.size(),
+                    .indexEnd         = witheldTokens.size(),
+                });
+                argProcessor = std::make_unique<MacroExpansionProcessor>(pp, &witheldTokens);
+            }
+            auto FinishPendingInvocationArgument() -> void
+            {
+                argProcessor->Finalize();
+                argProcessor = nullptr;
+
+                invocationArguments.back().indexEnd = witheldTokens.size();
+            }
+            auto RevokePendingMacroInvocation() -> void
+            {
+                GLSLD_ASSERT(pendingInvokedMacro);
+                pendingInvokedMacro     = nullptr;
+                pendingExpansionTokenId = {};
+                YieldToken(witheldTokens[0]);
+                witheldTokens.clear();
+            }
+            auto FinishPendingMacroInvocation() -> void
+            {
+                pendingInvokedMacro     = nullptr;
+                pendingExpansionTokenId = {};
+                witheldTokens.clear();
+            }
+
+            auto YieldToken(const PPToken& token) -> void
+            {
+                if (outputBuffer) {
+                    outputBuffer->push_back(token);
+                }
+                else {
+                    pp.OutputToken(token, token.spelledRange);
+                }
+            }
+            auto EnterMacroExpansion(const PPToken& macroNameTok, const MacroDefinition& macroDefinition) -> void
+            {
+                // Disable this macro to avoid recursive expansion during rescan.
+                pp.DisableMacro(macroDefinition);
+            }
+            auto ExitMacroExpansion(const PPToken& macroNameTok, const MacroDefinition& macroDefinition,
+                                    AstSyntaxRange expansionRange) -> void
+            {
+                pp.EnableMacro(macroDefinition);
+
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(macroNameTok, expansionRange);
+                }
+            }
+        };
+
         // The macro expansion processor.
-        MacroExpansionProcessor<ExpandToTokenStreamCallback> macroExpansionProcessor;
+        MacroExpansionProcessor macroExpansionProcessor;
 
         // Lookup map from keyword atom to keyword klass
         std::unordered_map<AtomString, TokenKlass> keywordLookup;
@@ -218,9 +338,7 @@ namespace glsld
                                size_t includeDepth)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
-              outputStream(outputStream), tuId(tuId), callback(callback),
-              macroExpansionProcessor(compiler.GetAtomTable(), compiler.GetMacroTable(),
-                                      ExpandToTokenStreamCallback{*this}),
+              outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
         {
         }
@@ -294,12 +412,34 @@ namespace glsld
         auto InitializeKeywordLookup() -> void;
         auto FixupKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass;
 
+        auto DisableMacro(const MacroDefinition& macroDefinition) -> void
+        {
+            disabledMacros.insert(&macroDefinition);
+        }
+
+        auto EnableMacro(const MacroDefinition& macroDefinition) -> void
+        {
+            disabledMacros.erase(&macroDefinition);
+        }
+
+        auto FindEnabledMacroDefinition(AtomString name) const -> const MacroDefinition*
+        {
+            auto result = macroTable.FindMacroDefinition(name);
+            if (result && !disabledMacros.contains(result)) {
+                return result;
+            }
+            return nullptr;
+        }
+
         auto OutputToken(PPToken token, TextRange expandedRange) -> void
         {
             if (token.klass == TokenKlass::Identifier) {
                 token.klass = FixupKeywordTokenKlass(token.klass, token.text);
             }
 
+#if defined(GLSLD_ENABLE_COMPILER_TRACE)
+            compiler.GetCompilerTrace().TraceLexTokenIssued(token, expandedRange);
+#endif
             outputStream.AddToken(token, expandedRange);
         }
 

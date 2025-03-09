@@ -48,7 +48,7 @@ namespace glsld
         }
     }
 
-    auto CollectPreprocessSemanticTokens(const PreprocessInfoCache& ppInfoCache,
+    auto CollectPreprocessSemanticTokens(const PreprocessSymbolStore& ppInfoCache,
                                          std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         for (const auto& ppToken : ppInfoCache.GetHeaderNames()) {
@@ -262,7 +262,7 @@ namespace glsld
     {
         std::vector<SemanticTokenInfo> tokenBuffer;
         CollectLexSemanticTokens(provider, tokenBuffer);
-        CollectPreprocessSemanticTokens(provider.GetPreprocessInfoCache(), tokenBuffer);
+        CollectPreprocessSemanticTokens(provider.GetPreprocessInfo(), tokenBuffer);
         CollectAstSemanticTokens(provider, tokenBuffer);
 
         std::ranges::sort(tokenBuffer, [](const SemanticTokenInfo& lhs, const SemanticTokenInfo& rhs) {

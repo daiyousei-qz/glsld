@@ -1,4 +1,3 @@
-#include "Basic/StringView.h"
 #include "Compiler/SyntaxToken.h"
 #include "LexingTestFixture.h"
 

@@ -22,7 +22,5 @@ namespace glsld
         auto IsMacroDefined(AtomString macroName) const -> bool;
 
         auto FindMacroDefinition(AtomString macroName) const -> const MacroDefinition*;
-
-        auto FindEnabledMacroDefinition(AtomString macroName) -> MacroDefinition*;
     };
 }; // namespace glsld
