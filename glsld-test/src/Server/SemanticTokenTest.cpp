@@ -21,7 +21,9 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
     {
         auto sourceText     = R"(
         #define ^[MACRO.def.begin]MACRO^[MACRO.def.end] 1
+        #define ^[MACRO_FN.def.begin]MACRO_FN^[MACRO_FN.def.end]() 2
         ^[MACRO.use.begin]MACRO^[MACRO.use.end];
+        ^[MACRO_FN.use.begin]MACRO_FN^[MACRO_FN.use.end]();
         #undef ^[MACRO.undef.begin]MACRO^[MACRO.undef.end]
         )";
         auto ctx            = CompileLabelledSource(sourceText);
@@ -29,7 +31,11 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO.def.begin"), ctx.GetPosition("MACRO.def.end"),
                            SemanticTokenType::Macro, SemanticTokenModifier::None);
+        checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO_FN.def.begin"), ctx.GetPosition("MACRO_FN.def.end"),
+                           SemanticTokenType::Macro, SemanticTokenModifier::None);
         checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO.use.begin"), ctx.GetPosition("MACRO.use.end"),
+                           SemanticTokenType::Macro, SemanticTokenModifier::None);
+        checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO_FN.use.begin"), ctx.GetPosition("MACRO_FN.use.end"),
                            SemanticTokenType::Macro, SemanticTokenModifier::None);
         checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO.undef.begin"), ctx.GetPosition("MACRO.undef.end"),
                            SemanticTokenType::Macro, SemanticTokenModifier::None);
