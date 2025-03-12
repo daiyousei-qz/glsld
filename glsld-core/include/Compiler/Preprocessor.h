@@ -101,91 +101,6 @@ namespace glsld
         // The current state of the preprocessor.
         PreprocessorState state = PreprocessorState::Default;
 
-        struct MacroExpansionInfo
-        {
-            SyntaxTokenID startTokenId;
-        };
-
-        // This callback is used to expand tokens in regular context.
-        struct ExpandToTokenStreamCallback final
-        {
-            PreprocessStateMachine& pp;
-            std::vector<MacroExpansionInfo> expansionStack;
-            TextRange firstExpansionRange;
-
-            ExpandToTokenStreamCallback(PreprocessStateMachine& pp) : pp(pp)
-            {
-            }
-
-            auto OnYieldToken(const PPToken& token) -> void
-            {
-                const TextRange* expandedRange = nullptr;
-                if (pp.includeExpansionRange) {
-                    // If the token is from an included file, use the expanded range for that header.
-                    expandedRange = &*pp.includeExpansionRange;
-                }
-                else if (!expansionStack.empty()) {
-                    // If the token is from a macro expansion, use the expanded range for that macro.
-                    expandedRange = &firstExpansionRange;
-                }
-                else {
-                    // Otherwise, use the spelled range.
-                    expandedRange = &token.spelledRange;
-                }
-
-#if defined(GLSLD_ENABLE_COMPILER_TRACE)
-                pp.compiler.GetCompilerTrace().TraceLexTokenIssued(token, *expandedRange);
-#endif
-                pp.OutputToken(token, *expandedRange);
-            }
-
-            auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
-            {
-                if (expansionStack.empty()) {
-                    firstExpansionRange = TextRange{macroUse.spelledRange.start};
-                }
-
-                expansionStack.push_back(MacroExpansionInfo{pp.GetNextTokenId()});
-            }
-
-            auto OnExitMacroExpansion(const PPToken& macroUse) -> void
-            {
-                if (pp.callback) {
-                    pp.callback->OnMacroExpansion(
-                        macroUse, AstSyntaxRange{expansionStack.back().startTokenId, pp.GetNextTokenId()});
-                }
-                expansionStack.pop_back();
-            }
-        };
-
-        // This callback is used to expand tokens in preprocessing directives.
-        struct ExpandToVectorCallback final
-        {
-            PreprocessStateMachine& pp;
-            std::vector<PPToken>& tokenBuffer;
-
-            ExpandToVectorCallback(PreprocessStateMachine& pp, std::vector<PPToken>& tokens)
-                : pp(pp), tokenBuffer(tokens)
-            {
-            }
-
-            auto OnYieldToken(const PPToken& token) -> void
-            {
-                tokenBuffer.push_back(token);
-            }
-
-            auto OnEnterMacroExpansion(const PPToken& macroUse) -> void
-            {
-            }
-
-            auto OnExitMacroExpansion(const PPToken& macroUse) -> void
-            {
-                if (pp.callback) {
-                    pp.callback->OnMacroExpansion(macroUse, {});
-                }
-            }
-        };
-
         std::unordered_set<const MacroDefinition*> disabledMacros = {};
 
         class MacroExpansionProcessor
@@ -285,6 +200,7 @@ namespace glsld
                     outputBuffer->push_back(token);
                 }
                 else {
+                    // FIXME: Use correct expanded range.
                     pp.OutputToken(token, token.spelledRange);
                 }
             }

@@ -10,11 +10,6 @@
 
 namespace glsld
 {
-    struct PPMacroIdentifier
-    {
-        PPToken macroName;
-    };
-
     struct PPMacroDefinition
     {
         PPToken macroName;
@@ -33,7 +28,7 @@ namespace glsld
     {
         PPToken macroName;
         AstSyntaxRange expandedTokens;
-        const PPMacroDefinition* definition;
+        const PPMacroDefinition* definition = nullptr;
     };
 
     class PPSymbolOccurrence
@@ -77,9 +72,6 @@ namespace glsld
     class PreprocessSymbolStore
     {
     private:
-        std::vector<PPToken> headerNames;
-        std::vector<PPToken> macroUses;
-
         std::vector<std::unique_ptr<PPMacroDefinition>> macroDefinitions;
         std::vector<PPSymbolOccurrence> occurrences;
 
@@ -109,6 +101,15 @@ namespace glsld
                     macroLookup.Erase(macroName.text.StrView());
                 }
 
+                auto FindMacro(StringView macroName) -> const PPMacroDefinition*
+                {
+                    if (auto it = macroLookup.Find(macroName); it != macroLookup.end()) {
+                        return it->second;
+                    }
+
+                    return nullptr;
+                }
+
             public:
                 PreprocessInfoCollector(PreprocessSymbolStore& cache) : store(cache)
                 {
@@ -117,7 +118,6 @@ namespace glsld
                 virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
                 {
                     if (includeDepth == 0) {
-                        store.headerNames.push_back(headerName);
                         store.occurrences.push_back(PPSymbolOccurrence{
                             headerName.spelledRange, PPHeaderNameSymbol{headerName, resolvedPath.Str()}});
                     }
@@ -126,23 +126,22 @@ namespace glsld
                                                ArrayView<PPToken> tokens, bool isFunctionLike) -> void override
                 {
                     if (includeDepth == 0) {
-                        store.macroUses.push_back(macroName);
-                        auto macro = DefineMacro(macroName, params, tokens, isFunctionLike);
+                        auto macroDefinition = DefineMacro(macroName, params, tokens, isFunctionLike);
                         store.occurrences.push_back(
-                            PPSymbolOccurrence{macroName.spelledRange, PPMacroSymbol{macroName, {}, macro}});
+                            PPSymbolOccurrence{macroName.spelledRange, PPMacroSymbol{macroName, {}, macroDefinition}});
                     }
                 }
                 virtual auto OnUndefDirective(const PPToken& macroName) -> void override
                 {
                     if (includeDepth == 0) {
-                        store.macroUses.push_back(macroName);
                         UndefMacro(macroName);
                     }
                 }
                 virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
                 {
                     if (includeDepth == 0) {
-                        store.macroUses.push_back(macroName);
+                        store.occurrences.push_back(PPSymbolOccurrence{
+                            macroName.spelledRange, PPMacroSymbol{macroName, {}, FindMacro(macroName.text.StrView())}});
                     }
                 }
 
@@ -154,27 +153,18 @@ namespace glsld
                 {
                     includeDepth -= 1;
                 }
-                virtual auto OnMacroExpansion(const PPToken& macroUse, AstSyntaxRange expansionRange) -> void override
+                virtual auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expansionRange)
+                    -> void override
                 {
-                    if (includeDepth == 0 && !macroUse.spelledRange.IsEmpty()) {
-                        store.macroUses.push_back(macroUse);
+                    if (includeDepth == 0 && !macroNameTok.spelledRange.IsEmpty()) {
                         store.occurrences.push_back(PPSymbolOccurrence{
-                            macroUse.spelledRange, PPMacroSymbol{macroUse, expansionRange, nullptr}});
+                            macroNameTok.spelledRange,
+                            PPMacroSymbol{macroNameTok, expansionRange, FindMacro(macroNameTok.text.StrView())}});
                     }
                 }
             };
 
             return std::make_unique<PreprocessInfoCollector>(*this);
-        }
-
-        auto GetHeaderNames() const -> ArrayView<PPToken>
-        {
-            return headerNames;
-        }
-
-        auto GetMacroUses() const -> ArrayView<PPToken>
-        {
-            return macroUses;
         }
 
         auto GetAllOccurrences() const -> ArrayView<PPSymbolOccurrence>

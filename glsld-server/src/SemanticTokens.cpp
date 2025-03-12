@@ -48,27 +48,30 @@ namespace glsld
         }
     }
 
-    auto CollectPreprocessSemanticTokens(const PreprocessSymbolStore& ppInfoCache,
+    auto CollectPreprocessSemanticTokens(const PreprocessSymbolStore& ppInfoStore,
                                          std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
-        for (const auto& ppToken : ppInfoCache.GetHeaderNames()) {
-            tokenBuffer.push_back(SemanticTokenInfo{
-                .line      = ppToken.spelledRange.start.line,
-                .character = ppToken.spelledRange.start.character,
-                .length    = ppToken.spelledRange.end.character - ppToken.spelledRange.start.character,
-                .type      = SemanticTokenType::String,
-                .modifier  = SemanticTokenModifier::None,
-            });
-        }
-
-        for (const auto& ppToken : ppInfoCache.GetMacroUses()) {
-            tokenBuffer.push_back(SemanticTokenInfo{
-                .line      = ppToken.spelledRange.start.line,
-                .character = ppToken.spelledRange.start.character,
-                .length    = ppToken.spelledRange.end.character - ppToken.spelledRange.start.character,
-                .type      = SemanticTokenType::Macro,
-                .modifier  = SemanticTokenModifier::None,
-            });
+        for (const auto& ppSymbol : ppInfoStore.GetAllOccurrences()) {
+            if (auto headerName = ppSymbol.GetHeaderNameInfo(); headerName) {
+                tokenBuffer.push_back(SemanticTokenInfo{
+                    .line      = headerName->headerName.spelledRange.start.line,
+                    .character = headerName->headerName.spelledRange.start.character,
+                    .length    = headerName->headerName.spelledRange.end.character -
+                              headerName->headerName.spelledRange.start.character,
+                    .type     = SemanticTokenType::String,
+                    .modifier = SemanticTokenModifier::None,
+                });
+            }
+            else if (auto macroSymbol = ppSymbol.GetMacroInfo(); macroSymbol) {
+                tokenBuffer.push_back(SemanticTokenInfo{
+                    .line      = macroSymbol->macroName.spelledRange.start.line,
+                    .character = macroSymbol->macroName.spelledRange.start.character,
+                    .length    = macroSymbol->macroName.spelledRange.end.character -
+                              macroSymbol->macroName.spelledRange.start.character,
+                    .type     = SemanticTokenType::Macro,
+                    .modifier = SemanticTokenModifier::None,
+                });
+            }
         }
     }
 

@@ -70,6 +70,9 @@ namespace glsld
 
         auto LookupSpelledFile(SyntaxTokenID id) const -> FileID;
 
+        // True if the specified file is the main file.
+        auto IsMainFile(FileID file) const -> bool;
+
         // True if the specified token is spelled in the main file.
         auto IsSpelledInMainFile(SyntaxTokenID id) const -> bool;
 

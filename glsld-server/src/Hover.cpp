@@ -135,7 +135,7 @@ namespace glsld
                 .range       = symbolInfo.spelledRange,
             };
         }
-        else if (auto macroInfo = symbolInfo.ppSymbolOccurrence->GetMacroInfo(); macroInfo) {
+        else if (auto macroInfo = symbolInfo.ppSymbolOccurrence->GetMacroInfo(); macroInfo && macroInfo->definition) {
             std::vector<std::string> params;
             for (const auto& param : macroInfo->definition->params) {
                 params.push_back(param.text.Str());

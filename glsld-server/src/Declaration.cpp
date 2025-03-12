@@ -7,10 +7,32 @@ namespace glsld
     auto ComputeDeclaration(const LanguageQueryProvider& provider, const lsp::DocumentUri& uri, lsp::Position position)
         -> std::vector<lsp::Location>
     {
-        auto declTokenResult = QuerySymbolByPosition(provider, FromLspPosition(position));
-        if (declTokenResult && declTokenResult->symbolDecl.IsValid()) {
-            const AstDecl& accessedDecl = *declTokenResult->symbolDecl.GetDecl();
-            size_t declaratorIndex      = declTokenResult->symbolDecl.GetIndex();
+        auto symbolInfo = QuerySymbolByPosition(provider, FromLspPosition(position));
+        if (!symbolInfo) {
+            return {};
+        }
+
+        // Handle PP symbols
+        if (symbolInfo->symbolType == SymbolDeclType::HeaderName) {
+            // FIXME: goto include file
+            return {};
+        }
+        else if (symbolInfo->symbolType == SymbolDeclType::Macro) {
+            if (auto macroInfo = symbolInfo->ppSymbolOccurrence->GetMacroInfo(); macroInfo && macroInfo->definition) {
+                const auto& declToken = macroInfo->definition->macroName;
+                if (provider.IsMainFile(declToken.spelledFile)) {
+                    // FIXME: Currently we only support macros defined in the main file. Need support include file.
+                    return {lsp::Location{
+                        .uri   = uri,
+                        .range = ToLspRange(declToken.spelledRange),
+                    }};
+                }
+            }
+        }
+        else if (symbolInfo->symbolDecl.IsValid()) {
+            // Handle AST symbols
+            const AstDecl& accessedDecl = *symbolInfo->symbolDecl.GetDecl();
+            size_t declaratorIndex      = symbolInfo->symbolDecl.GetIndex();
 
             // FIXME:
             // Avoid giving declaration if the accessed decl isn't in this module

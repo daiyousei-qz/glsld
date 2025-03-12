@@ -69,6 +69,10 @@ namespace glsld
     {
         return LookupToken(id)->spelledFile;
     }
+    auto LanguageQueryProvider::IsMainFile(FileID file) const -> bool
+    {
+        return file == compilerResult->GetUserFileArtifacts().GetTokens().back().spelledFile;
+    }
     auto LanguageQueryProvider::IsSpelledInMainFile(SyntaxTokenID id) const -> bool
     {
         if (id.GetTU() != TranslationUnitID::UserFile) {

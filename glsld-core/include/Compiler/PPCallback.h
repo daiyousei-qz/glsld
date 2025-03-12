@@ -61,7 +61,7 @@ namespace glsld
         virtual auto OnExitIncludedFile() -> void
         {
         }
-        virtual auto OnMacroExpansion(const PPToken& macroName, AstSyntaxRange expandedTokens) -> void
+        virtual auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expandedTokens) -> void
         {
         }
     };
