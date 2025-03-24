@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    auto GetCompletionOptions(const CompletionConfig& config) -> lsp::CompletionOptions;
+    auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>;
 
     auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& info,
                           const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>;

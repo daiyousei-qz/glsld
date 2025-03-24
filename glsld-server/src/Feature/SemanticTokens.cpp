@@ -262,6 +262,10 @@ namespace glsld
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)
         -> std::vector<SemanticTokenInfo>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         std::vector<SemanticTokenInfo> tokenBuffer;
         CollectLexSemanticTokens(info, tokenBuffer);
         CollectPreprocessSemanticTokens(info.GetPreprocessInfo(), tokenBuffer);
@@ -273,8 +277,12 @@ namespace glsld
         return tokenBuffer;
     }
 
-    auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> lsp::SemanticTokensOptions
+    auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> std::optional<lsp::SemanticTokensOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::SemanticTokensOptions{
             .legend =
                 lsp::SemanticTokensLegend{

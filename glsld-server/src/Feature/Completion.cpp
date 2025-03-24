@@ -324,8 +324,12 @@ namespace glsld
         return cachedCompletionItems;
     }
 
-    auto GetCompletionOptions(const CompletionConfig& config) -> lsp::CompletionOptions
+    auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::CompletionOptions{
             .triggerCharacters = {"."},
         };
@@ -334,6 +338,10 @@ namespace glsld
     auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& info,
                           const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         const auto& compilerObject = info.GetCompilerResult();
 
         auto cursorPosition = FromLspPosition(params.position);

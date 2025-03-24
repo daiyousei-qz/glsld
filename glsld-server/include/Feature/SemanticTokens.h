@@ -64,7 +64,7 @@ namespace glsld
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)
         -> std::vector<SemanticTokenInfo>;
 
-    auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> lsp::SemanticTokensOptions;
+    auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> std::optional<lsp::SemanticTokensOptions>;
 
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
                               const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens;

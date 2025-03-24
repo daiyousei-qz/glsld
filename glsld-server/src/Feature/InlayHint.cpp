@@ -112,8 +112,12 @@ namespace glsld
         }
     };
 
-    auto GetInlayHintsOptions(const InlayHintConfig& config) -> lsp::InlayHintOptions
+    auto GetInlayHintsOptions(const InlayHintConfig& config) -> std::optional<lsp::InlayHintOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::InlayHintOptions{
             .resolveProvider = false,
         };
@@ -122,6 +126,10 @@ namespace glsld
     auto HandleInlayHints(const InlayHintConfig& config, const LanguageQueryInfo& info,
                           const lsp::InlayHintParams& params) -> std::vector<lsp::InlayHint>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         return InlayHintCollector{info, config, FromLspRange(params.range)}.Execute();
     }
 

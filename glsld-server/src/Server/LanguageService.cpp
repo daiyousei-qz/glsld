@@ -28,9 +28,6 @@ namespace glsld
 
     auto LanguageService::Initialize(int requestId, lsp::InitializeParams params) -> void
     {
-        auto completionTriggerCharacters    = std::vector<std::string>{"."};
-        auto signatureHelpTriggerCharacters = std::vector<std::string>{"("};
-
         auto result = lsp::InitializeResult{
             .capabilities =
                 {

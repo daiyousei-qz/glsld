@@ -35,8 +35,12 @@ namespace glsld
         }
     };
 
-    auto GetSignatureHelpOptions(const SignatureHelpConfig& config) -> lsp::SignatureHelpOptions
+    auto GetSignatureHelpOptions(const SignatureHelpConfig& config) -> std::optional<lsp::SignatureHelpOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::SignatureHelpOptions{
             .triggerCharacters   = {"("},
             .retriggerCharacters = {","},
@@ -47,6 +51,10 @@ namespace glsld
     auto HandleSignatureHelp(const SignatureHelpConfig& config, const LanguageQueryInfo& info,
                              const lsp::SignatureHelpParams& params) -> std::optional<lsp::SignatureHelp>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         auto expr = SignatureHelpVisitor{info, FromLspPosition(params.position)}.Execute();
 
         if (expr) {

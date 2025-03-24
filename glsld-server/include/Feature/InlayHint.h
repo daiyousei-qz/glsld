@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    auto GetInlayHintsOptions(const InlayHintConfig& config) -> lsp::InlayHintOptions;
+    auto GetInlayHintsOptions(const InlayHintConfig& config) -> std::optional<lsp::InlayHintOptions>;
 
     auto HandleInlayHints(const InlayHintConfig& config, const LanguageQueryInfo& info,
                           const lsp::InlayHintParams& params) -> std::vector<lsp::InlayHint>;

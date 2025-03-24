@@ -3,14 +3,22 @@
 
 namespace glsld
 {
-    auto GetDeclarationOptions(const DeclarationConfig& config) -> lsp::DeclarationOptions
+    auto GetDeclarationOptions(const DeclarationConfig& config) -> std::optional<lsp::DeclarationOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::DeclarationOptions{};
     }
 
     auto HandleDeclaration(const DeclarationConfig& config, const LanguageQueryInfo& info,
                            const lsp::DeclarationParams& params) -> std::vector<lsp::Location>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         auto symbolInfo = info.QuerySymbolByPosition(FromLspPosition(params.position));
         if (!symbolInfo) {
             return {};

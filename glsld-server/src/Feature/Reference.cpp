@@ -110,8 +110,12 @@ namespace glsld
         }
     };
 
-    auto GetReferenceOptions(const ReferenceConfig& config) -> lsp::ReferenceOptions
+    auto GetReferenceOptions(const ReferenceConfig& config) -> std::optional<lsp::ReferenceOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::ReferenceOptions{};
     }
 
@@ -122,6 +126,10 @@ namespace glsld
     auto HandleReferences(const ReferenceConfig& config, const LanguageQueryInfo& info,
                           const lsp::ReferenceParams& params) -> std::vector<lsp::Location>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         auto accessInfo = info.QuerySymbolByPosition(FromLspPosition(params.position));
         if (!accessInfo || !accessInfo->symbolDecl.IsValid()) {
             return {};

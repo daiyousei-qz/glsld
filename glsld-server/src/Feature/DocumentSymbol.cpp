@@ -120,14 +120,22 @@ namespace glsld
         };
     } // namespace
 
-    auto GetDocumentSymbolOptions(const DocumentSymbolConfig& config) -> lsp::DocumentSymbolOptions
+    auto GetDocumentSymbolOptions(const DocumentSymbolConfig& config) -> std::optional<lsp::DocumentSymbolOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::DocumentSymbolOptions{};
     }
 
     auto HandleDocumentSymbol(const DocumentSymbolConfig& config, const LanguageQueryInfo& info,
                               const lsp::DocumentSymbolParams& params) -> std::vector<lsp::DocumentSymbol>
     {
+        if (!config.enable) {
+            return {};
+        }
+
         return DocumentSymbolCollector{info}.Execute();
     }
 

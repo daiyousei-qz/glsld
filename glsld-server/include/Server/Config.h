@@ -10,37 +10,56 @@ namespace glsld
 {
     struct DeclarationConfig
     {
+        // Master toggle for declaration.
+        bool enable = true;
     };
 
     struct DefinitionConfig
     {
+        // Master toggle for declaration.
+        bool enable = true;
     };
 
     struct ReferenceConfig
     {
+        // Master toggle for reference.
+        bool enable = true;
     };
 
     struct HoverConfig
     {
+        // Master toggle for hover.
+        bool enable = true;
     };
 
     struct FoldingRangeConfig
     {
+        // Master toggle for folding range.
+        bool enable = false;
     };
 
     struct DocumentSymbolConfig
     {
+        // Master toggle for document symbol.
+        bool enable = true;
     };
 
     struct SemanticTokenConfig
     {
+        // Master toggle for semantic token.
+        bool enable = true;
     };
 
     struct InlayHintConfig
     {
+        // Master toggle for inlay hint.
+        bool enable = false;
+        // Show the argument name hint for function calls.
         bool enableArgumentNameHint = false;
+        // Show the implicit cast hint for function calls.
         bool enableImplicitCastHint = false;
-        bool enableBlockEndHint     = false;
+        // Show the block end hint for function body.
+        bool enableBlockEndHint = false;
 
         // The threshold of lines to show the block end hint.
         size_t blockEndHintLineThreshold = 0;
@@ -48,14 +67,20 @@ namespace glsld
 
     struct CompletionConfig
     {
+        // Master toggle for completion.
+        bool enable = true;
     };
 
     struct DiagnosticConfig
     {
+        // Master toggle for diagnostic.
+        bool enable = false;
     };
 
     struct SignatureHelpConfig
     {
+        // Master toggle for signature help.
+        bool enable = true;
     };
 
     struct LanguageServiceConfig

@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    auto GetSignatureHelpOptions(const SignatureHelpConfig& config) -> lsp::SignatureHelpOptions;
+    auto GetSignatureHelpOptions(const SignatureHelpConfig& config) -> std::optional<lsp::SignatureHelpOptions>;
     auto HandleSignatureHelp(const SignatureHelpConfig& config, const LanguageQueryInfo& info,
                              const lsp::SignatureHelpParams& params) -> std::optional<lsp::SignatureHelp>;
 

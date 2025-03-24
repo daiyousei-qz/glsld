@@ -9,21 +9,40 @@ TEST_CASE("ConfigTest")
     auto config       = R"(
 {
     "languageService": {
-        "declaration": {},
-        "reference": {},
-        "hover": {},
-        "foldingRange": {},
-        "documentSymbol": {},
-        "semanticToken": {},
+        "declaration": {
+            "enable": true
+        },
+        "reference": {
+            "enable": true
+        },
+        "hover": {
+            "enable": true
+        },
+        "foldingRange": {
+            "enable": true
+        },
+        "documentSymbol": {
+            "enable": true
+        },
+        "semanticToken": {
+            "enable": true
+        },
         "inlayHint": {
+            "enable": true,
             "enableArgumentNameHint": true,
             "enableImplicitCastHint": true,
             "enableBlockEndHint": true,
             "blockEndHintLineThreshold": 4
         },
-        "completion": {},
-        "diagnostic": {},
-        "signatureHelp": {}
+        "completion": {
+            "enable": true
+        },
+        "diagnostic": {
+            "enable": true
+        },
+        "signatureHelp": {
+            "enable": true
+        }
     },
     "loggingLevel": "Debug"
 }

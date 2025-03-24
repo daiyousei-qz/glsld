@@ -5,7 +5,7 @@
 
 namespace glsld
 {
-    auto GetDeclarationOptions(const DeclarationConfig& config) -> lsp::DeclarationOptions;
+    auto GetDeclarationOptions(const DeclarationConfig& config) -> std::optional<lsp::DeclarationOptions>;
 
     // we assume single source file for now
     auto HandleDeclaration(const DeclarationConfig& config, const LanguageQueryInfo& info,

@@ -43,7 +43,7 @@ namespace glsld
 
     auto CollectHover(const LanguageQueryInfo& info, TextPosition position) -> std::optional<HoverContent>;
 
-    auto GetHoverOptions(const HoverConfig& config) -> lsp::HoverOptions;
+    auto GetHoverOptions(const HoverConfig& config) -> std::optional<lsp::HoverOptions>;
 
     auto HandleHover(const HoverConfig& config, const LanguageQueryInfo& info, const lsp::HoverParams& params)
         -> std::optional<lsp::Hover>;

@@ -347,14 +347,22 @@ namespace glsld
         return std::nullopt;
     }
 
-    auto GetHoverOptions(const HoverConfig& config) -> lsp::HoverOptions
+    auto GetHoverOptions(const HoverConfig& config) -> std::optional<lsp::HoverOptions>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return lsp::HoverOptions{};
     }
 
     auto HandleHover(const HoverConfig& config, const LanguageQueryInfo& info, const lsp::HoverParams& params)
         -> std::optional<lsp::Hover>
     {
+        if (!config.enable) {
+            return std::nullopt;
+        }
+
         return CollectHover(info, FromLspPosition(params.position)).transform([](const HoverContent& hoverContent) {
             return lsp::Hover{
                 .contents = lsp::MarkupContent{true, ComputeHoverText(hoverContent)},
