@@ -1,6 +1,6 @@
 #include "ServerTestFixture.h"
 
-#include "SymbolQuery.h"
+#include "Server/LanguageQueryInfo.h"
 
 using namespace glsld;
 
@@ -8,7 +8,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 {
     auto checkSymbol = [this](const ServerTestContext& ctx, StringView label, SymbolDeclType type, StringView name,
                               bool unknown = false) {
-        auto queryResult = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition(label));
+        auto queryResult = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition(label));
         REQUIRE(queryResult.has_value());
         REQUIRE(queryResult->symbolType == type);
         REQUIRE(queryResult->spelledText == name);
@@ -23,30 +23,30 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 
         auto ctx = CompileLabelledSource(sourceText);
 
-        auto result1 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.1"));
+        auto result1 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.1"));
         REQUIRE(result1.has_value());
         REQUIRE(result1->symbolType == SymbolDeclType::HeaderName);
         REQUIRE(result1->spelledText == "\"test.h\"");
 
-        auto result2 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.2"));
+        auto result2 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.2"));
         REQUIRE(result2.has_value());
         REQUIRE(result2->symbolType == SymbolDeclType::HeaderName);
         REQUIRE(result2->spelledText == "\"test.h\"");
 
-        auto result3 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.3"));
+        auto result3 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.3"));
         REQUIRE(!result3.has_value());
 
-        auto result4 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.4"));
+        auto result4 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.4"));
         REQUIRE(result4.has_value());
         REQUIRE(result4->symbolType == SymbolDeclType::Macro);
         REQUIRE(result4->spelledText == "MACRO");
 
-        auto result5 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.5"));
+        auto result5 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.5"));
         REQUIRE(result5.has_value());
         REQUIRE(result5->symbolType == SymbolDeclType::Macro);
         REQUIRE(result5->spelledText == "MACRO");
 
-        auto result6 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.6"));
+        auto result6 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.6"));
         REQUIRE(!result6.has_value());
     }
 
@@ -61,26 +61,26 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 
         auto ctx = CompileLabelledSource(sourceText);
 
-        auto result1 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.1"));
+        auto result1 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.1"));
         REQUIRE(result1.has_value());
         REQUIRE(result1->spelledRange == ctx.GetRange("pos.1", "pos.3"));
         REQUIRE(result1->spelledText == "main");
 
-        auto result2 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.2"));
+        auto result2 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.2"));
         REQUIRE(result2.has_value());
         REQUIRE(result2->spelledRange == ctx.GetRange("pos.1", "pos.3"));
         REQUIRE(result2->spelledText == "main");
 
-        auto result3 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.3"));
+        auto result3 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.3"));
         REQUIRE(!result3.has_value());
 
-        auto result4 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.4"));
+        auto result4 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.4"));
         REQUIRE(!result4.has_value());
 
-        auto result5 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.5"));
+        auto result5 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.5"));
         REQUIRE(!result5.has_value());
 
-        auto result6 = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("pos.6"));
+        auto result6 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.6"));
         REQUIRE(!result6.has_value());
     }
 
@@ -92,7 +92,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 
         auto ctx = CompileLabelledSource(sourceText);
 
-        auto queryResult = QuerySymbolByPosition(ctx.GetProvider(), ctx.GetPosition("header.pos"));
+        auto queryResult = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("header.pos"));
         REQUIRE(queryResult.has_value());
         REQUIRE(queryResult->symbolType == SymbolDeclType::HeaderName);
         REQUIRE(queryResult->spelledText == "\"header.glsl\"");

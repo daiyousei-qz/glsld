@@ -78,6 +78,8 @@ find_package(fmt CONFIG REQUIRED)
 find_package(argparse CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
+find_package(boost_pfr CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
 
 if(GLSLD_BUILD_UNIT_TEST)
     find_package(Catch2 CONFIG REQUIRED)
@@ -120,6 +122,8 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
     target_link_libraries(glsld-server PUBLIC glsld-core)
 
     target_link_libraries(glsld-server PRIVATE nlohmann_json::nlohmann_json)
+    target_link_libraries(glsld-server PRIVATE Boost::pfr)
+    target_link_libraries(glsld-server PRIVATE magic_enum::magic_enum)
     target_include_directories(glsld-server PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 endif()
 

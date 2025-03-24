@@ -1,4 +1,4 @@
-#include "LanguageServer.h"
+#include "Server/LanguageServer.h"
 
 #include <argparse/argparse.hpp>
 #include <fstream>

@@ -1,6 +1,6 @@
 #include "ServerTestFixture.h"
 
-#include "Declaration.h"
+#include "Feature/Declaration.h"
 
 using namespace glsld;
 

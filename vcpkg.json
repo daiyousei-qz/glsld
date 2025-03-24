@@ -10,6 +10,8 @@
         "argparse",
         "nlohmann-json",
         "bshoshany-thread-pool",
+        "boost-pfr",
+        "magic-enum",
         "catch2"
     ],
     "builtin-baseline": "b322364f06308bdd24823f9d8f03fe0cc86fd46f"

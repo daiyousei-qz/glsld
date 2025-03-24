@@ -4,8 +4,8 @@
 #include "Basic/StringMap.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/SourceScanner.h"
+#include "Server/LanguageQueryInfo.h"
 
-#include "LanguageQueryProvider.h"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
 
@@ -20,20 +20,19 @@ namespace glsld
     class ServerTestContext
     {
     private:
-        std::unique_ptr<LanguageQueryProvider> provider;
+        std::unique_ptr<LanguageQueryInfo> info;
         StringMap<TextPosition> labels;
 
     public:
-        ServerTestContext(std::unique_ptr<CompilerResult> result, PreprocessSymbolStore ppInfo,
+        ServerTestContext(std::unique_ptr<CompilerResult> result, std::unique_ptr<PreprocessSymbolStore> ppInfo,
                           StringMap<TextPosition> labels)
-            : provider(std::make_unique<LanguageQueryProvider>(std::move(result), std::move(ppInfo))),
-              labels(std::move(labels))
+            : info(std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfo))), labels(std::move(labels))
         {
         }
 
-        auto GetProvider() const -> const LanguageQueryProvider&
+        auto GetProvider() const -> const LanguageQueryInfo&
         {
-            return *provider;
+            return *info;
         }
 
         auto GetPosition(StringView label) const -> TextPosition
@@ -95,12 +94,12 @@ namespace glsld
         auto CompileLabelledSource(StringView labelledSourceText) const -> ServerTestContext
         {
             auto [sourceText, labels] = ParseLabelledSource(labelledSourceText);
-            PreprocessSymbolStore ppInfoStore;
-            auto compiler = std::make_unique<CompilerInvocation>();
+            auto ppInfoStore          = std::make_unique<PreprocessSymbolStore>();
+            auto compiler             = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
 
-            auto ppCallback = ppInfoStore.GetCollectionCallback();
+            auto ppCallback = ppInfoStore->GetCollectionCallback();
             auto result     = compiler->CompileMainFile(ppCallback.get(), CompileMode::ParseOnly);
             return ServerTestContext{std::move(result), std::move(ppInfoStore), std::move(labels)};
         }

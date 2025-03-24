@@ -1,9 +1,22 @@
 #include "ServerTestFixture.h"
 
-#include "InlayHints.h"
-#include "SourceText.h"
+#include "Feature/InlayHint.h"
+#include "Support/SourceText.h"
 
 using namespace glsld;
+
+static auto MockInlayHints(ServerTestContext& ctx, TextRange range, const InlayHintConfig& config = {})
+    -> std::vector<lsp::InlayHint>
+{
+    return HandleInlayHints(config, ctx.GetProvider(),
+                            lsp::InlayHintParams{
+                                .textDocument =
+                                    lsp::TextDocumentIdentifier{
+                                        .uri = "mockuri",
+                                    },
+                                .range = ToLspRange(range),
+                            });
+}
 
 TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
 {
@@ -33,20 +46,17 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
         };
 
         {
-            auto hints =
-                ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.mid1")));
+            auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.mid1"), config);
             REQUIRE(hints.size() == 0);
         }
 
         {
-            auto hints =
-                ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.mid2")));
+            auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.mid2"), config);
             REQUIRE(hints.size() == 2);
         }
 
         {
-            auto hints =
-                ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.end")));
+            auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.end"), config);
             REQUIRE(hints.size() == 4);
         }
     }
@@ -71,8 +81,7 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
             .enableArgumentNameHint = true,
         };
 
-        auto hints =
-            ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.end")));
+        auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.end"), config);
         REQUIRE(hints.size() == 3);
         REQUIRE(hints[0].label == "a:");
         REQUIRE(FromLspPosition(hints[0].position) == ctx.GetPosition("arg1"));
@@ -104,8 +113,7 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
             .enableImplicitCastHint = true,
         };
 
-        auto hints =
-            ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.end")));
+        auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.end"), config);
         REQUIRE(hints.size() == 6);
         REQUIRE(hints[0].label == "(double)");
         REQUIRE(FromLspPosition(hints[0].position) == ctx.GetPosition("hint.vardecl"));
@@ -148,8 +156,7 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
                 .blockEndHintLineThreshold = 0,
             };
 
-            auto hints =
-                ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.end")));
+            auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.end"), config);
             REQUIRE(hints.size() == 3);
             REQUIRE(hints[0].label == "// foo");
             REQUIRE(FromLspPosition(hints[0].position) == ctx.GetPosition("foo.end"));
@@ -165,8 +172,7 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
                 .blockEndHintLineThreshold = 3,
             };
 
-            auto hints =
-                ComputeInlayHint(ctx.GetProvider(), config, ToLspRange(ctx.GetRange("source.begin", "source.end")));
+            auto hints = MockInlayHints(ctx, ctx.GetRange("source.begin", "source.end"), config);
             REQUIRE(hints.size() == 1);
             REQUIRE(hints[0].label == "// baz");
             REQUIRE(FromLspPosition(hints[0].position) == ctx.GetPosition("baz.end"));

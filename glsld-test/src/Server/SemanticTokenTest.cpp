@@ -1,8 +1,14 @@
 #include "ServerTestFixture.h"
 
-#include "SemanticTokens.h"
+#include "Feature/SemanticTokens.h"
 
 using namespace glsld;
+
+static auto MockSemanticTokens(ServerTestContext& ctx, const SemanticTokenConfig& config = {})
+    -> std::vector<SemanticTokenInfo>
+{
+    return CollectSemanticTokens(config, ctx.GetProvider());
+}
 
 TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 {
@@ -27,7 +33,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         #undef ^[MACRO.undef.begin]MACRO^[MACRO.undef.end]
         )";
         auto ctx            = CompileLabelledSource(sourceText);
-        auto semanticTokens = CollectSemanticTokens(ctx.GetProvider());
+        auto semanticTokens = MockSemanticTokens(ctx);
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("MACRO.def.begin"), ctx.GetPosition("MACRO.def.end"),
                            SemanticTokenType::Macro, SemanticTokenModifier::None);
@@ -56,7 +62,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
     )";
 
         auto ctx            = CompileLabelledSource(sourceText);
-        auto semanticTokens = CollectSemanticTokens(ctx.GetProvider());
+        auto semanticTokens = MockSemanticTokens(ctx);
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("struct.decl.begin"), ctx.GetPosition("struct.decl.end"),
                            SemanticTokenType::Struct, SemanticTokenModifier::Declaration);
@@ -79,7 +85,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         }
     )";
         auto ctx            = CompileLabelledSource(sourceText);
-        auto semanticTokens = CollectSemanticTokens(ctx.GetProvider());
+        auto semanticTokens = MockSemanticTokens(ctx);
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("foo.decl.begin"), ctx.GetPosition("foo.decl.end"),
                            SemanticTokenType::Function, SemanticTokenModifier::Declaration);
@@ -102,7 +108,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
     )";
 
         auto ctx            = CompileLabelledSource(sourceText);
-        auto semanticTokens = CollectSemanticTokens(ctx.GetProvider());
+        auto semanticTokens = MockSemanticTokens(ctx);
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("ubo.decl.begin"), ctx.GetPosition("ubo.decl.end"),
                            SemanticTokenType::Type, SemanticTokenModifier::Declaration);
@@ -132,7 +138,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
     )";
 
         auto ctx            = CompileLabelledSource(sourceText);
-        auto semanticTokens = CollectSemanticTokens(ctx.GetProvider());
+        auto semanticTokens = MockSemanticTokens(ctx);
 
         checkSemanticToken(semanticTokens, ctx.GetPosition("global.decl.begin"), ctx.GetPosition("global.decl.end"),
                            SemanticTokenType::Variable, SemanticTokenModifier::Declaration);

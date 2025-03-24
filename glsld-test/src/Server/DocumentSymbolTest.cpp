@@ -1,7 +1,7 @@
 #include "ServerTestFixture.h"
 
-#include "SourceText.h"
-#include "DocumentSymbol.h"
+#include "Feature/DocumentSymbol.h"
+#include "Support/SourceText.h"
 
 using namespace glsld;
 
@@ -24,7 +24,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbolTest")
     )";
 
     auto ctx             = CompileLabelledSource(sourceText);
-    auto documentSymbols = lsp::ComputeDocumentSymbol(ctx.GetProvider());
+    auto documentSymbols = HandleDocumentSymbol(DocumentSymbolConfig{}, ctx.GetProvider(), {});
     auto checkSymbol     = [&](const lsp::DocumentSymbol& symbol, StringView name, lsp::SymbolKind kind,
                            StringView labelBegin, StringView labelEnd) {
         REQUIRE(symbol.name == name);

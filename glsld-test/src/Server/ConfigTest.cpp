@@ -1,4 +1,4 @@
-#include "Config.h"
+#include "Server/Config.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -25,7 +25,7 @@ TEST_CASE("ConfigTest")
         "diagnostic": {},
         "signatureHelp": {}
     },
-    "loggingLevel": "debug"
+    "loggingLevel": "Debug"
 }
 )";
     auto parsedConfig = ParseLanguageServerConfig(config);
