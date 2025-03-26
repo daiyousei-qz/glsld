@@ -1,6 +1,6 @@
 #include "Server/LanguageService.h"
 #include "Feature/Completion.h"
-#include "Feature/Declaration.h"
+#include "Feature/Definition.h"
 #include "Feature/DocumentSymbol.h"
 #include "Feature/FoldingRange.h"
 #include "Feature/Hover.h"
@@ -39,8 +39,8 @@ namespace glsld
                     .completionProvider    = GetCompletionOptions(server.GetConfig().languageService.completion),
                     .hoverProvider         = GetHoverOptions(server.GetConfig().languageService.hover),
                     .signatureHelpProvider = GetSignatureHelpOptions(server.GetConfig().languageService.signatureHelp),
-                    .declarationProvider   = GetDeclarationOptions(server.GetConfig().languageService.declaration),
-                    // .definitionProvider     = GetDefinitionOptions(),
+                    // .declarationProvider   = GetDeclarationOptions(server.GetConfig().languageService.declaration),
+                    .definitionProvider = GetDefinitionOptions(server.GetConfig().languageService.definition),
                     .referencesProvider = GetReferenceOptions(server.GetConfig().languageService.reference),
                     .documentSymbolProvider =
                         GetDocumentSymbolOptions(server.GetConfig().languageService.documentSymbol),
@@ -169,15 +169,15 @@ namespace glsld
         });
     }
 
-    auto LanguageService::Declaration(int requestId, lsp::DeclarationParams params) -> void
+    auto LanguageService::Definition(int requestId, lsp::DefinitionParams params) -> void
     {
         auto uri = params.textDocument.uri;
-        server.LogInfo("Received request {} {}: {}", requestId, "declaration", uri);
+        server.LogInfo("Received request {} {}: {}", requestId, "definition", uri);
         ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
             std::vector<lsp::Location> result =
-                HandleDeclaration(server.GetConfig().languageService.declaration, info, params);
+                HandleDefinition(server.GetConfig().languageService.definition, info, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "declaration");
+            server.LogInfo("Responded to request {} {}", requestId, "definition");
         });
     }
 

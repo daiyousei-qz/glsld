@@ -16,6 +16,14 @@ namespace glsld
 
         bool includeDeclaration;
 
+        auto AddReferenceToken(const AstSyntaxToken& token) -> void
+        {
+            // FIXME: Support reference from included files
+            if (GetInfo().IsSpelledInMainFile(token.id)) {
+                output.push_back(lsp::Location{documentUri, ToLspRange(GetInfo().LookupExpandedTextRange(token))});
+            }
+        }
+
     public:
         CollectReferenceVisitor(std::vector<lsp::Location>& output, const LanguageQueryInfo& info, lsp::DocumentUri uri,
                                 DeclView referenceDecl, bool includeDeclaration)
@@ -99,15 +107,6 @@ namespace glsld
                 }
             }
         }
-
-    private:
-        auto AddReferenceToken(const AstSyntaxToken& token) -> void
-        {
-            // FIXME: Support reference from included files
-            if (GetInfo().IsSpelledInMainFile(token.id)) {
-                output.push_back(lsp::Location{documentUri, ToLspRange(GetInfo().LookupExpandedTextRange(token))});
-            }
-        }
     };
 
     auto GetReferenceOptions(const ReferenceConfig& config) -> std::optional<lsp::ReferenceOptions>
@@ -130,15 +129,38 @@ namespace glsld
             return {};
         }
 
-        auto accessInfo = info.QuerySymbolByPosition(FromLspPosition(params.position));
-        if (!accessInfo || !accessInfo->symbolDecl.IsValid()) {
+        auto symbolInfo = info.QuerySymbolByPosition(FromLspPosition(params.position));
+        if (!symbolInfo) {
             return {};
         }
 
         std::vector<lsp::Location> result;
-        CollectReferenceVisitor{result, info, params.textDocument.uri, accessInfo->symbolDecl,
-                                params.context.includeDeclaration}
-            .Execute();
+        if (symbolInfo->symbolType == SymbolDeclType::HeaderName) {
+            // Do nothing for header name
+        }
+        else if (symbolInfo->symbolType == SymbolDeclType::Macro) {
+            for (const auto& occurrence : info.GetPreprocessInfo().GetAllOccurrences()) {
+                if (auto macroInfo = occurrence.GetMacroInfo(); macroInfo) {
+                    if (macroInfo->definition == symbolInfo->ppSymbolOccurrence->GetMacroInfo()->definition) {
+                        if (!params.context.includeDeclaration &&
+                            macroInfo->occurrenceType == PPMacroOccurrenceType::Define) {
+                            continue;
+                        }
+
+                        result.push_back(lsp::Location{
+                            params.textDocument.uri,
+                            ToLspRange(occurrence.GetSpelledRange()),
+                        });
+                    }
+                }
+            }
+        }
+        else if (symbolInfo->astSymbolOccurrence && symbolInfo->symbolDecl.IsValid()) {
+            CollectReferenceVisitor{result, info, params.textDocument.uri, symbolInfo->symbolDecl,
+                                    params.context.includeDeclaration}
+                .Execute();
+        }
+
         return result;
     }
 } // namespace glsld

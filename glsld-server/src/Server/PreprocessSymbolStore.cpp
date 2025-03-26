@@ -57,23 +57,28 @@ namespace glsld
             {
                 if (includeDepth == 0) {
                     auto macroDefinition = DefineMacro(macroName, params, tokens, isFunctionLike);
-                    store.occurrences.push_back(
-                        PPSymbolOccurrence{macroName.spelledRange, PPMacroSymbol{macroName, {}, macroDefinition}});
+                    store.occurrences.push_back(PPSymbolOccurrence{
+                        macroName.spelledRange,
+                        PPMacroSymbol{macroName, {}, macroDefinition, PPMacroOccurrenceType::Define}});
                 }
             }
             virtual auto OnUndefDirective(const PPToken& macroName) -> void override
             {
                 if (includeDepth == 0) {
-                    UndefMacro(macroName);
                     store.occurrences.push_back(PPSymbolOccurrence{
-                        macroName.spelledRange, PPMacroSymbol{macroName, {}, FindMacro(macroName.text.StrView())}});
+                        macroName.spelledRange,
+                        PPMacroSymbol{
+                            macroName, {}, FindMacro(macroName.text.StrView()), PPMacroOccurrenceType::Undef}});
+                    UndefMacro(macroName);
                 }
             }
             virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{
-                        macroName.spelledRange, PPMacroSymbol{macroName, {}, FindMacro(macroName.text.StrView())}});
+                        macroName.spelledRange,
+                        PPMacroSymbol{
+                            macroName, {}, FindMacro(macroName.text.StrView()), PPMacroOccurrenceType::IfDef}});
                 }
             }
 
@@ -88,9 +93,10 @@ namespace glsld
             virtual auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expansionRange) -> void override
             {
                 if (includeDepth == 0 && !macroNameTok.spelledRange.IsEmpty()) {
-                    store.occurrences.push_back(PPSymbolOccurrence{
-                        macroNameTok.spelledRange,
-                        PPMacroSymbol{macroNameTok, expansionRange, FindMacro(macroNameTok.text.StrView())}});
+                    store.occurrences.push_back(PPSymbolOccurrence{macroNameTok.spelledRange,
+                                                                   PPMacroSymbol{macroNameTok, expansionRange,
+                                                                                 FindMacro(macroNameTok.text.StrView()),
+                                                                                 PPMacroOccurrenceType::Expand}});
                 }
             }
         };

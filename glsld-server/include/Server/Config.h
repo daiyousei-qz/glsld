@@ -16,7 +16,7 @@ namespace glsld
 
     struct DefinitionConfig
     {
-        // Master toggle for declaration.
+        // Master toggle for definition.
         bool enable = true;
     };
 
@@ -85,7 +85,8 @@ namespace glsld
 
     struct LanguageServiceConfig
     {
-        DeclarationConfig declaration;
+        // DeclarationConfig declaration;
+        DefinitionConfig definition;
         ReferenceConfig reference;
         HoverConfig hover;
         FoldingRangeConfig foldingRange;

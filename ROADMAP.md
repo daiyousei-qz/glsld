@@ -1,11 +1,8 @@
 # Should have improvement
 - Proper file ID handling and jumping
-- Hover on Macro
 - Completion for Macro
-- Find references
-- Add proper logging
+- Extends logging
 - Add decl cascade in AST?
-- Improve hover with more information
 - PP builtins like __FILE__ and __LINE__
 - Support rename
 - Support pragma shader_stage(...)
@@ -19,6 +16,7 @@
 # Known issues
 - invariant id;
 - layout(xxx) out;
+- crashes with `Test/constantUnaryConversion.comp`
 
 # Known issues
 - `Should support builtin function documentation`
@@ -28,7 +26,6 @@
 - `Test/310AofA.vert` bad AST, type constructor call is treated as function declaration.
 - `Test/400.vert` bad overload resolution
 - Support initializer list
-- `Test/constantUnaryConversion.comp` no Hover on TYPE_TO(bo^ol)
 - nonuniformEXT qualifier
 - "highp int x;" in function, bad AST
 - `Test/decls.frag` decl stmt in while predicate

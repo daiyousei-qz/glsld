@@ -799,6 +799,7 @@ namespace glsld::lsp
         //   * More detail for this symbol, e.g the signature of a function.
         //   */
         //  detail?: string;
+        std::string detail;
 
         //  /**
         //   * The kind of this symbol.

@@ -1,20 +1,21 @@
-#include "Feature/Declaration.h"
+#include "Feature/Definition.h"
 #include "Support/SourceText.h"
 
 namespace glsld
 {
-    auto GetDeclarationOptions(const DeclarationConfig& config) -> std::optional<lsp::DeclarationOptions>
+    auto GetDefinitionOptions(const DefinitionConfig& config) -> std::optional<lsp::DefinitionOptions>
     {
         if (!config.enable) {
             return std::nullopt;
         }
 
-        return lsp::DeclarationOptions{};
+        return lsp::DefinitionOptions{};
     }
 
-    auto HandleDeclaration(const DeclarationConfig& config, const LanguageQueryInfo& info,
-                           const lsp::DeclarationParams& params) -> std::vector<lsp::Location>
+    auto HandleDefinition(const DefinitionConfig& config, const LanguageQueryInfo& info,
+                          const lsp::DefinitionParams& params) -> std::vector<lsp::Location>
     {
+        // FIXME: we assume single source file for now
         if (!config.enable) {
             return {};
         }
@@ -47,7 +48,7 @@ namespace glsld
             size_t declaratorIndex      = symbolInfo->symbolDecl.GetIndex();
 
             // FIXME:
-            // Avoid giving declaration if the accessed decl isn't in this module
+            // Avoid giving Definition if the accessed decl isn't in this module
             // if (accessedDecl.GetModuleId() != compilerObject.GetId()) {
             //     return {};
             // }
@@ -74,7 +75,7 @@ namespace glsld
                 accessedDeclTok = blockDecl->GetDeclarator()->nameToken;
             }
 
-            // FIXME: Support goto declaration in included files
+            // FIXME: Support goto Definition in included files
             if (accessedDeclTok && info.IsSpelledInMainFile(accessedDeclTok->id)) {
                 if (auto spelledRange = info.LookupSpelledTextRangeInMainFile(accessedDeclTok->id)) {
                     return {lsp::Location{

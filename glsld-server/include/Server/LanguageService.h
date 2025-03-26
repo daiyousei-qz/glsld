@@ -125,7 +125,7 @@ namespace glsld
 
         auto Hover(int requestId, lsp::HoverParams params) -> void;
 
-        auto Declaration(int requestId, lsp::DeclarationParams params) -> void;
+        auto Definition(int requestId, lsp::DefinitionParams params) -> void;
 
         auto References(int requestId, lsp::ReferenceParams params) -> void;
 

@@ -22,11 +22,20 @@ namespace glsld
         std::string headerAbsolutePath;
     };
 
+    enum class PPMacroOccurrenceType
+    {
+        Define,
+        Undef,
+        IfDef,
+        Expand,
+    };
+
     struct PPMacroSymbol
     {
         PPToken macroName;
         AstSyntaxRange expandedTokens;
         const PPMacroDefinition* definition = nullptr;
+        PPMacroOccurrenceType occurrenceType;
     };
 
     class PPSymbolOccurrence

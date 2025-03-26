@@ -8,7 +8,6 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/rotating_file_sink.h>
 
 #include <memory>
 #include <unordered_map>
@@ -44,6 +43,16 @@ namespace glsld
         auto GetConfig() const -> const LanguageServerConfig&
         {
             return config;
+        }
+
+        auto GetLanguageService() -> LanguageService&
+        {
+            return *language;
+        }
+
+        auto GetTransportService() -> TransportService&
+        {
+            return *transport;
         }
 
         // Dispatch a message from the client to the language server.
@@ -102,54 +111,10 @@ namespace glsld
         }
 
     private:
-        auto Initialize() -> void;
-
         auto DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
         auto DoHandleNotification(const char* method, nlohmann::json params) -> void;
 
-        template <typename ParamType>
-        using RequestHandlerType = void (LanguageService::*)(int requestId, ParamType params);
-
-        template <typename ParamType>
-        auto AddRequestHandler(StringView methodName, RequestHandlerType<ParamType> handler) -> void
-        {
-            auto [it, inserted] = dispatcherMap.insert_or_assign(
-                methodName.Str(), [handler](LanguageServer& server, const nlohmann::json& rpcBlob) {
-                    const auto& jreqid = rpcBlob["id"];
-                    if (!jreqid.is_number_integer()) {
-                        server.LogError("JSON-RPC request ID must be a valid integer.");
-                        return;
-                    }
-                    int requestId = jreqid;
-
-                    ParamType params;
-                    if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
-                        std::invoke(handler, server.language.get(), requestId, std::move(params));
-                    }
-                    else {
-                        server.LogError("Failed to deserialize JSON-RPC request parameters.");
-                    }
-                });
-            GLSLD_ASSERT(inserted);
-        }
-
-        template <typename ParamType>
-        using NotificationHandlerType = void (LanguageService::*)(ParamType params);
-
-        template <typename ParamType>
-        auto AddNotificationHandler(StringView methodName, NotificationHandlerType<ParamType> handler) -> void
-        {
-            auto [it, inserted] = dispatcherMap.insert_or_assign(
-                methodName.Str(), [handler](LanguageServer& server, const nlohmann::json& rpcBlob) {
-                    ParamType params;
-                    if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
-                        std::invoke(handler, server.language.get(), std::move(params));
-                    }
-                    else {
-                        server.LogError("Failed to deserialize JSON-RPC notification parameters.");
-                    }
-                });
-            GLSLD_ASSERT(inserted);
-        }
+        auto AddClientMessageHandler(StringView methodName,
+                                     std::function<auto(LanguageServer&, const nlohmann::json&)->void> handler) -> void;
     };
 } // namespace glsld
