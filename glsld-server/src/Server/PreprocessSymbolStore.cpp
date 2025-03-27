@@ -45,15 +45,15 @@ namespace glsld
             {
             }
 
-            virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
+            auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{headerName.spelledRange,
                                                                    PPHeaderNameSymbol{headerName, resolvedPath.Str()}});
                 }
             }
-            virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params,
-                                           ArrayView<PPToken> tokens, bool isFunctionLike) -> void override
+            auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
+                                   bool isFunctionLike) -> void override
             {
                 if (includeDepth == 0) {
                     auto macroDefinition = DefineMacro(macroName, params, tokens, isFunctionLike);
@@ -62,7 +62,7 @@ namespace glsld
                         PPMacroSymbol{macroName, {}, macroDefinition, PPMacroOccurrenceType::Define}});
                 }
             }
-            virtual auto OnUndefDirective(const PPToken& macroName) -> void override
+            auto OnUndefDirective(const PPToken& macroName) -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{
@@ -72,7 +72,7 @@ namespace glsld
                     UndefMacro(macroName);
                 }
             }
-            virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
+            auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{
@@ -82,21 +82,30 @@ namespace glsld
                 }
             }
 
-            virtual auto OnEnterIncludedFile() -> void override
+            auto OnEnterIncludedFile() -> void override
             {
                 includeDepth += 1;
             }
-            virtual auto OnExitIncludedFile() -> void override
+            auto OnExitIncludedFile() -> void override
             {
                 includeDepth -= 1;
             }
-            virtual auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expansionRange) -> void override
+            auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expansionRange) -> void override
             {
                 if (includeDepth == 0 && !macroNameTok.spelledRange.IsEmpty()) {
                     store.occurrences.push_back(PPSymbolOccurrence{macroNameTok.spelledRange,
                                                                    PPMacroSymbol{macroNameTok, expansionRange,
                                                                                  FindMacro(macroNameTok.text.StrView()),
                                                                                  PPMacroOccurrenceType::Expand}});
+                }
+            }
+            auto OnDefinedOperator(const PPToken& macroNameTok, bool isDefined) -> void override
+            {
+                if (includeDepth == 0 && !macroNameTok.spelledRange.IsEmpty()) {
+                    store.occurrences.push_back(PPSymbolOccurrence{
+                        macroNameTok.spelledRange,
+                        PPMacroSymbol{
+                            macroNameTok, {}, FindMacro(macroNameTok.text.StrView()), PPMacroOccurrenceType::IfDef}});
                 }
             }
         };

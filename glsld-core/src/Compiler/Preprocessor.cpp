@@ -566,6 +566,11 @@ namespace glsld
         if (scanner.CursorAtEnd()) {
             // Fast path for empty macro definitions.
             macroTable.DefineObjectLikeMacro(macroName, {});
+
+            // Run PP callback event if any
+            if (callback) {
+                callback->OnDefineDirective(macroName, {}, {}, false);
+            }
             return;
         }
 
@@ -1328,6 +1333,11 @@ namespace glsld
                 }
 
                 bool isDefined = macroTable.IsMacroDefined(macroName.text);
+
+                if (callback) {
+                    callback->OnDefinedOperator(macroName, isDefined);
+                }
+
                 processor.Feed(PPToken{
                     .klass                = isDefined ? TokenKlass::DefinedYes : TokenKlass::DefinedNo,
                     .spelledFile          = token.spelledFile,

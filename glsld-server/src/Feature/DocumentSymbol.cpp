@@ -1,5 +1,4 @@
 #include "Feature/DocumentSymbol.h"
-#include "Server/LanguageQueryVisitor.h"
 #include "Support/SourceText.h"
 
 namespace glsld

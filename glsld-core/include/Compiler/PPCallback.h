@@ -9,9 +9,12 @@ namespace glsld
     class PPCallback
     {
     public:
+        // Called when a `#version XXX` directive is encountered
         virtual auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void
         {
         }
+
+        // Called when a `#extension EXTENSION : behavior` directive is encountered
         virtual auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
                                           ExtensionBehavior behavior) -> void
         {
@@ -39,18 +42,28 @@ namespace glsld
         virtual auto OnUndefDirective(const PPToken& macroName) -> void
         {
         }
+
+        // Called when a `#if XXX` directive is encountered
         virtual auto OnIfDirective(bool evalToTrue) -> void
         {
         }
+
+        // Called when a `#elif XXX` directive is encountered
         virtual auto OnElifDirective(bool evalToTrue) -> void
         {
         }
+
+        // Called when a `#ifdef MACRO` or `#ifndef MACRO` directive is encountered
         virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void
         {
         }
+
+        // Called when a `#else` directive is encountered
         virtual auto OnElseDirective() -> void
         {
         }
+
+        // Called when a `#endif` directive is encountered
         virtual auto OnEndifDirective() -> void
         {
         }
@@ -61,7 +74,14 @@ namespace glsld
         virtual auto OnExitIncludedFile() -> void
         {
         }
+
+        // Called when a macro is expanded
         virtual auto OnMacroExpansion(const PPToken& macroNameTok, AstSyntaxRange expandedTokens) -> void
+        {
+        }
+
+        // Called when a defined operator is encountered, e.g. `defined(MACRO)` or `defined MACRO`
+        virtual auto OnDefinedOperator(const PPToken& macroNameTok, bool isDefined) -> void
         {
         }
     };
