@@ -53,7 +53,7 @@ namespace glsld
     struct InlayHintConfig
     {
         // Master toggle for inlay hint.
-        bool enable = false;
+        bool enable = true;
         // Show the argument name hint for function calls.
         bool enableArgumentNameHint = false;
         // Show the implicit cast hint for function calls.
