@@ -1,16 +1,15 @@
-GLSLD is a WIP language server for GLSL. It aims to implement a frontend of a language that's comptible with most GLSL source code and, based on it, a language server that provides IDE features for the GLSL language.
+GLSLD is a language server for GLSL. It aims to implement a frontend of a language that's comptible with most GLSL source code and, based on it, a language server that provides IDE features for the GLSL language.
 
 This project includes the following components:
 - glsld-core: A core library that provides glsl parser and other utilities.
 - glsld-lexgen: A lexer genenerator for the glsl language.
-- glsld-wrapper: A standalone wrapper executable around the glsld-core.
+- glsld-wrapper: A standalone wrapper executable that is built around the glsld-core.
 - glsld-server: A language server library that implement language server protocol on top of glsld-core.
-- glsld: The language server executable.
-- glsld-test: The unit test executable.
+- glsld: The language server executable built on top of the glsld-server.
+- glsld-test: The unit test executable built on top of the glsld-server.
 
 ## Features
-Currently, language features below are partially implemented:
-- Go to Declaration
+Currently, language features below are (partially) implemented:
 - Go to Definition
 - Hover
 - References
@@ -24,42 +23,38 @@ The following features are planned:
 - Rename
 - Prepare Rename
 
-## Roadmap
-This work is still in a very early development state, but the language server is already working in limited capacity. Planned improvements are:
-- Performance optimization for large source file. Current implementation is preliminary and may not perform well for large shaders.
-- Support more preprocessors. Currently, many preprocessors are ignored as if they are comments. Need work to properly support them.
-- Support constant evaluation of constant expressions.
-- Support documentations.
-
 ## How to Build
 
 ### Dependencies
 - A C++23 compiler.
-    - MSVC 19.40 or later
-    - CLANG 18 or later
+    - CLANG 19 or later
 - CMake
 - vcpkg
     - fmt
+    - spdlog
     - argparse
     - nlohmann_json
     - BS_thread_pool
     - catch2
+    - boost-pfr
+    - magic-enum
 
 ### Package Manager
-GLSLD uses vcpkg to manage its dependencies. Before compiling this project, please set up vcpkg to your system using the follow commands:
-1. `git clone https://github.com/microsoft/vcpkg.git`
-2. `cd vcpkg && ./bootstrap-vcpkg.sh`
-See also https://learn.microsoft.com/en-us/vcpkg/get_started/get-started?pivots=shell-bash
-
-It is recommended you also set the VCPKG_ROOT environment variable to your vcpkg path so that this project will discover your vcpkg installation automatically. Otherwise, please make sure set CMAKE parameter CMAKE_TOOLCHAIN_FILE to your local vcpkg's tookchain file `vcpkg.cmake`.
+GLSLD uses vcpkg to manage its dependencies. It is recommended that you use the vcpkg from git submodule of this repository.
 
 ### Steps
-Assuming your current work folder is at root of the repository, the following commands should build glsld:
+We assume you have cloned this repository fresh and your current work folder is at root of the repository.
+
+First, use the following command to prepare the vcpkg:
 ```
-mkdir build
-cd build
-cmake ..
-cmake --build .
+git submodule update --init
+./external/vcpkg/bootstrap-vcpkg
+```
+
+Now that the vcpkg is ready, you can build the debug build of the project with the following command:
+```
+cmake --preset Debug
+cmake --build build
 ```
 
 GLSLD should generally work in Windows and Linux environment. For other platforms, GLSLD may also work because it is written with cross-platform in mind. However, it might break from time to time.
