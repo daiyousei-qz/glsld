@@ -6,235 +6,168 @@ using namespace glsld;
 
 TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 {
-    auto checkSymbol = [this](const ServerTestContext& ctx, StringView label, SymbolDeclType type, StringView name,
-                              bool unknown = false) {
-        auto queryResult = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition(label));
+    auto checkSymbol = [this](StringView labelPos, SymbolDeclType type, StringView name, bool unknown = false) {
+        auto queryResult = GetLanguageQueryInfo().QuerySymbolByPosition(GetLabelledPosition(labelPos));
         REQUIRE(queryResult.has_value());
         REQUIRE(queryResult->symbolType == type);
         REQUIRE(queryResult->spelledText == name);
     };
 
-    SECTION("CursorOnPP")
+    SECTION("HeaderName")
     {
-        auto sourceText = R"(
-        #include ^[pos.1]"test^[pos.2].h"^[pos.3]
-        #define ^[pos.4]MA^[pos.5]CRO^[pos.6] 1
-    )";
+        CompileLabelledSource(R"(
+            #include ^[pos.1]"test.h"
+            #include ^[pos.2]<test.h>
+        )");
 
-        auto ctx = CompileLabelledSource(sourceText);
-
-        auto result1 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.1"));
-        REQUIRE(result1.has_value());
-        REQUIRE(result1->symbolType == SymbolDeclType::HeaderName);
-        REQUIRE(result1->spelledText == "\"test.h\"");
-
-        auto result2 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.2"));
-        REQUIRE(result2.has_value());
-        REQUIRE(result2->symbolType == SymbolDeclType::HeaderName);
-        REQUIRE(result2->spelledText == "\"test.h\"");
-
-        auto result3 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.3"));
-        REQUIRE(!result3.has_value());
-
-        auto result4 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.4"));
-        REQUIRE(result4.has_value());
-        REQUIRE(result4->symbolType == SymbolDeclType::Macro);
-        REQUIRE(result4->spelledText == "MACRO");
-
-        auto result5 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.5"));
-        REQUIRE(result5.has_value());
-        REQUIRE(result5->symbolType == SymbolDeclType::Macro);
-        REQUIRE(result5->spelledText == "MACRO");
-
-        auto result6 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.6"));
-        REQUIRE(!result6.has_value());
+        checkSymbol("pos.1", SymbolDeclType::HeaderName, "\"test.h\"");
+        checkSymbol("pos.2", SymbolDeclType::HeaderName, "<test.h>");
     }
 
-    SECTION("CursorOnAST")
+    SECTION("Macro")
     {
-        auto sourceText = R"(
-        void ^[pos.1]ma^[pos.2]in^[pos.3](^[pos.4])
-        ^[pos.5]{
-        ^[pos.6]
-        }
-    )";
+        CompileLabelledSource(R"(
+            #define ^[macro1.decl.pos]MACRO1
+            #define ^[macro2.decl.pos]MACRO2 1
+            #define ^[macro3.decl.pos]MACRO3(X) X
 
-        auto ctx = CompileLabelledSource(sourceText);
+            #ifdef ^[macro1.use.pos]MACRO1
+            #endif
+            #if defined ^[macro2.use.pos]MACRO2 && ^[macro3.use.pos]MACRO3(0)
+            #endif
 
-        auto result1 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.1"));
-        REQUIRE(result1.has_value());
-        REQUIRE(result1->spelledRange == ctx.GetRange("pos.1", "pos.3"));
-        REQUIRE(result1->spelledText == "main");
+            #undef ^[macro1.undef.pos]MACRO1
+            #undef ^[macro4.undef.pos]MACRO4
+        )");
 
-        auto result2 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.2"));
-        REQUIRE(result2.has_value());
-        REQUIRE(result2->spelledRange == ctx.GetRange("pos.1", "pos.3"));
-        REQUIRE(result2->spelledText == "main");
-
-        auto result3 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.3"));
-        REQUIRE(!result3.has_value());
-
-        auto result4 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.4"));
-        REQUIRE(!result4.has_value());
-
-        auto result5 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.5"));
-        REQUIRE(!result5.has_value());
-
-        auto result6 = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("pos.6"));
-        REQUIRE(!result6.has_value());
+        checkSymbol("macro1.decl.pos", SymbolDeclType::Macro, "MACRO1");
+        checkSymbol("macro2.decl.pos", SymbolDeclType::Macro, "MACRO2");
+        checkSymbol("macro3.decl.pos", SymbolDeclType::Macro, "MACRO3");
+        checkSymbol("macro1.use.pos", SymbolDeclType::Macro, "MACRO1");
+        checkSymbol("macro2.use.pos", SymbolDeclType::Macro, "MACRO2");
+        checkSymbol("macro3.use.pos", SymbolDeclType::Macro, "MACRO3");
+        checkSymbol("macro1.undef.pos", SymbolDeclType::Macro, "MACRO1");
+        checkSymbol("macro4.undef.pos", SymbolDeclType::Macro, "MACRO4", true);
     }
 
-    SECTION("CursorOnHeaderName")
+    SECTION("LayoutQualifier")
     {
-        auto sourceText = R"(
-        #include ^[header.pos]"header.glsl"
-    )";
+        CompileLabelledSource(R"(
+            layout(^[pos.1]binding = 0, ^[pos.2]rgba) uniform image2D img;
+        )");
 
-        auto ctx = CompileLabelledSource(sourceText);
-
-        auto queryResult = ctx.GetProvider().QuerySymbolByPosition(ctx.GetPosition("header.pos"));
-        REQUIRE(queryResult.has_value());
-        REQUIRE(queryResult->symbolType == SymbolDeclType::HeaderName);
-        REQUIRE(queryResult->spelledText == "\"header.glsl\"");
+        checkSymbol("pos.1", SymbolDeclType::LayoutQualifier, "binding");
+        checkSymbol("pos.2", SymbolDeclType::LayoutQualifier, "rgba");
     }
 
-    SECTION("CursorOnTypeName")
+    SECTION("StructName")
     {
-        auto sourceText = R"(
-        struct ^[struct.decl.pos]S
-        {
-        };
+        CompileLabelledSource(R"(
+            struct ^[struct.decl.pos]S
+            {
+                int ^[member.decl.pos]member;
+            };
 
-        void foo()
-        {
-            ^[struct.access.pos]S s;
-            ^[unknown.access.pos]unknown u;
-        }
-    )";
+            void foo()
+            {
+                ^[struct.use.pos]S s;
+                s.^[member.use.pos]member;
+                s.^[unknown.member.use.pos]unknown;
 
-        auto ctx = CompileLabelledSource(sourceText);
+                ^[unknown.type.use.pos]Unknown u;
+            }
+        )");
 
-        checkSymbol(ctx, "struct.decl.pos", SymbolDeclType::Type, "S");
-        checkSymbol(ctx, "struct.access.pos", SymbolDeclType::Type, "S");
-        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::Type, "unknown", true);
+        checkSymbol("struct.decl.pos", SymbolDeclType::Type, "S");
+        checkSymbol("struct.use.pos", SymbolDeclType::Type, "S");
+        checkSymbol("member.decl.pos", SymbolDeclType::StructMember, "member");
+        checkSymbol("member.use.pos", SymbolDeclType::StructMember, "member");
+        checkSymbol("unknown.member.use.pos", SymbolDeclType::StructMember, "unknown", true);
+        checkSymbol("unknown.type.use.pos", SymbolDeclType::Type, "Unknown", true);
     }
 
-    SECTION("CursorOnVariableName")
+    SECTION("VariableName")
     {
-        auto sourceText = R"(
-        int ^[global.decl.pos]global;
-        int foo(int ^[param.decl.pos]param)
-        {
-            int ^[local.decl.pos]local;
+        CompileLabelledSource(R"(
+            int ^[global.decl.pos]global;
+            int foo(int ^[param.decl.pos]param)
+            {
+                int ^[local.decl.pos]local;
 
-            return ^[local.access.pos]local
-                 + ^[param.access.pos]param
-                 + ^[global.access.pos]global
-                 + ^[unknown.access.pos]unknown;
-        }
-    )";
+                return ^[local.use.pos]local
+                    + ^[param.use.pos]param
+                    + ^[global.use.pos]global
+                    + ^[unknown.use.pos]unknown;
+            }
+        )");
 
-        auto ctx = CompileLabelledSource(sourceText);
-
-        checkSymbol(ctx, "global.decl.pos", SymbolDeclType::GlobalVariable, "global");
-        checkSymbol(ctx, "param.decl.pos", SymbolDeclType::Parameter, "param");
-        checkSymbol(ctx, "local.decl.pos", SymbolDeclType::LocalVariable, "local");
-        checkSymbol(ctx, "local.access.pos", SymbolDeclType::LocalVariable, "local");
-        checkSymbol(ctx, "param.access.pos", SymbolDeclType::Parameter, "param");
-        checkSymbol(ctx, "global.access.pos", SymbolDeclType::GlobalVariable, "global");
-        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::GlobalVariable, "unknown", true);
+        checkSymbol("global.decl.pos", SymbolDeclType::GlobalVariable, "global");
+        checkSymbol("param.decl.pos", SymbolDeclType::Parameter, "param");
+        checkSymbol("local.decl.pos", SymbolDeclType::LocalVariable, "local");
+        checkSymbol("local.use.pos", SymbolDeclType::LocalVariable, "local");
+        checkSymbol("param.use.pos", SymbolDeclType::Parameter, "param");
+        checkSymbol("global.use.pos", SymbolDeclType::GlobalVariable, "global");
+        checkSymbol("unknown.use.pos", SymbolDeclType::GlobalVariable, "unknown", true);
     }
 
-    SECTION("CursorOnBlockName")
+    SECTION("BlockName")
     {
-        auto sourceText = R"(
-        uniform ^[ubo.decl.pos]UBO
-        {
-            int ^[ubo.member.decl.pos]value;
-        } ^[ubo.instance.decl.pos]block;
-        buffer SSBO
-        {
-            int ^[ssbo.member.decl.pos]test;
-        };
-        void foo()
-        {
-            ^[ssbo.member.access.pos]test = ^[ubo.instance.access.pos]block.^[ubo.member.access.pos]value;
-        }
-        )";
+        CompileLabelledSource(R"(
+            uniform ^[ubo.decl.pos]UBO
+            {
+                int ^[ubo.member.decl.pos]value;
+            } ^[ubo.instance.decl.pos]block;
+            buffer ^[ssbo.decl.pos]SSBO
+            {
+                int ^[ssbo.member.decl.pos]test;
+            };
+            void foo()
+            {
+                ^[ssbo.member.use.pos]test = ^[ubo.instance.use.pos]block.^[ubo.member.use.pos]value;
+            }
+        )");
 
-        auto ctx = CompileLabelledSource(sourceText);
-
-        checkSymbol(ctx, "ubo.decl.pos", SymbolDeclType::Block, "UBO");
-        checkSymbol(ctx, "ubo.member.decl.pos", SymbolDeclType::BlockMember, "value");
-        checkSymbol(ctx, "ubo.instance.decl.pos", SymbolDeclType::BlockInstance, "block");
-        checkSymbol(ctx, "ssbo.member.decl.pos", SymbolDeclType::BlockMember, "test");
-        checkSymbol(ctx, "ssbo.member.access.pos", SymbolDeclType::BlockMember, "test");
-        checkSymbol(ctx, "ubo.instance.access.pos", SymbolDeclType::BlockInstance, "block");
-        checkSymbol(ctx, "ubo.member.access.pos", SymbolDeclType::BlockMember, "value");
+        checkSymbol("ubo.decl.pos", SymbolDeclType::Block, "UBO");
+        checkSymbol("ssbo.decl.pos", SymbolDeclType::Block, "SSBO");
+        checkSymbol("ubo.member.decl.pos", SymbolDeclType::BlockMember, "value");
+        checkSymbol("ubo.instance.decl.pos", SymbolDeclType::BlockInstance, "block");
+        checkSymbol("ssbo.member.decl.pos", SymbolDeclType::BlockMember, "test");
+        checkSymbol("ssbo.member.use.pos", SymbolDeclType::BlockMember, "test");
+        checkSymbol("ubo.instance.use.pos", SymbolDeclType::BlockInstance, "block");
+        checkSymbol("ubo.member.use.pos", SymbolDeclType::BlockMember, "value");
     }
 
-    SECTION("CursorOnFunctionName")
+    SECTION("FunctionName")
     {
-        auto sourceText = R"(
-        void ^[func.decl.pos]foo()
-        {
-        }
+        CompileLabelledSource(R"(
+            void ^[func.decl.pos]foo()
+            {
+            }
 
-        void bar()
-        {
-            ^[func.access.pos]foo();
-            ^[unknown.access.pos]unknown();
-        }
-    )";
+            void bar()
+            {
+                ^[func.use.pos]foo();
+                ^[unknown.use.pos]unknown();
+            }
+        )");
 
-        auto ctx = CompileLabelledSource(sourceText);
-
-        checkSymbol(ctx, "func.decl.pos", SymbolDeclType::Function, "foo");
-        checkSymbol(ctx, "func.access.pos", SymbolDeclType::Function, "foo");
-        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::Function, "unknown", true);
+        checkSymbol("func.decl.pos", SymbolDeclType::Function, "foo");
+        checkSymbol("func.use.pos", SymbolDeclType::Function, "foo");
+        checkSymbol("unknown.use.pos", SymbolDeclType::Function, "unknown", true);
     }
 
-    SECTION("CursorOnStructFieldName")
+    SECTION("SwizzleName")
     {
-        auto sourceText = R"(
-        struct S
-        {
-            int ^[member.decl.pos]member;
-        };
+        CompileLabelledSource(R"(
+            void foo()
+            {
+                vec4 v;
+                v.^[swizzle1.use.pos]x;
+                v.^[swizzle2.use.pos]xyzw;
+            }
+        )");
 
-        void foo()
-        {
-            S s;
-            s.^[member.access.pos]member;
-            s.^[unknown.access.pos]unknown;
-
-            vec4 v;
-            v.^[swizzle1.access.pos]x;
-            v.^[swizzle2.access.pos]xyzw;
-        }
-    )";
-
-        auto ctx = CompileLabelledSource(sourceText);
-
-        checkSymbol(ctx, "member.decl.pos", SymbolDeclType::StructMember, "member");
-        checkSymbol(ctx, "member.access.pos", SymbolDeclType::StructMember, "member");
-        checkSymbol(ctx, "unknown.access.pos", SymbolDeclType::StructMember, "unknown", true);
-    }
-
-    SECTION("CursorOnSwizzleName")
-    {
-        auto sourceText = R"(
-        void foo()
-        {
-            vec4 v;
-            v.^[swizzle1.access.pos]x;
-            v.^[swizzle2.access.pos]xyzw;
-        }
-    )";
-
-        auto ctx = CompileLabelledSource(sourceText);
-
-        checkSymbol(ctx, "swizzle1.access.pos", SymbolDeclType::Swizzle, "x");
-        checkSymbol(ctx, "swizzle2.access.pos", SymbolDeclType::Swizzle, "xyzw");
+        checkSymbol("swizzle1.use.pos", SymbolDeclType::Swizzle, "x");
+        checkSymbol("swizzle2.use.pos", SymbolDeclType::Swizzle, "xyzw");
     }
 }

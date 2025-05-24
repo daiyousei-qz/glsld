@@ -1,23 +1,36 @@
 #include "ServerTestFixture.h"
 
 #include "Feature/Hover.h"
+#include "Support/SourceText.h"
 
 using namespace glsld;
 
 TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 {
-    auto checkHover = [](ServerTestContext& ctx, TextPosition pos) {
+    auto checkHover = [&](TextPosition pos) {
 
     };
 
-    SECTION("MacroName")
+    SECTION("Macro")
     {
         auto sourceText = R"(
-        #define ^[MACRO.def.pos]MACRO 1
-        ^[MACRO.use.pos]MACRO;
-        #undef ^[MACRO.undef.pos]MACRO
+            #ifdef ^[MACRO.unknown.use]MACRO
+            #endif
+
+            #define ^[MACRO.def]MACRO 1
+
+            #ifdef ^[MACRO.use1]MACRO
+            #endif
+
+            #if defined ^[MACRO.use2]MACRO && ^[MACRO.use3]MACRO
+            #endif
+
+            int x = ^[MACRO.use4]MACRO;
+
+            #undef ^[MACRO.use5]MACRO
         )";
-        auto ctx        = CompileLabelledSource(sourceText);
+
+        CompileLabelledSource(sourceText);
     }
 
     SECTION("TypeName")
@@ -34,7 +47,7 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         }
     )";
 
-        auto ctx = CompileLabelledSource(sourceText);
+        CompileLabelledSource(sourceText);
     }
 
     SECTION("FunctionName")
@@ -49,7 +62,7 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
             ^[foo.use.pos]foo();
         }
     )";
-        auto ctx        = CompileLabelledSource(sourceText);
+        CompileLabelledSource(sourceText);
     }
 
     SECTION("BlockName")
@@ -64,7 +77,7 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         }
     )";
 
-        auto ctx = CompileLabelledSource(sourceText);
+        CompileLabelledSource(sourceText);
     }
 
     SECTION("VariableName")
@@ -82,6 +95,6 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         }
     )";
 
-        auto ctx = CompileLabelledSource(sourceText);
+        CompileLabelledSource(sourceText);
     }
 }

@@ -7,7 +7,6 @@
 #include "Server/LanguageQueryInfo.h"
 
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_all.hpp>
 
 namespace glsld
 {
@@ -17,43 +16,12 @@ namespace glsld
         StringMap<TextPosition> labels;
     };
 
-    class ServerTestContext
-    {
-    private:
-        std::unique_ptr<LanguageQueryInfo> info;
-        StringMap<TextPosition> labels;
-
-    public:
-        ServerTestContext(std::unique_ptr<CompilerResult> result, std::unique_ptr<PreprocessSymbolStore> ppInfo,
-                          StringMap<TextPosition> labels)
-            : info(std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfo))), labels(std::move(labels))
-        {
-        }
-
-        auto GetProvider() const -> const LanguageQueryInfo&
-        {
-            return *info;
-        }
-
-        auto GetPosition(StringView label) const -> TextPosition
-        {
-            if (auto it = labels.Find(label); it != labels.end()) {
-                return it->second;
-            }
-            else {
-                UNSCOPED_INFO("Label not found: " + std::string(label));
-                return TextPosition{};
-            }
-        }
-        auto GetRange(StringView labelBegin, StringView lebelEnd) const -> TextRange
-        {
-            return TextRange{GetPosition(labelBegin), GetPosition(lebelEnd)};
-        }
-    };
-
     class ServerTestFixture
     {
     private:
+        std::unique_ptr<LanguageQueryInfo> info = nullptr;
+        StringMap<TextPosition> labels;
+
         // Parses and remove "^[label]" from the source text provided
         auto ParseLabelledSource(StringView sourceText) const -> std::tuple<std::string, StringMap<TextPosition>>
         {
@@ -91,7 +59,27 @@ namespace glsld
         }
 
     public:
-        auto CompileLabelledSource(StringView labelledSourceText) const -> ServerTestContext
+        auto GetLanguageQueryInfo() const -> const LanguageQueryInfo&
+        {
+            return *info;
+        }
+
+        auto GetLabelledPosition(StringView label) const -> TextPosition
+        {
+            if (auto it = labels.Find(label); it != labels.end()) {
+                return it->second;
+            }
+            else {
+                UNSCOPED_INFO("Label not found: " + std::string(label));
+                return TextPosition{};
+            }
+        }
+        auto GetLabelledRange(StringView labelBegin, StringView lebelEnd) const -> TextRange
+        {
+            return TextRange{GetLabelledPosition(labelBegin), GetLabelledPosition(lebelEnd)};
+        }
+
+        auto CompileLabelledSource(StringView labelledSourceText) -> void
         {
             auto [sourceText, labels] = ParseLabelledSource(labelledSourceText);
             auto ppInfoStore          = std::make_unique<PreprocessSymbolStore>();
@@ -101,7 +89,9 @@ namespace glsld
 
             auto ppCallback = ppInfoStore->GetCollectionCallback();
             auto result     = compiler->CompileMainFile(ppCallback.get(), CompileMode::ParseOnly);
-            return ServerTestContext{std::move(result), std::move(ppInfoStore), std::move(labels)};
+
+            this->info   = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
+            this->labels = std::move(labels);
         }
     };
 } // namespace glsld
