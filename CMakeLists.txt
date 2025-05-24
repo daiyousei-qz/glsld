@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.30)
 option(GLSLD_BUILD_WRAPPER "Build glsld-wrapper" ON)
 option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
 option(GLSLD_BUILD_UNIT_TEST "Build glsld unit test" ON)
+option(GLSLD_ENABLE_TEST_COVERAGE "Enable coverage test for unit test" OFF)
 
 # Load vcpkg
 if(NOT CMAKE_TOOLCHAIN_FILE)
@@ -169,4 +170,9 @@ if(GLSLD_BUILD_UNIT_TEST)
 
     include(Catch)
     catch_discover_tests(glsld-test)
+
+    if(GLSLD_ENABLE_TEST_COVERAGE AND GLSLD_COMPILER_CLANG)
+        target_compile_options(glsld-core PUBLIC -fprofile-instr-generate -fcoverage-mapping)
+        target_link_options(glsld-core PUBLIC -fprofile-instr-generate -fcoverage-mapping)
+    endif()
 endif()
