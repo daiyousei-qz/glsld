@@ -17,5 +17,6 @@ llvm-profdata merge -sparse $CoverageReportDir/coverage.profraw -o $CoverageRepo
 # Generate the coverage report
 llvm-cov report $CoverageBuildDir/glsld-test.exe -instr-profile="$CoverageReportDir/coverage.profdata" > $CoverageReportDir/coverage-report.txt
 llvm-cov show $CoverageBuildDir/glsld-test.exe -instr-profile="$CoverageReportDir/coverage.profdata" -format=html > $CoverageReportDir/coverage-report.html
+llvm-cov export $CoverageBuildDir/glsld-test.exe -instr-profile="$CoverageReportDir/coverage.profdata" -format=lcov > $CoverageReportDir/coverage.lcov
 
 Pop-Location
