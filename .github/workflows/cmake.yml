@@ -44,8 +44,10 @@ jobs:
     - name: Install Toolchain
       run: ${{ matrix.config.preinstall }}
 
-    - run: ls
-    - run: ls ${{ github.workspace }}
+    - name: Test1
+      run: ls
+    - name: Test2
+      run: ls ${{ github.workspace }}
 
     - name: Configure CMake
       run: cmake --preset Release
