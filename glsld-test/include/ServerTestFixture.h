@@ -74,9 +74,9 @@ namespace glsld
                 return TextPosition{};
             }
         }
-        auto GetLabelledRange(StringView labelBegin, StringView lebelEnd) const -> TextRange
+        auto GetLabelledRange(StringView labelBegin, StringView labelEnd) const -> TextRange
         {
-            return TextRange{GetLabelledPosition(labelBegin), GetLabelledPosition(lebelEnd)};
+            return TextRange{GetLabelledPosition(labelBegin), GetLabelledPosition(labelEnd)};
         }
 
         auto CompileLabelledSource(StringView labelledSourceText) -> void
