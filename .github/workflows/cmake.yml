@@ -47,9 +47,7 @@ jobs:
       run: ${{ matrix.config.preinstall }}
 
     - name: Test1
-      run: ls | tee /dev/stderr
-    - name: Test2
-      run: ls ${{ github.workspace }} | tee /dev/stderr
+      uses: actions/checkout@v4
 
     - name: Verify CMakePresets.json
       run: test -f ${{ github.workspace }}/CMakePresets.json || echo "CMakePresets.json is missing!"
