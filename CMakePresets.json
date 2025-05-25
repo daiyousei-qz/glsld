@@ -19,6 +19,17 @@
             }
         },
         {
+            "name": "DebugWithCoverage",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-coverage",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "external/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "GLSLD_ENABLE_TEST_COVERAGE": "ON"
+            }
+        },
+        {
             "name": "Release",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build-release",

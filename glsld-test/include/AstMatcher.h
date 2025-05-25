@@ -58,6 +58,13 @@ namespace glsld
         {
             return AstMatchResult{failedNode};
         }
+
+        static auto Failure(const AstNode* failedNode, std::string message) -> AstMatchResult
+        {
+            auto result = AstMatchResult{failedNode};
+            result.AddErrorTrace(std::move(message));
+            return result;
+        }
     };
 
     class AstMatcher
@@ -165,8 +172,25 @@ namespace glsld
 
     struct DeclaratorMatcher
     {
-        TokenMatcher nameMatcher;
+        TokenMatcher* nameMatcher      = nullptr;
         AstMatcher* arraySpecMatcher   = nullptr;
         AstMatcher* initializerMatcher = nullptr;
+
+        auto Match(const AstDecl* decl, Declarator declarator) const -> AstMatchResult
+        {
+            if (!nameMatcher->Match(declarator.nameToken)) {
+                return AstMatchResult::Failure(decl);
+            }
+
+            if (auto result = arraySpecMatcher->Match(declarator.arraySpec); !result.IsSuccess()) {
+                return result;
+            }
+
+            if (auto result = initializerMatcher->Match(declarator.initializer); !result.IsSuccess()) {
+                return result;
+            }
+
+            return AstMatchResult::Success();
+        }
     };
 } // namespace glsld

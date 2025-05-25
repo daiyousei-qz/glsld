@@ -39,33 +39,4 @@ namespace glsld
             return true;
         }
     };
-
-    inline auto AnyTok() -> TokenMatcher
-    {
-        return TokenMatcher("AnyToken", std::nullopt, std::nullopt);
-    }
-    inline auto EofTok() -> TokenMatcher
-    {
-        return TokenMatcher("EofToken", TokenKlass::Eof, std::nullopt);
-    }
-    inline auto InvalidTok() -> TokenMatcher
-    {
-        return TokenMatcher("InvalidToken", TokenKlass::Invalid, std::nullopt);
-    }
-    inline auto IdTok(StringView identifier) -> TokenMatcher
-    {
-        return TokenMatcher("Identifier", TokenKlass::Identifier, identifier.Str());
-    }
-    inline auto KeywordTok(TokenKlass keyword) -> TokenMatcher
-    {
-        return TokenMatcher("Keyword", keyword, std::nullopt);
-    }
-    inline auto IntTok(StringView value) -> TokenMatcher
-    {
-        return TokenMatcher("IntegerConstant", TokenKlass::IntegerConstant, value.Str());
-    }
-    inline auto FloatTok(StringView value) -> TokenMatcher
-    {
-        return TokenMatcher("FloatConstant", TokenKlass::FloatConstant, value.Str());
-    }
 } // namespace glsld

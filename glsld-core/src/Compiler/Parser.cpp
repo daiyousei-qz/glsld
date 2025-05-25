@@ -1415,7 +1415,7 @@ namespace glsld
                     // Could still be constructor call if it's a unknown type name
                     // Though we are conservative here and need to peek a following '(' to confirm.
                     // This means we'll parse a isolated type identifier as a bad name access.
-                    if (astBuilder.IsStructName(PeekToken().text.StrView()) && TryTestToken(TokenKlass::LParen, 1)) {
+                    if (astBuilder.IsStructName(PeekToken().text.StrView())) {
                         auto typeSpec = ParseTypeSpec(nullptr);
                         result        = ParseConstructorCallExpr(typeSpec);
                     }

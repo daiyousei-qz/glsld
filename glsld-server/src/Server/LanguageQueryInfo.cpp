@@ -194,13 +194,21 @@ namespace glsld
 
             auto VisitAstQualType(const AstQualType& type) -> void
             {
+                // NOTE we handle struct decl at `VisitAstStructDecl`
                 if (!type.GetStructDecl()) {
-                    // NOTE we handle struct decl at `VisitAstStructDecl`
-                    auto resolvedType = type.GetResolvedType();
-                    if (auto structDesc = type.GetResolvedType()->GetStructDesc()) {
+
+                    // We need to unwrap the arrays to get the base type identifier
+                    auto innerType = type.GetResolvedType();
+                    while (auto arrayDesc = innerType->GetArrayDesc()) {
+                        innerType = arrayDesc->elementType;
+                    }
+
+                    if (auto structDesc = innerType->GetStructDesc()) {
+                        // Struct Name
                         TryAstToken(type.GetTypeNameTok(), &type, structDesc->decl, SymbolDeclType::Type, false);
                     }
-                    else if (type.GetResolvedType()->IsBuiltin()) {
+                    else if (innerType->IsBuiltin()) {
+                        // Builtin type
                         TryAstToken(type.GetTypeNameTok(), &type, nullptr, SymbolDeclType::Type, false);
                     }
                     else if (type.GetResolvedType()->IsError()) {

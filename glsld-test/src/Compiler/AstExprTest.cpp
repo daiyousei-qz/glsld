@@ -1,8 +1,8 @@
-#include "AstTestFixture.h"
+#include "CompilerTestFixture.h"
 
 using namespace glsld;
 
-TEST_CASE_METHOD(AstTestFixture, "AstExpr")
+TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
@@ -147,32 +147,46 @@ TEST_CASE_METHOD(AstTestFixture, "AstExpr")
                              VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {}));
-        GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
-                                                                                                         LiteralExpr(1),
-                                                                                                     }));
-        GLSLD_CHECK_AST("vec3(1, 2, 3)",
-                        ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
-                                                                                              LiteralExpr(1),
-                                                                                              LiteralExpr(2),
-                                                                                              LiteralExpr(3),
-                                                                                          }));
+        GLSLD_CHECK_AST("int()", ConstructorCallExpr(NamedType(TokenKlass::K_int), {}));
+        GLSLD_CHECK_AST("int[2](1, 2)", ConstructorCallExpr(QualType(NullAst(), KeywordTok(TokenKlass::K_int),
+                                                                     ArraySpec({LiteralExpr(2)})),
+                                                            {
+                                                                LiteralExpr(1),
+                                                                LiteralExpr(2),
+                                                            }));
+
+        GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}));
+        GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                          LiteralExpr(1),
+                                                                                      }));
+        GLSLD_CHECK_AST("vec3(1, 2, 3)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                                LiteralExpr(1),
+                                                                                                LiteralExpr(2),
+                                                                                                LiteralExpr(3),
+                                                                                            }));
 
         GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S"), {}));
+        GLSLD_CHECK_AST("S[2]()",
+                        ConstructorCallExpr(QualType(NullAst(), IdTok("S"), ArraySpec({LiteralExpr(2)})), {}));
 
-        // FIXME: add `int[2]()`
-        // FIXME: add `struct {}()`
+        GLSLD_CHECK_AST("struct {}()", ConstructorCallExpr(StructType(StructDecl(InvalidTok(), {})), {}));
+        GLSLD_CHECK_AST("struct X { int x; }(0)",
+                        ConstructorCallExpr(
+                            StructType(StructDecl(
+                                IdTok("X"), {StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("x"), NullAst())})),
+                            {
+                                LiteralExpr(0),
+                            }));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("vec3(", ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
-                                                                                                           ErrorExpr(),
-                                                                                                       }));
-            GLSLD_CHECK_AST("vec3(1,)",
-                            ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_vec3), {
-                                                                                                  LiteralExpr(1),
-                                                                                                  ErrorExpr(),
-                                                                                              }));
+            GLSLD_CHECK_AST("vec3(", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                            ErrorExpr(),
+                                                                                        }));
+            GLSLD_CHECK_AST("vec3(1,)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                               LiteralExpr(1),
+                                                                                               ErrorExpr(),
+                                                                                           }));
         }
     }
 
@@ -196,7 +210,7 @@ TEST_CASE_METHOD(AstTestFixture, "AstExpr")
     }
 }
 
-TEST_CASE_METHOD(AstTestFixture, "AstInitializerList")
+TEST_CASE_METHOD(CompilerTestFixture, "AstInitializerList")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyQualType(), IdTok("test__"), AnyAst(), AnyInitializer()),
@@ -261,7 +275,7 @@ TEST_CASE_METHOD(AstTestFixture, "AstInitializerList")
     }
 }
 
-TEST_CASE_METHOD(AstTestFixture, "AstImplicitCast")
+TEST_CASE_METHOD(CompilerTestFixture, "AstImplicitCast")
 {
     SetTestTemplate("void main() {{ {}; }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
@@ -285,11 +299,10 @@ TEST_CASE_METHOD(AstTestFixture, "AstImplicitCast")
         // ivecn + vecn -> vecn + vecn
         GLSLD_CHECK_AST(
             "ivec2(1) + vec2(2.0f)",
-            BinaryExpr(
-                BinaryOp::Plus,
-                ImplicitCastExpr(ConstructorCallExpr(BuiltinType(glsld::GlslBuiltinType::Ty_ivec2), {LiteralExpr(1)}))
-                    ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_vec2); }),
-                AnyExpr()));
+            BinaryExpr(BinaryOp::Plus,
+                       ImplicitCastExpr(ConstructorCallExpr(NamedType(TokenKlass::K_ivec2), {LiteralExpr(1)}))
+                           ->CheckType([](const Type& type) { return type.IsSameWith(GlslBuiltinType::Ty_vec2); }),
+                       AnyExpr()));
     }
 
     SECTION("SelectExpr")

@@ -1,114 +1,160 @@
-#include "AstTestFixture.h"
+#include "CompilerTestFixture.h"
 
 namespace glsld
 {
 
 #pragma region Misc Matcher
-    auto AstTestFixture::NullAst() -> AstMatcher*
+    auto CompilerTestFixture::NullAst() -> AstMatcher*
     {
-        return CreateMatcher("NullNode", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("NullNode", [](const AstNode* node) -> AstMatchResult {
             return node ? AstMatchResult::Failure(node) : AstMatchResult::Success();
         });
     }
 
-    auto AstTestFixture::AnyAst() -> AstMatcher*
+    auto CompilerTestFixture::AnyAst() -> AstMatcher*
     {
-        return CreateMatcher("AnyNode", [](const AstNode* node) { return AstMatchResult::Success(); });
+        return CreateAstMatcher("AnyNode", [](const AstNode* node) { return AstMatchResult::Success(); });
     }
 
-    auto AstTestFixture::AnyInitializer() -> AstMatcher*
+    auto CompilerTestFixture::AnyInitializer() -> AstMatcher*
     {
-        return CreateMatcher("AnyInitializer", [](const AstNode* node) {
+        return CreateAstMatcher("AnyInitializer", [](const AstNode* node) {
             return (node && node->Is<AstInitializer>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::AnyExpr() -> AstMatcher*
+    auto CompilerTestFixture::AnyExpr() -> AstMatcher*
     {
-        return CreateMatcher("AnyExpr", [](const AstNode* node) {
+        return CreateAstMatcher("AnyExpr", [](const AstNode* node) {
             return (node && node->Is<AstExpr>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::AnyStmt() -> AstMatcher*
+    auto CompilerTestFixture::AnyStmt() -> AstMatcher*
     {
-        return CreateMatcher("AnyStmt", [](const AstNode* node) {
+        return CreateAstMatcher("AnyStmt", [](const AstNode* node) {
             return (node && node->Is<AstStmt>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::AnyDecl() -> AstMatcher*
+    auto CompilerTestFixture::AnyDecl() -> AstMatcher*
     {
-        return CreateMatcher("AnyDecl", [](const AstNode* node) {
+        return CreateAstMatcher("AnyDecl", [](const AstNode* node) {
             return (node && node->Is<AstDecl>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::AnyQualType() -> AstMatcher*
+    auto CompilerTestFixture::AnyQual() -> AstMatcher*
     {
-        return CreateMatcher("AnyQualType", [](const AstNode* node) {
+        return CreateAstMatcher("AnyQual", [](const AstNode* node) {
+            return (!node || node->Is<AstTypeQualifierSeq>()) ? AstMatchResult::Success()
+                                                              : AstMatchResult::Failure(node);
+        });
+    }
+    auto CompilerTestFixture::AnyQualType() -> AstMatcher*
+    {
+        return CreateAstMatcher("AnyQualType", [](const AstNode* node) {
             return (node && node->Is<AstQualType>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::BuiltinType(GlslBuiltinType type) -> AstMatcher*
+    auto CompilerTestFixture::QualType(AstMatcher* qualMatcher, AstMatcher* structDeclMatcher,
+                                       AstMatcher* arraySpecMatcher) -> AstMatcher*
     {
-        return CreateMatcher("BuiltinType", [type](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("QualType", [qualMatcher, structDeclMatcher, arraySpecMatcher](const AstNode* node) {
             auto qualType = node ? node->As<AstQualType>() : nullptr;
-            if (!qualType || qualType->GetResolvedType() != Type::GetBuiltinType(type)) {
+            if (!qualType) {
                 return AstMatchResult::Failure(node);
+            }
+
+            if (auto result = qualMatcher->Match(qualType->GetQualifiers()); !result.IsSuccess()) {
+                return result;
+            }
+
+            if (qualType->GetStructDecl() == nullptr) {
+                return AstMatchResult::Failure(node);
+            }
+            if (auto result = structDeclMatcher->Match(qualType->GetStructDecl()); !result.IsSuccess()) {
+                return result;
+            }
+
+            if (auto result = arraySpecMatcher->Match(qualType->GetArraySpec()); !result.IsSuccess()) {
+                return result;
             }
 
             return AstMatchResult::Success();
         });
     }
-    auto AstTestFixture::NamedType(TokenMatcher nameMatcher) -> AstMatcher*
+    auto CompilerTestFixture::QualType(AstMatcher* qualMatcher, TokenMatcher* typeNameMatcher,
+                                       AstMatcher* arraySpecMatcher) -> AstMatcher*
     {
-        return CreateMatcher("NamedType",
-                             [nameMatcher = std::move(nameMatcher)](const AstNode* node) -> AstMatchResult {
-                                 auto qualType = node ? node->As<AstQualType>() : nullptr;
-                                 if (!qualType || !nameMatcher.Match(qualType->GetTypeNameTok())) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("QualType", [qualMatcher, typeNameMatcher, arraySpecMatcher](const AstNode* node) {
+            auto qualType = node ? node->As<AstQualType>() : nullptr;
+            if (!qualType) {
+                return AstMatchResult::Failure(node);
+            }
 
-                                 return AstMatchResult::Success();
-                             });
-    }
-    auto AstTestFixture::NamedType(StringView name) -> AstMatcher*
-    {
-        return NamedType(IdTok(name));
-    }
-    auto AstTestFixture::ArraySpec(std::vector<AstMatcher*> sizeMatchers) -> AstMatcher*
-    {
-        return CreateMatcher("ArraySpec",
-                             [indexMatchers = std::move(sizeMatchers)](const AstNode* node) -> AstMatchResult {
-                                 auto arraySpec = node ? node->As<AstArraySpec>() : nullptr;
-                                 if (!arraySpec || arraySpec->GetSizeList().size() != indexMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+            if (auto result = qualMatcher->Match(qualType->GetQualifiers()); !result.IsSuccess()) {
+                return result;
+            }
 
-                                 return MatchAll(arraySpec->GetSizeList(), indexMatchers);
-                             });
+            if (qualType->GetStructDecl() != nullptr) {
+                return AstMatchResult::Failure(node);
+            }
+            if (!typeNameMatcher->Match(qualType->GetTypeNameTok())) {
+                return AstMatchResult::Failure(node);
+            }
+
+            if (auto result = arraySpecMatcher->Match(qualType->GetArraySpec()); !result.IsSuccess()) {
+                return result;
+            }
+
+            return AstMatchResult::Success();
+        });
+    }
+    auto CompilerTestFixture::NamedType(TokenKlass keywordKlass) -> AstMatcher*
+    {
+        return QualType(AnyQual(), KeywordTok(keywordKlass), NullAst());
+    }
+    auto CompilerTestFixture::NamedType(StringView name) -> AstMatcher*
+    {
+        return QualType(AnyQual(), IdTok(name), NullAst());
+    }
+    auto CompilerTestFixture::StructType(AstMatcher* structDeclMatcher) -> AstMatcher*
+    {
+        return QualType(AnyQual(), structDeclMatcher, NullAst());
+    }
+    auto CompilerTestFixture::ArraySpec(std::vector<AstMatcher*> sizeMatchers) -> AstMatcher*
+    {
+        return CreateAstMatcher("ArraySpec",
+                                [indexMatchers = std::move(sizeMatchers)](const AstNode* node) -> AstMatchResult {
+                                    auto arraySpec = node ? node->As<AstArraySpec>() : nullptr;
+                                    if (!arraySpec || arraySpec->GetSizeList().size() != indexMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
+
+                                    return MatchAll(arraySpec->GetSizeList(), indexMatchers);
+                                });
     }
 #pragma endregion
 
 #pragma region Expr Matcher
-    auto AstTestFixture::InitializerList(std::vector<AstMatcher*> itemMatchers) -> AstMatcher*
+    auto CompilerTestFixture::InitializerList(std::vector<AstMatcher*> itemMatchers) -> AstMatcher*
     {
-        return CreateMatcher("InitializerList",
-                             [itemMatchers = std::move(itemMatchers)](const AstNode* node) -> AstMatchResult {
-                                 auto initList = node ? node->As<AstInitializerList>() : nullptr;
-                                 if (!initList || initList->GetItems().size() != itemMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("InitializerList",
+                                [itemMatchers = std::move(itemMatchers)](const AstNode* node) -> AstMatchResult {
+                                    auto initList = node ? node->As<AstInitializerList>() : nullptr;
+                                    if (!initList || initList->GetItems().size() != itemMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 return MatchAll(initList->GetItems(), itemMatchers);
-                             });
+                                    return MatchAll(initList->GetItems(), itemMatchers);
+                                });
     }
-    auto AstTestFixture::ErrorExpr() -> AstMatcher*
+    auto CompilerTestFixture::ErrorExpr() -> AstMatcher*
     {
-        return CreateMatcher("ErrorExpr", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ErrorExpr", [](const AstNode* node) -> AstMatchResult {
             return (node && node->Is<AstErrorExpr>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::LiteralExpr(ConstValue value) -> AstMatcher*
+    auto CompilerTestFixture::LiteralExpr(ConstValue value) -> AstMatcher*
     {
-        return CreateMatcher("LiteralExpr", [value = std::move(value)](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("LiteralExpr", [value = std::move(value)](const AstNode* node) -> AstMatchResult {
             auto expr = node->As<AstLiteralExpr>();
             if (!expr || expr->GetValue() != value) {
                 return AstMatchResult::Failure(node);
@@ -117,9 +163,9 @@ namespace glsld
             return AstMatchResult::Success();
         });
     }
-    auto AstTestFixture::NameAccessExpr(StringView name) -> AstMatcher*
+    auto CompilerTestFixture::NameAccessExpr(StringView name) -> AstMatcher*
     {
-        return CreateMatcher("NameAccessExpr", [name = name.Str()](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("NameAccessExpr", [name = name.Str()](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstNameAccessExpr>() : nullptr;
             if (!expr || expr->GetNameToken().text != name) {
                 return AstMatchResult::Failure(node);
@@ -128,32 +174,33 @@ namespace glsld
             return AstMatchResult::Success();
         });
     }
-    auto AstTestFixture::FieldAccessExpr(AstMatcher* lhsMatcher, StringView name) -> AstMatcher*
+    auto CompilerTestFixture::FieldAccessExpr(AstMatcher* lhsMatcher, StringView name) -> AstMatcher*
     {
-        return CreateMatcher("FieldAccessExpr", [lhsMatcher, name = name.Str()](const AstNode* node) -> AstMatchResult {
-            auto expr = node ? node->As<AstFieldAccessExpr>() : nullptr;
-            if (!expr || expr->GetNameToken().text != name) {
-                return AstMatchResult::Failure(node);
-            }
+        return CreateAstMatcher("FieldAccessExpr",
+                                [lhsMatcher, name = name.Str()](const AstNode* node) -> AstMatchResult {
+                                    auto expr = node ? node->As<AstFieldAccessExpr>() : nullptr;
+                                    if (!expr || expr->GetNameToken().text != name) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-            return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
-        });
+                                    return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
+                                });
     }
-    auto AstTestFixture::SwizzleAccessExpr(AstMatcher* lhsMatcher, StringView swizzle) -> AstMatcher*
+    auto CompilerTestFixture::SwizzleAccessExpr(AstMatcher* lhsMatcher, StringView swizzle) -> AstMatcher*
     {
-        return CreateMatcher("SwizzleAccessExpr",
-                             [lhsMatcher, swizzle = swizzle.Str()](const AstNode* node) -> AstMatchResult {
-                                 auto expr = node ? node->As<AstSwizzleAccessExpr>() : nullptr;
-                                 if (!expr || expr->GetSwizzleDesc().ToString() != swizzle) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("SwizzleAccessExpr",
+                                [lhsMatcher, swizzle = swizzle.Str()](const AstNode* node) -> AstMatchResult {
+                                    auto expr = node ? node->As<AstSwizzleAccessExpr>() : nullptr;
+                                    if (!expr || expr->GetSwizzleDesc().ToString() != swizzle) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
-                             });
+                                    return MatchAll({{expr->GetBaseExpr(), lhsMatcher}});
+                                });
     }
-    auto AstTestFixture::IndexAccessExpr(AstMatcher* lhsMatcher, AstMatcher* indexMatcher) -> AstMatcher*
+    auto CompilerTestFixture::IndexAccessExpr(AstMatcher* lhsMatcher, AstMatcher* indexMatcher) -> AstMatcher*
     {
-        return CreateMatcher(
+        return CreateAstMatcher(
             "IndexAccessExpr",
             [lhsMatcher, indexMatchers = std::move(indexMatcher)](const AstNode* node) -> AstMatchResult {
                 auto expr = node ? node->As<AstIndexAccessExpr>() : nullptr;
@@ -164,9 +211,9 @@ namespace glsld
                 return MatchAll({{expr->GetBaseExpr(), lhsMatcher}, {expr->GetIndexExpr(), indexMatchers}});
             });
     }
-    auto AstTestFixture::UnaryExpr(UnaryOp op, AstMatcher* operandMatcher) -> AstMatcher*
+    auto CompilerTestFixture::UnaryExpr(UnaryOp op, AstMatcher* operandMatcher) -> AstMatcher*
     {
-        return CreateMatcher("UnaryExpr", [op, operandMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("UnaryExpr", [op, operandMatcher](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstUnaryExpr>() : nullptr;
             if (!expr || expr->GetOpcode() != op) {
                 return AstMatchResult::Failure(node);
@@ -175,9 +222,9 @@ namespace glsld
             return operandMatcher->Match(expr->GetOperand());
         });
     }
-    auto AstTestFixture::BinaryExpr(BinaryOp op, AstMatcher* lhsMatcher, AstMatcher* rhsMatcher) -> AstMatcher*
+    auto CompilerTestFixture::BinaryExpr(BinaryOp op, AstMatcher* lhsMatcher, AstMatcher* rhsMatcher) -> AstMatcher*
     {
-        return CreateMatcher("BinaryExpr", [op, lhsMatcher, rhsMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("BinaryExpr", [op, lhsMatcher, rhsMatcher](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstBinaryExpr>() : nullptr;
             if (!expr || expr->GetOpcode() != op) {
                 return AstMatchResult::Failure(node);
@@ -186,24 +233,24 @@ namespace glsld
             return MatchAll({{expr->GetLhsOperand(), lhsMatcher}, {expr->GetRhsOperand(), rhsMatcher}});
         });
     }
-    auto AstTestFixture::SelectExpr(AstMatcher* condMatcher, AstMatcher* trueExprMatcher, AstMatcher* falseExprMatcher)
-        -> AstMatcher*
+    auto CompilerTestFixture::SelectExpr(AstMatcher* condMatcher, AstMatcher* trueExprMatcher,
+                                         AstMatcher* falseExprMatcher) -> AstMatcher*
     {
-        return CreateMatcher("SelectExpr",
-                             [condMatcher, trueExprMatcher, falseExprMatcher](const AstNode* node) -> AstMatchResult {
-                                 auto expr = node ? node->As<AstSelectExpr>() : nullptr;
-                                 if (!expr) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher(
+            "SelectExpr", [condMatcher, trueExprMatcher, falseExprMatcher](const AstNode* node) -> AstMatchResult {
+                auto expr = node ? node->As<AstSelectExpr>() : nullptr;
+                if (!expr) {
+                    return AstMatchResult::Failure(node);
+                }
 
-                                 return MatchAll({{expr->GetCondition(), condMatcher},
-                                                  {expr->GetTrueExpr(), trueExprMatcher},
-                                                  {expr->GetFalseExpr(), falseExprMatcher}});
-                             });
+                return MatchAll({{expr->GetCondition(), condMatcher},
+                                 {expr->GetTrueExpr(), trueExprMatcher},
+                                 {expr->GetFalseExpr(), falseExprMatcher}});
+            });
     }
-    auto AstTestFixture::ImplicitCastExpr(AstMatcher* matchOperand) -> AstMatcher*
+    auto CompilerTestFixture::ImplicitCastExpr(AstMatcher* matchOperand) -> AstMatcher*
     {
-        return CreateMatcher("ImplicitCastExpr", [matchOperand](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ImplicitCastExpr", [matchOperand](const AstNode* node) -> AstMatchResult {
             auto expr = node ? node->As<AstImplicitCastExpr>() : nullptr;
             if (!expr) {
                 return AstMatchResult::Failure(node);
@@ -211,28 +258,29 @@ namespace glsld
             return matchOperand->Match(expr->GetOperand());
         });
     }
-    auto AstTestFixture::FunctionCallExpr(TokenMatcher nameMatcher, std::vector<AstMatcher*> argMatchers) -> AstMatcher*
+    auto CompilerTestFixture::FunctionCallExpr(TokenMatcher* nameMatcher, std::vector<AstMatcher*> argMatchers)
+        -> AstMatcher*
     {
-        return CreateMatcher("FunctionCallExpr",
-                             [nameMatcher = std::move(nameMatcher),
-                              argMatchers = std::move(argMatchers)](const AstNode* node) -> AstMatchResult {
-                                 auto expr = node ? node->As<AstFunctionCallExpr>() : nullptr;
-                                 if (!expr || !nameMatcher.Match(expr->GetNameToken()) ||
-                                     expr->GetArgs().size() != argMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher(
+            "FunctionCallExpr",
+            [nameMatcher, argMatchers = std::move(argMatchers)](const AstNode* node) -> AstMatchResult {
+                auto expr = node ? node->As<AstFunctionCallExpr>() : nullptr;
+                if (!expr || !nameMatcher->Match(expr->GetNameToken()) ||
+                    expr->GetArgs().size() != argMatchers.size()) {
+                    return AstMatchResult::Failure(node);
+                }
 
-                                 return MatchAll(expr->GetArgs(), argMatchers);
-                             });
+                return MatchAll(expr->GetArgs(), argMatchers);
+            });
     }
-    auto AstTestFixture::FunctionCallExpr(StringView name, std::vector<AstMatcher*> argMatchers) -> AstMatcher*
+    auto CompilerTestFixture::FunctionCallExpr(StringView name, std::vector<AstMatcher*> argMatchers) -> AstMatcher*
     {
         return FunctionCallExpr(IdTok(name), std::move(argMatchers));
     }
-    auto AstTestFixture::ConstructorCallExpr(AstMatcher* typeMatcher, std::vector<AstMatcher*> argMatchers)
+    auto CompilerTestFixture::ConstructorCallExpr(AstMatcher* typeMatcher, std::vector<AstMatcher*> argMatchers)
         -> AstMatcher*
     {
-        return CreateMatcher(
+        return CreateAstMatcher(
             "ConstructorCallExpr",
             [typeMatcher, argMatchers = std::move(argMatchers)](const AstNode* node) -> AstMatchResult {
                 auto expr = node ? node->As<AstConstructorCallExpr>() : nullptr;
@@ -249,21 +297,21 @@ namespace glsld
 #pragma endregion
 
 #pragma region Stmt Matcher
-    auto AstTestFixture::ErrorStmt() -> AstMatcher*
+    auto CompilerTestFixture::ErrorStmt() -> AstMatcher*
     {
-        return CreateMatcher("ErrorStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ErrorStmt", [](const AstNode* node) -> AstMatchResult {
             return (node && node->Is<AstErrorStmt>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::EmptyStmt() -> AstMatcher*
+    auto CompilerTestFixture::EmptyStmt() -> AstMatcher*
     {
-        return CreateMatcher("EmptyStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("EmptyStmt", [](const AstNode* node) -> AstMatchResult {
             return (node && node->Is<AstEmptyStmt>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::CompoundStmt(std::vector<AstMatcher*> stmtMatchers) -> AstMatcher*
+    auto CompilerTestFixture::CompoundStmt(std::vector<AstMatcher*> stmtMatchers) -> AstMatcher*
     {
-        return CreateMatcher("CompoundStmt", [stmtMatchers](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("CompoundStmt", [stmtMatchers](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstCompoundStmt>() : nullptr;
             if (!stmt || stmt->GetChildren().size() != stmtMatchers.size()) {
                 return AstMatchResult::Failure(node);
@@ -272,9 +320,9 @@ namespace glsld
             return MatchAll(stmt->GetChildren(), stmtMatchers);
         });
     }
-    auto AstTestFixture::ExprStmt(AstMatcher* exprMatcher) -> AstMatcher*
+    auto CompilerTestFixture::ExprStmt(AstMatcher* exprMatcher) -> AstMatcher*
     {
-        return CreateMatcher("ExprStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ExprStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstExprStmt>() : nullptr;
             if (!stmt) {
                 return AstMatchResult::Failure(node);
@@ -282,9 +330,9 @@ namespace glsld
             return exprMatcher->Match(stmt->GetExpr());
         });
     }
-    auto AstTestFixture::DeclStmt(AstMatcher* declMatcher) -> AstMatcher*
+    auto CompilerTestFixture::DeclStmt(AstMatcher* declMatcher) -> AstMatcher*
     {
-        return CreateMatcher("DeclStmt", [declMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("DeclStmt", [declMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstDeclStmt>() : nullptr;
             if (!stmt) {
                 return AstMatchResult::Failure(node);
@@ -292,29 +340,29 @@ namespace glsld
             return declMatcher->Match(stmt->GetDecl());
         });
     }
-    auto AstTestFixture::IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher) -> AstMatcher*
+    auto CompilerTestFixture::IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher) -> AstMatcher*
     {
         return IfStmt(condMatcher, thenStmtMatcher, NullAst());
     }
-    auto AstTestFixture::IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher, AstMatcher* elseStmtMatcher)
+    auto CompilerTestFixture::IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher, AstMatcher* elseStmtMatcher)
         -> AstMatcher*
     {
-        return CreateMatcher("IfStmt",
-                             [condMatcher, thenStmtMatcher, elseStmtMatcher](const AstNode* node) -> AstMatchResult {
-                                 auto stmt = node ? node->As<AstIfStmt>() : nullptr;
-                                 if (!stmt) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("IfStmt",
+                                [condMatcher, thenStmtMatcher, elseStmtMatcher](const AstNode* node) -> AstMatchResult {
+                                    auto stmt = node ? node->As<AstIfStmt>() : nullptr;
+                                    if (!stmt) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 return MatchAll({{stmt->GetConditionExpr(), condMatcher},
-                                                  {stmt->GetThenStmt(), thenStmtMatcher},
-                                                  {stmt->GetElseStmt(), elseStmtMatcher}});
-                             });
+                                    return MatchAll({{stmt->GetConditionExpr(), condMatcher},
+                                                     {stmt->GetThenStmt(), thenStmtMatcher},
+                                                     {stmt->GetElseStmt(), elseStmtMatcher}});
+                                });
     }
-    auto AstTestFixture::ForStmt(AstMatcher* initExprMatcher, AstMatcher* condExprMatcher, AstMatcher* iterExprMatcher,
-                                 AstMatcher* bodyMatcher) -> AstMatcher*
+    auto CompilerTestFixture::ForStmt(AstMatcher* initExprMatcher, AstMatcher* condExprMatcher,
+                                      AstMatcher* iterExprMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
     {
-        return CreateMatcher(
+        return CreateAstMatcher(
             "ForStmt",
             [initExprMatcher, condExprMatcher, iterExprMatcher, bodyMatcher](const AstNode* node) -> AstMatchResult {
                 auto stmt = node ? node->As<AstForStmt>() : nullptr;
@@ -328,9 +376,9 @@ namespace glsld
                                  {stmt->GetBody(), bodyMatcher}});
             });
     }
-    auto AstTestFixture::WhileStmt(AstMatcher* condMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
+    auto CompilerTestFixture::WhileStmt(AstMatcher* condMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
     {
-        return CreateMatcher("WhileStmt", [condMatcher, bodyMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("WhileStmt", [condMatcher, bodyMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstWhileStmt>() : nullptr;
             if (!stmt) {
                 return AstMatchResult::Failure(node);
@@ -339,9 +387,9 @@ namespace glsld
             return MatchAll({{stmt->GetConditionExpr(), condMatcher}, {stmt->GetBody(), bodyMatcher}});
         });
     }
-    auto AstTestFixture::DoWhileStmt(AstMatcher* bodyMatcher, AstMatcher* condMatcher) -> AstMatcher*
+    auto CompilerTestFixture::DoWhileStmt(AstMatcher* bodyMatcher, AstMatcher* condMatcher) -> AstMatcher*
     {
-        return CreateMatcher("DoWhileStmt", [bodyMatcher, condMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("DoWhileStmt", [bodyMatcher, condMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstDoWhileStmt>() : nullptr;
             if (!stmt) {
                 return AstMatchResult::Failure(node);
@@ -350,9 +398,9 @@ namespace glsld
             return MatchAll({{stmt->GetBody(), bodyMatcher}, {stmt->GetConditionExpr(), condMatcher}});
         });
     }
-    auto AstTestFixture::CaseLabelStmt(AstMatcher* exprMatcher) -> AstMatcher*
+    auto CompilerTestFixture::CaseLabelStmt(AstMatcher* exprMatcher) -> AstMatcher*
     {
-        return CreateMatcher("CaseLabelStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("CaseLabelStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstLabelStmt>() : nullptr;
             if (!stmt || stmt->GetCaseExpr() == nullptr) {
                 return AstMatchResult::Failure(node);
@@ -361,16 +409,16 @@ namespace glsld
             return exprMatcher->Match(stmt->GetCaseExpr());
         });
     }
-    auto AstTestFixture::DefaultLabelStmt() -> AstMatcher*
+    auto CompilerTestFixture::DefaultLabelStmt() -> AstMatcher*
     {
-        return CreateMatcher("DefaultLabelStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("DefaultLabelStmt", [](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstLabelStmt>() : nullptr;
             return stmt && stmt->GetCaseExpr() == nullptr ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::SwitchStmt(AstMatcher* testExprMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
+    auto CompilerTestFixture::SwitchStmt(AstMatcher* testExprMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
     {
-        return CreateMatcher("SwitchStmt", [testExprMatcher, bodyMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("SwitchStmt", [testExprMatcher, bodyMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstSwitchStmt>() : nullptr;
             if (!stmt) {
                 return AstMatchResult::Failure(node);
@@ -379,31 +427,31 @@ namespace glsld
             return MatchAll({{stmt->GetTestExpr(), testExprMatcher}, {stmt->GetBody(), bodyMatcher}});
         });
     }
-    auto AstTestFixture::BreakStmt() -> AstMatcher*
+    auto CompilerTestFixture::BreakStmt() -> AstMatcher*
     {
-        return CreateMatcher("BreakStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("BreakStmt", [](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstJumpStmt>() : nullptr;
             return stmt && stmt->GetJumpType() == JumpType::Break ? AstMatchResult::Success()
                                                                   : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::ContinueStmt() -> AstMatcher*
+    auto CompilerTestFixture::ContinueStmt() -> AstMatcher*
     {
-        return CreateMatcher("ContinueStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ContinueStmt", [](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstJumpStmt>() : nullptr;
             return stmt && stmt->GetJumpType() == JumpType::Continue ? AstMatchResult::Success()
                                                                      : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::ReturnStmt() -> AstMatcher*
+    auto CompilerTestFixture::ReturnStmt() -> AstMatcher*
     {
-        return CreateMatcher("ReturnStmt", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ReturnStmt", [](const AstNode* node) -> AstMatchResult {
             return (node && node->Is<AstReturnStmt>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::ReturnStmt(AstMatcher* exprMatcher) -> AstMatcher*
+    auto CompilerTestFixture::ReturnStmt(AstMatcher* exprMatcher) -> AstMatcher*
     {
-        return CreateMatcher("ReturnStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ReturnStmt", [exprMatcher](const AstNode* node) -> AstMatchResult {
             auto stmt = node ? node->As<AstReturnStmt>() : nullptr;
             if (!stmt || stmt->GetExpr() == nullptr) {
                 return AstMatchResult::Failure(node);
@@ -414,24 +462,24 @@ namespace glsld
 #pragma endregion
 
 #pragma region Decl Matcher
-    auto AstTestFixture::ErrorDecl() -> AstMatcher*
+    auto CompilerTestFixture::ErrorDecl() -> AstMatcher*
     {
-        return CreateMatcher("ErrorDecl", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("ErrorDecl", [](const AstNode* node) -> AstMatchResult {
             return (node && node->Is<AstErrorDecl>()) ? AstMatchResult::Success() : AstMatchResult::Failure(node);
         });
     }
-    auto AstTestFixture::EmptyDecl() -> AstMatcher*
+    auto CompilerTestFixture::EmptyDecl() -> AstMatcher*
     {
-        return CreateMatcher("EmptyDecl", [](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("EmptyDecl", [](const AstNode* node) -> AstMatchResult {
             if (!node || !node->Is<AstEmptyDecl>()) {
                 return AstMatchResult::Failure(node);
             }
             return AstMatchResult::Success();
         });
     }
-    auto AstTestFixture::PrecisionDecl(AstMatcher* typeMatcher) -> AstMatcher*
+    auto CompilerTestFixture::PrecisionDecl(AstMatcher* typeMatcher) -> AstMatcher*
     {
-        return CreateMatcher("PrecisionDecl", [typeMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher("PrecisionDecl", [typeMatcher](const AstNode* node) -> AstMatchResult {
             auto decl = node ? node->As<AstPrecisionDecl>() : nullptr;
             if (!decl) {
                 return AstMatchResult::Failure(node);
@@ -440,82 +488,159 @@ namespace glsld
             return typeMatcher->Match(decl->GetType());
         });
     }
-    auto AstTestFixture::VariableDecl(AstMatcher* qualTypeMatcher, std::vector<DeclaratorMatcher> declaratorMatchers)
-        -> AstMatcher*
+    auto CompilerTestFixture::BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher,
+                                        std::vector<AstMatcher*> fieldMatchers) -> AstMatcher*
     {
-        return CreateMatcher("VariableDecl",
-                             [qualTypeMatcher, declaratorMatchers = std::move(declaratorMatchers)](
-                                 const AstNode* node) -> AstMatchResult {
-                                 auto decl = node ? node->As<AstVariableDecl>() : nullptr;
-                                 if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("BlockDecl",
+                                [qualMatcher, blockNameMatcher,
+                                 fieldMatchers = std::move(fieldMatchers)](const AstNode* node) -> AstMatchResult {
+                                    auto decl = node ? node->As<AstInterfaceBlockDecl>() : nullptr;
+                                    if (!decl || !blockNameMatcher->Match(decl->GetNameToken()) ||
+                                        decl->GetMembers().size() != fieldMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 for (size_t i = 0; i < decl->GetDeclarators().size(); ++i) {
-                                     const auto& declarator = decl->GetDeclarators()[i];
-                                     const auto& matcher    = declaratorMatchers[i];
-
-                                     if (!matcher.nameMatcher.Match(declarator.nameToken)) {
-                                         return AstMatchResult::Failure(node);
-                                     }
-
-                                     if (auto result = MatchAll({{declarator.arraySpec, matcher.arraySpecMatcher},
-                                                                 {declarator.initializer, matcher.initializerMatcher}});
-                                         !result.IsSuccess()) {
-                                         return result;
-                                     }
-                                 }
-
-                                 return AstMatchResult::Success();
-                             });
+                                    return MatchAll(decl->GetMembers(), fieldMatchers);
+                                });
     }
-    auto AstTestFixture::VariableDecl(AstMatcher* qualTypeMatcher, TokenMatcher nameMatcher,
-                                      AstMatcher* arraySpecMatcher, AstMatcher* initializerMatcher) -> AstMatcher*
+    auto CompilerTestFixture::BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher,
+                                        std::vector<AstMatcher*> fieldMatchers, TokenMatcher* instanceNameMatcher,
+                                        AstMatcher* instanceArraySpecMatcher) -> AstMatcher*
+    {
+        return CreateAstMatcher("BlockDecl",
+                                [qualMatcher, blockNameMatcher, fieldMatchers = std::move(fieldMatchers),
+                                 instanceNameMatcher, instanceArraySpecMatcher](const AstNode* node) -> AstMatchResult {
+                                    auto decl = node ? node->As<AstInterfaceBlockDecl>() : nullptr;
+                                    if (!decl || !blockNameMatcher->Match(decl->GetNameToken()) ||
+                                        decl->GetMembers().size() != fieldMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
+
+                                    if (decl->GetDeclarator()) {
+                                        if (!instanceNameMatcher->Match(decl->GetDeclarator()->nameToken)) {
+                                            return AstMatchResult::Failure(node);
+                                        }
+
+                                        if (auto result =
+                                                instanceArraySpecMatcher->Match(decl->GetDeclarator()->arraySpec);
+                                            !result.IsSuccess()) {
+                                            return result;
+                                        }
+                                    }
+
+                                    return MatchAll(decl->GetMembers(), fieldMatchers);
+                                });
+    }
+    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher,
+                                             std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    {
+        return CreateAstMatcher("BlockFieldDecl",
+                                [qualTypeMatcher, declaratorMatchers = std::move(declaratorMatchers)](
+                                    const AstNode* node) -> AstMatchResult {
+                                    auto decl = node ? node->As<AstBlockFieldDecl>() : nullptr;
+                                    if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
+
+                                    for (size_t i = 0; i < decl->GetDeclarators().size(); ++i) {
+                                        const auto& declarator = decl->GetDeclarators()[i];
+                                        const auto& matcher    = declaratorMatchers[i];
+
+                                        if (!matcher.nameMatcher->Match(declarator.nameToken)) {
+                                            return AstMatchResult::Failure(node);
+                                        }
+
+                                        if (auto result = declaratorMatchers[i].Match(decl, declarator);
+                                            !result.IsSuccess()) {
+                                            return result;
+                                        }
+                                    }
+
+                                    return AstMatchResult::Success();
+                                });
+    }
+    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher) -> AstMatcher*
+    {
+        return BlockFieldDecl(qualTypeMatcher, {{nameMatcher, NullAst(), NullAst()}});
+    }
+    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
+                                             AstMatcher* arraySpecMatcher) -> AstMatcher*
+    {
+        return BlockFieldDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, NullAst()}});
+    }
+    auto CompilerTestFixture::VariableDecl(AstMatcher* qualTypeMatcher,
+                                           std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    {
+        return CreateAstMatcher(
+            "VariableDecl",
+            [qualTypeMatcher,
+             declaratorMatchers = std::move(declaratorMatchers)](const AstNode* node) -> AstMatchResult {
+                auto decl = node ? node->As<AstVariableDecl>() : nullptr;
+                if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
+                    return AstMatchResult::Failure(node);
+                }
+
+                if (auto result = qualTypeMatcher->Match(decl->GetQualType()); !result.IsSuccess()) {
+                    return result;
+                }
+
+                for (const auto& [declarator, matcher] : std::views::zip(decl->GetDeclarators(), declaratorMatchers)) {
+                    if (auto result = matcher.Match(decl, declarator); !result.IsSuccess()) {
+                        return result;
+                    }
+                }
+
+                return AstMatchResult::Success();
+            });
+    }
+    auto CompilerTestFixture::VariableDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
+                                           AstMatcher* arraySpecMatcher, AstMatcher* initializerMatcher) -> AstMatcher*
     {
         return VariableDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, initializerMatcher}});
     }
-    auto AstTestFixture::FieldDecl(AstMatcher* qualTypeMatcher, std::vector<DeclaratorMatcher> declaratorMatchers)
+    auto CompilerTestFixture::StructFieldDecl(AstMatcher* qualTypeMatcher,
+                                              std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    {
+        return CreateAstMatcher(
+            "StructFieldDecl",
+            [qualTypeMatcher,
+             declaratorMatchers = std::move(declaratorMatchers)](const AstNode* node) -> AstMatchResult {
+                auto decl = node ? node->As<AstStructFieldDecl>() : nullptr;
+                if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
+                    return AstMatchResult::Failure(node);
+                }
+
+                for (size_t i = 0; i < decl->GetDeclarators().size(); ++i) {
+                    const auto& declarator = decl->GetDeclarators()[i];
+                    const auto& matcher    = declaratorMatchers[i];
+
+                    if (!matcher.nameMatcher->Match(declarator.nameToken)) {
+                        return AstMatchResult::Failure(node);
+                    }
+
+                    if (auto result = MatchAll({{declarator.arraySpec, matcher.arraySpecMatcher},
+                                                {declarator.initializer, matcher.initializerMatcher}});
+                        !result.IsSuccess()) {
+                        return result;
+                    }
+                }
+
+                return AstMatchResult::Success();
+            });
+    }
+    auto CompilerTestFixture::StructFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
+                                              AstMatcher* arraySpecMatcher) -> AstMatcher*
+    {
+        return StructFieldDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, NullAst()}});
+    }
+    auto CompilerTestFixture::StructDecl(TokenMatcher* nameMatcher, std::vector<AstMatcher*> fieldMatchers)
         -> AstMatcher*
     {
-        return CreateMatcher("FieldDecl",
-                             [qualTypeMatcher, declaratorMatchers = std::move(declaratorMatchers)](
-                                 const AstNode* node) -> AstMatchResult {
-                                 auto decl = node ? node->As<AstStructFieldDecl>() : nullptr;
-                                 if (!decl || decl->GetDeclarators().size() != declaratorMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
-
-                                 for (size_t i = 0; i < decl->GetDeclarators().size(); ++i) {
-                                     const auto& declarator = decl->GetDeclarators()[i];
-                                     const auto& matcher    = declaratorMatchers[i];
-
-                                     if (!matcher.nameMatcher.Match(declarator.nameToken)) {
-                                         return AstMatchResult::Failure(node);
-                                     }
-
-                                     if (auto result = MatchAll({{declarator.arraySpec, matcher.arraySpecMatcher},
-                                                                 {declarator.initializer, matcher.initializerMatcher}});
-                                         !result.IsSuccess()) {
-                                         return result;
-                                     }
-                                 }
-
-                                 return AstMatchResult::Success();
-                             });
-    }
-    auto AstTestFixture::FieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher nameMatcher, AstMatcher* arraySpecMatcher)
-        -> AstMatcher*
-    {
-        return FieldDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, NullAst()}});
-    }
-    auto AstTestFixture::StructDecl(TokenMatcher nameMatcher, std::vector<AstMatcher*> fieldMatchers) -> AstMatcher*
-    {
-        return CreateMatcher(
+        return CreateAstMatcher(
             "StructDecl",
-            [nameMatcher   = std::move(nameMatcher),
-             fieldMatchers = std::move(fieldMatchers)](const AstNode* node) -> AstMatchResult {
+            [nameMatcher, fieldMatchers = std::move(fieldMatchers)](const AstNode* node) -> AstMatchResult {
                 auto decl = node ? node->As<AstStructDecl>() : nullptr;
-                if (!decl || !nameMatcher.Match(decl->GetNameToken() ? *decl->GetNameToken() : AstSyntaxToken{}) ||
+                if (!decl || !nameMatcher->Match(decl->GetNameToken() ? *decl->GetNameToken() : AstSyntaxToken{}) ||
                     decl->GetMembers().size() != fieldMatchers.size()) {
                     return AstMatchResult::Failure(node);
                 }
@@ -523,16 +648,14 @@ namespace glsld
                 return MatchAll(decl->GetMembers(), fieldMatchers);
             });
     }
-    auto AstTestFixture::ParamDecl(AstMatcher* qualTypeMatcher, TokenMatcher nameMatcher, AstMatcher* arraySpecMatcher)
-        -> AstMatcher*
+    auto CompilerTestFixture::ParamDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
+                                        AstMatcher* arraySpecMatcher) -> AstMatcher*
     {
-        return CreateMatcher(
-            "ParamDecl",
-            [qualTypeMatcher, nameMatcher = std::move(nameMatcher),
-             arraySpecMatcher](const AstNode* node) -> AstMatchResult {
+        return CreateAstMatcher(
+            "ParamDecl", [qualTypeMatcher, nameMatcher, arraySpecMatcher](const AstNode* node) -> AstMatchResult {
                 auto decl = node ? node->As<AstParamDecl>() : nullptr;
                 if (!decl ||
-                    !nameMatcher.Match(decl->GetDeclarator() ? decl->GetDeclarator()->nameToken : AstSyntaxToken{})) {
+                    !nameMatcher->Match(decl->GetDeclarator() ? decl->GetDeclarator()->nameToken : AstSyntaxToken{})) {
                     return AstMatchResult::Failure(node);
                 }
 
@@ -542,48 +665,49 @@ namespace glsld
                 });
             });
     }
-    auto AstTestFixture::FunctionDecl(AstMatcher* returnTypeMatcher, TokenMatcher nameMatcher,
-                                      std::vector<AstMatcher*> paramMatchers, AstMatcher* bodyMatcher) -> AstMatcher*
+    auto CompilerTestFixture::FunctionDecl(AstMatcher* returnTypeMatcher, TokenMatcher* nameMatcher,
+                                           std::vector<AstMatcher*> paramMatchers, AstMatcher* bodyMatcher)
+        -> AstMatcher*
     {
-        return CreateMatcher(
-            "FunctionDecl",
-            [returnTypeMatcher, nameMatcher = std::move(nameMatcher), paramMatchers = std::move(paramMatchers),
-             bodyMatcher](const AstNode* node) -> AstMatchResult {
-                if (!node) {
-                    return AstMatchResult::Failure(node);
-                }
+        return CreateAstMatcher("FunctionDecl",
+                                [returnTypeMatcher, nameMatcher, paramMatchers = std::move(paramMatchers),
+                                 bodyMatcher](const AstNode* node) -> AstMatchResult {
+                                    if (!node) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                auto decl = node->As<AstFunctionDecl>();
-                if (!decl || !nameMatcher.Match(decl->GetNameToken()) ||
-                    decl->GetParams().size() != paramMatchers.size()) {
-                    return AstMatchResult::Failure(node);
-                }
-                if (auto paramResult = MatchAll(decl->GetParams(), paramMatchers); !paramResult.IsSuccess()) {
-                    return paramResult;
-                }
+                                    auto decl = node->As<AstFunctionDecl>();
+                                    if (!decl || !nameMatcher->Match(decl->GetNameToken()) ||
+                                        decl->GetParams().size() != paramMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
+                                    if (auto paramResult = MatchAll(decl->GetParams(), paramMatchers);
+                                        !paramResult.IsSuccess()) {
+                                        return paramResult;
+                                    }
 
-                return MatchAll({
-                    {decl->GetReturnType(), returnTypeMatcher},
-                    {decl->GetBody(), bodyMatcher},
-                });
-            });
+                                    return MatchAll({
+                                        {decl->GetReturnType(), returnTypeMatcher},
+                                        {decl->GetBody(), bodyMatcher},
+                                    });
+                                });
     }
 #pragma endregion
 
-    auto AstTestFixture::TranslationUnit(std::vector<AstMatcher*> declMatchers) -> AstMatcher*
+    auto CompilerTestFixture::TranslationUnit(std::vector<AstMatcher*> declMatchers) -> AstMatcher*
     {
-        return CreateMatcher("TranslationUnit",
-                             [declMatchers = std::move(declMatchers)](const AstNode* node) -> AstMatchResult {
-                                 if (!node) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+        return CreateAstMatcher("TranslationUnit",
+                                [declMatchers = std::move(declMatchers)](const AstNode* node) -> AstMatchResult {
+                                    if (!node) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 auto tu = node->As<AstTranslationUnit>();
-                                 if (!tu || tu->GetGlobalDecls().size() != declMatchers.size()) {
-                                     return AstMatchResult::Failure(node);
-                                 }
+                                    auto tu = node->As<AstTranslationUnit>();
+                                    if (!tu || tu->GetGlobalDecls().size() != declMatchers.size()) {
+                                        return AstMatchResult::Failure(node);
+                                    }
 
-                                 return MatchAll(tu->GetGlobalDecls(), declMatchers);
-                             });
+                                    return MatchAll(tu->GetGlobalDecls(), declMatchers);
+                                });
     }
 } // namespace glsld

@@ -1,8 +1,8 @@
-#include "AstTestFixture.h"
+#include "CompilerTestFixture.h"
 
 using namespace glsld;
 
-TEST_CASE_METHOD(AstTestFixture, "AstStmt")
+TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 {
     SetTestTemplate("void main() {{ {} }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
