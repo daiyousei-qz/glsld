@@ -1,5 +1,7 @@
 #include "Basic/AtomTable.h"
 
+#include <algorithm>
+
 namespace glsld
 {
     auto AtomTable::Import(const AtomTable& other) -> void

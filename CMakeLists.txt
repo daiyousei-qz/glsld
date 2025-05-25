@@ -65,7 +65,9 @@ else()
     message(STATUS "[Build Type] ${CMAKE_BUILD_TYPE}")
 endif()
 
+# TODO: transition to C++20 modules
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 if(GLSLD_OS_WIN)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
