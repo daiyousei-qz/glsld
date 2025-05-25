@@ -92,6 +92,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
 
         SECTION("Permissive")
         {
+            GLSLD_CHECK_AST("int a", VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst(), NullAst()));
             GLSLD_CHECK_AST("int;", VariableDecl(NamedType(TokenKlass::K_int), {}));
         }
     }
@@ -132,6 +133,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
 
         SECTION("Permissive")
         {
+            GLSLD_CHECK_AST("int a", VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst(), NullAst()));
             GLSLD_CHECK_AST("int;", VariableDecl(NamedType(TokenKlass::K_int), {}));
         }
     }

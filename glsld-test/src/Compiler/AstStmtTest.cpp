@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstStmt")
+TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 {
     SetTestTemplate("void main() {{ {} }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),

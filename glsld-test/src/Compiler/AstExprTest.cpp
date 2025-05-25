@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstExpr")
+TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
@@ -147,6 +147,14 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExpr")
                              VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
         });
 
+        GLSLD_CHECK_AST("int()", ConstructorCallExpr(NamedType(TokenKlass::K_int), {}));
+        GLSLD_CHECK_AST("int[2](1, 2)", ConstructorCallExpr(QualType(NullAst(), KeywordTok(TokenKlass::K_int),
+                                                                     ArraySpec({LiteralExpr(2)})),
+                                                            {
+                                                                LiteralExpr(1),
+                                                                LiteralExpr(2),
+                                                            }));
+
         GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}));
         GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
                                                                                           LiteralExpr(1),
@@ -158,9 +166,17 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExpr")
                                                                                             }));
 
         GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S"), {}));
+        GLSLD_CHECK_AST("S[2]()",
+                        ConstructorCallExpr(QualType(NullAst(), IdTok("S"), ArraySpec({LiteralExpr(2)})), {}));
 
-        // FIXME: add `int[2]()`
-        // FIXME: add `struct {}()`
+        GLSLD_CHECK_AST("struct {}()", ConstructorCallExpr(StructType(StructDecl(InvalidTok(), {})), {}));
+        GLSLD_CHECK_AST("struct X { int x; }(0)",
+                        ConstructorCallExpr(
+                            StructType(StructDecl(
+                                IdTok("X"), {StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("x"), NullAst())})),
+                            {
+                                LiteralExpr(0),
+                            }));
 
         SECTION("Permissive")
         {
