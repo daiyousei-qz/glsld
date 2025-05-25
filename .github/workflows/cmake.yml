@@ -21,15 +21,17 @@ jobs:
         config:
           - name: Windows
             os: windows-2022
-            preinstall: choco install ninja --no-progress --yes
+            preinstall: |
+              choco install ninja --no-progress --yes
+              # choco install llvm --version=19.1.0 --no-progress --yes
           - name: Linux
             os: ubuntu-24.04
-            preinstall: sudo apt-get update && sudo apt-get install ninja-build
+            preinstall: |
+              sudo apt-get update && sudo apt-get install ninja-build
+              wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 19
+              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100
+              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        submodules: true
 
     # These are required for the vcpkg binary caching
     - name: Export GitHub Actions cache environment variables
