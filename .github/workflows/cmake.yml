@@ -45,7 +45,9 @@ jobs:
       run: ${{ matrix.config.preinstall }}
 
     - name: Configure CMake
-      run: cmake --preset Release
+      run: |
+        ls
+        cmake --preset Release
 
     - name: Build
       run: cmake --build ${{ github.workspace }}/build-release --parallel
