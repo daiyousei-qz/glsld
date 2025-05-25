@@ -35,6 +35,11 @@ jobs:
               sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
     steps:
 
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
     # These are required for the vcpkg binary caching
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v7
@@ -45,12 +50,6 @@ jobs:
 
     - name: Install Toolchain
       run: ${{ matrix.config.preinstall }}
-
-    - name: Test1
-      uses: actions/checkout@v4
-
-    - name: Verify CMakePresets.json
-      run: test -f ${{ github.workspace }}/CMakePresets.json || echo "CMakePresets.json is missing!"
 
     - name: Configure CMake
       run: cmake --preset Release
