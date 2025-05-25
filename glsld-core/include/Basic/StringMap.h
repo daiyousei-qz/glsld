@@ -118,7 +118,7 @@ namespace glsld
                 // Since transparent operator[] needs c++26, we have to implement it manually
                 auto it = Find(key);
                 if (it == end()) {
-                    return (Insert(ValueType{key, {}}).first->second);
+                    return (Insert(ValueType{key.Str(), {}}).first->second);
                 }
                 return (it->second);
             }

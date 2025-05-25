@@ -1,5 +1,7 @@
 #pragma once
 #include <cassert>
+#include <cstdint>
+#include <functional>
 #include <span>
 
 // FIXME: improve the assert message
