@@ -49,7 +49,7 @@ jobs:
     - name: Test1
       run: ls
     - name: Test2
-      run: ls ${{ github.workspace }}
+      run: ls ${{ github.workspace }} | echo
 
     - name: Verify CMakePresets.json
       run: test -f ${{ github.workspace }}/CMakePresets.json || echo "CMakePresets.json is missing!"
