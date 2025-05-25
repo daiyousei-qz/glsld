@@ -45,13 +45,13 @@ jobs:
       run: ${{ matrix.config.preinstall }}
 
     - name: Configure CMake
-      run: cmake -B ${{ github.workspace }}/build --preset Release
+      run: cmake ${{ github.workspace }} --preset Release
 
     - name: Build
-      run: cmake --build ${{ github.workspace }}/build --parallel
+      run: cmake --build ${{ github.workspace }}/build-release --parallel
 
     - name: Run Tests
-      run: ctest --test-dir ${{ github.workspace }}/build
+      run: ctest --test-dir ${{ github.workspace }}/build-release
 
     - name: Upload Artifacts
       if: github.ref_type == 'tag'
@@ -60,8 +60,8 @@ jobs:
         name: release-assets
         if-no-files-found: ignore
         path: |
-          ${{ github.workspace }}/build/glsld
-          ${{ github.workspace }}/build/glsld.exe
+          ${{ github.workspace }}/build-release/glsld
+          ${{ github.workspace }}/build-release/glsld.exe
 
   release:
     needs: build
