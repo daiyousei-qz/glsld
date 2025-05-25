@@ -26,35 +26,30 @@ The following features are planned:
 ## How to Build
 
 ### Dependencies
+
+Before we start, make sure you have the following dependencies installed:
 - A C++23 compiler.
     - CLANG 19 or later
 - CMake
-- vcpkg
-    - fmt
-    - spdlog
-    - argparse
-    - nlohmann_json
-    - BS_thread_pool
-    - catch2
-    - boost-pfr
-    - magic-enum
+    - 3.30 or later
+- Ninja
 
 ### Package Manager
 GLSLD uses vcpkg to manage its dependencies. It is recommended that you use the vcpkg from git submodule of this repository.
 
 ### Steps
-We assume you have cloned this repository fresh and your current work folder is at root of the repository.
 
-First, use the following command to prepare the vcpkg:
+First, let's pull the repository and fetch the submodules:
 ```
+git clone https://github.com/daiyousei-qz/glsld
+cd glsld
 git submodule update --init
-./external/vcpkg/bootstrap-vcpkg
 ```
 
-Now that the vcpkg is ready, you can build the debug build of the project with the following command:
+Now that the repository and vcpkg are ready, you can build the project with the following command:
 ```
 cmake --preset Debug
-cmake --build build
+cmake --build build --parallel
 ```
 
-GLSLD should generally work in Windows and Linux environment. For other platforms, GLSLD may also work because it is written with cross-platform in mind. However, it might break from time to time.
+Notably, we are using CMake presets to simplify the build process. The example above uses the `Debug` preset, which is configured to build the project in debug mode. You can also find other presets in the `CMakePresets.json` file.
