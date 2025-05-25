@@ -1,26 +1,22 @@
-#include "Compiler/SyntaxToken.h"
-#include "LexingTestFixture.h"
+#include "CompilerTestFixture.h"
 
 using namespace glsld;
 
-TEST_CASE_METHOD(LexingTestFixture, "Preprocessing")
+TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 {
+    SetTestTemplate("{}");
+
     SECTION("Macro")
     {
-        GLSLD_CHECK_TOKENS("#define MACRO test\nMACRO", TokenMatcher{"Identifier", TokenKlass::Identifier, "test"},
-                           EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO test\nMACRO", IdTok("test"), EofTok());
 
-        GLSLD_CHECK_TOKENS("#define MACRO test##2\nMACRO", TokenMatcher{"Identifier", TokenKlass::Identifier, "test2"},
-                           EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO test##2\nMACRO", IdTok("test2"), EofTok());
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A) A\nMACRO(test)",
-                           TokenMatcher{"Identifier", TokenKlass::Identifier, "test"}, EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO(A) A\nMACRO(test)", IdTok("test"), EofTok());
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A) A##2\nMACRO(test)",
-                           TokenMatcher{"Identifier", TokenKlass::Identifier, "test2"}, EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO(A) A##2\nMACRO(test)", IdTok("test2"), EofTok());
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A, B) A##B\nMACRO(test, 2)",
-                           TokenMatcher{"Identifier", TokenKlass::Identifier, "test2"}, EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO(A, B) A##B\nMACRO(test, 2)", IdTok("test2"), EofTok());
 
         {
             auto sourceText = R"(
@@ -28,7 +24,7 @@ TEST_CASE_METHOD(LexingTestFixture, "Preprocessing")
 #define MACRO2 MACRO
 MACRO2
 )";
-            GLSLD_CHECK_TOKENS(sourceText, TokenMatcher{"Identifier", TokenKlass::Identifier, "test"}, EofTok());
+            GLSLD_CHECK_TOKENS(sourceText, IdTok("test"), EofTok());
         }
     }
 

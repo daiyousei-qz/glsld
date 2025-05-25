@@ -1,22 +1,21 @@
-#include "Compiler/SyntaxToken.h"
-#include "LexingTestFixture.h"
+#include "CompilerTestFixture.h"
 
 using namespace glsld;
 
-TEST_CASE_METHOD(LexingTestFixture, "Lexing")
+TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
 {
+    SetTestTemplate("{}");
+
     SECTION("Keyword")
     {
-#define DECL_KEYWORD(KEYWORD)                                                                                          \
-    GLSLD_CHECK_TOKENS(#KEYWORD, TokenMatcher{"Keyword", TokenKlass::K_##KEYWORD, std::nullopt}, EofTok());
+#define DECL_KEYWORD(KEYWORD) GLSLD_CHECK_TOKENS(#KEYWORD, KeywordTok(TokenKlass::K_##KEYWORD), EofTok());
 #include "GlslKeywords.inc"
 #undef DECL_KEYWORD
     }
 
     SECTION("Punctuation")
     {
-#define DECL_PUNCT(PUNCT_NAME, PUNCT)                                                                                  \
-    GLSLD_CHECK_TOKENS(PUNCT, TokenMatcher{"Punctuation", TokenKlass::PUNCT_NAME, std::nullopt}, EofTok());
+#define DECL_PUNCT(PUNCT_NAME, PUNCT) GLSLD_CHECK_TOKENS(PUNCT, KeywordTok(TokenKlass::PUNCT_NAME), EofTok());
 #include "GlslPunctuation.inc"
 #undef DECL_PUNCT
     }
