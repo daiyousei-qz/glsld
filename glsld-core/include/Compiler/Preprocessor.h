@@ -186,12 +186,15 @@ namespace glsld
                 pendingExpansionTokenId = {};
                 YieldToken(witheldTokens[0]);
                 witheldTokens.clear();
+                invocationArguments.clear();
             }
             auto FinishPendingMacroInvocation() -> void
             {
+                GLSLD_ASSERT(pendingInvokedMacro && argLParenCounter == 0);
                 pendingInvokedMacro     = nullptr;
                 pendingExpansionTokenId = {};
                 witheldTokens.clear();
+                invocationArguments.clear();
             }
 
             auto YieldToken(const PPToken& token) -> void

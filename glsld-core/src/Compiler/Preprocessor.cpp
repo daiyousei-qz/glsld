@@ -253,7 +253,7 @@ namespace glsld
                 // Try substitute the parameter names with the expanded argument.
                 bool substituted = false;
                 for (size_t i = 0; i < paramTokens.size(); ++i) {
-                    if (token.text == paramTokens[i].text) {
+                    if (token.text == paramTokens[i].text && args.size() > i) {
                         auto expandedArgs = ArrayView<PPToken>{invocationTokens.begin() + args[i].indexBegin,
                                                                invocationTokens.begin() + args[i].indexEnd};
                         for (const PPToken& argToken : expandedArgs) {

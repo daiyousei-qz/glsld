@@ -105,6 +105,138 @@ namespace glsld
         return std::nullopt;
     };
 
+    auto ConstValue::ComposeVector(ArrayView<ConstValue> values, ScalarKind kind, int dimSize) -> ConstValue
+    {
+        // We don't distinguish between vector and matrix here. So we just treat it as a matrix.
+        return ComposeMatrix(values, kind, 1, dimSize);
+    }
+    auto ConstValue::ComposeMatrix(ArrayView<ConstValue> values, ScalarKind kind, int rowSize, int colSize)
+        -> ConstValue
+    {
+        int totalScalarCount = 0;
+        for (const auto& value : values) {
+            totalScalarCount += value.GetArraySize();
+        }
+
+        if (totalScalarCount != rowSize * colSize) {
+            // Wrong number of scalars
+            return ConstValue();
+        }
+
+        ConstValue result;
+        auto blob = result.InitializeAsBlob(kind, rowSize, colSize);
+
+        int offset = 0;
+        for (const auto& value : values) {
+            // FIXME: optimize this to avoid so many temporary objects
+            std::ranges::copy(value.CastScalar(kind).GetBufferAsBlob(), blob.begin() + offset);
+            offset += value.GetBufferSize();
+        }
+
+        return result;
+    }
+    auto ConstValue::ConstructScalar(const ConstValue& value, ScalarKind kind) -> ConstValue
+    {
+        if (value.IsScalar()) {
+            return value.CastScalar(kind);
+        }
+        else if (value.IsVector()) {
+            return value.GetElement(0).CastScalar(kind);
+        }
+        else if (value.IsMatrix()) {
+            return value.GetElement(0).GetElement(0).CastScalar(kind);
+        }
+        else {
+            return ConstValue();
+        }
+    }
+    auto ConstValue::ConstructVector(const ConstValue& value, ScalarKind kind, int dimSize) -> ConstValue
+    {
+        if (value.IsScalar()) {
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(value.GetScalarKind(), 1, dimSize);
+            for (int i = 0; i < dimSize; ++i) {
+                std::ranges::copy(value.GetBufferAsBlob(), blob.begin() + i * value.GetBufferSize());
+            }
+
+            if (value.GetScalarKind() != kind) {
+                return result.CastScalar(kind);
+            }
+            else {
+                return result;
+            }
+        }
+        else if (value.IsVector() && value.GetColumnSize() == dimSize) {
+            return value.CastScalar(kind);
+        }
+        else if (value.IsMatrix() && value.GetArraySize() == dimSize) {
+            return ComposeVector({&value, 1}, kind, dimSize);
+        }
+
+        return ConstValue();
+    }
+    auto ConstValue::ConstructMatrix(const ConstValue& value, ScalarKind kind, int rolSize, int colSize) -> ConstValue
+    {
+        if (value.IsScalar()) {
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(value.GetScalarKind(), rolSize, colSize);
+            for (int i = 0; i < rolSize; ++i) {
+                for (int j = 0; j < colSize; ++j) {
+                    if (i == j) {
+                        std::ranges::copy(value.GetBufferAsBlob(),
+                                          blob.begin() + (i * colSize + j) * value.GetBufferSize());
+                    }
+                    else {
+                        std::fill(blob.begin() + (i * colSize + j) * value.GetBufferSize(),
+                                  blob.begin() + (i * colSize + j + 1) * value.GetBufferSize(), std::byte{0});
+                    }
+                }
+            }
+
+            if (value.GetScalarKind() != kind) {
+                return result.CastScalar(kind);
+            }
+            else {
+                return result;
+            }
+        }
+        else if (value.IsVector() && value.GetArraySize() == rolSize * colSize) {
+            return ComposeMatrix({&value, 1}, kind, rolSize, colSize);
+        }
+        else if (value.IsMatrix()) {
+            ConstValue one = ConstValue::CreateScalar(1).CastScalar(value.GetScalarKind());
+            ConstValue result;
+            auto blob = result.InitializeAsBlob(value.GetScalarKind(), rolSize, colSize);
+            for (int i = 0; i < rolSize; ++i) {
+                for (int j = 0; j < colSize; ++j) {
+                    if (i < value.GetRowSize() && j < value.GetColumnSize()) {
+                        std::ranges::copy(value.GetElementAsBlob(i, j),
+                                          blob.begin() + (i * colSize + j) * one.GetBufferSize());
+                    }
+                    else if (i == j) {
+                        // Fill diagonal with ones
+                        std::ranges::copy(one.GetBufferAsBlob(),
+                                          blob.begin() + (i * colSize + j) * one.GetBufferSize());
+                    }
+                    else {
+                        // Fill other elements with zeros
+                        std::fill(blob.begin() + (i * colSize + j) * one.GetBufferSize(),
+                                  blob.begin() + (i * colSize + j + 1) * one.GetBufferSize(), std::byte{0});
+                    }
+                }
+            }
+
+            if (value.GetScalarKind() != kind) {
+                return result.CastScalar(kind);
+            }
+            else {
+                return result;
+            }
+        }
+
+        return ConstValue();
+    }
+
     auto ConstValue::GetScalarSize() const noexcept -> int
     {
         switch (static_cast<ScalarKind>(scalarType)) {
@@ -332,7 +464,7 @@ namespace glsld
     auto ConstValue::GetElement(int index) const -> ConstValue
     {
         // FIXME: verify this is correct
-        if (index < 0 || index > colSize) {
+        if (IsError() || index < 0 || index > colSize) {
             return ConstValue{};
         }
 

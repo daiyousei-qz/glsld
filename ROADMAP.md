@@ -6,6 +6,8 @@
 - PP builtins like __FILE__ and __LINE__
 - Support rename
 - Support pragma shader_stage(...)
+- Improve constant folding
+- Improve logging for reproducibility
 
 # Nice to have improvement
 - Don't read from disk for every include file
@@ -16,7 +18,6 @@
 # Known issues
 - invariant id;
 - layout(xxx) out;
-- crashes with `Test/constantUnaryConversion.comp`
 
 # Known issues
 - `Should support builtin function documentation`

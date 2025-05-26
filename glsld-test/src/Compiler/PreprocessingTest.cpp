@@ -20,11 +20,20 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
         {
             auto sourceText = R"(
-#define MACRO test
-#define MACRO2 MACRO
-MACRO2
-)";
+                #define MACRO test
+                #define MACRO2 MACRO
+                MACRO2
+            )";
             GLSLD_CHECK_TOKENS(sourceText, IdTok("test"), EofTok());
+        }
+
+        SECTION("Permissive")
+        {
+            auto sourceText = R"(
+                #define FOO(X) X
+                FOO()
+            )";
+            GLSLD_CHECK_TOKENS(sourceText, EofTok());
         }
     }
 
