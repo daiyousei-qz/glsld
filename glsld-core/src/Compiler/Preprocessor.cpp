@@ -108,10 +108,13 @@ namespace glsld
             }
 
             if (argLParenCounter == 0) {
-                // The argument list has been fully collected.
+                // The argument list has been fully collected. Now we can finalize the macro invocation.
                 GLSLD_ASSERT(token.klass == TokenKlass::RParen);
                 FinishPendingInvocationArgument();
-                if (invocationArguments.size() == 1 && invocationArguments.front().numArgumentToken == 0) {
+                if (pendingInvokedMacro->GetParamTokens().empty() && invocationArguments.size() == 1 &&
+                    invocationArguments.front().numArgumentToken == 0) {
+                    // If the macro has no parameter and no token in the argument list, we should fix-up the argument
+                    // list so that it's also empty.
                     invocationArguments.clear();
                 }
                 if (invocationArguments.size() != pendingInvokedMacro->GetParamTokens().size()) {
@@ -253,12 +256,15 @@ namespace glsld
                 // Try substitute the parameter names with the expanded argument.
                 bool substituted = false;
                 for (size_t i = 0; i < paramTokens.size(); ++i) {
-                    if (token.text == paramTokens[i].text && args.size() > i) {
-                        auto expandedArgs = ArrayView<PPToken>{invocationTokens.begin() + args[i].indexBegin,
-                                                               invocationTokens.begin() + args[i].indexEnd};
-                        for (const PPToken& argToken : expandedArgs) {
-                            nextProcessor.Feed(argToken);
+                    if (token.text == paramTokens[i].text) {
+                        if (args.size() > i) {
+                            auto expandedArgs = ArrayView<PPToken>{invocationTokens.begin() + args[i].indexBegin,
+                                                                   invocationTokens.begin() + args[i].indexEnd};
+                            for (const PPToken& argToken : expandedArgs) {
+                                nextProcessor.Feed(argToken);
+                            }
                         }
+
                         substituted = true;
                         break;
                     }
