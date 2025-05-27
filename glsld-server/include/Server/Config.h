@@ -4,7 +4,6 @@
 #include "Support/SerializerUtils.h"
 
 #include <optional>
-#include <string>
 
 namespace glsld
 {
@@ -55,11 +54,11 @@ namespace glsld
         // Master toggle for inlay hint.
         bool enable = true;
         // Show the argument name hint for function calls.
-        bool enableArgumentNameHint = false;
+        bool enableArgumentNameHint = true;
         // Show the implicit cast hint for function calls.
         bool enableImplicitCastHint = false;
         // Show the block end hint for function body.
-        bool enableBlockEndHint = false;
+        bool enableBlockEndHint = true;
 
         // The threshold of lines to show the block end hint.
         size_t blockEndHintLineThreshold = 0;

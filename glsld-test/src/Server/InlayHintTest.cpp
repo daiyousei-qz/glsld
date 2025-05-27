@@ -92,6 +92,8 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
         )");
         auto config = InlayHintConfig{
             .enableArgumentNameHint = true,
+            .enableImplicitCastHint = false,
+            .enableBlockEndHint     = false,
         };
 
         auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.end"), config);
@@ -121,7 +123,9 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
             ^[source.end]
         )");
         auto config = InlayHintConfig{
+            .enableArgumentNameHint = false,
             .enableImplicitCastHint = true,
+            .enableBlockEndHint     = false,
         };
 
         auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.end"), config);
