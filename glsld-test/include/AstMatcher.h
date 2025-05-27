@@ -38,6 +38,7 @@ namespace glsld
         {
             std::string result;
             for (const auto& trace : errorTraces) {
+                result += "  - ";
                 result += trace;
                 result += '\n';
             }
@@ -54,24 +55,32 @@ namespace glsld
             return AstMatchResult{nullptr};
         }
 
-        static auto Failure(const AstNode* failedNode) -> AstMatchResult
-        {
-            return AstMatchResult{failedNode};
-        }
-
-        static auto Failure(const AstNode* failedNode, std::string message) -> AstMatchResult
+        template <typename... Args>
+        static auto Failure(const AstNode* failedNode, fmt::format_string<Args...> fmt, Args&&... args)
+            -> AstMatchResult
         {
             auto result = AstMatchResult{failedNode};
-            result.AddErrorTrace(std::move(message));
+            result.AddErrorTrace(fmt::format(std::move(fmt), std::forward<Args>(args)...));
             return result;
+        }
+        static auto FailWithUnknown(const AstNode* failedNode) -> AstMatchResult
+        {
+            return Failure(failedNode, "Unknown failure");
+        }
+
+        static auto FailWithUnexpectedAstNode(const AstNode* failedNode, StringView expectedAstTypeName)
+            -> AstMatchResult
+        {
+            return Failure(failedNode, "Unexpected AST node, expecting {}, got {}", expectedAstTypeName,
+                           failedNode ? AstNodeTagToString(failedNode->GetTag()) : "null");
         }
     };
 
     class AstMatcher
     {
     private:
-        // Description of this matcher. Used for composing error message.
-        std::string desc;
+        // Name of this matcher. Used for composing error message.
+        std::string name;
         bool findMatchMode = false;
         // Callback to match the current node.
         std::move_only_function<auto(const AstNode*)->AstMatchResult> matchCallback;
@@ -100,13 +109,13 @@ namespace glsld
         };
 
     public:
-        AstMatcher(std::string desc, std::move_only_function<auto(const AstNode*)->AstMatchResult> matchCallback)
-            : desc(std::move(desc)), matchCallback(std::move(matchCallback))
+        AstMatcher(std::string name, std::move_only_function<auto(const AstNode*)->AstMatchResult> matchCallback)
+            : name(std::move(name)), matchCallback(std::move(matchCallback))
         {
         }
 
-        AstMatcher(std::string desc, AstMatcher* finder, AstMatcher* matcher)
-            : desc(std::move(desc)), findMatchMode(true), childrenMatcher({finder, matcher})
+        AstMatcher(std::string name, AstMatcher* finder, AstMatcher* matcher)
+            : name(std::move(name)), findMatchMode(true), childrenMatcher({finder, matcher})
         {
         }
 
@@ -145,23 +154,23 @@ namespace glsld
                     }
                 }
 
-                return AstMatchResult::Failure(node);
+                return AstMatchResult::FailWithUnknown(node);
             }
             else {
                 if (matchCallback) {
                     auto matchResult = matchCallback(node);
                     if (!matchResult.IsSuccess()) {
-                        matchResult.AddErrorTrace(desc);
+                        matchResult.AddErrorTrace("See matcher: " + name);
                         return matchResult;
                     }
                 }
 
                 if (auto expr = node ? node->As<AstExpr>() : nullptr; expr) {
                     if (typeChecker && !typeChecker(*expr->GetDeducedType())) {
-                        return AstMatchResult::Failure(node);
+                        return AstMatchResult::FailWithUnknown(node);
                     }
                     if (valueChecker && !valueChecker(EvalAstExpr(*expr))) {
-                        return AstMatchResult::Failure(node);
+                        return AstMatchResult::FailWithUnknown(node);
                     }
                 }
 
@@ -179,7 +188,7 @@ namespace glsld
         auto Match(const AstDecl* decl, Declarator declarator) const -> AstMatchResult
         {
             if (!nameMatcher->Match(declarator.nameToken)) {
-                return AstMatchResult::Failure(decl);
+                return AstMatchResult::FailWithUnknown(decl);
             }
 
             if (auto result = arraySpecMatcher->Match(declarator.arraySpec); !result.IsSuccess()) {

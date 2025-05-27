@@ -26,6 +26,29 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         REQUIRE(it->modifier == modifier);
     };
 
+    SECTION("Config")
+    {
+        CompileLabelledSource(R"(
+            void foo()
+            {
+            }
+        )");
+        auto semanticTokens = MockSemanticTokens(*this, SemanticTokenConfig{.enable = false});
+        REQUIRE(semanticTokens.empty());
+    }
+
+    SECTION("HeaderName")
+    {
+        CompileLabelledSource(R"(
+            #include ^[header1.begin]<header1.h>^[header1.end]
+            #include ^[header2.begin]"header2.h"^[header2.end]
+        )");
+
+        auto semanticTokens = MockSemanticTokens(*this);
+        checkSemanticToken(semanticTokens, "header1.begin", "header1.end", SemanticTokenType::String);
+        checkSemanticToken(semanticTokens, "header2.begin", "header2.end", SemanticTokenType::String);
+    }
+
     SECTION("MacroName")
     {
         CompileLabelledSource(R"(

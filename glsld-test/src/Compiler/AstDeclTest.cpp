@@ -13,16 +13,35 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
 
     SECTION("Precision Decl")
     {
-        // FIXME: support this test
-        GLSLD_CHECK_AST("precision highp int;", PrecisionDecl(AnyQualType()));
+        GLSLD_CHECK_AST(
+            "precision highp int;",
+            PrecisionDecl(QualType(NamedQual({TokenKlass::K_highp}), KeywordTok(glsld::TokenKlass::K_int), NullAst())));
+        GLSLD_CHECK_AST("precision mediump float;",
+                        PrecisionDecl(QualType(NamedQual({TokenKlass::K_mediump}),
+                                               KeywordTok(glsld::TokenKlass::K_float), NullAst())));
+        GLSLD_CHECK_AST(
+            "precision lowp vec3;",
+            PrecisionDecl(QualType(NamedQual({TokenKlass::K_lowp}), KeywordTok(glsld::TokenKlass::K_vec3), NullAst())));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("precision highp int",
+                            PrecisionDecl(QualType(NamedQual({TokenKlass::K_highp}),
+                                                   KeywordTok(glsld::TokenKlass::K_int), NullAst())));
+
+            // TODO: check error?
+            // GLSLD_CHECK_AST("precision highp mediump lowp int;",
+            //                 PrecisionDecl(QualType(NamedQual({TokenKlass::K_highp}),
+            //                                        KeywordTok(glsld::TokenKlass::K_int), NullAst())));
+        }
     }
 
-    SECTION("Block Decl")
+    SECTION("Interface Decl")
     {
-        GLSLD_CHECK_AST("uniform BLOCK {};", BlockDecl(UniformQual(), IdTok("BLOCK"), {}));
-        GLSLD_CHECK_AST(
-            "uniform BLOCK { int a; };",
-            BlockDecl(UniformQual(), IdTok("BLOCK"), {BlockFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"))}));
+        GLSLD_CHECK_AST("uniform BLOCK {};", BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"), {}));
+        GLSLD_CHECK_AST("uniform BLOCK { int a; };",
+                        BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"),
+                                  {BlockFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"))}));
     }
 
     SECTION("Struct Decl")
@@ -39,14 +58,49 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                                        StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst()),
                                        StructFieldDecl(NamedType(TokenKlass::K_float), IdTok("b"), NullAst()),
                                    }));
+        GLSLD_CHECK_AST(
+            "struct A { int a1, a2[2]; };",
+            StructDecl(IdTok("A"),
+                       {
+                           StructFieldDecl(NamedType(TokenKlass::K_int),
+                                           {
+                                               DeclaratorMatcher{IdTok("a1"), NullAst(), NullAst()},
+                                               DeclaratorMatcher{IdTok("a2"), ArraySpec({LiteralExpr(2)}), NullAst()},
+                                           }),
+                       }));
 
         SECTION("Permissive")
         {
             // FIXME: add the following tests
             // GLSLD_CHECK_AST("struct;", StructDecl(InvalidTok(), {}));
             // GLSLD_CHECK_AST("struct A;", StructDecl(IdTok("A"), {}));
+
+            // ';' after the struct should be inferred
             GLSLD_CHECK_AST("struct {}", StructDecl(InvalidTok(), {}));
+
+            // '}' to close the struct should be inferred
             GLSLD_CHECK_AST("struct {;", StructDecl(InvalidTok(), {}));
+
+            // ';' after the struct field should be inferred
+            GLSLD_CHECK_AST(
+                "struct A { int a float b };",
+                StructDecl(IdTok("A"), {
+                                           StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst()),
+                                           StructFieldDecl(NamedType(TokenKlass::K_float), IdTok("b"), NullAst()),
+                                       }));
+
+            // Notably, the struct field cannot have initializer, so it shouldn't be parsed into the AST
+            GLSLD_CHECK_AST(
+                "struct A { int a = 41; }",
+                StructDecl(IdTok("A"), {StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst())}));
+
+            // FIXME: parser should be able to handle this
+            // GLSLD_CHECK_AST(
+            //     "struct A { int a +++ ---; float b; };",
+            //     StructDecl(IdTok("A"), {
+            //                                StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst()),
+            //                                StructFieldDecl(NamedType(TokenKlass::K_float), IdTok("b"), NullAst()),
+            //                            }));
         }
     }
 
@@ -74,6 +128,22 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                                          ParamDecl(NamedType(TokenKlass::K_float), IdTok("b"), NullAst()),
                                      },
                                      NullAst()));
+
+        GLSLD_CHECK_AST(
+            "void foo(in int a, out float b, inout double c, const vec3 d);",
+            FunctionDecl(
+                NamedType(TokenKlass::K_void), IdTok("foo"),
+                {
+                    ParamDecl(QualType(NamedQual({TokenKlass::K_in}), KeywordTok(TokenKlass::K_int), NullAst()),
+                              IdTok("a"), NullAst()),
+                    ParamDecl(QualType(NamedQual({TokenKlass::K_out}), KeywordTok(TokenKlass::K_float), NullAst()),
+                              IdTok("b"), NullAst()),
+                    ParamDecl(QualType(NamedQual({TokenKlass::K_inout}), KeywordTok(TokenKlass::K_double), NullAst()),
+                              IdTok("c"), NullAst()),
+                    ParamDecl(QualType(NamedQual({TokenKlass::K_const}), KeywordTok(TokenKlass::K_vec3), NullAst()),
+                              IdTok("d"), NullAst()),
+                },
+                NullAst()));
     }
 
     SECTION("Global Variable Decl")

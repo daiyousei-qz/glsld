@@ -28,9 +28,21 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
         REQUIRE(FromLspRange(locations[0].range) == GetLabelledRange(labelDefBegin, labelDefEnd));
     };
 
+    SECTION("Config")
+    {
+        CompileLabelledSource(R"(
+            void ^[foo.decl.pos]foo() {
+            }
+        )");
+
+        auto definitionLocations =
+            MockDefinition(*this, GetLabelledPosition("foo.decl.pos"), DefinitionConfig{.enable = false});
+        REQUIRE(definitionLocations.empty());
+    }
+
     SECTION("Macro")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             #ifdef ^[MACRO.bad.use1]MACRO
             #endif
 
@@ -45,9 +57,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
             int x = ^[MACRO.use4]MACRO;
 
             #undef ^[MACRO.use5]MACRO
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkNoDefinition("MACRO.bad.use1");
 
@@ -60,7 +70,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
 
     SECTION("Function")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             void bar() {
                 ^[foo.bad.use1]foo();
             }
@@ -74,9 +84,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
             void main() {
                 ^[foo.use1]foo();
             }
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkNoDefinition("foo.bad.use1");
         checkNoDefinition("foo.bad.use2");
@@ -86,14 +94,12 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
 
     SECTION("FunctionParameter")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             void foo(int ^[x.def.begin]x^[x.def.end],
                      out int ^[y.def.begin]y^[y.def.end]) {
                 ^[y.use1]y = ^[x.use1]x;
             }
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkDefinition("x.use1", "x.def.begin", "x.def.end");
         checkDefinition("y.use1", "y.def.begin", "y.def.end");
@@ -101,7 +107,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
 
     SECTION("GlobalVariable")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             int bad = ^[x.bad.use1]x;
 
             int ^[x.def.begin]x^[x.def.end] = 1;
@@ -111,9 +117,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
             void foo() {
                 ^[x.use3]x + y + z;
             }
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkNoDefinition("x.bad.use1");
 
@@ -124,7 +128,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
 
     SECTION("LocalVariable")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             void foo() {
                 {
                     ^[x.bad.use1]x;
@@ -135,9 +139,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
                 }
                 ^[x.bad.use2]x;
             }
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkNoDefinition("x.bad.use1");
         checkNoDefinition("x.bad.use2");
@@ -176,7 +178,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
 
     SECTION("StructField")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             struct S {
                 int ^[value.def.begin]value^[value.def.end];
             };
@@ -185,9 +187,7 @@ TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
                 x.^[value.use1]value = 1;
                 int y = x.^[value.use2]value;
             }
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkDefinition("value.use1", "value.def.begin", "value.def.end");
         checkDefinition("value.use2", "value.def.begin", "value.def.end");

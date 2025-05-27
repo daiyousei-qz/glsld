@@ -20,6 +20,18 @@ TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbolTest")
         REQUIRE(FromLspRange(symbol.range) == GetLabelledRange(labelBegin, labelEnd));
     };
 
+    SECTION("Config")
+    {
+        CompileLabelledSource(R"(
+            void foo()
+            {
+            }
+        )");
+        auto documentSymbols = MockDocumentSymbol(*this, DocumentSymbolConfig{.enable = false});
+
+        REQUIRE(documentSymbols.empty());
+    }
+
     SECTION("Macro")
     {
         CompileLabelledSource(R"(

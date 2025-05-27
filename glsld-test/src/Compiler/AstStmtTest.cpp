@@ -92,12 +92,34 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 
         GLSLD_CHECK_AST("while (true) while (false) {}",
                         WhileStmt(LiteralExpr(true), WhileStmt(LiteralExpr(false), CompoundStmt({}))));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("while", WhileStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("while (", WhileStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("while (1", WhileStmt(LiteralExpr(1), ErrorStmt()));
+            GLSLD_CHECK_AST("while ()", WhileStmt(ErrorExpr(), ExprStmt(ErrorExpr())));
+            GLSLD_CHECK_AST("while () ;", WhileStmt(ErrorExpr(), EmptyStmt()));
+            GLSLD_CHECK_AST("while () {", WhileStmt(ErrorExpr(), CompoundStmt({})));
+            GLSLD_CHECK_AST("while () {}", WhileStmt(ErrorExpr(), CompoundStmt({})));
+        }
     }
 
     SECTION("DoWhileStmt")
     {
         GLSLD_CHECK_AST("do {} while (true);", DoWhileStmt(CompoundStmt({}), LiteralExpr(true)));
-        GLSLD_CHECK_AST("do ; while (true);", DoWhileStmt(EmptyStmt(), LiteralExpr(true)));
+        GLSLD_CHECK_AST("do ; while (false);", DoWhileStmt(EmptyStmt(), LiteralExpr(false)));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("do {} while (true)", DoWhileStmt(CompoundStmt({}), LiteralExpr(true)));
+            GLSLD_CHECK_AST("do", DoWhileStmt(ExprStmt(ErrorExpr()), ErrorExpr()));
+            GLSLD_CHECK_AST("do {", DoWhileStmt(CompoundStmt({}), ErrorExpr()));
+            GLSLD_CHECK_AST("do {} while (", DoWhileStmt(CompoundStmt({}), ErrorExpr()));
+            GLSLD_CHECK_AST("do {} while (1", DoWhileStmt(CompoundStmt({}), LiteralExpr(1)));
+            GLSLD_CHECK_AST("do {} while (1;", DoWhileStmt(CompoundStmt({}), LiteralExpr(1)));
+            GLSLD_CHECK_AST("do {} while ()", DoWhileStmt(CompoundStmt({}), ErrorExpr()));
+        }
     }
 
     SECTION("ForStmt")
@@ -108,27 +130,41 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
         //                                             ExprStmt(LiteralExpr(3)), CompoundStmt({})));
     }
 
-    SECTION("BreakStmt")
+    SECTION("SwitchStmt")
+    {
+        GLSLD_CHECK_AST("switch (1) {}", SwitchStmt(LiteralExpr(1), CompoundStmt({})));
+        GLSLD_CHECK_AST("switch (1) { case 2: break; default: break; }",
+                        SwitchStmt(LiteralExpr(1), CompoundStmt({CaseLabelStmt(LiteralExpr(2)), BreakStmt(),
+                                                                 DefaultLabelStmt(), BreakStmt()})));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("switch", SwitchStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("switch (", SwitchStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("switch (1", SwitchStmt(LiteralExpr(1), ErrorStmt()));
+            GLSLD_CHECK_AST("switch ()", SwitchStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("switch () {}", SwitchStmt(ErrorExpr(), CompoundStmt({})));
+            GLSLD_CHECK_AST("switch {case 1: break;}", SwitchStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("switch () {break;}", SwitchStmt(ErrorExpr(), CompoundStmt({BreakStmt()})));
+            GLSLD_CHECK_AST("switch () {case 1: break}",
+                            SwitchStmt(ErrorExpr(), CompoundStmt({CaseLabelStmt(LiteralExpr(1)), BreakStmt()})));
+            GLSLD_CHECK_AST("switch () {case: break}",
+                            SwitchStmt(ErrorExpr(), CompoundStmt({CaseLabelStmt(ErrorExpr()), BreakStmt()})));
+            GLSLD_CHECK_AST("switch () {case 1 break default break}",
+                            SwitchStmt(ErrorExpr(), CompoundStmt({CaseLabelStmt(LiteralExpr(1)), BreakStmt(),
+                                                                  DefaultLabelStmt(), BreakStmt()})));
+        }
+    }
+
+    SECTION("JumpStmt")
     {
         GLSLD_CHECK_AST("break;", BreakStmt());
+        GLSLD_CHECK_AST("continue;", ContinueStmt());
+        GLSLD_CHECK_AST("discard;", DiscardStmt());
 
         SECTION("Permissive")
         {
             GLSLD_CHECK_AST("break", BreakStmt());
-            GLSLD_CHECK_AST("{ break break }", CompoundStmt({
-                                                   BreakStmt(),
-                                                   BreakStmt(),
-                                               }));
-        }
-    }
-
-    SECTION("ContinueStmt")
-    {
-        GLSLD_CHECK_AST("continue;", ContinueStmt());
-
-        SECTION("Permissive")
-        {
-            GLSLD_CHECK_AST("continue", ContinueStmt());
             GLSLD_CHECK_AST("{ continue continue }", CompoundStmt({
                                                          ContinueStmt(),
                                                          ContinueStmt(),
@@ -143,12 +179,12 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("return", ReturnStmt());
+            GLSLD_CHECK_AST("return", ReturnStmt(ErrorExpr()));
             // FIXME: support this test
-            // GLSLD_CHECK_AST("{ return return }", CompoundStmt(ReturnStmt(), ReturnStmt()));
+            // GLSLD_CHECK_AST("{ return return }", CompoundStmt({ReturnStmt(), ReturnStmt()}));
             GLSLD_CHECK_AST("{ return x return }", CompoundStmt({
                                                        ReturnStmt(NameAccessExpr("x")),
-                                                       ReturnStmt(),
+                                                       ReturnStmt(ErrorExpr()),
                                                    }));
         }
     }

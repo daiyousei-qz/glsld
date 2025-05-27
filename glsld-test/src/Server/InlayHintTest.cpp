@@ -20,9 +20,25 @@ static auto MockInlayHints(const ServerTestFixture& fixture, TextRange range, co
 
 TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
 {
-    SECTION("DisplayRange")
+    SECTION("Config")
     {
-        CompileLabelledSource(R"(
+        SECTION("Disabled")
+        {
+            CompileLabelledSource(R"(
+                void foo(int x)
+                {
+                    float a = 1;
+                }
+            )");
+            auto config = InlayHintConfig{.enable = false};
+
+            auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.end"), config);
+            REQUIRE(hints.empty());
+        }
+
+        SECTION("DisplayRange")
+        {
+            CompileLabelledSource(R"(
             ^[source.begin]
             void foo(int x)
             ^[source.mid1]
@@ -36,26 +52,27 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
             } /* hint */
             ^[source.end]
         )");
-        auto config = InlayHintConfig{
-            .enableArgumentNameHint    = true,
-            .enableImplicitCastHint    = true,
-            .enableBlockEndHint        = true,
-            .blockEndHintLineThreshold = 4,
-        };
+            auto config = InlayHintConfig{
+                .enableArgumentNameHint    = true,
+                .enableImplicitCastHint    = true,
+                .enableBlockEndHint        = true,
+                .blockEndHintLineThreshold = 4,
+            };
 
-        {
-            auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.mid1"), config);
-            REQUIRE(hints.size() == 0);
-        }
+            {
+                auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.mid1"), config);
+                REQUIRE(hints.size() == 0);
+            }
 
-        {
-            auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.mid2"), config);
-            REQUIRE(hints.size() == 2);
-        }
+            {
+                auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.mid2"), config);
+                REQUIRE(hints.size() == 2);
+            }
 
-        {
-            auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.end"), config);
-            REQUIRE(hints.size() == 4);
+            {
+                auto hints = MockInlayHints(*this, GetLabelledRange("source.begin", "source.end"), config);
+                REQUIRE(hints.size() == 4);
+            }
         }
     }
 

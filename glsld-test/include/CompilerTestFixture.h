@@ -11,7 +11,6 @@
 
 namespace glsld
 {
-
     class CompilerTestFixture
     {
     private:
@@ -22,19 +21,34 @@ namespace glsld
         std::vector<std::unique_ptr<TokenMatcher>> tokenMatchers;
         std::vector<std::unique_ptr<AstMatcher>> astMatchers;
 
-        auto CreateTokenMatcher(std::string desc, std::optional<TokenKlass> klass, std::optional<std::string> text)
+        auto CreateTokenMatcher(std::string name, std::optional<TokenKlass> klass, std::optional<std::string> text)
             -> TokenMatcher*
         {
-            tokenMatchers.push_back(std::make_unique<TokenMatcher>(desc, klass, text));
+            tokenMatchers.push_back(std::make_unique<TokenMatcher>(name, klass, text));
             return tokenMatchers.back().get();
         }
 
-        auto CreateAstMatcher(std::string desc,
+        auto CreateAstMatcher(std::string name,
                               std::move_only_function<auto(const AstNode*)->AstMatchResult> matchCallback)
             -> AstMatcher*
         {
-            astMatchers.push_back(std::make_unique<AstMatcher>(desc, std::move(matchCallback)));
+            astMatchers.push_back(std::make_unique<AstMatcher>(name, std::move(matchCallback)));
             return astMatchers.back().get();
+        }
+
+        template <std::derived_from<AstNode> AstNodeType>
+        auto CreateAstMatcher(std::string name,
+                              std::move_only_function<auto(const AstNodeType*)->AstMatchResult> matchCallback)
+            -> AstMatcher*
+        {
+            return CreateAstMatcher(name, [innerCallback = std::move(matchCallback)](const AstNode* node) mutable {
+                const AstNodeType* typedNode = node ? node->As<AstNodeType>() : nullptr;
+                if (!typedNode) {
+                    return AstMatchResult::FailWithUnexpectedAstNode(node, AstNodeTrait<AstNodeType>::name);
+                }
+
+                return innerCallback(typedNode);
+            });
         }
 
         auto CreateAstMatcher(std::string desc, AstMatcher* finder, AstMatcher* matcher) -> AstMatcher*
@@ -117,19 +131,21 @@ namespace glsld
         }
         auto IdTok(StringView identifier) -> TokenMatcher*
         {
-            return CreateTokenMatcher("Identifier", TokenKlass::Identifier, identifier.Str());
+            return CreateTokenMatcher(fmt::format("Identifier[{}]", identifier), TokenKlass::Identifier,
+                                      identifier.Str());
         }
         auto KeywordTok(TokenKlass keyword) -> TokenMatcher*
         {
-            return CreateTokenMatcher("Keyword", keyword, std::nullopt);
+            return CreateTokenMatcher(fmt::format("Keyword[{}]", TokenKlassToString(keyword)), keyword, std::nullopt);
         }
         auto IntTok(StringView value) -> TokenMatcher*
         {
-            return CreateTokenMatcher("IntegerConstant", TokenKlass::IntegerConstant, value.Str());
+            return CreateTokenMatcher(fmt::format("IntegerConstant[{}]", value), TokenKlass::IntegerConstant,
+                                      value.Str());
         }
         auto FloatTok(StringView value) -> TokenMatcher*
         {
-            return CreateTokenMatcher("FloatConstant", TokenKlass::FloatConstant, value.Str());
+            return CreateTokenMatcher(fmt::format("FloatConstant[{}]", value), TokenKlass::FloatConstant, value.Str());
         }
 #pragma endregion
 
@@ -144,16 +160,7 @@ namespace glsld
         auto AnyQual() -> AstMatcher*;
         auto AnyQualType() -> AstMatcher*;
 
-        auto UniformQual() -> AstMatcher*
-        {
-            return CreateAstMatcher("UniformQual", [](const AstNode* node) -> AstMatchResult {
-                auto qual = node ? node->As<AstTypeQualifierSeq>() : nullptr;
-                if (!qual || !qual->GetQualGroup().qUniform) {
-                    return AstMatchResult::Failure(node);
-                }
-                return AstMatchResult::Success();
-            });
-        }
+        auto NamedQual(std::vector<TokenKlass> keyword) -> AstMatcher*;
 
         auto QualType(AstMatcher* qualMatcher, AstMatcher* structDeclMatcher, AstMatcher* arraySpecMatcher)
             -> AstMatcher*;
@@ -194,8 +201,8 @@ namespace glsld
         auto CompoundStmt(std::vector<AstMatcher*> stmtMatchers) -> AstMatcher*;
         auto ExprStmt(AstMatcher* exprMatcher) -> AstMatcher*;
         auto DeclStmt(AstMatcher* declMatcher) -> AstMatcher*;
-        auto IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher) -> AstMatcher*;
         auto IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher, AstMatcher* elseStmtMatcher) -> AstMatcher*;
+        auto IfStmt(AstMatcher* condMatcher, AstMatcher* thenStmtMatcher) -> AstMatcher*;
         auto ForStmt(AstMatcher* initExprMatcher, AstMatcher* condExprMatcher, AstMatcher* iterExprMatcher,
                      AstMatcher* bodyMatcher) -> AstMatcher*;
         auto WhileStmt(AstMatcher* condMatcher, AstMatcher* bodyMatcher) -> AstMatcher*;
@@ -205,6 +212,7 @@ namespace glsld
         auto SwitchStmt(AstMatcher* testExprMatcher, AstMatcher* bodyMatcher) -> AstMatcher*;
         auto BreakStmt() -> AstMatcher*;
         auto ContinueStmt() -> AstMatcher*;
+        auto DiscardStmt() -> AstMatcher*;
         auto ReturnStmt() -> AstMatcher*;
         auto ReturnStmt(AstMatcher* exprMatcher) -> AstMatcher*;
 
@@ -264,7 +272,8 @@ namespace glsld
 
             auto tokens = compilerResult->GetUserFileArtifacts().GetTokens();
             if (tokens.size() != matchers.size()) {
-                UNSCOPED_INFO("Token count mismatch");
+                UNSCOPED_INFO(fmt::format("Token stream match failed: expected {} tokens, got {} tokens",
+                                          matchers.size(), tokens.size()));
                 return false;
             }
 
@@ -275,7 +284,7 @@ namespace glsld
                     .text  = tokens[i].text,
                 };
                 if (!matchers[i]->Match(token)) {
-                    UNSCOPED_INFO("Token mismatch at index " + std::to_string(i));
+                    UNSCOPED_INFO(fmt::format("Token stream match failed: mismatch at index {}", i));
                     return false;
                 }
             }
@@ -311,8 +320,8 @@ namespace glsld
                 return true;
             }
             else {
-                UNSCOPED_INFO(matchResult.GetFailedNode()->ToString());
-                UNSCOPED_INFO(matchResult.GetErrorTrace());
+                UNSCOPED_INFO("AST match failed, see AST:\n" + matchResult.GetFailedNode()->ToString() +
+                              "\nSee error trace:\n" + matchResult.GetErrorTrace());
                 return false;
             }
         }

@@ -289,9 +289,8 @@ namespace glsld
         }
     };
 
-    class QualifierGroup
+    struct QualifierGroup
     {
-    public:
         // Precision Qualifier
         bool qHighp : 1   = false;
         bool qMediump : 1 = false;
@@ -353,6 +352,121 @@ namespace glsld
         {
             return qIn || qOut || qUniform || qBuffer;
         }
+
+        auto ToString() const -> std::string
+        {
+            std::string buffer;
+            if (qHighp) {
+                buffer += "highp ";
+            }
+            if (qMediump) {
+                buffer += "mediump ";
+            }
+            if (qLowp) {
+                buffer += "lowp ";
+            }
+            if (qConst) {
+                buffer += "const ";
+            }
+            if (qIn) {
+                buffer += "in ";
+            }
+            if (qOut) {
+                buffer += "out ";
+            }
+            if (qInout) {
+                buffer += "inout ";
+            }
+            if (qAttribute) {
+                buffer += "attribute ";
+            }
+            if (qUniform) {
+                buffer += "uniform ";
+            }
+            if (qVarying) {
+                buffer += "varying ";
+            }
+            if (qBuffer) {
+                buffer += "buffer ";
+            }
+            if (qShared) {
+                buffer += "shared ";
+            }
+            if (qCentroid) {
+                buffer += "centroid ";
+            }
+            if (qSample) {
+                buffer += "sample ";
+            }
+            if (qPatch) {
+                buffer += "patch ";
+            }
+            if (qSmooth) {
+                buffer += "smooth ";
+            }
+            if (qFlat) {
+                buffer += "flat ";
+            }
+            if (qNoperspective) {
+                buffer += "noperspective ";
+            }
+            if (qInvariant) {
+                buffer += "invariant ";
+            }
+            if (qPrecise) {
+                buffer += "precise ";
+            }
+            if (qCoherent) {
+                buffer += "coherent ";
+            }
+            if (qVolatile) {
+                buffer += "volatile ";
+            }
+            if (qRestrict) {
+                buffer += "restrict ";
+            }
+            if (qReadonly) {
+                buffer += "readonly ";
+            }
+            if (qWriteonly) {
+                buffer += "writeonly ";
+            }
+            if (qRayPayloadEXT) {
+                buffer += "rayPayloadEXT ";
+            }
+            if (qRayPayloadInEXT) {
+                buffer += "rayPayloadInEXT ";
+            }
+            if (qHitAttributeEXT) {
+                buffer += "hitAttributeEXT ";
+            }
+            if (qCallableDataEXT) {
+                buffer += "callableDataEXT ";
+            }
+            if (qCallableDataInEXT) {
+                buffer += "callableDataInEXT ";
+            }
+            if (qPerprimitiveNV) {
+                buffer += "perprimitiveNV ";
+            }
+            if (qPerviewNV) {
+                buffer += "perviewNV ";
+            }
+            if (qTaskNV) {
+                buffer += "taskNV ";
+            }
+            if (qTaskPayloadSharedEXT) {
+                buffer += "taskPayloadSharedEXT ";
+            }
+
+            // Remove trailing space
+            if (!buffer.empty()) {
+                buffer.pop_back();
+            }
+            return buffer;
+        }
+
+        auto operator==(const QualifierGroup& other) const noexcept -> bool = default;
     };
 
 } // namespace glsld

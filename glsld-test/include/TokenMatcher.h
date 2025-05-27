@@ -10,21 +10,21 @@ namespace glsld
     class TokenMatcher
     {
     private:
-        // Description of this matcher. Used for composing error message.
-        std::string desc;
+        // Name of this matcher. Used for composing error message.
+        std::string name;
 
         std::optional<TokenKlass> expectedKlass;
         std::optional<std::string> expectedText;
 
     public:
-        TokenMatcher(std::string desc, std::optional<TokenKlass> klass, std::optional<std::string> text)
-            : desc(std::move(desc)), expectedKlass(klass), expectedText(text)
+        TokenMatcher(std::string name, std::optional<TokenKlass> klass, std::optional<std::string> text)
+            : name(std::move(name)), expectedKlass(klass), expectedText(text)
         {
         }
 
         auto Describe() const -> std::string
         {
-            return desc;
+            return name;
         }
 
         auto Match(const AstSyntaxToken& token) const -> bool

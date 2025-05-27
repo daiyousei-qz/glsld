@@ -4,6 +4,8 @@
 #include <functional>
 #include <span>
 
+#include <fmt/format.h>
+
 // FIXME: improve the assert message
 #define GLSLD_ASSERT(EXPR) assert(EXPR)
 #define GLSLD_REQUIRE(EXPR) static_cast<void>((!!(EXPR)) || (std::abort(), false))
@@ -19,6 +21,11 @@ namespace glsld
     template <typename T>
     concept Hashable = requires(T value) {
         { value.GetHashCode() } -> std::convertible_to<size_t>;
+    };
+
+    template <typename T>
+    concept Printable = requires(const T& value) {
+        { value.ToString() } -> std::convertible_to<std::string>;
     };
 
     template <typename T, size_t Extent = std::dynamic_extent>
@@ -65,5 +72,15 @@ struct std::hash<T>
     auto operator()(const T& value) const -> size_t
     {
         return value.GetHashCode();
+    }
+};
+
+template <glsld::Printable T>
+struct fmt::formatter<T> : fmt::formatter<std::string>
+{
+    template <typename FormatContext>
+    auto format(const T& value, FormatContext& ctx) const -> decltype(ctx.out())
+    {
+        return fmt::format_to(ctx.out(), "{}", value.ToString());
     }
 };

@@ -5,11 +5,23 @@
 
 using namespace glsld;
 
+// static auto MockHover(const ServerTestFixture& fixture, const HoverConfig& config = {}) -> std::vector<lsp::Hover>
+// {
+//     return HandleHover(config, fixture.GetLanguageQueryInfo(), {});
+// }
+
 TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 {
     auto checkHover = [&](TextPosition pos) {
 
     };
+
+    SECTION("Config")
+    {
+        CompileLabelledSource(R"(
+            int ^[x.decl.pos]x = 1;
+        )");
+    }
 
     SECTION("Macro")
     {

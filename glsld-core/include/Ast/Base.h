@@ -178,6 +178,8 @@ namespace glsld
         static constexpr int tagBegin = detail::InvalidAstNodeTagValue;
         static constexpr int tagEnd   = detail::InvalidAstNodeTagValue;
 
+        static constexpr StringView name = "UnknownAstType";
+
         using NodeType   = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
         using ParentType = detail::AstTypeOf<detail::InvalidAstNodeTagValue>;
     };
@@ -190,6 +192,7 @@ namespace glsld
         static constexpr AstNodeTag tag  = AstNodeTag::Invalid;                                                        \
         static constexpr int tagBegin    = detail::AstTagBeginBase_##TYPE;                                             \
         static constexpr int tagEnd      = detail::AstTagEndBase_##TYPE;                                               \
+        static constexpr StringView name = #TYPE;                                                                      \
         using NodeType                   = TYPE;                                                                       \
         using ParentType = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::AstTagBeginBase_##TYPE>>;           \
     };
@@ -202,6 +205,7 @@ namespace glsld
         static constexpr AstNodeTag tag  = AstNodeTag::TYPE;                                                            \
         static constexpr int tagBegin    = static_cast<int>(AstNodeTag::TYPE);                                          \
         static constexpr int tagEnd      = static_cast<int>(AstNodeTag::TYPE);                                          \
+        static constexpr StringView name = #TYPE;                                                                       \
         using NodeType                   = TYPE;                                                                        \
         using ParentType                 = detail::AstTypeOf<detail::ParentAstNodeTagValue<detail::AstTagType_##TYPE>>; \
     };

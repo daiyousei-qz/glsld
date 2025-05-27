@@ -30,6 +30,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
     {
         GLSLD_CHECK_AST("a.b", FieldAccessExpr(NameAccessExpr("a"), "b"));
         GLSLD_CHECK_AST("a.b.c", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), "b"), "c"));
+        GLSLD_CHECK_AST("foo().bar", FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"));
 
         SECTION("Permissive")
         {
@@ -41,18 +42,91 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
 
     SECTION("UnaryExpr")
     {
+        GLSLD_CHECK_AST("+1", UnaryExpr(UnaryOp::Identity, LiteralExpr(1)));
         GLSLD_CHECK_AST("-1", UnaryExpr(UnaryOp::Negate, LiteralExpr(1)));
+        GLSLD_CHECK_AST("~1", UnaryExpr(UnaryOp::BitwiseNot, LiteralExpr(1)));
         GLSLD_CHECK_AST("!true", UnaryExpr(UnaryOp::LogicalNot, LiteralExpr(true)));
+        GLSLD_CHECK_AST("++a", UnaryExpr(UnaryOp::PrefixInc, NameAccessExpr("a")));
+        GLSLD_CHECK_AST("--a", UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a")));
+        GLSLD_CHECK_AST("a++", UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a")));
+        GLSLD_CHECK_AST("a--", UnaryExpr(UnaryOp::PostfixDec, NameAccessExpr("a")));
+        GLSLD_CHECK_AST("vec3().length()",
+                        UnaryExpr(UnaryOp::Length, ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {})));
 
         SECTION("Permissive")
         {
             GLSLD_CHECK_AST("+", UnaryExpr(UnaryOp::Identity, ErrorExpr()));
+            GLSLD_CHECK_AST("++", UnaryExpr(UnaryOp::PrefixInc, ErrorExpr()));
+        }
+    }
+
+    SECTION("CommaExpr")
+    {
+        SetTestTemplate("void main() {{ {}; }};", [this](AstMatcher* matcher) {
+            return FindMatch(FunctionDecl(AnyAst(), IdTok("main"), {}, AnyAst()),
+                             FunctionDecl(AnyAst(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
+        });
+
+        GLSLD_CHECK_AST("1, 2", BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST(
+            "1, 2, 3",
+            BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+    }
+
+    SECTION("AssignmentExpr")
+    {
+        SetTestTemplate("void main() {{ {}; }};", [this](AstMatcher* matcher) {
+            return FindMatch(FunctionDecl(AnyAst(), IdTok("main"), {}, AnyAst()),
+                             FunctionDecl(AnyAst(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
+        });
+
+        GLSLD_CHECK_AST("a = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a += 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a -= 1", BinaryExpr(BinaryOp::SubAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a *= 1", BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a /= 1", BinaryExpr(BinaryOp::DivAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a %= 1", BinaryExpr(BinaryOp::ModAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a <<= 1", BinaryExpr(BinaryOp::LShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a >>= 1", BinaryExpr(BinaryOp::RShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a &= 1", BinaryExpr(BinaryOp::AndAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a |= 1", BinaryExpr(BinaryOp::OrAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a ^= 1", BinaryExpr(BinaryOp::XorAssign, NameAccessExpr("a"), LiteralExpr(1)));
+
+        GLSLD_CHECK_AST("a = b = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
+                                                BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
+        GLSLD_CHECK_AST("a += b = 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"),
+                                                 BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("1 = 2", BinaryExpr(BinaryOp::Assign, LiteralExpr(1), LiteralExpr(2)));
+            GLSLD_CHECK_AST("=", BinaryExpr(BinaryOp::Assign, ErrorExpr(), ErrorExpr()));
+            GLSLD_CHECK_AST("a =", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), ErrorExpr()));
+            GLSLD_CHECK_AST("= b", BinaryExpr(BinaryOp::Assign, ErrorExpr(), NameAccessExpr("b")));
         }
     }
 
     SECTION("BinaryExpr")
     {
         GLSLD_CHECK_AST("1 + 2", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 - 2", BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 * 2", BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 / 2", BinaryExpr(BinaryOp::Div, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 % 2", BinaryExpr(BinaryOp::Modulo, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 == 2", BinaryExpr(BinaryOp::Equal, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 != 2", BinaryExpr(BinaryOp::NotEqual, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 < 2", BinaryExpr(BinaryOp::Less, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 <= 2", BinaryExpr(BinaryOp::LessEq, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 > 2", BinaryExpr(BinaryOp::Greater, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 >= 2", BinaryExpr(BinaryOp::GreaterEq, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 & 2", BinaryExpr(BinaryOp::BitwiseAnd, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 | 2", BinaryExpr(BinaryOp::BitwiseOr, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 ^ 2", BinaryExpr(BinaryOp::BitwiseXor, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 && 2", BinaryExpr(BinaryOp::LogicalAnd, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 || 2", BinaryExpr(BinaryOp::LogicalOr, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 << 2", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1), LiteralExpr(2)));
+        GLSLD_CHECK_AST("1 >> 2", BinaryExpr(BinaryOp::ShiftRight, LiteralExpr(1), LiteralExpr(2)));
+
         GLSLD_CHECK_AST(
             "1 + 2 + 3",
             BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));

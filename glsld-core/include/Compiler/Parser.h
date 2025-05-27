@@ -144,13 +144,6 @@ namespace glsld
         auto DoParse() -> void;
 
     private:
-        auto HandleSystemCommand(StringView cmd, ArrayView<AstSyntaxToken> args) -> void;
-
-        // Parse a sequence of system commands in the global scope.
-        // System commands are `__glsld_syscmd_XXX__ <args>... ;` in the system preamble, which are used to
-        // configure the special compiler behavior for the standard library.
-        auto ParseSystemCommands() -> void;
-
         // Parse the tokens in the token stream and register AST nodes into the CompilerInvocationState.
         // This function should be called only once. After this function returns, this tokenizer object should no longer
         // be used.

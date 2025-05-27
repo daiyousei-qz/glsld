@@ -136,7 +136,7 @@ namespace glsld
         template <AstPrinterT Printer>
         auto DoPrint(Printer& printer) const -> void
         {
-            printer.PrintAttribute("QualGroup", "FIXME");
+            printer.PrintAttribute("QualGroup", quals.ToString());
             for (const auto& layoutItem : layoutQuals) {
                 printer.PrintChildItem("LayoutQual", [&](Printer& printer) {
                     printer.PrintAttribute("Key", layoutItem.idToken.IsIdentifier() ? layoutItem.idToken.text.Str()
