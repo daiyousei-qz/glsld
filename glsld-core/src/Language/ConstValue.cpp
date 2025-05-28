@@ -963,53 +963,62 @@ namespace glsld
         return ArraySpan<std::byte>(buffer, GetBufferSize());
     }
 
+    template <std::integral T>
+    static auto ParseIntegralLiteral(StringView literalText) -> ConstValue
+    {
+        T value           = 0;
+        const char* start = literalText.data();
+        const char* end   = literalText.data() + literalText.Size();
+
+        // Determine base
+        int base = 10;
+        if (literalText.StartWith("0x") || literalText.StartWith("0X")) {
+            base = 16;
+            start += 2;
+        }
+        else if (literalText.StartWith("0") && literalText.Size() > 1) {
+            base = 8;
+            start += 1;
+        }
+
+        auto parseResult = std::from_chars(start, end, value, base);
+        if (parseResult.ptr == end && parseResult.ec == std::errc{}) {
+            return ConstValue::CreateScalar<T>(value);
+        }
+
+        return ConstValue{};
+    }
+
+    template <std::floating_point T>
+    static auto ParseFloatLiteral(StringView literalText) -> ConstValue
+    {
+        T value;
+        auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
+        if (parseResult.ptr == literalText.data() + literalText.Size() && parseResult.ec == std::errc{}) {
+            return ConstValue::CreateScalar<T>(value);
+        }
+
+        return ConstValue{};
+    }
+
     auto ParseNumberLiteral(StringView literalText) -> ConstValue
     {
         // FIXME: make sure we don't allow overflow
         if (literalText.EndWith("u") || literalText.EndWith("U")) {
-            auto literalTextNoSuffix = literalText.DropBack(1);
-
-            uint32_t value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::CreateScalar<uint32_t>(value);
-            }
+            return ParseIntegralLiteral<uint32_t>(literalText.DropBack(1));
         }
         else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
-            auto literalTextNoSuffix = literalText.DropBack(2);
-
-            double value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::CreateScalar<double>(value);
-            }
+            return ParseFloatLiteral<double>(literalText.DropBack(2));
         }
         else if (literalText.EndWith("f") || literalText.EndWith("F")) {
-            auto literalTextNoSuffix = literalText.DropBack(1);
-
-            float value;
-            auto parseResult = std::from_chars(literalTextNoSuffix.data(),
-                                               literalTextNoSuffix.data() + literalTextNoSuffix.Size(), value);
-            if (parseResult.ptr == literalTextNoSuffix.data() + literalTextNoSuffix.Size()) {
-                return ConstValue::CreateScalar<float>(value);
-            }
+            return ParseFloatLiteral<float>(literalText.DropBack(1));
         }
         else {
             if (literalText.Contains('.') || literalText.Contains('e')) {
-                float value;
-                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::CreateScalar<float>(value);
-                }
+                return ParseFloatLiteral<float>(literalText);
             }
             else {
-                int32_t value;
-                auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-                if (parseResult.ptr == literalText.data() + literalText.Size()) {
-                    return ConstValue::CreateScalar<int32_t>(value);
-                }
+                return ParseIntegralLiteral<int32_t>(literalText);
             }
         }
 

@@ -244,10 +244,12 @@ namespace glsld
         // Note we don't further check if the swizzle is out-of-bound here.
         size_t swizzleDim = swizzleDesc.GetDimension();
         if (auto scalarDesc = baseType->GetScalarDesc()) {
-            return Type::GetVectorType(scalarDesc->type, swizzleDim);
+            return swizzleDim == 1 ? Type::GetScalarType(scalarDesc->type)
+                                   : Type::GetVectorType(scalarDesc->type, swizzleDim);
         }
         else if (auto vectorDesc = baseType->GetVectorDesc()) {
-            return Type::GetVectorType(vectorDesc->scalarType, swizzleDim);
+            return swizzleDim == 1 ? Type::GetScalarType(vectorDesc->scalarType)
+                                   : Type::GetVectorType(vectorDesc->scalarType, swizzleDim);
         }
         else {
             GLSLD_UNREACHABLE();

@@ -14,8 +14,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstMiscTest")
                 void bar();
             )",
                         TranslationUnit({
-                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("foo"), {}, AnyStmt()),
-                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("bar"), {}, AnyStmt()),
+                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("foo"), {}, NullAst()),
+                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("bar"), {}, NullAst()),
                         }));
     }
 }

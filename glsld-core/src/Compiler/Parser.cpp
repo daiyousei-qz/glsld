@@ -1587,28 +1587,41 @@ namespace glsld
             ParsingBalancedParenGuard parenGuard(*this);
 
             // Parse init clause
-            // FIXME: must be simple stmt (non-compound)
-            initClause = ParseStmt();
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                initClause = astBuilder.BuildEmptyStmt(GetCurrentTokenID());
+            }
+            else {
+                initClause = ParseDeclOrExprStmt();
+            }
 
-            // Parse test expression, noting ';' is already parsed.
             if (InRecoveryMode()) {
                 conditionExpr = CreateErrorExpr();
                 iterExpr      = CreateErrorExpr();
                 break;
             }
-            conditionExpr = ParseExpr();
 
-            // Parse proceed clause
+            // Parse test clause
             if (!TryConsumeToken(TokenKlass::Semicolon)) {
+                conditionExpr = ParseExpr();
+
+                // TODO: error handling
+                TryConsumeToken(TokenKlass::Semicolon);
+            }
+
+            if (InRecoveryMode()) {
                 iterExpr = CreateErrorExpr();
                 break;
             }
-            iterExpr = ParseExpr();
+
+            // Parse proceed clause
+            if (!TryTestToken(TokenKlass::RParen)) {
+                iterExpr = ParseExpr();
+            }
         } while (false);
+        GLSLD_ASSERT(initClause);
 
         // Parse loop body
         // FIXME: is the recovery correct?
-        GLSLD_ASSERT(initClause && conditionExpr && iterExpr);
         AstStmt* loopBody = nullptr;
         if (InRecoveryMode()) {
             // Meaning we cannot parse the closing ')'. We cannot assume the following tokens form the loop body.

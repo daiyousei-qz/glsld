@@ -26,7 +26,7 @@ namespace glsld
     public:
         bool IsSuccess() const
         {
-            return failedNode == nullptr;
+            return errorTraces.empty();
         }
 
         auto GetFailedNode() const -> const AstNode*
@@ -124,15 +124,20 @@ namespace glsld
         auto operator=(const AstMatcher&) -> AstMatcher& = delete;
         auto operator=(AstMatcher&&) -> AstMatcher&      = default;
 
-        auto CheckType(std::move_only_function<auto(const Type&)->bool> typeChecker) -> AstMatcher*
+        auto CheckType(std::move_only_function<auto(const Type&)->bool> callback) -> AstMatcher*
         {
-            typeChecker = std::move(typeChecker);
+            typeChecker = std::move(callback);
             return this;
         }
 
-        auto CheckValue(std::move_only_function<auto(const ConstValue&)->bool> valueChecker) -> AstMatcher*
+        auto CheckType(GlslBuiltinType type) -> AstMatcher*
         {
-            valueChecker = std::move(valueChecker);
+            return CheckType([type](const Type& t) { return t.IsSameWith(type); });
+        }
+
+        auto CheckValue(std::move_only_function<auto(const ConstValue&)->bool> callback) -> AstMatcher*
+        {
+            valueChecker = std::move(callback);
             return this;
         }
 
@@ -167,10 +172,19 @@ namespace glsld
 
                 if (auto expr = node ? node->As<AstExpr>() : nullptr; expr) {
                     if (typeChecker && !typeChecker(*expr->GetDeducedType())) {
-                        return AstMatchResult::FailWithUnknown(node);
+                        return AstMatchResult::Failure(node, "Type checker failed for {}. Deduced type is '{}'", name,
+                                                       expr->GetDeducedType()->GetDebugName());
                     }
                     if (valueChecker && !valueChecker(EvalAstExpr(*expr))) {
-                        return AstMatchResult::FailWithUnknown(node);
+                        return AstMatchResult::Failure(node, "Value checker failed for {}", name);
+                    }
+                }
+                else {
+                    if (typeChecker) {
+                        return AstMatchResult::Failure(node, "Type checker is not applicable to non-expression");
+                    }
+                    if (valueChecker) {
+                        return AstMatchResult::Failure(node, "Value checker is not applicable to non-expression");
                     }
                 }
 

@@ -538,14 +538,14 @@ namespace glsld
     {
         return IfStmt(condMatcher, thenStmtMatcher, NullAst());
     }
-    auto CompilerTestFixture::ForStmt(AstMatcher* initExprMatcher, AstMatcher* condExprMatcher,
+    auto CompilerTestFixture::ForStmt(AstMatcher* initStmtMatcher, AstMatcher* condExprMatcher,
                                       AstMatcher* iterExprMatcher, AstMatcher* bodyMatcher) -> AstMatcher*
     {
         return CreateAstMatcher<AstForStmt>(
             __func__,
-            [initExprMatcher, condExprMatcher, iterExprMatcher, bodyMatcher](const AstForStmt* node) -> AstMatchResult {
+            [initStmtMatcher, condExprMatcher, iterExprMatcher, bodyMatcher](const AstForStmt* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
-                    .TryMatch(node->GetInitStmt(), initExprMatcher)
+                    .TryMatch(node->GetInitStmt(), initStmtMatcher)
                     .TryMatch(node->GetConditionExpr(), condExprMatcher)
                     .TryMatch(node->GetIterExpr(), iterExprMatcher)
                     .TryMatch(node->GetBody(), bodyMatcher)

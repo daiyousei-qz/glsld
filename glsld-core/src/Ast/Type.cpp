@@ -44,6 +44,8 @@ namespace glsld
 
     auto Type::GetVectorType(ScalarKind type, size_t dim) -> const Type*
     {
+        GLSLD_ASSERT(dim >= 2 && dim <= 4);
+
         switch (type) {
         case ScalarKind::Bool:
             switch (dim) {
@@ -105,6 +107,9 @@ namespace glsld
 
     auto Type::GetMatrixType(ScalarKind type, size_t dimRow, size_t dimCol) -> const Type*
     {
+        GLSLD_ASSERT(dimRow >= 2 && dimRow <= 4);
+        GLSLD_ASSERT(dimCol >= 2 && dimCol <= 4);
+
         if (type == ScalarKind::Float) {
             switch (dimRow) {
             case 2:

@@ -320,7 +320,8 @@ namespace glsld
                 return true;
             }
             else {
-                UNSCOPED_INFO("AST match failed, see AST:\n" + matchResult.GetFailedNode()->ToString() +
+                UNSCOPED_INFO("AST match failed, see AST:\n" +
+                              (matchResult.GetFailedNode() ? matchResult.GetFailedNode()->ToString() : "null") +
                               "\nSee error trace:\n" + matchResult.GetErrorTrace());
                 return false;
             }

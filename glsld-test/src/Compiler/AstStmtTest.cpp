@@ -96,6 +96,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
         SECTION("Permissive")
         {
             GLSLD_CHECK_AST("while", WhileStmt(ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("while;", WhileStmt(ErrorExpr(), ErrorStmt()));
             GLSLD_CHECK_AST("while (", WhileStmt(ErrorExpr(), ErrorStmt()));
             GLSLD_CHECK_AST("while (1", WhileStmt(LiteralExpr(1), ErrorStmt()));
             GLSLD_CHECK_AST("while ()", WhileStmt(ErrorExpr(), ExprStmt(ErrorExpr())));
@@ -124,10 +125,29 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 
     SECTION("ForStmt")
     {
-        // FIXME: fix for loop parsing
-        // GLSLD_CHECK_AST("for (;;) {}", ForStmt(EmptyStmt(), EmptyStmt(), EmptyStmt(), CompoundStmt({})));
-        // GLSLD_CHECK_AST("for (1; 2; 3) {}", ForStmt(ExprStmt(LiteralExpr(1)), ExprStmt(LiteralExpr(2)),
-        //                                             ExprStmt(LiteralExpr(3)), CompoundStmt({})));
+        GLSLD_CHECK_AST("for (;;) {}", ForStmt(EmptyStmt(), NullAst(), NullAst(), CompoundStmt({})));
+        GLSLD_CHECK_AST("for (;;) ;", ForStmt(EmptyStmt(), NullAst(), NullAst(), EmptyStmt()));
+        GLSLD_CHECK_AST("for (1; 2; 3) {}",
+                        ForStmt(ExprStmt(LiteralExpr(1)), LiteralExpr(2), LiteralExpr(3), CompoundStmt({})));
+
+        GLSLD_CHECK_AST("for (1; 2; 3) for (4; 5; 6) ;",
+                        ForStmt(ExprStmt(LiteralExpr(1)), LiteralExpr(2), LiteralExpr(3),
+                                ForStmt(ExprStmt(LiteralExpr(4)), LiteralExpr(5), LiteralExpr(6), EmptyStmt())));
+
+        GLSLD_CHECK_AST(
+            "for (int i = 0; i < 4; ++i) {}",
+            ForStmt(DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("i"), NullAst(), LiteralExpr(0))),
+                    BinaryExpr(BinaryOp::Less, NameAccessExpr("i"), LiteralExpr(4)),
+                    UnaryExpr(UnaryOp::PrefixInc, NameAccessExpr("i")), CompoundStmt({})));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("for", ForStmt(ErrorStmt(), ErrorExpr(), ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("for;", ForStmt(ErrorStmt(), ErrorExpr(), ErrorExpr(), ErrorStmt()));
+            GLSLD_CHECK_AST("for () ;", ForStmt(ExprStmt(ErrorExpr()), ErrorExpr(), ErrorExpr(), EmptyStmt()));
+            // FIXME: this is weird parsing behavior. Could we do better?
+            GLSLD_CHECK_AST("for (;) ;", ForStmt(EmptyStmt(), ErrorExpr(), ErrorExpr(), EmptyStmt()));
+        }
     }
 
     SECTION("SwitchStmt")

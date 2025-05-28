@@ -572,6 +572,7 @@ namespace glsld
 #pragma region Parsing Stmt
 
         // PARSE: stmt
+        //      - stmt := ';'
         //      - stmt := compound_stmt
         //      - stmt := selection_stmt
         //      - stmt := for_stmt
@@ -580,7 +581,7 @@ namespace glsld
         //      - stmt := switch_stmt
         //      - stmt := jump_stmt
         //      - stmt := expr_stmt
-        //      - stmt := declaration
+        //      - stmt := decl_stmt
         auto ParseStmt() -> AstStmt*;
 
         // EXPECT: '{'
