@@ -24,7 +24,7 @@ namespace glsld
     private:
         LanguageServerConfig config;
 
-        BS::thread_pool threadPool = {};
+        BS::light_thread_pool threadPool = {};
 
         std::shared_ptr<spdlog::logger> logger = nullptr;
 

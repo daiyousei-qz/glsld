@@ -78,6 +78,7 @@ if(GLSLD_OS_WIN)
 endif()
 
 find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 find_package(argparse CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
@@ -124,6 +125,7 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
 
     target_link_libraries(glsld-server PUBLIC glsld-core)
 
+    target_link_libraries(glsld-server PRIVATE spdlog::spdlog)
     target_link_libraries(glsld-server PRIVATE nlohmann_json::nlohmann_json)
     target_link_libraries(glsld-server PRIVATE Boost::pfr)
     target_link_libraries(glsld-server PRIVATE magic_enum::magic_enum)
