@@ -1,14 +1,15 @@
 #pragma once
 
 #include "Basic/Common.h"
+#include "Basic/StringView.h"
 #include "Server/Config.h"
 #include "Support/JsonSerializer.h"
 
 #include <BS_thread_pool.hpp>
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/logger.h>
 
+#include <cstdio>
 #include <memory>
 #include <unordered_map>
 #include <functional>
@@ -24,9 +25,12 @@ namespace glsld
     private:
         LanguageServerConfig config;
 
-        BS::light_thread_pool threadPool = {};
+        BS::light_thread_pool threadPool = {
+            0, [](std::size_t index) { BS::this_thread::set_os_thread_name("glsld_worker_" + std::to_string(index)); }};
 
         std::shared_ptr<spdlog::logger> logger = nullptr;
+
+        std::unique_ptr<FILE, decltype(&fclose)> replayFile{nullptr, fclose};
 
         using MessageDispatcherType = std::function<void(LanguageServer& server, const nlohmann::json& rpcBlob)>;
         std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
@@ -38,7 +42,11 @@ namespace glsld
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
 
+        auto InitializeReplayDumpFile(StringView dirPath) -> bool;
+
         auto Run() -> void;
+
+        auto Replay(std::string replayCommands) -> void;
 
         auto GetConfig() const -> const LanguageServerConfig&
         {
@@ -76,6 +84,32 @@ namespace glsld
         auto ScheduleBackgroundTask(F&& f, Args&&... args) -> void
         {
             threadPool.detach_task(std::forward<F>(f), std::forward<Args>(args)...);
+        }
+
+        auto ShouldLog(LoggingLevel requiredLevel) const -> bool
+        {
+            switch (config.loggingLevel.value) {
+            case LoggingLevel::Debug:
+                return true;
+            case LoggingLevel::Info:
+                return requiredLevel != LoggingLevel::Debug;
+            case LoggingLevel::Warn:
+                return requiredLevel == LoggingLevel::Warn || requiredLevel == LoggingLevel::Error;
+            case LoggingLevel::Error:
+                return requiredLevel == LoggingLevel::Error;
+            default:
+                return false;
+            }
+        }
+
+        auto LogClientMessage(StringView messagePayload) -> void
+        {
+            if (replayFile) {
+                constexpr StringView separator = ",\n\n";
+                fwrite(messagePayload.data(), 1, messagePayload.Size(), replayFile.get());
+                fwrite(separator.data(), 1, separator.Size(), replayFile.get());
+                fflush(replayFile.get());
+            }
         }
 
         template <typename... Args>

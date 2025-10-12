@@ -129,6 +129,8 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
     target_link_libraries(glsld-server PRIVATE nlohmann_json::nlohmann_json)
     target_link_libraries(glsld-server PRIVATE Boost::pfr)
     target_link_libraries(glsld-server PRIVATE magic_enum::magic_enum)
+
+    target_compile_definitions(glsld-server PUBLIC BS_THREAD_POOL_NATIVE_EXTENSIONS)
     target_include_directories(glsld-server PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
 endif()
 

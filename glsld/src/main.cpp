@@ -57,6 +57,10 @@ namespace glsld
         {
             // Path to the configuration file
             std::string configFile;
+            // Path to a file containing LSP messages to replay a sequence of client messages
+            std::string replayFile;
+            // Path to the directory to dump replay files
+            std::string replayDumpDir;
         };
     } // namespace
 
@@ -72,6 +76,14 @@ namespace glsld
             .help("Path to the configuration file")
             .default_value(std::string{})
             .store_into(result.configFile);
+        program.add_argument("--replayFile")
+            .help("Path to a file containing LSP messages to replay a sequence of client messages")
+            .default_value(std::string{})
+            .store_into(result.replayFile);
+        program.add_argument("--replayDumpDir")
+            .help("Directory to dump the replay file (for reproducing client messages)")
+            .default_value(std::string{})
+            .store_into(result.replayDumpDir);
 
         program.parse_args(argc, argv);
         return result;
@@ -125,10 +137,44 @@ namespace glsld
         return *config;
     }
 
-    static auto DoMain(ProgramArgs args) -> void
+    static auto DoMain(ProgramArgs args) -> int
     {
         auto config = LoadConfig(args.configFile);
-        glsld::LanguageServer{config}.Run();
+        glsld::LanguageServer server{config};
+
+        if (!args.replayFile.empty()) {
+            FILE* replayFile = fopen(args.replayFile.c_str(), "rb");
+            if (!replayFile) {
+                fmt::print(stderr, "Failed to open replay file: {}\n", args.replayFile);
+                return 1;
+            }
+
+            fseek(replayFile, 0, SEEK_END);
+            long fileSize = ftell(replayFile);
+            fseek(replayFile, 0, SEEK_SET);
+
+            std::string replayContent;
+            replayContent.resize(fileSize);
+            if (fread(&replayContent[0], 1, fileSize, replayFile) != static_cast<size_t>(fileSize)) {
+                fmt::print(stderr, "Failed to read replay file: {}\n", args.replayFile);
+                fclose(replayFile);
+                return 1;
+            }
+            fclose(replayFile);
+
+            server.Replay(replayContent);
+            return 1;
+        }
+        else {
+            if (!args.replayDumpDir.empty()) {
+                if (!server.InitializeReplayDumpFile(args.replayDumpDir)) {
+                    fmt::print(stderr, "Failed to initialize replay file at: {}\n", args.replayDumpDir);
+                    return 1;
+                }
+            }
+            server.Run();
+        }
+        return 0;
     }
 } // namespace glsld
 
@@ -142,6 +188,5 @@ auto main(int argc, char* argv[]) -> int
     SetUnhandledExceptionFilter();
 #endif
 
-    glsld::DoMain(glsld::ParseArguments(argc, argv));
-    return 0;
+    return glsld::DoMain(glsld::ParseArguments(argc, argv));
 }

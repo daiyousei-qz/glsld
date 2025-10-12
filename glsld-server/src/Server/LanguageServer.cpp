@@ -2,7 +2,13 @@
 #include "Server/LanguageService.h"
 #include "Server/TransportService.h"
 
+#include <cctype>
+#include <spdlog/common.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+
 #include <cstdio>
+#include <filesystem>
 
 #if defined(GLSLD_OS_WIN)
 #include <io.h>
@@ -37,9 +43,6 @@ namespace glsld
         auto logger = spdlog::stderr_color_mt("glsld_logger");
         logger->set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
         switch (level) {
-        case LoggingLevel::Trace:
-            logger->set_level(spdlog::level::trace);
-            break;
         case LoggingLevel::Debug:
             logger->set_level(spdlog::level::debug);
             break;
@@ -51,9 +54,6 @@ namespace glsld
             break;
         case LoggingLevel::Error:
             logger->set_level(spdlog::level::err);
-            break;
-        case LoggingLevel::Critical:
-            logger->set_level(spdlog::level::critical);
             break;
         }
 
@@ -105,7 +105,8 @@ namespace glsld
 
     LanguageServer::LanguageServer(const LanguageServerConfig& config) : config(config)
     {
-        logger    = CreateLogger(config.loggingLevel);
+        logger = CreateLogger(config.loggingLevel);
+
         language  = CreateDefaultLanguageService(*this);
         transport = CreateStdioTransportService(*this);
 
@@ -131,15 +132,64 @@ namespace glsld
     {
     }
 
+    auto LanguageServer::InitializeReplayDumpFile(StringView dirPath) -> bool
+    {
+        auto now = std::chrono::system_clock::now();
+        auto t   = std::chrono::system_clock::to_time_t(now);
+        auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
+        std::tm tm;
+#if defined(GLSLD_OS_WIN)
+        localtime_s(&tm, &t);
+#else
+        localtime_r(&t, &tm);
+#endif
+
+        auto path = std::filesystem::path{dirPath.StdStrView()} /
+                    fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
+                                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
+
+        replayFile = {fopen(path.c_str(), "wb"), &fclose};
+        return (replayFile != nullptr);
+    }
+
     auto LanguageServer::Run() -> void
     {
-        while (true) {
-            transport->PullMessage();
+        while (transport->PullMessage()) {
         }
+
+        threadPool.wait();
+    }
+
+    auto LanguageServer::Replay(std::string replayCommands) -> void
+    {
+        while (!replayCommands.empty() && (isspace(replayCommands.back()) || replayCommands.back() == ',')) {
+            replayCommands.pop_back();
+        }
+        replayCommands = "[" + replayCommands + "]";
+
+        auto j = nlohmann::json::parse(replayCommands, nullptr, false);
+        if (j.is_discarded() || !j.is_array()) {
+            LogError("Replay commands is not a valid JSON array:\n```\n{}```\n", replayCommands);
+            return;
+        }
+
+        for (const auto& item : j) {
+            if (!item.is_object()) {
+                LogError("Replay command is not a valid object:\n```\n{}```\n", item.dump());
+                return;
+            }
+
+            HandleClientMessage(item.dump());
+        }
+
+        threadPool.wait();
     }
 
     auto LanguageServer::HandleClientMessage(StringView messagePayload) -> void
     {
+        LogClientMessage(messagePayload);
+
         auto j = nlohmann::json::parse(messagePayload, nullptr, false);
         if (j.is_discarded()) {
             LogError("Client message is not a valid JSON:\n```\n{}```\n", messagePayload);

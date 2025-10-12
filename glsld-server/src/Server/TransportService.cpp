@@ -36,6 +36,7 @@ namespace glsld
             }
 
             StringView headerView = StringView{messageBuffer}.Trim();
+            server.LogDebug("Received LSP message header line: `{}`", headerView);
 
             if (headerView.Empty()) {
                 // Empty line indicates end of headers, aka. start of payload.
@@ -81,6 +82,7 @@ namespace glsld
             readSize += len;
         }
 
+        server.LogDebug("Received LSP message payload:\n```\n{}\n```", StringView{messageBuffer});
         server.HandleClientMessage(StringView{messageBuffer});
         return true;
     }
@@ -89,6 +91,8 @@ namespace glsld
     {
         // TODO: optimize this
         std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
+        server.LogDebug("Sending LSP message header:\n```\n{}```", header);
+        server.LogDebug("Sending LSP message payload:\n```\n{}\n```", payload);
 
         if (auto writeSize = fwrite(header.data(), sizeof(char), header.size(), outFile); writeSize != header.size()) {
             server.LogError("Failed to write LSP message header.");

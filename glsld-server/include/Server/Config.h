@@ -99,12 +99,10 @@ namespace glsld
 
     enum class LoggingLevel
     {
-        Trace,
         Debug,
         Info,
         Warn,
         Error,
-        Critical,
     };
 
     struct LanguageServerConfig
