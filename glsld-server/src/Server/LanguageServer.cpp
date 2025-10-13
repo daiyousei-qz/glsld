@@ -2,7 +2,13 @@
 #include "Server/LanguageService.h"
 #include "Server/TransportService.h"
 
+#include <cctype>
+#include <spdlog/common.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/basic_file_sink.h>
+
 #include <cstdio>
+#include <filesystem>
 
 #if defined(GLSLD_OS_WIN)
 #include <io.h>
@@ -37,9 +43,6 @@ namespace glsld
         auto logger = spdlog::stderr_color_mt("glsld_logger");
         logger->set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
         switch (level) {
-        case LoggingLevel::Trace:
-            logger->set_level(spdlog::level::trace);
-            break;
         case LoggingLevel::Debug:
             logger->set_level(spdlog::level::debug);
             break;
@@ -51,9 +54,6 @@ namespace glsld
             break;
         case LoggingLevel::Error:
             logger->set_level(spdlog::level::err);
-            break;
-        case LoggingLevel::Critical:
-            logger->set_level(spdlog::level::critical);
             break;
         }
 
@@ -105,7 +105,8 @@ namespace glsld
 
     LanguageServer::LanguageServer(const LanguageServerConfig& config) : config(config)
     {
-        logger    = CreateLogger(config.loggingLevel);
+        logger = CreateLogger(config.loggingLevel);
+
         language  = CreateDefaultLanguageService(*this);
         transport = CreateStdioTransportService(*this);
 
@@ -131,15 +132,52 @@ namespace glsld
     {
     }
 
-    auto LanguageServer::Run() -> void
+    auto LanguageServer::InitializeReplayDumpFile(File dumpFile) -> void
     {
-        while (true) {
-            transport->PullMessage();
-        }
+        GLSLD_ASSERT(!replayDumpFile);
+        replayDumpFile = std::move(dumpFile);
     }
 
-    auto LanguageServer::HandleClientMessage(StringView messagePayload) -> void
+    auto LanguageServer::Run() -> void
     {
+        while (auto message = transport->PullMessage()) {
+            DoHandleClientMessage(*message);
+        }
+
+        threadPool.wait();
+    }
+
+    auto LanguageServer::Replay(std::string replayCommands) -> void
+    {
+        // FIXME: The current version of nlohmann::json we are using doesn't like trailing comma (yet)
+        //        We should let the library tolarate the comma after upgrading.
+        while (!replayCommands.empty() && (isspace(replayCommands.back()) || replayCommands.back() == ',')) {
+            replayCommands.pop_back();
+        }
+        replayCommands = "[" + replayCommands + "]";
+
+        auto j = nlohmann::json::parse(replayCommands, nullptr, false);
+        if (j.is_discarded() || !j.is_array()) {
+            LogError("Replay commands is not a valid JSON array:\n```\n{}```\n", replayCommands);
+            return;
+        }
+
+        for (const auto& item : j) {
+            if (!item.is_object()) {
+                LogError("Replay command is not a valid object:\n```\n{}```\n", item.dump());
+                return;
+            }
+
+            DoHandleClientMessage(item.dump());
+        }
+
+        threadPool.wait();
+    }
+
+    auto LanguageServer::DoHandleClientMessage(StringView messagePayload) -> void
+    {
+        LogClientMessage(messagePayload);
+
         auto j = nlohmann::json::parse(messagePayload, nullptr, false);
         if (j.is_discarded()) {
             LogError("Client message is not a valid JSON:\n```\n{}```\n", messagePayload);
@@ -178,7 +216,7 @@ namespace glsld
         transport->PushMessage(StringView{payload});
     }
 
-    auto LanguageServer::DoHandleNotification(const char* method, nlohmann::json params) -> void
+    auto LanguageServer::DoHandleServerNotification(const char* method, nlohmann::json params) -> void
     {
         nlohmann::json rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";

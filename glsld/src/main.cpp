@@ -1,6 +1,10 @@
+#include "Basic/StringView.h"
+#include "Support/File.h"
 #include "Server/LanguageServer.h"
 
 #include <argparse/argparse.hpp>
+#include <chrono>
+#include <filesystem>
 #include <fstream>
 
 #if defined(GLSLD_OS_WIN)
@@ -57,6 +61,10 @@ namespace glsld
         {
             // Path to the configuration file
             std::string configFile;
+            // Path to a file containing LSP messages to replay a sequence of client messages
+            std::string replayFile;
+            // Path to the directory to dump replay files
+            std::string replayDumpDir;
         };
     } // namespace
 
@@ -72,6 +80,14 @@ namespace glsld
             .help("Path to the configuration file")
             .default_value(std::string{})
             .store_into(result.configFile);
+        program.add_argument("--replayFile")
+            .help("Path to a file containing LSP messages to replay a sequence of client messages")
+            .default_value(std::string{})
+            .store_into(result.replayFile);
+        program.add_argument("--replayDumpDir")
+            .help("Directory to dump the replay file (for reproducing client messages)")
+            .default_value(std::string{})
+            .store_into(result.replayDumpDir);
 
         program.parse_args(argc, argv);
         return result;
@@ -125,10 +141,54 @@ namespace glsld
         return *config;
     }
 
-    static auto DoMain(ProgramArgs args) -> void
+    static auto CreateReplayDumpFile(StringView dumpDir) -> File
+    {
+        auto now = std::chrono::system_clock::now();
+        auto t   = std::chrono::system_clock::to_time_t(now);
+        auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
+        std::tm tm;
+#if defined(GLSLD_OS_WIN)
+        localtime_s(&tm, &t);
+#else
+        localtime_r(&t, &tm);
+#endif
+
+        auto path = std::filesystem::path{dumpDir.StdStrView()} /
+                    fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
+                                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
+
+        return File::Open(path.string().c_str(), "wb").value_or(File{});
+    }
+
+    static auto DoMain(ProgramArgs args) -> int
     {
         auto config = LoadConfig(args.configFile);
-        glsld::LanguageServer{config}.Run();
+        glsld::LanguageServer server{config};
+
+        if (!args.replayFile.empty()) {
+            auto replayCommands = File::ReadAllText(args.replayFile.c_str());
+            if (!replayCommands) {
+                fmt::print(stderr, "Failed to read replay file: {}\n", args.replayFile);
+                return 1;
+            }
+
+            server.Replay(*replayCommands);
+            return 1;
+        }
+        else {
+            if (!args.replayDumpDir.empty()) {
+                auto replayDumpFile = CreateReplayDumpFile(args.replayDumpDir);
+                if (!replayDumpFile) {
+                    fmt::print(stderr, "Failed to initialize replay file at: {}\n", args.replayDumpDir);
+                    return 1;
+                }
+
+                server.InitializeReplayDumpFile(std::move(replayDumpFile));
+            }
+            server.Run();
+        }
+        return 0;
     }
 } // namespace glsld
 
@@ -142,6 +202,5 @@ auto main(int argc, char* argv[]) -> int
     SetUnhandledExceptionFilter();
 #endif
 
-    glsld::DoMain(glsld::ParseArguments(argc, argv));
-    return 0;
+    return glsld::DoMain(glsld::ParseArguments(argc, argv));
 }
