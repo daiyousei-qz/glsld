@@ -31,6 +31,8 @@ jobs:
               wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 21
               sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
               sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
+              sudo update-alternatives --set clang /usr/bin/clang-21
+              sudo update-alternatives --set clang++ /usr/bin/clang++-21
     steps:
 
     - name: Checkout Repository
