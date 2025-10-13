@@ -132,30 +132,16 @@ namespace glsld
     {
     }
 
-    auto LanguageServer::InitializeReplayDumpFile(StringView dirPath) -> bool
+    auto LanguageServer::InitializeReplayDumpFile(File dumpFile) -> void
     {
-        auto now = std::chrono::system_clock::now();
-        auto t   = std::chrono::system_clock::to_time_t(now);
-        auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-
-        std::tm tm;
-#if defined(GLSLD_OS_WIN)
-        localtime_s(&tm, &t);
-#else
-        localtime_r(&t, &tm);
-#endif
-
-        auto path = std::filesystem::path{dirPath.StdStrView()} /
-                    fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
-                                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
-
-        replayFile = {fopen(path.c_str(), "wb"), &fclose};
-        return (replayFile != nullptr);
+        GLSLD_ASSERT(!replayDumpFile);
+        replayDumpFile = std::move(dumpFile);
     }
 
     auto LanguageServer::Run() -> void
     {
-        while (transport->PullMessage()) {
+        while (auto message = transport->PullMessage()) {
+            DoHandleClientMessage(*message);
         }
 
         threadPool.wait();
@@ -163,6 +149,8 @@ namespace glsld
 
     auto LanguageServer::Replay(std::string replayCommands) -> void
     {
+        // FIXME: The current version of nlohmann::json we are using doesn't like trailing comma (yet)
+        //        We should let the library tolarate the comma after upgrading.
         while (!replayCommands.empty() && (isspace(replayCommands.back()) || replayCommands.back() == ',')) {
             replayCommands.pop_back();
         }
@@ -180,13 +168,13 @@ namespace glsld
                 return;
             }
 
-            HandleClientMessage(item.dump());
+            DoHandleClientMessage(item.dump());
         }
 
         threadPool.wait();
     }
 
-    auto LanguageServer::HandleClientMessage(StringView messagePayload) -> void
+    auto LanguageServer::DoHandleClientMessage(StringView messagePayload) -> void
     {
         LogClientMessage(messagePayload);
 
@@ -228,7 +216,7 @@ namespace glsld
         transport->PushMessage(StringView{payload});
     }
 
-    auto LanguageServer::DoHandleNotification(const char* method, nlohmann::json params) -> void
+    auto LanguageServer::DoHandleServerNotification(const char* method, nlohmann::json params) -> void
     {
         nlohmann::json rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";

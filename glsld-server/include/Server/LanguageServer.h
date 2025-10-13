@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Basic/Common.h"
+#include "Support/File.h"
 #include "Basic/StringView.h"
 #include "Server/Config.h"
 #include "Support/JsonSerializer.h"
@@ -30,7 +31,10 @@ namespace glsld
 
         std::shared_ptr<spdlog::logger> logger = nullptr;
 
-        std::unique_ptr<FILE, decltype(&fclose)> replayFile{nullptr, fclose};
+        // Replay file is formatted like a JSON array, but excluding the enclosing brackets.
+        // This is to ensure that crashing server doesn't produce invalid replay file. A final json should be composed
+        // while replay file is loaded.
+        File replayDumpFile;
 
         using MessageDispatcherType = std::function<void(LanguageServer& server, const nlohmann::json& rpcBlob)>;
         std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
@@ -42,7 +46,7 @@ namespace glsld
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
 
-        auto InitializeReplayDumpFile(StringView dirPath) -> bool;
+        auto InitializeReplayDumpFile(File dumpFile) -> void;
 
         auto Run() -> void;
 
@@ -63,9 +67,6 @@ namespace glsld
             return *transport;
         }
 
-        // Dispatch a message from the client to the language server.
-        auto HandleClientMessage(StringView messagePayload) -> void;
-
         // Dispatch a response from the language server to the client.
         template <typename T>
         auto HandleServerResponse(int requestId, const T& result, bool isError) -> void
@@ -77,7 +78,7 @@ namespace glsld
         template <typename T>
         auto HandleServerNotification(const char* method, const T& params) -> void
         {
-            DoHandleNotification(method, JsonSerializer<T>::Serialize(params));
+            DoHandleServerNotification(method, JsonSerializer<T>::Serialize(params));
         }
 
         template <typename F, typename... Args>
@@ -104,11 +105,10 @@ namespace glsld
 
         auto LogClientMessage(StringView messagePayload) -> void
         {
-            if (replayFile) {
-                constexpr StringView separator = ",\n\n";
-                fwrite(messagePayload.data(), 1, messagePayload.Size(), replayFile.get());
-                fwrite(separator.data(), 1, separator.Size(), replayFile.get());
-                fflush(replayFile.get());
+            if (replayDumpFile) {
+                replayDumpFile.Write(messagePayload);
+                replayDumpFile.Write(",\n\n");
+                replayDumpFile.Flush();
             }
         }
 
@@ -145,8 +145,9 @@ namespace glsld
         }
 
     private:
+        auto DoHandleClientMessage(StringView messagePayload) -> void;
         auto DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
-        auto DoHandleNotification(const char* method, nlohmann::json params) -> void;
+        auto DoHandleServerNotification(const char* method, nlohmann::json params) -> void;
 
         auto AddClientMessageHandler(StringView methodName,
                                      std::function<auto(LanguageServer&, const nlohmann::json&)->void> handler) -> void;

@@ -1,4 +1,6 @@
+#include "Basic/StringView.h"
 #include "Server/TransportService.h"
+#include <optional>
 
 namespace glsld
 {
@@ -22,7 +24,7 @@ namespace glsld
         }
     }
 
-    auto TransportService::PullMessage() -> bool
+    auto TransportService::PullMessage() -> std::optional<StringView>
     {
         // Read LSP headers from input file
         // Although LSP requires "\r\n" as end-line, we only use "\n" as the delimitor for simplicity.
@@ -32,7 +34,7 @@ namespace glsld
 
             if (!ReadLine(messageBuffer, inFile)) {
                 server.LogError("Failed to read LSP message header.");
-                return false;
+                return std::nullopt;
             }
 
             StringView headerView = StringView{messageBuffer}.Trim();
@@ -48,7 +50,7 @@ namespace glsld
                 if (std::from_chars(lengthView.data(), lengthView.data() + lengthView.Size(), payloadLength).ec !=
                     std::errc()) {
                     server.LogError("Failed to parse Content-Length header.");
-                    return false;
+                    return std::nullopt;
                 }
             }
             else if (headerView.StartWith("Content-Type: ")) {
@@ -63,7 +65,7 @@ namespace glsld
         // If payload size provided is too large, close the transport as if EOF is reached
         if (payloadLength > 10 * 1024 * 1024) {
             server.LogError("LSP message payload size {} is too large.", payloadLength);
-            return false;
+            return std::nullopt;
         }
 
         messageBuffer.clear();
@@ -76,15 +78,14 @@ namespace glsld
             if (len == 0) {
                 // See EOF
                 server.LogError("Unexpected EOF while reading payload.");
-                return false;
+                return std::nullopt;
             }
 
             readSize += len;
         }
 
         server.LogDebug("Received LSP message payload:\n```\n{}\n```", StringView{messageBuffer});
-        server.HandleClientMessage(StringView{messageBuffer});
-        return true;
+        return StringView{messageBuffer};
     }
 
     auto TransportService::PushMessage(StringView payload) -> bool

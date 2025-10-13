@@ -1,6 +1,10 @@
+#include "Basic/StringView.h"
+#include "Support/File.h"
 #include "Server/LanguageServer.h"
 
 #include <argparse/argparse.hpp>
+#include <chrono>
+#include <filesystem>
 #include <fstream>
 
 #if defined(GLSLD_OS_WIN)
@@ -137,40 +141,50 @@ namespace glsld
         return *config;
     }
 
+    static auto CreateReplayDumpFile(StringView dumpDir) -> File
+    {
+        auto now = std::chrono::system_clock::now();
+        auto t   = std::chrono::system_clock::to_time_t(now);
+        auto ms  = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+
+        std::tm tm;
+#if defined(GLSLD_OS_WIN)
+        localtime_s(&tm, &t);
+#else
+        localtime_r(&t, &tm);
+#endif
+
+        auto path = std::filesystem::path{dumpDir.StdStrView()} /
+                    fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
+                                tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
+
+        return File::Open(path.c_str(), "wb").value_or(File{});
+    }
+
     static auto DoMain(ProgramArgs args) -> int
     {
         auto config = LoadConfig(args.configFile);
         glsld::LanguageServer server{config};
 
         if (!args.replayFile.empty()) {
-            FILE* replayFile = fopen(args.replayFile.c_str(), "rb");
-            if (!replayFile) {
-                fmt::print(stderr, "Failed to open replay file: {}\n", args.replayFile);
-                return 1;
-            }
-
-            fseek(replayFile, 0, SEEK_END);
-            long fileSize = ftell(replayFile);
-            fseek(replayFile, 0, SEEK_SET);
-
-            std::string replayContent;
-            replayContent.resize(fileSize);
-            if (fread(&replayContent[0], 1, fileSize, replayFile) != static_cast<size_t>(fileSize)) {
+            auto replayCommands = File::ReadAllText(args.replayFile.c_str());
+            if (!replayCommands) {
                 fmt::print(stderr, "Failed to read replay file: {}\n", args.replayFile);
-                fclose(replayFile);
                 return 1;
             }
-            fclose(replayFile);
 
-            server.Replay(replayContent);
+            server.Replay(*replayCommands);
             return 1;
         }
         else {
             if (!args.replayDumpDir.empty()) {
-                if (!server.InitializeReplayDumpFile(args.replayDumpDir)) {
+                auto replayDumpFile = CreateReplayDumpFile(args.replayDumpDir);
+                if (!replayDumpFile) {
                     fmt::print(stderr, "Failed to initialize replay file at: {}\n", args.replayDumpDir);
                     return 1;
                 }
+
+                server.InitializeReplayDumpFile(std::move(replayDumpFile));
             }
             server.Run();
         }

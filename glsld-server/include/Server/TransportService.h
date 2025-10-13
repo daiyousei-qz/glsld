@@ -25,8 +25,8 @@ namespace glsld
         }
 
         // Synchrounously pull a message from the input stream and forward it to the server.
-        // Returns true if a message is successfully pulled.
-        auto PullMessage() -> bool;
+        // This message WILL be invalidated after the next call to this function.
+        auto PullMessage() -> std::optional<StringView>;
 
         // Synchrounously push a message to the output stream.
         // Returns true if a message is successfully pushed.
