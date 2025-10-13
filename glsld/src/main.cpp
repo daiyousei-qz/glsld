@@ -158,7 +158,7 @@ namespace glsld
                     fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
                                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
 
-        return File::Open(path.c_str(), "wb").value_or(File{});
+        return File::Open(path.string().c_str(), "wb").value_or(File{});
     }
 
     static auto DoMain(ProgramArgs args) -> int

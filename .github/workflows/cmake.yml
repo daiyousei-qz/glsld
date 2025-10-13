@@ -23,14 +23,14 @@ jobs:
             os: windows-2022
             preinstall: |
               choco install ninja --no-progress --yes
-              # choco install llvm --version=19.1.0 --no-progress --yes
+              # choco install llvm --version=21.1.0 --no-progress --yes
           - name: Linux
             os: ubuntu-24.04
             preinstall: |
               sudo apt-get update && sudo apt-get install ninja-build
-              wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 19
-              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100
-              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
+              wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 21
+              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
+              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
     steps:
 
     - name: Checkout Repository
