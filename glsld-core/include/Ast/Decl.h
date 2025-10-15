@@ -143,138 +143,241 @@ namespace glsld
         }
     };
 
-    // Base class for all declarations that consist of a qualified type and a list of declarators.
-    class AstDeclaratorDecl : public AstDecl
+    namespace detail
     {
-    private:
-        // [Node]
-        NotNull<AstQualType*> qualType;
+        // Base class for all declarations that is an declarator itself.
+        class AstDeclaratorDeclImpl : public AstDecl
+        {
+        private:
+            // [Node]
+            // The identifier token that defines the symbol name
+            // Maybe an error token, which means the declarator is invalid.
+            AstSyntaxToken nameToken = {};
 
-        // [Node]
-        ArrayView<Declarator> declarators;
+            // [Node]
+            // Array specifier. May be nullptr if none is specified.
+            const AstArraySpec* arraySpec = nullptr;
 
-        // [Payload]
-        ArrayView<const Type*> resolvedTypes;
+            // [Node]
+            // Initializer. May be nullptr if none is specified.
+            const AstInitializer* initializer = nullptr;
 
-    protected:
-        AstDeclaratorDecl(AstQualType* type, ArrayView<Declarator> declarators)
-            : qualType(type), declarators(declarators)
+            // [Payload]
+            NotNull<const AstQualType*> qualType;
+
+            // [Payload]
+            const Type* resolvedType = nullptr;
+
+        protected:
+            AstDeclaratorDeclImpl(AstSyntaxToken nameToken, const AstArraySpec* arraySpec,
+                                  const AstInitializer* initializer, const AstQualType* qualType)
+                : nameToken(nameToken), arraySpec(arraySpec), initializer(initializer), qualType(qualType)
+            {
+            }
+
+            template <AstVisitorT Visitor>
+            auto DoTraverse(Visitor& visitor) const -> bool
+            {
+                if (arraySpec && !visitor.Traverse(*arraySpec)) {
+                    return false;
+                }
+                if (initializer && !visitor.Traverse(*initializer)) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            template <AstPrinterT Printer>
+            auto DoPrint(Printer& printer) const -> void
+            {
+                AstDecl::DoPrint(printer);
+                printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
+                if (arraySpec) {
+                    printer.PrintChildNode("ArraySize", *arraySpec);
+                }
+                if (initializer) {
+                    printer.PrintChildNode("Initializer", *initializer);
+                }
+                printer.PrintAttribute("ResolvedType", resolvedType->GetDebugName());
+            }
+
+        public:
+            auto GetNameToken() const noexcept -> const AstSyntaxToken&
+            {
+                return nameToken;
+            }
+            auto GetArraySpec() const noexcept -> const AstArraySpec*
+            {
+                return arraySpec;
+            }
+            auto GetInitializer() const noexcept -> const AstInitializer*
+            {
+                return initializer;
+            }
+            auto GetQualType() const noexcept -> const AstQualType*
+            {
+                return qualType;
+            }
+
+            auto SetResolvedType(const Type* type) -> void
+            {
+                this->resolvedType = type;
+            }
+            auto GetResolvedType() const noexcept -> const Type*
+            {
+                return resolvedType;
+            }
+        };
+
+        template <typename DeclaratorAstType>
+            requires std::derived_from<DeclaratorAstType, AstDeclaratorDeclImpl>
+        class AstDeclaratorGroupDeclImpl : public AstDecl
+        {
+        private:
+            // [Node]
+            NotNull<AstQualType*> qualType;
+
+            // [Node]
+            ArrayView<DeclaratorAstType*> declarators;
+
+        public:
+            AstDeclaratorGroupDeclImpl(AstQualType* qualType, ArrayView<DeclaratorAstType*> declarators)
+                : qualType(qualType), declarators(declarators)
+            {
+            }
+
+            template <AstVisitorT Visitor>
+            auto DoTraverse(Visitor& visitor) const -> bool
+            {
+                if (!AstDecl::DoTraverse(visitor)) {
+                    return false;
+                }
+                if (!visitor.Traverse(*qualType)) {
+                    return false;
+                }
+                for (auto declarator : declarators) {
+                    if (!visitor.Traverse(*declarator)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            template <AstPrinterT Printer>
+            auto DoPrint(Printer& printer) const -> void
+            {
+                AstDecl::DoPrint(printer);
+                printer.PrintChildNode("QualType", *qualType);
+                for (const auto& declarator : declarators) {
+                    printer.PrintChildNode("Declarator", *declarator);
+                }
+            }
+
+            auto GetQualType() const noexcept -> const AstQualType*
+            {
+                return qualType;
+            }
+            auto GetDeclarators() const noexcept -> ArrayView<const DeclaratorAstType*>
+            {
+                return declarators;
+            }
+        };
+    } // namespace detail
+
+    // Represents a declarator of a variable.
+    class AstVariableDeclaratorDecl final : public detail::AstDeclaratorDeclImpl
+    {
+    public:
+        AstVariableDeclaratorDecl(AstSyntaxToken nameToken, const AstArraySpec* arraySpec,
+                                  const AstInitializer* initializer, const AstQualType* qualType)
+            : AstDeclaratorDeclImpl(nameToken, arraySpec, initializer, qualType)
         {
         }
 
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            if (!visitor.Traverse(*qualType)) {
-                return false;
-            }
-
-            for (const auto& declarator : declarators) {
-                if (declarator.arraySpec && !visitor.Traverse(*declarator.arraySpec)) {
-                    return false;
-                }
-                if (declarator.initializer && !visitor.Traverse(*declarator.initializer)) {
-                    return false;
-                }
-            }
-
-            return true;
+            return AstDeclaratorDeclImpl::DoTraverse(visitor);
         }
 
         template <AstPrinterT Printer>
         auto DoPrint(Printer& printer) const -> void
         {
-            AstDecl::DoPrint(printer);
-            printer.PrintChildNode("QualType", *qualType);
-            for (const auto& declarator : declarators) {
-                printer.PrintChildItem("Declarator", [&](Printer& printer) { declarator.DoPrint(printer); });
-            }
-        }
-
-    public:
-        auto GetQualType() const noexcept -> const AstQualType*
-        {
-            return qualType;
-        }
-        auto GetDeclarators() const noexcept -> ArrayView<Declarator>
-        {
-            return declarators;
-        }
-
-        auto SetResolvedTypes(ArrayView<const Type*> types) -> void
-        {
-            this->resolvedTypes = std::move(types);
-        }
-        auto GetResolvedTypes() const noexcept -> ArrayView<const Type*>
-        {
-            return resolvedTypes;
-        }
-    };
-
-    // Represents a declaration of variables.
-    class AstVariableDecl final : public AstDeclaratorDecl
-    {
-    public:
-        AstVariableDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
-        {
+            AstDeclaratorDeclImpl::DoPrint(printer);
         }
 
         auto IsConstVariable() const -> bool
         {
             return GetQualType()->GetQualifiers() && GetQualType()->GetQualifiers()->GetQualGroup().qConst;
         }
+    };
+
+    // Represents a declaration of a variable, which may contain multiple declarators.
+    class AstVariableDecl final : public detail::AstDeclaratorGroupDeclImpl<AstVariableDeclaratorDecl>
+    {
+    public:
+        AstVariableDecl(AstQualType* qualType, ArrayView<AstVariableDeclaratorDecl*> declarators)
+            : AstDeclaratorGroupDeclImpl(qualType, declarators)
+        {
+        }
 
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return AstDeclaratorDecl::DoTraverse(visitor);
+            return AstDeclaratorGroupDeclImpl::DoTraverse(visitor);
         }
 
         template <AstPrinterT Printer>
         auto DoPrint(Printer& printer) const -> void
         {
-            AstDeclaratorDecl::DoPrint(printer);
+            AstDeclaratorGroupDeclImpl::DoPrint(printer);
         }
     };
 
-    // Represents a declaration of a struct member.
-    class AstStructFieldDecl final : public AstDeclaratorDecl
+    // Represents a declarator of a struct member.
+    class AstStructFieldDeclaratorDecl final : public detail::AstDeclaratorDeclImpl
     {
     public:
-        AstStructFieldDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
+        AstStructFieldDeclaratorDecl(AstSyntaxToken nameToken, const AstArraySpec* arraySpec,
+                                     const AstInitializer* initializer, const AstQualType* qualType)
+            : AstDeclaratorDeclImpl(nameToken, arraySpec, initializer, qualType)
         {
         }
 
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return AstDeclaratorDecl::DoTraverse(visitor);
+            return AstDeclaratorDeclImpl::DoTraverse(visitor);
         }
 
         template <AstPrinterT Printer>
         auto DoPrint(Printer& printer) const -> void
         {
-            AstDeclaratorDecl::DoPrint(printer);
+            AstDeclaratorDeclImpl::DoPrint(printer);
         }
     };
 
-    class AstBlockFieldDecl final : public AstDeclaratorDecl
+    // Represents a declaration of a struct member, which may contain multiple declarators.
+    class AstStructFieldDecl final : public detail::AstDeclaratorGroupDeclImpl<AstStructFieldDeclaratorDecl>
     {
     public:
-        AstBlockFieldDecl(AstQualType* type, ArrayView<Declarator> declarators) : AstDeclaratorDecl(type, declarators)
+        AstStructFieldDecl(AstQualType* qualType, ArrayView<AstStructFieldDeclaratorDecl*> declarators)
+            : AstDeclaratorGroupDeclImpl(qualType, declarators)
         {
         }
 
         template <AstVisitorT Visitor>
         auto DoTraverse(Visitor& visitor) const -> bool
         {
-            return AstDeclaratorDecl::DoTraverse(visitor);
+            return AstDeclaratorGroupDeclImpl::DoTraverse(visitor);
         }
 
         template <AstPrinterT Printer>
         auto DoPrint(Printer& printer) const -> void
         {
-            AstDeclaratorDecl::DoPrint(printer);
+            AstDeclaratorGroupDeclImpl::DoPrint(printer);
         }
     };
 
@@ -341,6 +444,50 @@ namespace glsld
                 printer.PrintChildItem("Member", [&](Printer& printer) { member->DoPrint(printer); });
             }
             printer.PrintAttribute("DeclaredType", declaredType->GetDebugName());
+        }
+    };
+
+    // Represents a declarator of an interface block member
+    class AstBlockFieldDeclaratorDecl final : public detail::AstDeclaratorDeclImpl
+    {
+    public:
+        AstBlockFieldDeclaratorDecl(AstSyntaxToken nameToken, const AstArraySpec* arraySpec,
+                                    const AstInitializer* initializer, const AstQualType* qualType)
+            : AstDeclaratorDeclImpl(nameToken, arraySpec, initializer, qualType)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return AstDeclaratorDeclImpl::DoTraverse(visitor);
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDeclaratorDeclImpl::DoPrint(printer);
+        }
+    };
+
+    class AstBlockFieldDecl final : public detail::AstDeclaratorGroupDeclImpl<AstBlockFieldDeclaratorDecl>
+    {
+    public:
+        AstBlockFieldDecl(AstQualType* qualType, ArrayView<AstBlockFieldDeclaratorDecl*> declarators)
+            : AstDeclaratorGroupDeclImpl(qualType, declarators)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            return AstDeclaratorGroupDeclImpl::DoTraverse(visitor);
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDeclaratorGroupDeclImpl::DoPrint(printer);
         }
     };
 

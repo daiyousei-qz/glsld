@@ -4,9 +4,9 @@ using namespace glsld;
 
 TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 {
-    SetTestTemplate("void main() {{ {} }}", [this](AstMatcher* matcher) {
-        return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),
-                         FunctionDecl(AnyQualType(), IdTok("main"), {}, CompoundStmt({matcher})));
+    SetTestTemplate("unknown foo() {{ {} }}", [this](AstMatcher* matcher) {
+        return FindMatch(FunctionDecl(AnyQualType(), IdTok("foo"), {}, AnyStmt()),
+                         FunctionDecl(AnyQualType(), IdTok("foo"), {}, CompoundStmt({matcher})));
     });
 
     SECTION("EmptyStmt")

@@ -187,7 +187,7 @@ namespace glsld
 
         // [Payload]
         // The declaration that this name access expression refers to.
-        DeclView resolvedDecl = {};
+        const AstDecl* resolvedDecl = {};
 
     public:
         AstNameAccessExpr(AstSyntaxToken name) : nameToken(name)
@@ -199,42 +199,42 @@ namespace glsld
             return nameToken;
         }
 
-        auto SetResolvedDecl(DeclView decl) noexcept -> void
+        auto SetResolvedDecl(const AstDecl* decl) noexcept -> void
         {
             resolvedDecl = decl;
         }
-        auto GetResolvedDecl() const noexcept -> DeclView
+        auto GetResolvedDecl() const noexcept -> const AstDecl*
         {
             return resolvedDecl;
         }
 
         auto IsVariable() const noexcept -> bool
         {
-            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstVariableDecl>();
+            return resolvedDecl && resolvedDecl->Is<AstVariableDeclaratorDecl>();
         }
         auto IsParameter() const noexcept -> bool
         {
-            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstParamDecl>();
+            return resolvedDecl && resolvedDecl->Is<AstParamDecl>();
         }
         auto IsBlockInstance() const noexcept -> bool
         {
-            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstInterfaceBlockDecl>();
+            return resolvedDecl && resolvedDecl->Is<AstInterfaceBlockDecl>();
         }
         auto IsBlockField() const noexcept -> bool
         {
-            return resolvedDecl.IsValid() && resolvedDecl.GetDecl()->Is<AstBlockFieldDecl>();
+            return resolvedDecl && resolvedDecl->Is<AstBlockFieldDecl>();
         }
 
         // True if this name is declared with a `const` qualifier in the declaration.
         auto IsConstNameAccess() const noexcept -> bool
         {
-            if (resolvedDecl.IsValid()) {
-                if (auto paramDecl = resolvedDecl.GetDecl()->As<AstParamDecl>()) {
+            if (resolvedDecl) {
+                if (auto paramDecl = resolvedDecl->As<AstParamDecl>()) {
                     if (paramDecl->IsConstParam()) {
                         return true;
                     }
                 }
-                else if (auto varDecl = resolvedDecl.GetDecl()->As<AstVariableDecl>()) {
+                else if (auto varDecl = resolvedDecl->As<AstVariableDeclaratorDecl>()) {
                     if (varDecl->IsConstVariable()) {
                         return true;
                     }
@@ -259,7 +259,9 @@ namespace glsld
         {
             AstExpr::DoPrint(printer);
             printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
-            printer.PrintChildItem("ResolvedDecl", [this](Printer& printer) { resolvedDecl.DoPrint(printer); });
+            printer.PrintAttribute("ResolvedDecl",
+                                   resolvedDecl ? fmt::format("#{:x}", printer.GetPointerIdentifier(resolvedDecl))
+                                                : "<Error>");
         }
     };
 
@@ -277,7 +279,7 @@ namespace glsld
 
         // [Payload]
         // The field declaration that this name access expression refers to.
-        DeclView resolvedDecl = {};
+        const AstDecl* resolvedDecl = {};
 
     public:
         AstFieldAccessExpr(AstExpr* baseExpr, AstSyntaxToken name) : baseExpr(baseExpr), nameToken(name)
@@ -293,11 +295,11 @@ namespace glsld
             return nameToken;
         }
 
-        auto SetResolvedDecl(DeclView decl) noexcept -> void
+        auto SetResolvedDecl(const AstDecl* decl) noexcept -> void
         {
             this->resolvedDecl = decl;
         }
-        auto GetResolvedDecl() const noexcept -> DeclView
+        auto GetResolvedDecl() const noexcept -> const AstDecl*
         {
             return resolvedDecl;
         }
@@ -318,7 +320,9 @@ namespace glsld
             AstExpr::DoPrint(printer);
             printer.PrintChildNode("BaseExpr", *baseExpr);
             printer.PrintAttribute("Name", nameToken.IsIdentifier() ? nameToken.text.StrView() : "<Error>");
-            printer.PrintChildItem("ResolvedDecl", [this](Printer& printer) { resolvedDecl.DoPrint(printer); });
+            printer.PrintAttribute("ResolvedDecl",
+                                   resolvedDecl ? fmt::format("#{:x}", printer.GetPointerIdentifier(resolvedDecl))
+                                                : "<Error>");
         }
     };
 

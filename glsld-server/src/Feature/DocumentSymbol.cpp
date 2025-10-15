@@ -57,9 +57,9 @@ namespace glsld
                     if (structDecl->GetNameToken()) {
                         if (tryAddSymbol(output, *structDecl->GetNameToken(), lsp::SymbolKind::Struct, "struct")) {
                             for (auto memberDecl : structDecl->GetMembers()) {
-                                for (const auto& declarator : memberDecl->GetDeclarators()) {
-                                    tryAddSymbol(output.back().children, declarator.nameToken, lsp::SymbolKind::Field,
-                                                 "field");
+                                for (auto declaratorDecl : memberDecl->GetDeclarators()) {
+                                    tryAddSymbol(output.back().children, declaratorDecl->GetNameToken(),
+                                                 lsp::SymbolKind::Field, "field");
                                 }
                             }
                         }
@@ -67,8 +67,8 @@ namespace glsld
                 }
 
                 // Variable declaration
-                for (const auto& declarator : variableDecl->GetDeclarators()) {
-                    tryAddSymbol(output, declarator.nameToken, lsp::SymbolKind::Variable, "variable");
+                for (auto declaratorDecl : variableDecl->GetDeclarators()) {
+                    tryAddSymbol(output, declaratorDecl->GetNameToken(), lsp::SymbolKind::Variable, "variable");
                 }
             }
             else if (auto interfaceBlockDecl = decl->As<AstInterfaceBlockDecl>(); interfaceBlockDecl) {
@@ -78,9 +78,9 @@ namespace glsld
                     if (tryAddSymbol(output, interfaceBlockDecl->GetDeclarator()->nameToken, lsp::SymbolKind::Variable,
                                      "interface block")) {
                         for (auto memberDecl : interfaceBlockDecl->GetMembers()) {
-                            for (const auto& declarator : memberDecl->GetDeclarators()) {
-                                tryAddSymbol(output.back().children, declarator.nameToken, lsp::SymbolKind::Field,
-                                             "field");
+                            for (auto declaratorDecl : memberDecl->GetDeclarators()) {
+                                tryAddSymbol(output.back().children, declaratorDecl->GetNameToken(),
+                                             lsp::SymbolKind::Field, "field");
                             }
                         }
                     }
@@ -89,8 +89,8 @@ namespace glsld
                     // Unnamed block.
                     // We add members to global scope as if they are global variables.
                     for (auto memberDecl : interfaceBlockDecl->GetMembers()) {
-                        for (const auto& declarator : memberDecl->GetDeclarators()) {
-                            tryAddSymbol(output, declarator.nameToken, lsp::SymbolKind::Variable,
+                        for (auto declaratorDecl : memberDecl->GetDeclarators()) {
+                            tryAddSymbol(output, declaratorDecl->GetNameToken(), lsp::SymbolKind::Variable,
                                          "unnamed block field");
                         }
                     }

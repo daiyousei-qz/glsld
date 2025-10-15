@@ -318,20 +318,19 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstInitializerList")
                                        InitializerList({}),
                                    }));
 
-        // We have implicit cast here because the target type is unknown
         GLSLD_CHECK_AST("{{1}}", InitializerList({
                                      InitializerList({
-                                         ImplicitCastExpr(LiteralExpr(1)),
+                                         LiteralExpr(1),
                                      }),
                                  }));
         GLSLD_CHECK_AST("{{1}, {2, {3}}}", InitializerList({
                                                InitializerList({
-                                                   ImplicitCastExpr(LiteralExpr(1)),
+                                                   LiteralExpr(1),
                                                }),
                                                InitializerList({
-                                                   ImplicitCastExpr(LiteralExpr(2)),
+                                                   LiteralExpr(2),
                                                    InitializerList({
-                                                       ImplicitCastExpr(LiteralExpr(3)),
+                                                       LiteralExpr(3),
                                                    }),
                                                }),
                                            }));

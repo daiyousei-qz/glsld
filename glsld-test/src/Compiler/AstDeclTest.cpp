@@ -41,7 +41,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
         GLSLD_CHECK_AST("uniform BLOCK {};", BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"), {}));
         GLSLD_CHECK_AST("uniform BLOCK { int a; };",
                         BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"),
-                                  {BlockFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"))}));
+                                  {BlockFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst())}));
     }
 
     SECTION("Struct Decl")
@@ -61,13 +61,11 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
         GLSLD_CHECK_AST(
             "struct A { int a1, a2[2]; };",
             StructDecl(IdTok("A"),
-                       {
-                           StructFieldDecl(NamedType(TokenKlass::K_int),
-                                           {
-                                               DeclaratorMatcher{IdTok("a1"), NullAst(), NullAst()},
-                                               DeclaratorMatcher{IdTok("a2"), ArraySpec({LiteralExpr(2)}), NullAst()},
-                                           }),
-                       }));
+                       {StructFieldDecl(NamedType(TokenKlass::K_int),
+                                        {
+                                            StructFieldDeclaratorDecl(IdTok("a1"), NullAst()),
+                                            StructFieldDeclaratorDecl(IdTok("a2"), ArraySpec({LiteralExpr(2)})),
+                                        })}));
 
         SECTION("Permissive")
         {
@@ -98,8 +96,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
             // GLSLD_CHECK_AST(
             //     "struct A { int a +++ ---; float b; };",
             //     StructDecl(IdTok("A"), {
-            //                                StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst()),
-            //                                StructFieldDecl(NamedType(TokenKlass::K_float), IdTok("b"), NullAst()),
+            //                                StructFieldDeclaratorDecl(NamedType(TokenKlass::K_int), IdTok("a"),
+            //                                NullAst()), StructFieldDeclaratorDecl(NamedType(TokenKlass::K_float),
+            //                                IdTok("b"), NullAst()),
             //                            }));
         }
     }

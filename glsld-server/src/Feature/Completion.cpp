@@ -69,7 +69,7 @@ namespace glsld
             return result;
         }
 
-        auto EnterAstNode(AstNode& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
         {
             return TraverseNodeContains(node, cursorPosition);
         }
@@ -129,19 +129,15 @@ namespace glsld
             inStructDefinition = true;
         }
 
-        auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
+        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
         {
             // FIXME: layout?
-            for (const auto& declarator : decl.GetDeclarators()) {
-                TestDeclarator(declarator);
-            }
+            TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
         }
 
-        auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
         {
-            for (const auto& declarator : decl.GetDeclarators()) {
-                TestDeclarator(declarator);
-            }
+            TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
         }
 
     private:
@@ -165,10 +161,8 @@ namespace glsld
                 callback(paramDecl->GetDeclarator()->nameToken, lsp::CompletionItemKind::Variable);
             }
         }
-        else if (auto varDecl = decl.As<AstVariableDecl>()) {
-            for (const auto& declarator : varDecl->GetDeclarators()) {
-                callback(declarator.nameToken, lsp::CompletionItemKind::Variable);
-            }
+        else if (auto varDecl = decl.As<AstVariableDeclaratorDecl>()) {
+            callback(varDecl->GetNameToken(), lsp::CompletionItemKind::Variable);
 
             if (auto structDecl = varDecl->GetQualType()->GetStructDecl()) {
                 if (structDecl->GetNameToken()) {
@@ -183,7 +177,7 @@ namespace glsld
             else {
                 for (auto memberDecl : blockDecl->GetMembers()) {
                     for (const auto& declarator : memberDecl->GetDeclarators()) {
-                        callback(declarator.nameToken, lsp::CompletionItemKind::Variable);
+                        callback(declarator->GetNameToken(), lsp::CompletionItemKind::Variable);
                     }
                 }
             }

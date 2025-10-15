@@ -691,8 +691,19 @@ namespace glsld
                     .Finish();
             });
     }
-    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher,
-                                             std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    auto CompilerTestFixture::BlockFieldDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher)
+        -> AstMatcher*
+    {
+        return CreateAstMatcher<AstBlockFieldDeclaratorDecl>(
+            __func__, [nameMatcher, arraySpecMatcher](const AstBlockFieldDeclaratorDecl* node) {
+                return AstMatchPipeline{node}
+                    .TryMatchToken(node->GetNameToken(), nameMatcher)
+                    .TryMatch(node->GetArraySpec(), arraySpecMatcher)
+                    .Finish();
+            });
+    }
+    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers)
+        -> AstMatcher*
     {
         return CreateAstMatcher<AstBlockFieldDecl>(
             __func__,
@@ -700,39 +711,61 @@ namespace glsld
              declaratorMatchers = std::move(declaratorMatchers)](const AstBlockFieldDecl* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
                     .TryMatch(node->GetQualType(), qualTypeMatcher)
-                    .TryMatchDeclarators(node->GetDeclarators(), declaratorMatchers)
+                    .TryMatchAll(node->GetDeclarators(), declaratorMatchers)
                     .Finish();
             });
-    }
-    auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher) -> AstMatcher*
-    {
-        return BlockFieldDecl(qualTypeMatcher, {{nameMatcher, NullAst(), NullAst()}});
     }
     auto CompilerTestFixture::BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
                                              AstMatcher* arraySpecMatcher) -> AstMatcher*
     {
-        return BlockFieldDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, NullAst()}});
+        return BlockFieldDecl(qualTypeMatcher, {BlockFieldDeclaratorDecl(nameMatcher, arraySpecMatcher)});
     }
-    auto CompilerTestFixture::VariableDecl(AstMatcher* qualTypeMatcher,
-                                           std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    auto CompilerTestFixture::VariableDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher,
+                                                     AstMatcher* initializerMatcher) -> AstMatcher*
+    {
+        return CreateAstMatcher<AstVariableDeclaratorDecl>(
+            __func__,
+            [nameMatcher, arraySpecMatcher,
+             initializerMatcher](const AstVariableDeclaratorDecl* node) -> AstMatchResult {
+                return AstMatchPipeline{node}
+                    .TryMatchToken(node->GetNameToken(), nameMatcher)
+                    .TryMatch(node->GetArraySpec(), arraySpecMatcher)
+                    .TryMatch(node->GetInitializer(), initializerMatcher)
+                    .Finish();
+            });
+    }
+    auto CompilerTestFixture::VariableDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers)
+        -> AstMatcher*
     {
         return CreateAstMatcher<AstVariableDecl>(__func__,
                                                  [qualTypeMatcher, declaratorMatchers = std::move(declaratorMatchers)](
                                                      const AstVariableDecl* node) -> AstMatchResult {
                                                      return AstMatchPipeline{node}
                                                          .TryMatch(node->GetQualType(), qualTypeMatcher)
-                                                         .TryMatchDeclarators(node->GetDeclarators(),
-                                                                              declaratorMatchers)
+                                                         .TryMatchAll(node->GetDeclarators(), declaratorMatchers)
                                                          .Finish();
                                                  });
     }
     auto CompilerTestFixture::VariableDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
                                            AstMatcher* arraySpecMatcher, AstMatcher* initializerMatcher) -> AstMatcher*
     {
-        return VariableDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, initializerMatcher}});
+        return VariableDecl(qualTypeMatcher,
+                            {VariableDeclaratorDecl(nameMatcher, arraySpecMatcher, initializerMatcher)});
     }
-    auto CompilerTestFixture::StructFieldDecl(AstMatcher* qualTypeMatcher,
-                                              std::vector<DeclaratorMatcher> declaratorMatchers) -> AstMatcher*
+    auto CompilerTestFixture::StructFieldDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher)
+        -> AstMatcher*
+    {
+        return CreateAstMatcher<AstStructFieldDeclaratorDecl>(
+            __func__, [nameMatcher, arraySpecMatcher](const AstStructFieldDeclaratorDecl* node) -> AstMatchResult {
+                GLSLD_ASSERT(node->GetInitializer() == nullptr && "Struct field cannot have initializer");
+                return AstMatchPipeline{node}
+                    .TryMatchToken(node->GetNameToken(), nameMatcher)
+                    .TryMatch(node->GetArraySpec(), arraySpecMatcher)
+                    .Finish();
+            });
+    }
+    auto CompilerTestFixture::StructFieldDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers)
+        -> AstMatcher*
     {
         return CreateAstMatcher<AstStructFieldDecl>(
             __func__,
@@ -740,14 +773,14 @@ namespace glsld
              declaratorMatchers = std::move(declaratorMatchers)](const AstStructFieldDecl* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
                     .TryMatch(node->GetQualType(), qualTypeMatcher)
-                    .TryMatchDeclarators(node->GetDeclarators(), declaratorMatchers)
+                    .TryMatchAll(node->GetDeclarators(), declaratorMatchers)
                     .Finish();
             });
     }
     auto CompilerTestFixture::StructFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher,
                                               AstMatcher* arraySpecMatcher) -> AstMatcher*
     {
-        return StructFieldDecl(qualTypeMatcher, {{nameMatcher, arraySpecMatcher, NullAst()}});
+        return StructFieldDecl(qualTypeMatcher, {StructFieldDeclaratorDecl(nameMatcher, arraySpecMatcher)});
     }
     auto CompilerTestFixture::StructDecl(TokenMatcher* nameMatcher, std::vector<AstMatcher*> fieldMatchers)
         -> AstMatcher*
@@ -757,8 +790,6 @@ namespace glsld
             [nameMatcher, fieldMatchers = std::move(fieldMatchers)](const AstStructDecl* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
                     .TryMatchToken(node->GetNameToken() ? *node->GetNameToken() : AstSyntaxToken{}, nameMatcher)
-                    .TryEqual(fieldMatchers.size(), node->GetMembers().size(),
-                              "Unexpected struct member count: expected {}, got {}")
                     .TryMatchAll(node->GetMembers(), fieldMatchers)
                     .Finish();
             });

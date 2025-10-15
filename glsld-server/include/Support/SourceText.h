@@ -1,5 +1,6 @@
 #pragma once
 #include "Ast/Eval.h"
+#include "Ast/Expr.h"
 #include "Compiler/SyntaxToken.h"
 #include "Server/Protocol.h"
 
@@ -250,33 +251,22 @@ namespace glsld
             ReconstructSourceText(buffer, *type.GetArraySpec());
         }
     }
-    inline auto ReconstructSourceText(std::string& buffer, const AstVariableDecl& decl, size_t index) -> void
-    {
-        GLSLD_ASSERT(index < decl.GetDeclarators().size());
 
-        ReconstructSourceText(buffer, *decl.GetQualType());
+    inline auto ReconstructSourceText(std::string& buffer, const AstQualType& qualType, const AstSyntaxToken& nameToken,
+                                      const AstArraySpec* arraySpec, const AstInitializer* initializer) -> void
+    {
+        ReconstructSourceText(buffer, qualType);
         buffer += " ";
 
-        ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
+        buffer += nameToken.text.StrView();
+        if (arraySpec) {
+            ReconstructSourceText(buffer, *arraySpec);
+        }
+        if (initializer) {
+            buffer += " = ...";
+        }
     }
-    inline auto ReconstructSourceText(std::string& buffer, const AstStructFieldDecl& decl, size_t index) -> void
-    {
-        GLSLD_ASSERT(index < decl.GetDeclarators().size());
 
-        ReconstructSourceText(buffer, *decl.GetQualType());
-        buffer += " ";
-
-        ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
-    }
-    inline auto ReconstructSourceText(std::string& buffer, const AstBlockFieldDecl& decl, size_t index) -> void
-    {
-        GLSLD_ASSERT(index < decl.GetDeclarators().size());
-
-        ReconstructSourceText(buffer, *decl.GetQualType());
-        buffer += " ";
-
-        ReconstructSourceText(buffer, decl.GetDeclarators()[index]);
-    }
     inline auto ReconstructSourceText(std::string& buffer, const AstParamDecl& decl) -> void
     {
         ReconstructSourceText(buffer, *decl.GetQualType());
@@ -313,10 +303,11 @@ namespace glsld
 
         buffer += " {\n";
 
-        for (auto member : decl.GetMembers()) {
-            for (size_t i = 0; i < member->GetDeclarators().size(); ++i) {
+        for (auto memberDecl : decl.GetMembers()) {
+            for (auto declaratorDecl : memberDecl->GetDeclarators()) {
                 buffer += "    ";
-                ReconstructSourceText(buffer, *member, i);
+                ReconstructSourceText(buffer, *memberDecl->GetQualType(), declaratorDecl->GetNameToken(),
+                                      declaratorDecl->GetArraySpec(), declaratorDecl->GetInitializer());
                 buffer += ";\n";
             }
         }
@@ -357,10 +348,11 @@ namespace glsld
         buffer += decl.GetNameToken().text.StrView();
         buffer += " {\n";
 
-        for (auto member : decl.GetMembers()) {
-            for (size_t i = 0; i < member->GetDeclarators().size(); ++i) {
+        for (auto memberDecl : decl.GetMembers()) {
+            for (auto declaratorDecl : memberDecl->GetDeclarators()) {
                 buffer += "    ";
-                ReconstructSourceText(buffer, *member, i);
+                ReconstructSourceText(buffer, *memberDecl->GetQualType(), declaratorDecl->GetNameToken(),
+                                      declaratorDecl->GetArraySpec(), declaratorDecl->GetInitializer());
                 buffer += ";\n";
             }
         }
