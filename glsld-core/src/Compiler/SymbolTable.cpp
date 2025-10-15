@@ -26,13 +26,6 @@ namespace glsld
         }
     }
 
-    auto SymbolTableLevel::AddStructDecl(AstStructDecl& decl) -> void
-    {
-        if (decl.GetNameToken() && decl.GetNameToken()->IsIdentifier()) {
-            TryAddSymbol(*decl.GetNameToken(), decl);
-        }
-    }
-
     auto SymbolTableLevel::AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void
     {
         if (decl.GetDeclarator()) {
@@ -42,9 +35,9 @@ namespace glsld
         else {
             // For unnamed interface block, names of internal members should be directly added to the current scope
             for (auto memberDecl : decl.GetMembers()) {
-                for (const auto& declarator : memberDecl->GetDeclarators()) {
-                    if (declarator.nameToken.IsIdentifier()) {
-                        TryAddSymbol(declarator.nameToken, *memberDecl);
+                for (auto declaratorDecl : memberDecl->GetDeclarators()) {
+                    if (declaratorDecl->GetNameToken().IsIdentifier()) {
+                        TryAddSymbol(declaratorDecl->GetNameToken(), *declaratorDecl);
                     }
                 }
             }
@@ -53,9 +46,15 @@ namespace glsld
 
     auto SymbolTableLevel::AddVariableDecl(AstVariableDecl& decl) -> void
     {
-        for (auto declarator : decl.GetDeclarators()) {
-            if (declarator.nameToken.IsIdentifier()) {
-                TryAddSymbol(declarator.nameToken, decl);
+        if (auto structDecl = decl.GetQualType()->GetStructDecl(); structDecl) {
+            if (structDecl->GetNameToken() && structDecl->GetNameToken()->IsIdentifier()) {
+                TryAddSymbol(*structDecl->GetNameToken(), *structDecl);
+            }
+        }
+
+        for (auto declaratorDecl : decl.GetDeclarators()) {
+            if (declaratorDecl->GetNameToken().IsIdentifier()) {
+                TryAddSymbol(declaratorDecl->GetNameToken(), *declaratorDecl);
             }
         }
     }
@@ -67,7 +66,7 @@ namespace glsld
         }
     }
 
-    auto SymbolTableLevel::TryAddSymbol(AstSyntaxToken nameToken, const AstDecl& decl) -> bool
+    auto SymbolTableLevel::TryAddSymbol(AstSyntaxToken nameToken, const AstDecl& symbolDecl) -> bool
     {
         if (freezed) {
             assert("Trying to add a symbol to a freezed symbol table");
@@ -80,7 +79,7 @@ namespace glsld
             return false;
         }
 
-        auto [it, success] = declLookup.Insert({std::move(name), DeclView{&decl}});
+        auto [it, success] = declLookup.Insert({std::move(name), &symbolDecl});
         return success;
     }
 
@@ -101,15 +100,15 @@ namespace glsld
         }
     }
 
-    auto SymbolTable::FindSymbol(StringView name) const -> DeclView
+    auto SymbolTable::FindSymbol(StringView name) const -> const AstDecl*
     {
         for (auto level : std::views::reverse(levels)) {
-            if (auto declView = level->FindSymbol(name); declView.IsValid()) {
-                return declView;
+            if (auto symbolDecl = level->FindSymbol(name); symbolDecl) {
+                return symbolDecl;
             }
         }
 
-        return DeclView{};
+        return nullptr;
     }
 
     auto SymbolTable::FindFunction(StringView name, const std::vector<const Type*>& argTypes,

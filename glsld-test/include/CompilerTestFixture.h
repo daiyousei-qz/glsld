@@ -223,17 +223,17 @@ namespace glsld
             -> AstMatcher*;
         auto BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher, std::vector<AstMatcher*> fieldMatchers,
                        TokenMatcher* instanceNameMatcher, AstMatcher* instanceArraySpecMatcher) -> AstMatcher*;
-        auto BlockFieldDecl(AstMatcher* qualTypeMatcher, std::vector<DeclaratorMatcher> declaratorMatchers)
-            -> AstMatcher*;
-        auto BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher) -> AstMatcher*;
+        auto BlockFieldDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher) -> AstMatcher*;
+        auto BlockFieldDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers) -> AstMatcher*;
         auto BlockFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher)
             -> AstMatcher*;
-        auto VariableDecl(AstMatcher* qualTypeMatcher, std::vector<DeclaratorMatcher> declaratorMatchers)
-            -> AstMatcher*;
+        auto VariableDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher,
+                                    AstMatcher* initializerMatcher) -> AstMatcher*;
+        auto VariableDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers) -> AstMatcher*;
         auto VariableDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher,
                           AstMatcher* initializerMatcher) -> AstMatcher*;
-        auto StructFieldDecl(AstMatcher* qualTypeMatcher, std::vector<DeclaratorMatcher> declaratorMatchers)
-            -> AstMatcher*;
+        auto StructFieldDeclaratorDecl(TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher) -> AstMatcher*;
+        auto StructFieldDecl(AstMatcher* qualTypeMatcher, std::vector<AstMatcher*> declaratorMatchers) -> AstMatcher*;
         auto StructFieldDecl(AstMatcher* qualTypeMatcher, TokenMatcher* nameMatcher, AstMatcher* arraySpecMatcher)
             -> AstMatcher*;
         auto StructDecl(TokenMatcher* nameMatcher, std::vector<AstMatcher*> fieldMatchers) -> AstMatcher*;

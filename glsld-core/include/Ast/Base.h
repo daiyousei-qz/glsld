@@ -296,56 +296,6 @@ namespace glsld
         printer.PrintAttribute(key, 0);
         printer.PrintAttribute(key, "value");
         printer.PrintChildNode(key, astNode);
-        printer.PrintChildItem(key, [](PrinterType& d) {});
-    };
-
-    // An observing pointer into a declaration, including an index of declarator.
-    // For declaration without declarators, that index should always be zero.
-    class DeclView
-    {
-    private:
-        // Referenced declaration AST.
-        const AstDecl* decl = nullptr;
-
-        // Declarator index. For declarations that cannot declare multiple symbols, this must be 0.
-        size_t index = 0;
-
-    public:
-        DeclView() = default;
-        DeclView(const AstDecl* decl) : decl(decl)
-        {
-        }
-        DeclView(const AstDecl* decl, size_t index) : decl(decl), index(index)
-        {
-        }
-
-        auto IsValid() const -> bool
-        {
-            return decl != nullptr;
-        }
-
-        auto GetDecl() const -> const AstDecl*
-        {
-            return decl;
-        }
-        auto GetIndex() const -> size_t
-        {
-            return index;
-        }
-
-        operator bool() const
-        {
-            return IsValid();
-        }
-
-        auto operator==(const DeclView&) const -> bool = default;
-
-        template <AstPrinterT Printer>
-        auto DoPrint(Printer& printer) const -> void
-        {
-            printer.PrintAttribute("DeclNode",
-                                   IsValid() ? fmt::format("#{:x}", printer.GetPointerIdentifier(decl)) : "<Error>");
-            printer.PrintAttribute("DeclIndex", index);
-        }
+        printer.PrintChildItem(key, [](PrinterType & d) {});
     };
 } // namespace glsld

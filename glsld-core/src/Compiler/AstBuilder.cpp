@@ -3,59 +3,6 @@
 
 namespace glsld
 {
-    struct SymbolReferenceInfo
-    {
-        const Type* type;
-
-        bool isConst;
-    };
-
-    auto ComputeSymbolReferenceInfo(DeclView declView) -> std::optional<SymbolReferenceInfo>
-    {
-        if (!declView.IsValid()) {
-            return std::nullopt;
-        }
-
-        if (auto variableDecl = declView.GetDecl()->As<AstVariableDecl>()) {
-            // TODO: should we also check if initializer is const?
-            auto type    = variableDecl->GetResolvedTypes()[declView.GetIndex()];
-            bool isConst = false;
-            if (auto qualifiers = variableDecl->GetQualType()->GetQualifiers()) {
-                isConst = qualifiers->GetQualGroup().qConst;
-            }
-
-            return SymbolReferenceInfo{.type = type, .isConst = isConst};
-        }
-        else if (auto paramDecl = declView.GetDecl()->As<AstParamDecl>()) {
-            return SymbolReferenceInfo{
-                .type    = paramDecl->GetResolvedType(),
-                .isConst = false,
-            };
-        }
-        else if (auto interfaceBlockDecl = declView.GetDecl()->As<AstInterfaceBlockDecl>()) {
-            GLSLD_ASSERT(interfaceBlockDecl->GetDeclarator().has_value());
-            return SymbolReferenceInfo{
-                .type    = interfaceBlockDecl->GetResolvedInstanceType(),
-                .isConst = false,
-            };
-        }
-        else if (auto structDecl = declView.GetDecl()->As<AstStructDecl>()) {
-            return SymbolReferenceInfo{
-                .type    = Type::GetErrorType(),
-                .isConst = false,
-            };
-        }
-        else if (auto fieldDecl = declView.GetDecl()->As<AstBlockFieldDecl>()) {
-            // TODO: GLSLD_ASSERT(fieldDecl->GetScope() == DeclScope::Global);
-            return SymbolReferenceInfo{
-                .type    = fieldDecl->GetResolvedTypes()[declView.GetIndex()],
-                .isConst = false,
-            };
-        }
-        else {
-            return std::nullopt;
-        }
-    }
 
 #pragma region Misc
     auto AstBuilder::BuildTranslationUnit(AstSyntaxRange range, std::vector<AstDecl*> decls) -> AstTranslationUnit*
@@ -86,9 +33,8 @@ namespace glsld
             result->SetResolvedType(astContext.GetArrayType(Type::GetBuiltinType(*glslType), arraySpec));
         }
         else if (typeName.IsIdentifier()) {
-            auto symbol = symbolTable.FindSymbol(typeName.text.Str());
-            if (symbol.IsValid()) {
-                if (auto structDecl = symbol.GetDecl()->As<AstStructDecl>()) {
+            if (auto symbolDecl = symbolTable.FindSymbol(typeName.text.Str()); symbolDecl) {
+                if (auto structDecl = symbolDecl->As<AstStructDecl>()) {
                     result->SetResolvedType(astContext.GetArrayType(structDecl->GetDeclaredType(), arraySpec));
                 }
             }
@@ -109,9 +55,7 @@ namespace glsld
                                           const Type* contextType) -> AstInitializerList*
     {
         for (size_t i = 0; i < initializers.size(); ++i) {
-            if (auto expr = initializers[i]->As<AstExpr>(); expr) {
-                initializers[i] = TryMakeImplicitCast(expr, contextType->GetComponentType(i));
-            }
+            initializers[i] = TryMakeImplicitCast(initializers[i], contextType->GetComponentType(i));
         }
 
         auto result = CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
@@ -154,15 +98,35 @@ namespace glsld
         // Set a good default since the logic is complicated.
         result->SetConst(false);
         result->SetDeducedType(Type::GetErrorType());
-        result->SetResolvedDecl({});
+        result->SetResolvedDecl(nullptr);
 
         if (idToken.IsIdentifier()) {
-            auto symbol = symbolTable.FindSymbol(idToken.text.Str());
-            if (auto refInfo = ComputeSymbolReferenceInfo(symbol)) {
-                GLSLD_ASSERT(symbol.IsValid());
-                result->SetConst(refInfo->isConst);
-                result->SetDeducedType(refInfo->type);
-                result->SetResolvedDecl(symbol);
+            if (auto symbolDecl = symbolTable.FindSymbol(idToken.text.Str())) {
+                if (auto variableDeclaratorDecl = symbolDecl->As<AstVariableDeclaratorDecl>()) {
+                    // TODO: should we also check if initializer is const?
+                    result->SetConst(variableDeclaratorDecl->IsConstVariable());
+                    result->SetDeducedType(variableDeclaratorDecl->GetResolvedType());
+                }
+                else if (auto paramDecl = symbolDecl->As<AstParamDecl>()) {
+                    result->SetConst(false);
+                    result->SetDeducedType(paramDecl->GetResolvedType());
+                }
+                else if (auto interfaceBlockDecl = symbolDecl->As<AstInterfaceBlockDecl>()) {
+                    GLSLD_ASSERT(interfaceBlockDecl->GetDeclarator().has_value());
+                    result->SetConst(false);
+                    result->SetDeducedType(interfaceBlockDecl->GetResolvedInstanceType());
+                }
+                else if (auto structDecl = symbolDecl->As<AstStructDecl>()) {
+                    result->SetConst(false);
+                    result->SetDeducedType(Type::GetErrorType());
+                }
+                else if (auto fieldDecl = symbolDecl->As<AstBlockFieldDeclaratorDecl>()) {
+                    // TODO: GLSLD_ASSERT(fieldDecl->GetScope() == DeclScope::Global);
+                    result->SetConst(false);
+                    result->SetDeducedType(fieldDecl->GetResolvedType());
+                }
+
+                result->SetResolvedDecl(symbolDecl);
             }
         }
 
@@ -285,7 +249,7 @@ namespace glsld
             if (idToken.IsIdentifier()) {
                 if (auto structDesc = baseType->GetStructDesc()) {
                     if (auto memberDesc = structDesc->FindMember(idToken.text.Str()); memberDesc) {
-                        GLSLD_ASSERT(memberDesc->decl.IsValid());
+                        GLSLD_ASSERT(memberDesc->decl);
                         result->SetConst(lhsExpr->IsConst()); // FIXME: but types also matter
                         result->SetDeducedType(memberDesc->type);
                         result->SetResolvedDecl(memberDesc->decl);
@@ -1043,34 +1007,26 @@ namespace glsld
         return CreateAstNode<AstPrecisionDecl>(range, type);
     }
 
-    static auto ComputeDeclaratorTypes(AstContext& astContext, AstQualType* qualType, ArrayView<Declarator> declarators)
-    {
-        std::vector<const Type*> types;
-        for (const auto& declarator : declarators) {
-            types.push_back(astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec));
-        }
-        return types;
-    }
-
     auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
         -> AstVariableDecl*
     {
-        auto resolvedTypes = ComputeDeclaratorTypes(astContext, qualType, declarators);
 
-        for (size_t i = 0; i < declarators.size(); ++i) {
-            auto& declarator = declarators[i];
-            if (declarator.initializer && declarator.initializer->Is<AstExpr>() && !resolvedTypes[i]->IsError()) {
-                // TODO: avoid const_cast
-                auto initExpr = const_cast<AstExpr*>(declarator.initializer->As<AstExpr>());
-                GLSLD_ASSERT(initExpr);
+        ArraySpan<AstVariableDeclaratorDecl*> declaratorNodes = {
+            arena.Construct<AstVariableDeclaratorDecl*[]>(declarators.size()), declarators.size()};
+        for (const auto& [i, declarator] : std::views::enumerate(declarators)) {
+            auto resolvedType = astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec);
 
-                declarator.initializer = TryMakeImplicitCast(initExpr, resolvedTypes[i]);
-            }
+            // FIXME: avoids const_cast
+            declaratorNodes[i] = CreateAstNode<AstVariableDeclaratorDecl>(
+                range, declarator.nameToken, declarator.arraySpec,
+                TryMakeImplicitCast(const_cast<AstInitializer*>(declarator.initializer), resolvedType), qualType);
+            declaratorNodes[i]->SetScope(GetCurrentScope());
+            declaratorNodes[i]->SetResolvedType(resolvedType);
         }
 
-        auto result = CreateAstNode<AstVariableDecl>(range, qualType, CopyArray(declarators));
+        auto result = CreateAstNode<AstVariableDecl>(range, qualType, declaratorNodes);
         result->SetScope(GetCurrentScope());
-        result->SetResolvedTypes(CopyArray(resolvedTypes));
+
         symbolTable.GetCurrentLevel()->AddVariableDecl(*result);
         return result;
     }
@@ -1078,23 +1034,19 @@ namespace glsld
     auto AstBuilder::BuildStructFieldDecl(AstSyntaxRange range, AstQualType* qualType,
                                           std::vector<Declarator> declarators) -> AstStructFieldDecl*
     {
-        auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
+        ArraySpan<AstStructFieldDeclaratorDecl*> declaratorNodes = {
+            arena.Construct<AstStructFieldDeclaratorDecl*[]>(declarators.size()), declarators.size()};
+        for (const auto& [i, declarator] : std::views::enumerate(declarators)) {
+            auto resolvedType = astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec);
 
-        auto result = CreateAstNode<AstStructFieldDecl>(range, qualType, CopyArray(declarators));
+            declaratorNodes[i] = CreateAstNode<AstStructFieldDeclaratorDecl>(
+                range, declarator.nameToken, declarator.arraySpec, declarator.initializer, qualType);
+            declaratorNodes[i]->SetScope(DeclScope::Struct);
+            declaratorNodes[i]->SetResolvedType(resolvedType);
+        }
+
+        auto result = CreateAstNode<AstStructFieldDecl>(range, qualType, declaratorNodes);
         result->SetScope(DeclScope::Struct);
-        result->SetResolvedTypes(CopyArray(resolvedType));
-        return result;
-    }
-
-    auto AstBuilder::BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType,
-                                         std::vector<Declarator> declarators) -> AstBlockFieldDecl*
-    {
-        auto resolvedType = ComputeDeclaratorTypes(astContext, qualType, declarators);
-
-        auto result = CreateAstNode<AstBlockFieldDecl>(range, qualType, CopyArray(declarators));
-        // TODO: set global scope for unnamed block field decl
-        result->SetScope(DeclScope::Struct);
-        result->SetResolvedTypes(CopyArray(resolvedType));
         return result;
     }
 
@@ -1105,7 +1057,26 @@ namespace glsld
         result->SetScope(GetCurrentScope());
         result->SetDeclaredType(astContext.CreateStructType(*result));
 
-        symbolTable.GetCurrentLevel()->AddStructDecl(*result);
+        return result;
+    }
+
+    auto AstBuilder::BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType,
+                                         std::vector<Declarator> declarators) -> AstBlockFieldDecl*
+    {
+        ArraySpan<AstBlockFieldDeclaratorDecl*> declaratorNodes = {
+            arena.Construct<AstBlockFieldDeclaratorDecl*[]>(declarators.size()), declarators.size()};
+        for (const auto& [i, declarator] : std::views::enumerate(declarators)) {
+            auto resolvedType = astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec);
+
+            declaratorNodes[i] = CreateAstNode<AstBlockFieldDeclaratorDecl>(
+                range, declarator.nameToken, declarator.arraySpec, declarator.initializer, qualType);
+            // TODO: set global scope for unnamed block field decl
+            declaratorNodes[i]->SetScope(DeclScope::Block);
+            declaratorNodes[i]->SetResolvedType(resolvedType);
+        }
+
+        auto result = CreateAstNode<AstBlockFieldDecl>(range, qualType, declaratorNodes);
+        result->SetScope(DeclScope::Block);
         return result;
     }
 
@@ -1160,4 +1131,24 @@ namespace glsld
     }
 
 #pragma endregion
+
+    auto AstBuilder::TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*
+    {
+        GLSLD_ASSERT(expr);
+        if (expr->GetDeducedType()->IsSameWith(contextType) || contextType->IsError()) {
+            return expr;
+        }
+
+        return BuildImplicitCastExpr(expr->GetSyntaxRange(), expr, contextType);
+    }
+
+    auto AstBuilder::TryMakeImplicitCast(AstInitializer* initializer, const Type* contextType) -> AstInitializer*
+    {
+        if (initializer && initializer->Is<AstExpr>()) {
+            return TryMakeImplicitCast(initializer->As<AstExpr>(), contextType);
+        }
+        else {
+            return initializer;
+        }
+    }
 } // namespace glsld

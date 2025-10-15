@@ -422,9 +422,11 @@ namespace glsld
             auto declarators = ParseDeclaratorListNoInit();
 
             if (!InRecoveryMode()) {
+                // Parse ';'
+                ParseOrInferSemicolonHelper();
+
                 result.push_back(astBuilder.BuildStructFieldDecl(CreateAstSyntaxRange(beginTokID), typeResult,
                                                                  std::move(declarators)));
-                ParseOrInferSemicolonHelper();
             }
             else {
                 // Try to resume if we see a ';'
@@ -849,25 +851,22 @@ namespace glsld
                                             body);
     }
 
-    auto Parser::ParseTypeOrVariableDecl(SyntaxTokenID beginTokID, AstQualType* variableType) -> AstDecl*
+    auto Parser::ParseTypeOrVariableDecl(SyntaxTokenID beginTokIndex, AstQualType* variableType) -> AstDecl*
     {
         GLSLD_TRACE_PARSER();
 
         GLSLD_ASSERT(TryTestToken(TokenKlass::Semicolon, TokenKlass::Identifier));
 
-        // Parse type decl
-        if (TryConsumeToken(TokenKlass::Semicolon)) {
-            // TODO: should we just return a type decl?
-            return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokID), variableType, {});
+        // Note type specifier is already parsed, so we just need parse declarators after that, if any
+        std::vector<Declarator> declarators;
+        if (TryTestToken(TokenKlass::Identifier)) {
+            declarators = ParseDeclaratorList(variableType->GetResolvedType());
         }
-
-        // Parse variable decl
-        auto declarators = ParseDeclaratorList(variableType->GetResolvedType());
 
         // Parse ';'
         ParseOrInferSemicolonHelper();
 
-        return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokID), variableType, std::move(declarators));
+        return astBuilder.BuildVariableDecl(CreateAstSyntaxRange(beginTokIndex), variableType, std::move(declarators));
     }
 
     auto Parser::ParseBlockBody() -> std::vector<AstBlockFieldDecl*>
@@ -896,9 +895,9 @@ namespace glsld
             auto declarators = ParseDeclaratorListNoInit();
 
             if (!InRecoveryMode()) {
+                ParseOrInferSemicolonHelper();
                 result.push_back(astBuilder.BuildBlockFieldDecl(CreateAstSyntaxRange(beginTokID), typeResult,
                                                                 std::move(declarators)));
-                ParseOrInferSemicolonHelper();
             }
             else {
                 // Try to resume if we see a ';'

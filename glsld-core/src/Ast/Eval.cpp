@@ -285,11 +285,10 @@ namespace glsld
             return LazyConstEvalResult{literalExpr->GetValue().Clone()};
         }
         else if (auto nameAccessExpr = init.As<AstNameAccessExpr>(); nameAccessExpr) {
-            if (auto decl = nameAccessExpr->GetResolvedDecl(); decl.IsValid()) {
-                if (auto varDecl = decl.GetDecl()->As<AstVariableDecl>(); varDecl) {
-                    if (auto init2 = varDecl->GetDeclarators()[decl.GetIndex()].initializer; init2) {
-                        return EvalAstInitializerLazy(*init2);
-                    }
+            if (auto decl = nameAccessExpr->GetResolvedDecl(); decl) {
+                if (auto declaratorDecl = decl->As<AstVariableDeclaratorDecl>();
+                    declaratorDecl && declaratorDecl->GetInitializer()) {
+                    return EvalAstInitializerLazy(*declaratorDecl->GetInitializer());
                 }
             }
         }

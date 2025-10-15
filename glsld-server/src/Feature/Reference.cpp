@@ -12,7 +12,7 @@ namespace glsld
 
         lsp::DocumentUri documentUri;
 
-        DeclView referenceDecl;
+        const AstDecl* referenceDecl;
 
         bool includeDeclaration;
 
@@ -26,7 +26,7 @@ namespace glsld
 
     public:
         CollectReferenceVisitor(std::vector<lsp::Location>& output, const LanguageQueryInfo& info, lsp::DocumentUri uri,
-                                DeclView referenceDecl, bool includeDeclaration)
+                                const AstDecl* referenceDecl, bool includeDeclaration)
             : LanguageQueryVisitor(info), documentUri(std::move(uri)), output(output), referenceDecl(referenceDecl),
               includeDeclaration(includeDeclaration)
         {
@@ -67,20 +67,20 @@ namespace glsld
 
         auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
         {
-            if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
+            if (includeDeclaration && &decl == referenceDecl) {
                 AddReferenceToken(decl.GetNameToken());
             }
         }
-        auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
         {
-            if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);
+            if (includeDeclaration && &decl == referenceDecl) {
+                AddReferenceToken(decl.GetNameToken());
             }
         }
-        auto VisitAstFieldDecl(const AstStructFieldDecl& decl) -> void
+        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
         {
-            if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
-                AddReferenceToken(decl.GetDeclarators()[referenceDecl.GetIndex()].nameToken);
+            if (includeDeclaration && &decl == referenceDecl) {
+                AddReferenceToken(decl.GetNameToken());
             }
         }
         auto VisitAstParamDecl(const AstParamDecl& decl) -> void
@@ -93,7 +93,7 @@ namespace glsld
         }
         auto VisitAstStructDecl(const AstStructDecl& decl) -> void
         {
-            if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
+            if (includeDeclaration && &decl == referenceDecl) {
                 if (decl.GetNameToken()) {
                     AddReferenceToken(*decl.GetNameToken());
                 }
@@ -101,7 +101,7 @@ namespace glsld
         }
         auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
         {
-            if (includeDeclaration && &decl == referenceDecl.GetDecl()) {
+            if (includeDeclaration && &decl == referenceDecl) {
                 if (decl.GetDeclarator()) {
                     AddReferenceToken(decl.GetDeclarator()->nameToken);
                 }
@@ -155,7 +155,7 @@ namespace glsld
                 }
             }
         }
-        else if (symbolInfo->astSymbolOccurrence && symbolInfo->symbolDecl.IsValid()) {
+        else if (symbolInfo->astSymbolOccurrence && symbolInfo->symbolDecl) {
             CollectReferenceVisitor{result, info, params.textDocument.uri, symbolInfo->symbolDecl,
                                     params.context.includeDeclaration}
                 .Execute();

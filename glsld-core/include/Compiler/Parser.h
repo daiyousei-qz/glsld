@@ -294,7 +294,7 @@ namespace glsld
 
 #pragma region Parsing Decl
 
-        // Parse a declaration.
+        // Parse a declaration. Notably, a GLSL declaration could be associated with multiple AST nodes.
         //
         // PARSE: declaration
         //      - declaration := ';'

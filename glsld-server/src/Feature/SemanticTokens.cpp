@@ -123,7 +123,7 @@ namespace glsld
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable);
                 }
             }
-            auto VisitSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
+            auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
             {
                 if (expr.GetNameToken().IsIdentifier()) {
                     // Note we color the identifier regardless of whether it is a valid swizzle.
@@ -136,17 +136,15 @@ namespace glsld
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Function);
                 }
             }
-            auto VisitAstStructFieldDecl(const AstStructFieldDecl& decl) -> void
+            auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
-                for (const auto& declarator : decl.GetDeclarators()) {
-                    if (declarator.nameToken.klass == TokenKlass::Identifier) {
-                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
-                    }
+                if (decl.GetNameToken().IsIdentifier()) {
+                    TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifier);
                 }
             }
             auto VisitAstStructDecl(const AstStructDecl& decl) -> void
@@ -162,8 +160,8 @@ namespace glsld
                 // TODO: say uniform block member is readonly
 
                 for (const auto& declarator : decl.GetDeclarators()) {
-                    if (declarator.nameToken.klass == TokenKlass::Identifier) {
-                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
+                    if (declarator->GetNameToken().klass == TokenKlass::Identifier) {
+                        TryAddSementicToken(declarator->GetNameToken(), SemanticTokenType::Variable, modifier);
                     }
                 }
             }
@@ -199,7 +197,7 @@ namespace glsld
                     TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Parameter, modifier);
                 }
             }
-            auto VisitAstVariableDecl(const AstVariableDecl& decl) -> void
+            auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
             {
                 SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
 
@@ -207,11 +205,7 @@ namespace glsld
                     modifier |= SemanticTokenModifier::Readonly;
                 }
 
-                for (const auto& declarator : decl.GetDeclarators()) {
-                    if (declarator.nameToken.IsIdentifier()) {
-                        TryAddSementicToken(declarator.nameToken, SemanticTokenType::Variable, modifier);
-                    }
-                }
+                TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifier);
             }
 
         private:
