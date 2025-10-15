@@ -80,7 +80,7 @@ namespace glsld
             size_t index;
             std::string name;
             const Type* type;
-            DeclView decl;
+            const AstDecl* decl;
         };
 
         std::vector<StructMemberDesc> members;

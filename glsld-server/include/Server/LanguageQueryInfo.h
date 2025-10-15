@@ -83,7 +83,7 @@ namespace glsld
         const AstNode* astSymbolOccurrence = nullptr;
 
         // The declaration AST node of the symbol, if any.
-        DeclView symbolDecl = {};
+        const AstDecl* symbolDecl = nullptr;
 
         // True if the token is from the declaration. e.g. `a` in `int a;`
         bool isDeclaration = false;

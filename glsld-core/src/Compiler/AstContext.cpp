@@ -14,12 +14,12 @@ namespace glsld
     {
         std::vector<StructTypeDesc::StructMemberDesc> members;
         for (auto memberDecl : decl.GetMembers()) {
-            for (const auto& [i, declarator] : std::views::enumerate(memberDecl->GetDeclarators())) {
+            for (const auto& [i, declaratorDecl] : std::views::enumerate(memberDecl->GetDeclarators())) {
                 members.push_back({
                     .index = members.size(),
-                    .name  = declarator.nameToken.text.Str(),
-                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec),
-                    .decl  = DeclView{memberDecl, static_cast<size_t>(i)},
+                    .name  = declaratorDecl->GetNameToken().text.Str(),
+                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declaratorDecl->GetArraySpec()),
+                    .decl  = declaratorDecl,
                 });
             }
         }
@@ -41,12 +41,12 @@ namespace glsld
     {
         std::vector<StructTypeDesc::StructMemberDesc> members;
         for (const auto& memberDecl : decl.GetMembers()) {
-            for (const auto& [i, declarator] : std::views::enumerate(memberDecl->GetDeclarators())) {
+            for (const auto& [i, declaratorDecl] : std::views::enumerate(memberDecl->GetDeclarators())) {
                 members.push_back({
                     .index = members.size(),
-                    .name  = declarator.nameToken.text.Str(),
-                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declarator.arraySpec),
-                    .decl  = DeclView{memberDecl, static_cast<size_t>(i)},
+                    .name  = declaratorDecl->GetNameToken().text.Str(),
+                    .type  = GetArrayType(memberDecl->GetQualType()->GetResolvedType(), declaratorDecl->GetArraySpec()),
+                    .decl  = declaratorDecl,
                 });
             }
         }

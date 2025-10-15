@@ -31,7 +31,7 @@ namespace glsld
         UnorderedStringMultiMap<FunctionSymbolEntry> funcDeclLookup;
 
         // Lookup table for all other declarations
-        UnorderedStringMap<DeclView> declLookup;
+        UnorderedStringMap<const AstDecl*> declLookup;
 
         DeclScope scope;
 
@@ -78,13 +78,10 @@ namespace glsld
         // Add a function declaration to the symbol table
         auto AddFunctionDecl(AstFunctionDecl& decl) -> void;
 
-        // Add a struct declaration to the symbol table
-        auto AddStructDecl(AstStructDecl& decl) -> void;
-
         // Add an interface block declaration to the symbol table, aka. UBO, SSBO, etc.
         auto AddInterfaceBlockDecl(AstInterfaceBlockDecl& decl) -> void;
 
-        // Add a variable declaration to the symbol table
+        // Add a variable declaration to the symbol table, including struct declaration
         auto AddVariableDecl(AstVariableDecl& decl) -> void;
 
         // Add a parameter declaration to the symbol table
@@ -99,13 +96,13 @@ namespace glsld
         }
 
         // Find a declaration by name
-        auto FindSymbol(StringView name) const -> DeclView
+        auto FindSymbol(StringView name) const -> const AstDecl*
         {
             if (auto it = declLookup.Find(name); it != declLookup.end()) {
                 return it->second;
             }
             else {
-                return DeclView{};
+                return nullptr;
             }
         }
 
@@ -157,7 +154,7 @@ namespace glsld
         auto PopLevel() -> void;
 
         // Find a declaration by name
-        auto FindSymbol(StringView name) const -> DeclView;
+        auto FindSymbol(StringView name) const -> const AstDecl*;
 
         // Find a function declaration by name and argument types
         auto FindFunction(StringView name, const std::vector<const Type*>& argTypes, bool requireExactMatch) const

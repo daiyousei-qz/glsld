@@ -41,8 +41,8 @@ namespace glsld
 
         auto IsStructName(StringView name) const -> bool
         {
-            auto symbol = symbolTable.FindSymbol(name);
-            return symbol.IsValid() && symbol.GetDecl()->Is<AstStructDecl>();
+            auto symbolDecl = symbolTable.FindSymbol(name);
+            return symbolDecl && symbolDecl->Is<AstStructDecl>();
         }
 
         auto EnterFunctionScope(const Type* returnType) -> void
@@ -166,11 +166,11 @@ namespace glsld
         auto BuildStructFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
             -> AstStructFieldDecl*;
 
-        auto BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
-            -> AstBlockFieldDecl*;
-
         auto BuildStructDecl(AstSyntaxRange range, std::optional<AstSyntaxToken> declTok,
                              std::vector<AstStructFieldDecl*> members) -> AstStructDecl*;
+
+        auto BuildBlockFieldDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
+            -> AstBlockFieldDecl*;
 
         auto BuildInterfaceBlockDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals, AstSyntaxToken declTok,
                                      std::vector<AstBlockFieldDecl*> members, std::optional<Declarator> declarator)
@@ -202,13 +202,9 @@ namespace glsld
         }
 
         // Try to implicitly cast an expression to the context type.
-        auto TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*
-        {
-            if (expr->GetDeducedType()->IsSameWith(contextType) || expr->GetDeducedType()->IsError()) {
-                return expr;
-            }
+        auto TryMakeImplicitCast(AstExpr* expr, const Type* contextType) -> AstExpr*;
 
-            return BuildImplicitCastExpr(expr->GetSyntaxRange(), expr, contextType);
-        }
+        // Try to implicitly cast an initializer to the context type.
+        auto TryMakeImplicitCast(AstInitializer* initializer, const Type* contextType) -> AstInitializer*;
     };
 } // namespace glsld

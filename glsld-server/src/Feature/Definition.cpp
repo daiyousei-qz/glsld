@@ -42,10 +42,9 @@ namespace glsld
                 }
             }
         }
-        else if (symbolInfo->symbolDecl.IsValid()) {
+        else if (symbolInfo->symbolDecl) {
             // Handle AST symbols
-            const AstDecl& accessedDecl = *symbolInfo->symbolDecl.GetDecl();
-            size_t declaratorIndex      = symbolInfo->symbolDecl.GetIndex();
+            const AstDecl& accessedDecl = *symbolInfo->symbolDecl;
 
             // FIXME:
             // Avoid giving Definition if the accessed decl isn't in this module
@@ -61,11 +60,12 @@ namespace glsld
                      paramDecl && paramDecl->GetDeclarator() && paramDecl->GetDeclarator()->nameToken.IsIdentifier()) {
                 accessedDeclTok = paramDecl->GetDeclarator()->nameToken;
             }
-            else if (auto varDecl = accessedDecl.As<AstVariableDecl>(); varDecl) {
-                accessedDeclTok = varDecl->GetDeclarators()[declaratorIndex].nameToken;
+            else if (auto varDecl = accessedDecl.As<AstVariableDeclaratorDecl>(); varDecl) {
+                accessedDeclTok = varDecl->GetNameToken();
             }
-            else if (auto memberDecl = accessedDecl.As<AstStructFieldDecl>(); memberDecl) {
-                accessedDeclTok = memberDecl->GetDeclarators()[declaratorIndex].nameToken;
+            else if (auto structFieldDeclaratorDecl = accessedDecl.As<AstStructFieldDeclaratorDecl>();
+                     structFieldDeclaratorDecl) {
+                accessedDeclTok = structFieldDeclaratorDecl->GetNameToken();
             }
             else if (auto structDecl = accessedDecl.As<AstStructDecl>();
                      structDecl && structDecl->GetNameToken() && structDecl->GetNameToken()->IsIdentifier()) {
@@ -73,6 +73,10 @@ namespace glsld
             }
             else if (auto blockDecl = accessedDecl.As<AstInterfaceBlockDecl>(); blockDecl) {
                 accessedDeclTok = blockDecl->GetDeclarator()->nameToken;
+            }
+            else if (auto blockFieldDeclaratorDecl = accessedDecl.As<AstBlockFieldDeclaratorDecl>();
+                     blockFieldDeclaratorDecl) {
+                accessedDeclTok = blockFieldDeclaratorDecl->GetNameToken();
             }
 
             // FIXME: Support goto Definition in included files

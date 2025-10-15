@@ -28,7 +28,7 @@ namespace glsld
         bool traceTraversalPath = false;
     };
 
-    namespace details
+    namespace detail
     {
         struct AstVisitorPluginEmpty
         {
@@ -81,16 +81,16 @@ namespace glsld
                 }
             }
         };
-    } // namespace details
+    } // namespace detail
 
     // Enter: Decision
     // Visit: Pre-order
     // Exit: Post-order
     template <typename Derived, AstVisitorConfig Config = {}>
-    class AstVisitor : protected details::AstVisitorBase<Config>
+    class AstVisitor : protected detail::AstVisitorBase<Config>
     {
     private:
-        using BaseType = details::AstVisitorBase<Config>;
+        using BaseType = detail::AstVisitorBase<Config>;
 
         auto OnEnterAst(const AstNode& node) -> void
         {

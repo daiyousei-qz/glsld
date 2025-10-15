@@ -170,7 +170,11 @@ namespace glsld
                 return false;
             }
 
-            return visitor.Traverse(*decl);
+            if (!visitor.Traverse(*decl)) {
+                return false;
+            }
+
+            return true;
         }
 
         template <AstPrinterT Printer>
