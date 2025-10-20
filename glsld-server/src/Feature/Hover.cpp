@@ -8,7 +8,7 @@
 
 namespace glsld
 {
-    static auto ComputeHoverText(const HoverContent& hover) -> std::string
+    auto ComputeHoverText(const HoverContent& hover) -> std::string
     {
         MarkdownBuilder builder;
 
@@ -111,6 +111,7 @@ namespace glsld
         //      int a;
         //      ```
         if (!preceedingComments.empty()) {
+            // FIXME: avoid using comments if there are preprocessing line between them and the declaration
             std::string result;
             for (const auto& token : preceedingComments) {
                 result += unwrapComment(token);
@@ -174,15 +175,6 @@ namespace glsld
                 .description = "",
                 .code        = std::move(codeBuffer),
                 .range       = symbolInfo.spelledRange,
-            };
-        }
-        else if (auto macroUsageInfo = symbolInfo.ppSymbolOccurrence->GetMacroInfo(); macroUsageInfo) {
-            return HoverContent{
-                .type        = SymbolDeclType::Macro,
-                .name        = symbolInfo.spelledText,
-                .description = "",
-                // .code        = "",
-                .range = symbolInfo.spelledRange,
             };
         }
 

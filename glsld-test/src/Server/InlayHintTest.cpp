@@ -10,11 +10,8 @@ static auto MockInlayHints(const ServerTestFixture& fixture, TextRange range, co
 {
     return HandleInlayHints(config, fixture.GetLanguageQueryInfo(),
                             lsp::InlayHintParams{
-                                .textDocument =
-                                    lsp::TextDocumentIdentifier{
-                                        .uri = "mockuri",
-                                    },
-                                .range = ToLspRange(range),
+                                .textDocument = {"MockDocument"},
+                                .range        = ToLspRange(range),
                             });
 }
 

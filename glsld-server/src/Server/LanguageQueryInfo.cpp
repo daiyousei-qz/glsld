@@ -314,13 +314,15 @@ namespace glsld
         if (auto ppSymbolOccurence = GetPreprocessInfo().QueryPPSymbol(position); ppSymbolOccurence) {
             SymbolDeclType symbolType;
             std::string spelledText;
+            bool isDeclaration = false;
             if (auto headerNameInfo = ppSymbolOccurence->GetHeaderNameInfo(); headerNameInfo) {
                 symbolType  = SymbolDeclType::HeaderName;
                 spelledText = headerNameInfo->headerName.text.Str();
             }
             else if (auto macroUsageInfo = ppSymbolOccurence->GetMacroInfo(); macroUsageInfo) {
-                symbolType  = SymbolDeclType::Macro;
-                spelledText = macroUsageInfo->macroName.text.Str();
+                symbolType    = SymbolDeclType::Macro;
+                spelledText   = macroUsageInfo->macroName.text.Str();
+                isDeclaration = macroUsageInfo->occurrenceType == PPMacroOccurrenceType::Define;
             }
 
             return SymbolQueryResult{
@@ -329,6 +331,7 @@ namespace glsld
                 .spelledText        = std::move(spelledText),
                 .spelledRange       = ppSymbolOccurence->GetSpelledRange(),
                 .ppSymbolOccurrence = ppSymbolOccurence,
+                .isDeclaration      = isDeclaration,
             };
         }
 
