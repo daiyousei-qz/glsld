@@ -60,9 +60,10 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                     });
     }
 
+    // TODO: function-like macro
     SECTION("Macro")
     {
-        auto sourceText = R"(
+        CompileLabelledSource(R"(
             #ifdef ^[MACRO.unknown.use.begin]MACRO^[MACRO.unknown.use.end]
             #endif
 
@@ -79,9 +80,7 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
             #endif
 
             int x = ^[MACRO.use5.begin]MACRO^[MACRO.use5.end];
-        )";
-
-        CompileLabelledSource(sourceText);
+        )");
 
         checkHover("MACRO.unknown.use.begin",
                    HoverContent{
@@ -144,11 +143,9 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("LayoutQualifier")
     {
-        auto sourceText = R"(
-        layout(^[layout.qual.begin]location^[layout.qual.end] = 0) in vec4 position;
-        )";
-
-        CompileLabelledSource(sourceText);
+        CompileLabelledSource(R"(
+            layout(^[layout.qual.begin]location^[layout.qual.end] = 0) in vec4 position;
+        )");
 
         checkHover("layout.qual.begin", HoverContent{
                                             .type    = SymbolDeclType::LayoutQualifier,
@@ -158,21 +155,19 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                         });
     }
 
-    SECTION("Type")
+    SECTION("Struct")
     {
-        auto sourceText = R"(
-        struct ^[struct.decl.begin]S^[struct.decl.end]
-        {
-        };
+        CompileLabelledSource(R"(
+            struct ^[struct.decl.begin]S^[struct.decl.end]
+            {
+            };
 
-        void foo()
-        {
-            ^[struct.use.begin]S^[struct.use.end] s;
-            ^[unknown.use.begin]unknown^[unknown.use.end] u;
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+            void foo()
+            {
+                ^[struct.use.begin]S^[struct.use.end] s;
+                ^[unknown.use.begin]unknown^[unknown.use.end] u;
+            }
+        )");
 
         checkHover("struct.decl.begin", HoverContent{
                                             .type    = SymbolDeclType::Type,
@@ -196,20 +191,56 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                         });
     }
 
+    SECTION("StructMember")
+    {
+        CompileLabelledSource(R"(
+            struct S
+            {
+                int ^[member.decl.begin]member^[member.decl.end];
+            };
+
+            void foo() {
+                S s;
+                s.^[member.use.begin]member^[member.use.end] = 1;
+                s.^[unknown.use.begin]unknown^[unknown.use.end] = 2;
+            }
+        )");
+
+        checkHover("member.decl.begin", HoverContent{
+                                            .type     = SymbolDeclType::StructMember,
+                                            .name     = "member",
+                                            .exprType = "int",
+                                            .code     = "int member",
+                                            .range    = GetLabelledRange("member.decl.begin", "member.decl.end"),
+                                        });
+        checkHover("member.use.begin", HoverContent{
+                                           .type     = SymbolDeclType::StructMember,
+                                           .name     = "member",
+                                           .exprType = "int",
+                                           .code     = "int member",
+                                           .range    = GetLabelledRange("member.use.begin", "member.use.end"),
+                                       });
+        checkHover("unknown.use.begin", HoverContent{
+                                            .type    = SymbolDeclType::StructMember,
+                                            .name    = "unknown",
+                                            .range   = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
+                                            .unknown = true,
+                                        });
+    }
+
     SECTION("Function")
     {
-        auto sourceText = R"(
-        void ^[foo.decl.begin]foo^[foo.decl.end](int x)
-        {
-        }
+        CompileLabelledSource(R"(
+            void ^[foo.decl.begin]foo^[foo.decl.end](int x)
+            {
+            }
 
-        void main()
-        {
-            ^[foo.use.begin]foo^[foo.use.end](41);
-            ^[bar.use.begin]bar^[bar.use.end]();
-        }
-        )";
-        CompileLabelledSource(sourceText);
+            void main()
+            {
+                ^[foo.use.begin]foo^[foo.use.end](41);
+                ^[bar.use.begin]bar^[bar.use.end]();
+            }
+        )");
 
         checkHover("foo.decl.begin", HoverContent{
                                          .type       = SymbolDeclType::Function,
@@ -239,18 +270,16 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("BlockName")
     {
-        auto sourceText = R"(
-        uniform ^[ubo.decl.begin]UBO^[ubo.decl.end]
-        {
-            int x;
-        };
-        void foo() {
-            // UBO doesn't introduce a type name in the symbol table, so this is a unknown type.
-            ^[ubo.invalid.use.begin]UBO^[ubo.invalid.use.end] u;
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+        CompileLabelledSource(R"(
+            uniform ^[ubo.decl.begin]UBO^[ubo.decl.end]
+            {
+                int x;
+            };
+            void foo() {
+                // UBO doesn't introduce a type name in the symbol table, so this is a unknown type.
+                ^[ubo.invalid.use.begin]UBO^[ubo.invalid.use.end] u;
+            }
+        )");
 
         checkHover("ubo.decl.begin", HoverContent{
                                          .type    = SymbolDeclType::Block,
@@ -270,21 +299,19 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("BlockMember")
     {
-        auto sourceText = R"(
-        uniform UBO {
-            int ^[ubo.x.decl.begin]x^[ubo.x.decl.end];
-        };
+        CompileLabelledSource(R"(
+            uniform UBO {
+                int ^[ubo.x.decl.begin]x^[ubo.x.decl.end];
+            };
 
-        buffer SSBO {
-            float ^[ssbo.y.decl.begin]y^[ssbo.y.decl.end];
-        } ssbo;
-        
-        void foo() {
-            ssbo.^[ssbo.y.use.begin]y^[ssbo.y.use.end] = ^[ubo.x.use.begin]x^[ubo.x.use.end];
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+            buffer SSBO {
+                float ^[ssbo.y.decl.begin]y^[ssbo.y.decl.end];
+            } ssbo;
+            
+            void foo() {
+                ssbo.^[ssbo.y.use.begin]y^[ssbo.y.use.end] = ^[ubo.x.use.begin]x^[ubo.x.use.end];
+            }
+        )");
 
         checkHover("ubo.x.decl.begin", HoverContent{
                                            .type     = SymbolDeclType::BlockMember,
@@ -318,17 +345,15 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("BlockInstance")
     {
-        auto sourceText = R"(
-        uniform UBO {
-            int x;
-        } ^[ubo.instance.decl.begin]uboInstance^[ubo.instance.decl.end];
+        CompileLabelledSource(R"(
+            uniform UBO {
+                int x;
+            } ^[ubo.instance.decl.begin]uboInstance^[ubo.instance.decl.end];
 
-        int foo() {
-            return ^[ubo.instance.use.begin]uboInstance^[ubo.instance.use.end].x;
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+            int foo() {
+                return ^[ubo.instance.use.begin]uboInstance^[ubo.instance.use.end].x;
+            }
+        )");
 
         checkHover("ubo.instance.decl.begin",
                    HoverContent{
@@ -348,20 +373,18 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("Variable")
     {
-        auto sourceText = R"(
-        int ^[global.decl.begin]global^[global.decl.end];
-        int foo(int ^[param.decl.begin]param^[param.decl.end])
-        {
-            int ^[local.decl.begin]local^[local.decl.end];
+        CompileLabelledSource(R"(
+            int ^[global.decl.begin]global^[global.decl.end];
+            int foo(int ^[param.decl.begin]param^[param.decl.end])
+            {
+                int ^[local.decl.begin]local^[local.decl.end];
 
-            return ^[local.use.begin]local^[local.use.end]
-                 + ^[param.use.begin]param^[param.use.end]
-                 + ^[global.use.begin]global^[global.use.end]
-                 + ^[unknown.use.begin]unknown^[unknown.use.end];
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+                return ^[local.use.begin]local^[local.use.end]
+                    + ^[param.use.begin]param^[param.use.end]
+                    + ^[global.use.begin]global^[global.use.end]
+                    + ^[unknown.use.begin]unknown^[unknown.use.end];
+            }
+        )");
 
         checkHover("global.decl.begin", HoverContent{
                                             .type     = SymbolDeclType::GlobalVariable,
@@ -422,15 +445,13 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
     SECTION("Swizzle")
     {
-        auto sourceText = R"(
-        vec4 foo(vec4 v)
-        {
-            v.^[swizzle1.begin]x^[swizzle1.end] = v.y;
-            return v.^[swizzle2.begin]xyz^[swizzle2.end];
-        }
-        )";
-
-        CompileLabelledSource(sourceText);
+        CompileLabelledSource(R"(
+            vec4 foo(vec4 v)
+            {
+                v.^[swizzle1.begin]x^[swizzle1.end] = v.y;
+                return v.^[swizzle2.begin]xyz^[swizzle2.end];
+            }
+        )");
 
         checkHover("swizzle1.begin", HoverContent{
                                          .type = SymbolDeclType::Swizzle,
@@ -446,5 +467,84 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                          .range   = GetLabelledRange("swizzle2.begin", "swizzle2.end"),
                                          .unknown = false,
                                      });
+    }
+
+    SECTION("ConstValue")
+    {
+        CompileLabelledSource(R"(
+            const int ^[one.decl.begin]one^[one.decl.end] = 1;
+        )");
+
+        checkHover("one.decl.begin", HoverContent{
+                                         .type      = SymbolDeclType::GlobalVariable,
+                                         .name      = "one",
+                                         .exprType  = "int",
+                                         .exprValue = "1",
+                                         .code      = "const int one = ...",
+                                         .range     = GetLabelledRange("one.decl.begin", "one.decl.end"),
+                                     });
+
+        // TODO: add more tests
+    }
+
+    SECTION("CommentDescription")
+    {
+        CompileLabelledSource(R"(
+            int ^[global.decl.begin]global^[global.decl.end]; // This is a global variable.
+
+            // This is a function.
+            void ^[foo.decl.begin]foo^[foo.decl.end]() {
+            }
+
+            // This is another variable.
+            int ^[otherGlobal.decl.begin]otherGlobal^[otherGlobal.decl.end]; // And here's another comment.
+
+            // This is a MACRO
+            #define ^[MACRO.def.begin]MACRO^[MACRO.def.end] 1
+            void ^[bar.def.begin]bar^[bar.def.end]() {
+                // Notably, comment description for `MACRO` should not be attached to `bar`
+            }
+        )");
+
+        // FIXME: enable after fixing comment extraction
+        // checkHover("global.decl.begin", HoverContent{
+        //                                     .type        = SymbolDeclType::GlobalVariable,
+        //                                     .name        = "global",
+        //                                     .exprType    = "int",
+        //                                     .description = "This is a global variable.",
+        //                                     .code        = "int global",
+        //                                     .range       = GetLabelledRange("global.decl.begin", "global.decl.end"),
+        //                                 });
+        // checkHover("foo.decl.begin", HoverContent{
+        //                                  .type        = SymbolDeclType::Function,
+        //                                  .name        = "foo",
+        //                                  .returnType  = "void",
+        //                                  .parameters  = {},
+        //                                  .description = "This is a function.",
+        //                                  .code        = "void foo()",
+        //                                  .range       = GetLabelledRange("foo.decl.begin", "foo.decl.end"),
+        //                              });
+        // checkHover("otherGlobal.decl.begin",
+        //            HoverContent{
+        //                .type        = SymbolDeclType::GlobalVariable,
+        //                .name        = "otherGlobal",
+        //                .exprType    = "int",
+        //                .description = "And here's another comment.",
+        //                .code        = "int otherGlobal",
+        //                .range       = GetLabelledRange("otherGlobal.decl.begin", "otherGlobal.decl.end"),
+        //            });
+        // checkHover("MACRO.def.begin", HoverContent{
+        //                                   .type        = SymbolDeclType::Macro,
+        //                                   .name        = "MACRO",
+        //                                   .description = "This is a MACRO",
+        //                                   .code        = "#define MACRO 1",
+        //                                   .range       = GetLabelledRange("MACRO.def.begin", "MACRO.def.end"),
+        //                               });
+        // checkHover("bar.def.begin", HoverContent{
+        //                                 .type  = SymbolDeclType::Function,
+        //                                 .name  = "bar",
+        //                                 .code  = "void bar()",
+        //                                 .range = GetLabelledRange("bar.def.begin", "bar.def.end"),
+        //                             });
     }
 }

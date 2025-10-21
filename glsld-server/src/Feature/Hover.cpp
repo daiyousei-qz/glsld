@@ -111,7 +111,7 @@ namespace glsld
         //      int a;
         //      ```
         if (!preceedingComments.empty()) {
-            // FIXME: avoid using comments if there are preprocessing line between them and the declaration
+            // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
             std::string result;
             for (const auto& token : preceedingComments) {
                 result += unwrapComment(token);

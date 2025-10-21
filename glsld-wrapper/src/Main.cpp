@@ -28,14 +28,17 @@ namespace glsld
         program.add_argument("input-file").help("Input file to be compiled").required().store_into(result.inputFile);
         program.add_argument("--dump-token")
             .help("Dumps tokens when a translation unit is preprocessed.")
+            .flag()
             .default_value(false)
             .store_into(result.dumpTokens);
         program.add_argument("--dump-ast")
             .help("Dumps AST when a translation unit is parsed.")
+            .flag()
             .default_value(false)
             .store_into(result.dumpAst);
         program.add_argument("--no-stdlib")
             .help("Don't include standard library module.")
+            .flag()
             .default_value(false)
             .store_into(result.noStdlib);
         // TODO: -IXXX -DXXX
