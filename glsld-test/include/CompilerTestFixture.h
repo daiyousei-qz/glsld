@@ -1,5 +1,6 @@
 #pragma once
 
+#include "StringMaker.h"
 #include "AstMatcher.h"
 
 #include "Basic/StringView.h"

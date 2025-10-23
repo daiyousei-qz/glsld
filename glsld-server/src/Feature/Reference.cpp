@@ -107,6 +107,12 @@ namespace glsld
                 }
             }
         }
+        auto VisitAstBlockFieldDeclaratorDecl(const AstBlockFieldDeclaratorDecl& decl) -> void
+        {
+            if (includeDeclaration && &decl == referenceDecl) {
+                AddReferenceToken(decl.GetNameToken());
+            }
+        }
     };
 
     auto GetReferenceOptions(const ReferenceConfig& config) -> std::optional<lsp::ReferenceOptions>

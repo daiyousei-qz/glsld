@@ -1,159 +1,542 @@
+#include "Basic/StringView.h"
 #include "ServerTestFixture.h"
 
 #include "Server/LanguageQueryInfo.h"
 
+#include <optional>
+#include <variant>
+
 using namespace glsld;
+
+struct MacroSymbolExpectedResult
+{
+    PPMacroOccurrenceType occurrenceType;
+};
+
+struct HeaderSymbolExpectedResult
+{
+    std::string headerAbsolutePath;
+};
+
+struct AstSymbolExpectedResult
+{
+    AstNodeTag tag;
+};
+
+struct SymbolQueryExpectedResult
+{
+    SymbolDeclType symbolType;
+
+    std::string spelledText;
+
+    std::pair<StringView, StringView> spelledRangeLabels;
+
+    std::variant<MacroSymbolExpectedResult, HeaderSymbolExpectedResult, AstSymbolExpectedResult, std::monostate>
+        symbolOccurrence = std::monostate{};
+
+    bool isDeclaration = false;
+};
 
 TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
 {
-    auto checkSymbol = [this](StringView labelPos, SymbolDeclType type, StringView name, bool unknown = false) {
+    auto checkSymbol = [this](StringView labelPos, SymbolQueryExpectedResult expectedResult) {
         auto queryResult = GetLanguageQueryInfo().QuerySymbolByPosition(GetLabelledPosition(labelPos));
         REQUIRE(queryResult.has_value());
-        REQUIRE(queryResult->symbolType == type);
-        REQUIRE(queryResult->spelledText == name);
+        REQUIRE(queryResult->symbolType == expectedResult.symbolType);
+        REQUIRE(queryResult->spelledText == expectedResult.spelledText);
+        REQUIRE(queryResult->spelledRange ==
+                GetLabelledRange(expectedResult.spelledRangeLabels.first, expectedResult.spelledRangeLabels.second));
+        if (auto expectedMacro = std::get_if<MacroSymbolExpectedResult>(&expectedResult.symbolOccurrence)) {
+            REQUIRE(queryResult->ppSymbolOccurrence != nullptr);
+            REQUIRE(queryResult->ppSymbolOccurrence->GetMacroInfo() != nullptr);
+
+            const auto& macroInfo = *queryResult->ppSymbolOccurrence->GetMacroInfo();
+            REQUIRE(macroInfo.occurrenceType == expectedMacro->occurrenceType);
+        }
+        else if (auto expectedHeader = std::get_if<HeaderSymbolExpectedResult>(&expectedResult.symbolOccurrence)) {
+            REQUIRE(queryResult->ppSymbolOccurrence != nullptr);
+            REQUIRE(queryResult->ppSymbolOccurrence->GetHeaderNameInfo() != nullptr);
+
+            const auto& headerNameInfo = *queryResult->ppSymbolOccurrence->GetHeaderNameInfo();
+            REQUIRE(headerNameInfo.headerAbsolutePath == expectedHeader->headerAbsolutePath);
+        }
+        else if (auto expectedAst = std::get_if<AstSymbolExpectedResult>(&expectedResult.symbolOccurrence)) {
+            REQUIRE(queryResult->astSymbolOccurrence != nullptr);
+            REQUIRE(queryResult->astSymbolOccurrence->GetTag() == expectedAst->tag);
+        }
+        REQUIRE(queryResult->isDeclaration == expectedResult.isDeclaration);
     };
 
     SECTION("HeaderName")
     {
         CompileLabelledSource(R"(
-            #include ^[pos.1]"test.h"
-            #include ^[pos.2]<test.h>
+            #include ^[header1.begin]"test.h"^[header1.end]
+            #include ^[header2.begin]<test.h>^[header2.end]
         )");
 
-        checkSymbol("pos.1", SymbolDeclType::HeaderName, "\"test.h\"");
-        checkSymbol("pos.2", SymbolDeclType::HeaderName, "<test.h>");
+        checkSymbol("header1.begin", SymbolQueryExpectedResult{
+                                         .symbolType         = SymbolDeclType::HeaderName,
+                                         .spelledText        = "\"test.h\"",
+                                         .spelledRangeLabels = {"header1.begin", "header1.end"},
+                                         .symbolOccurrence =
+                                             HeaderSymbolExpectedResult{
+                                                 .headerAbsolutePath = "",
+                                             },
+                                     });
+        checkSymbol("header2.begin", SymbolQueryExpectedResult{
+                                         .symbolType         = SymbolDeclType::HeaderName,
+                                         .spelledText        = "<test.h>",
+                                         .spelledRangeLabels = {"header2.begin", "header2.end"},
+                                         .symbolOccurrence =
+                                             HeaderSymbolExpectedResult{
+                                                 .headerAbsolutePath = "",
+                                             },
+                                     });
     }
 
     SECTION("Macro")
     {
         CompileLabelledSource(R"(
-            #define ^[macro1.decl.pos]MACRO1
-            #define ^[macro2.decl.pos]MACRO2 1
-            #define ^[macro3.decl.pos]MACRO3(X) X
+            #define ^[macro1.decl.begin]MACRO1^[macro1.decl.end]
+            #define ^[macro2.decl.begin]MACRO2^[macro2.decl.end] 1
+            #define ^[macro3.decl.begin]MACRO3^[macro3.decl.end](X) X
 
-            #ifdef ^[macro1.use.pos]MACRO1
+            #ifdef ^[macro1.use.begin]MACRO1^[macro1.use.end]
             #endif
-            #if defined ^[macro2.use.pos]MACRO2 && ^[macro3.use.pos]MACRO3(0)
+            #if defined ^[macro2.use.begin]MACRO2^[macro2.use.end] && ^[macro3.use.begin]MACRO3^[macro3.use.end](0)
             #endif
 
-            #undef ^[macro1.undef.pos]MACRO1
-            #undef ^[macro4.undef.pos]MACRO4
+            #undef ^[macro1.undef.begin]MACRO1^[macro1.undef.end]
+            #undef ^[macro4.undef.begin]MACRO4^[macro4.undef.end]
         )");
 
-        checkSymbol("macro1.decl.pos", SymbolDeclType::Macro, "MACRO1");
-        checkSymbol("macro2.decl.pos", SymbolDeclType::Macro, "MACRO2");
-        checkSymbol("macro3.decl.pos", SymbolDeclType::Macro, "MACRO3");
-        checkSymbol("macro1.use.pos", SymbolDeclType::Macro, "MACRO1");
-        checkSymbol("macro2.use.pos", SymbolDeclType::Macro, "MACRO2");
-        checkSymbol("macro3.use.pos", SymbolDeclType::Macro, "MACRO3");
-        checkSymbol("macro1.undef.pos", SymbolDeclType::Macro, "MACRO1");
-        checkSymbol("macro4.undef.pos", SymbolDeclType::Macro, "MACRO4", true);
+        checkSymbol("macro1.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::Macro,
+                                             .spelledText        = "MACRO1",
+                                             .spelledRangeLabels = {"macro1.decl.begin", "macro1.decl.end"},
+                                             .symbolOccurrence =
+                                                 MacroSymbolExpectedResult{
+                                                     .occurrenceType = PPMacroOccurrenceType::Define,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+        checkSymbol("macro2.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::Macro,
+                                             .spelledText        = "MACRO2",
+                                             .spelledRangeLabels = {"macro2.decl.begin", "macro2.decl.end"},
+                                             .symbolOccurrence =
+                                                 MacroSymbolExpectedResult{
+                                                     .occurrenceType = PPMacroOccurrenceType::Define,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+        checkSymbol("macro3.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::Macro,
+                                             .spelledText        = "MACRO3",
+                                             .spelledRangeLabels = {"macro3.decl.begin", "macro3.decl.end"},
+                                             .symbolOccurrence =
+                                                 MacroSymbolExpectedResult{
+                                                     .occurrenceType = PPMacroOccurrenceType::Define,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+
+        checkSymbol("macro1.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::Macro,
+                                            .spelledText        = "MACRO1",
+                                            .spelledRangeLabels = {"macro1.use.begin", "macro1.use.end"},
+                                            .symbolOccurrence =
+                                                MacroSymbolExpectedResult{
+                                                    .occurrenceType = PPMacroOccurrenceType::IfDef,
+                                                },
+                                        });
+        checkSymbol("macro2.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::Macro,
+                                            .spelledText        = "MACRO2",
+                                            .spelledRangeLabels = {"macro2.use.begin", "macro2.use.end"},
+                                            .symbolOccurrence =
+                                                MacroSymbolExpectedResult{
+                                                    .occurrenceType = PPMacroOccurrenceType::IfDef,
+                                                },
+                                        });
+        checkSymbol("macro3.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::Macro,
+                                            .spelledText        = "MACRO3",
+                                            .spelledRangeLabels = {"macro3.use.begin", "macro3.use.end"},
+                                            .symbolOccurrence =
+                                                MacroSymbolExpectedResult{
+                                                    .occurrenceType = PPMacroOccurrenceType::Expand,
+                                                },
+                                        });
+
+        checkSymbol("macro1.undef.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::Macro,
+                                              .spelledText        = "MACRO1",
+                                              .spelledRangeLabels = {"macro1.undef.begin", "macro1.undef.end"},
+                                              .symbolOccurrence =
+                                                  MacroSymbolExpectedResult{
+                                                      .occurrenceType = PPMacroOccurrenceType::Undef,
+                                                  },
+                                          });
+        checkSymbol("macro4.undef.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::Macro,
+                                              .spelledText        = "MACRO4",
+                                              .spelledRangeLabels = {"macro4.undef.begin", "macro4.undef.end"},
+                                              .symbolOccurrence =
+                                                  MacroSymbolExpectedResult{
+                                                      .occurrenceType = PPMacroOccurrenceType::Undef,
+                                                  },
+                                          });
     }
 
     SECTION("LayoutQualifier")
     {
         CompileLabelledSource(R"(
-            layout(^[pos.1]binding = 0, ^[pos.2]rgba) uniform image2D img;
+            layout(^[qual.binding.begin]binding^[qual.binding.end] = 0, ^[qual.rgba.begin]rgba^[qual.rgba.end]) uniform image2D img;
         )");
 
-        checkSymbol("pos.1", SymbolDeclType::LayoutQualifier, "binding");
-        checkSymbol("pos.2", SymbolDeclType::LayoutQualifier, "rgba");
+        checkSymbol("qual.binding.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::LayoutQualifier,
+                                              .spelledText        = "binding",
+                                              .spelledRangeLabels = {"qual.binding.begin", "qual.binding.end"},
+                                          });
+        checkSymbol("qual.rgba.begin", SymbolQueryExpectedResult{
+                                           .symbolType         = SymbolDeclType::LayoutQualifier,
+                                           .spelledText        = "rgba",
+                                           .spelledRangeLabels = {"qual.rgba.begin", "qual.rgba.end"},
+                                       });
     }
 
-    SECTION("StructName")
+    SECTION("Struct")
     {
         CompileLabelledSource(R"(
-            struct ^[struct.decl.pos]S
+            struct ^[struct.decl.begin]S^[struct.decl.end]
             {
-                int ^[member.decl.pos]member;
+                int ^[member.decl.begin]member^[member.decl.end];
             };
 
             void foo()
             {
-                ^[struct.use.pos]S s;
-                s.^[member.use.pos]member;
-                s.^[unknown.member.use.pos]unknown;
+                ^[struct.use.begin]S^[struct.use.end] s;
+                s.^[member.use.begin]member^[member.use.end];
+                s.^[unknown.member.use.begin]unknown^[unknown.member.use.end];
 
-                ^[unknown.type.use.pos]Unknown u;
+                ^[unknown.type.use.begin]Unknown^[unknown.type.use.end] u;
             }
         )");
 
-        checkSymbol("struct.decl.pos", SymbolDeclType::Type, "S");
-        checkSymbol("struct.use.pos", SymbolDeclType::Type, "S");
-        checkSymbol("member.decl.pos", SymbolDeclType::StructMember, "member");
-        checkSymbol("member.use.pos", SymbolDeclType::StructMember, "member");
-        checkSymbol("unknown.member.use.pos", SymbolDeclType::StructMember, "unknown", true);
-        checkSymbol("unknown.type.use.pos", SymbolDeclType::Type, "Unknown", true);
+        checkSymbol("struct.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::Type,
+                                             .spelledText        = "S",
+                                             .spelledRangeLabels = {"struct.decl.begin", "struct.decl.end"},
+                                             .symbolOccurrence =
+                                                 AstSymbolExpectedResult{
+                                                     .tag = AstNodeTag::AstStructDecl,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+        checkSymbol("member.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::StructMember,
+                                             .spelledText        = "member",
+                                             .spelledRangeLabels = {"member.decl.begin", "member.decl.end"},
+                                             .symbolOccurrence =
+                                                 AstSymbolExpectedResult{
+                                                     .tag = AstNodeTag::AstStructFieldDeclaratorDecl,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+
+        checkSymbol("struct.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::Type,
+                                            .spelledText        = "S",
+                                            .spelledRangeLabels = {"struct.use.begin", "struct.use.end"},
+                                            .symbolOccurrence =
+                                                AstSymbolExpectedResult{
+                                                    .tag = AstNodeTag::AstQualType,
+                                                },
+                                        });
+        checkSymbol("member.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::StructMember,
+                                            .spelledText        = "member",
+                                            .spelledRangeLabels = {"member.use.begin", "member.use.end"},
+                                            .symbolOccurrence =
+                                                AstSymbolExpectedResult{
+                                                    .tag = AstNodeTag::AstFieldAccessExpr,
+                                                },
+                                        });
+
+        checkSymbol("unknown.member.use.begin",
+                    SymbolQueryExpectedResult{
+                        .symbolType         = SymbolDeclType::StructMember,
+                        .spelledText        = "unknown",
+                        .spelledRangeLabels = {"unknown.member.use.begin", "unknown.member.use.end"},
+                        .symbolOccurrence =
+                            AstSymbolExpectedResult{
+                                .tag = AstNodeTag::AstFieldAccessExpr,
+                            },
+                    });
+        checkSymbol("unknown.type.use.begin",
+                    SymbolQueryExpectedResult{
+                        .symbolType         = SymbolDeclType::Type,
+                        .spelledText        = "Unknown",
+                        .spelledRangeLabels = {"unknown.type.use.begin", "unknown.type.use.end"},
+                        .symbolOccurrence =
+                            AstSymbolExpectedResult{
+                                .tag = AstNodeTag::AstQualType,
+                            },
+                    });
     }
 
-    SECTION("VariableName")
+    SECTION("Block")
     {
         CompileLabelledSource(R"(
-            int ^[global.decl.pos]global;
-            int foo(int ^[param.decl.pos]param)
+            uniform ^[ubo.decl.begin]UBO^[ubo.decl.end]
             {
-                int ^[local.decl.pos]local;
+                int ^[ubo.member.decl.begin]value^[ubo.member.decl.end];
+            } ^[ubo.instance.decl.begin]block^[ubo.instance.decl.end];
 
-                return ^[local.use.pos]local
-                    + ^[param.use.pos]param
-                    + ^[global.use.pos]global
-                    + ^[unknown.use.pos]unknown;
-            }
-        )");
-
-        checkSymbol("global.decl.pos", SymbolDeclType::GlobalVariable, "global");
-        checkSymbol("param.decl.pos", SymbolDeclType::Parameter, "param");
-        checkSymbol("local.decl.pos", SymbolDeclType::LocalVariable, "local");
-        checkSymbol("local.use.pos", SymbolDeclType::LocalVariable, "local");
-        checkSymbol("param.use.pos", SymbolDeclType::Parameter, "param");
-        checkSymbol("global.use.pos", SymbolDeclType::GlobalVariable, "global");
-        checkSymbol("unknown.use.pos", SymbolDeclType::GlobalVariable, "unknown", true);
-    }
-
-    SECTION("BlockName")
-    {
-        CompileLabelledSource(R"(
-            uniform ^[ubo.decl.pos]UBO
+            buffer ^[ssbo.decl.begin]SSBO^[ssbo.decl.end]
             {
-                int ^[ubo.member.decl.pos]value;
-            } ^[ubo.instance.decl.pos]block;
-            buffer ^[ssbo.decl.pos]SSBO
-            {
-                int ^[ssbo.member.decl.pos]test;
+                int ^[ssbo.member.decl.begin]test^[ssbo.member.decl.end][];
             };
-            void foo()
+
+            int foo()
             {
-                ^[ssbo.member.use.pos]test = ^[ubo.instance.use.pos]block.^[ubo.member.use.pos]value;
+                int index = ^[ubo.instance.use.begin]block^[ubo.instance.use.end].^[ubo.member.use.begin]value^[ubo.member.use.end];
+                return ^[ssbo.member.use.begin]test^[ssbo.member.use.end][index];
             }
         )");
 
-        checkSymbol("ubo.decl.pos", SymbolDeclType::Block, "UBO");
-        checkSymbol("ssbo.decl.pos", SymbolDeclType::Block, "SSBO");
-        checkSymbol("ubo.member.decl.pos", SymbolDeclType::BlockMember, "value");
-        checkSymbol("ubo.instance.decl.pos", SymbolDeclType::BlockInstance, "block");
-        checkSymbol("ssbo.member.decl.pos", SymbolDeclType::BlockMember, "test");
-        checkSymbol("ssbo.member.use.pos", SymbolDeclType::BlockMember, "test");
-        checkSymbol("ubo.instance.use.pos", SymbolDeclType::BlockInstance, "block");
-        checkSymbol("ubo.member.use.pos", SymbolDeclType::BlockMember, "value");
+        checkSymbol("ubo.decl.begin", SymbolQueryExpectedResult{
+                                          .symbolType         = SymbolDeclType::Block,
+                                          .spelledText        = "UBO",
+                                          .spelledRangeLabels = {"ubo.decl.begin", "ubo.decl.end"},
+                                          .symbolOccurrence =
+                                              AstSymbolExpectedResult{
+                                                  .tag = AstNodeTag::AstInterfaceBlockDecl,
+                                              },
+                                          .isDeclaration = true,
+                                      });
+        checkSymbol("ubo.member.decl.begin", SymbolQueryExpectedResult{
+                                                 .symbolType         = SymbolDeclType::BlockMember,
+                                                 .spelledText        = "value",
+                                                 .spelledRangeLabels = {"ubo.member.decl.begin", "ubo.member.decl.end"},
+                                                 .symbolOccurrence =
+                                                     AstSymbolExpectedResult{
+                                                         .tag = AstNodeTag::AstBlockFieldDeclaratorDecl,
+                                                     },
+                                                 .isDeclaration = true,
+                                             });
+        checkSymbol("ubo.instance.decl.begin",
+                    SymbolQueryExpectedResult{
+                        .symbolType         = SymbolDeclType::BlockInstance,
+                        .spelledText        = "block",
+                        .spelledRangeLabels = {"ubo.instance.decl.begin", "ubo.instance.decl.end"},
+                        .symbolOccurrence =
+                            AstSymbolExpectedResult{
+                                .tag = AstNodeTag::AstInterfaceBlockDecl,
+                            },
+                        .isDeclaration = true,
+                    });
+        checkSymbol("ssbo.decl.begin", SymbolQueryExpectedResult{
+                                           .symbolType         = SymbolDeclType::Block,
+                                           .spelledText        = "SSBO",
+                                           .spelledRangeLabels = {"ssbo.decl.begin", "ssbo.decl.end"},
+                                           .symbolOccurrence =
+                                               AstSymbolExpectedResult{
+                                                   .tag = AstNodeTag::AstInterfaceBlockDecl,
+                                               },
+                                           .isDeclaration = true,
+                                       });
+        checkSymbol("ssbo.member.decl.begin",
+                    SymbolQueryExpectedResult{
+                        .symbolType         = SymbolDeclType::BlockMember,
+                        .spelledText        = "test",
+                        .spelledRangeLabels = {"ssbo.member.decl.begin", "ssbo.member.decl.end"},
+                        .symbolOccurrence =
+                            AstSymbolExpectedResult{
+                                .tag = AstNodeTag::AstBlockFieldDeclaratorDecl,
+                            },
+                        .isDeclaration = true,
+                    });
+
+        checkSymbol("ubo.instance.use.begin",
+                    SymbolQueryExpectedResult{
+                        .symbolType         = SymbolDeclType::BlockInstance,
+                        .spelledText        = "block",
+                        .spelledRangeLabels = {"ubo.instance.use.begin", "ubo.instance.use.end"},
+                        .symbolOccurrence =
+                            AstSymbolExpectedResult{
+                                .tag = AstNodeTag::AstNameAccessExpr,
+                            },
+                    });
+        checkSymbol("ubo.member.use.begin", SymbolQueryExpectedResult{
+                                                .symbolType         = SymbolDeclType::BlockMember,
+                                                .spelledText        = "value",
+                                                .spelledRangeLabels = {"ubo.member.use.begin", "ubo.member.use.end"},
+                                                .symbolOccurrence =
+                                                    AstSymbolExpectedResult{
+                                                        .tag = AstNodeTag::AstFieldAccessExpr,
+                                                    },
+                                            });
+        checkSymbol("ssbo.member.use.begin", SymbolQueryExpectedResult{
+                                                 .symbolType         = SymbolDeclType::BlockMember,
+                                                 .spelledText        = "test",
+                                                 .spelledRangeLabels = {"ssbo.member.use.begin", "ssbo.member.use.end"},
+                                                 .symbolOccurrence =
+                                                     AstSymbolExpectedResult{
+                                                         .tag = AstNodeTag::AstNameAccessExpr,
+                                                     },
+                                             });
     }
 
-    SECTION("FunctionName")
+    SECTION("Variable")
     {
         CompileLabelledSource(R"(
-            void ^[func.decl.pos]foo()
+            int ^[global.decl.begin]global^[global.decl.end] = 41;
+
+            int foo()
             {
+                int ^[local.decl.begin]local^[local.decl.end] = 42;
+                return ^[global.use.begin]global^[global.use.end] +
+                       ^[local.use.begin]local^[local.use.end] +
+                       ^[unknown.use.begin]unknown^[unknown.use.end];
             }
+        )");
+
+        checkSymbol("global.decl.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::GlobalVariable,
+                                             .spelledText        = "global",
+                                             .spelledRangeLabels = {"global.decl.begin", "global.decl.end"},
+                                             .symbolOccurrence =
+                                                 AstSymbolExpectedResult{
+                                                     .tag = AstNodeTag::AstVariableDeclaratorDecl,
+                                                 },
+                                             .isDeclaration = true,
+                                         });
+        checkSymbol("local.decl.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::LocalVariable,
+                                            .spelledText        = "local",
+                                            .spelledRangeLabels = {"local.decl.begin", "local.decl.end"},
+                                            .symbolOccurrence =
+                                                AstSymbolExpectedResult{
+                                                    .tag = AstNodeTag::AstVariableDeclaratorDecl,
+                                                },
+                                            .isDeclaration = true,
+                                        });
+        checkSymbol("global.use.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::GlobalVariable,
+                                            .spelledText        = "global",
+                                            .spelledRangeLabels = {"global.use.begin", "global.use.end"},
+                                            .symbolOccurrence =
+                                                AstSymbolExpectedResult{
+                                                    .tag = AstNodeTag::AstNameAccessExpr,
+                                                },
+                                        });
+        checkSymbol("local.use.begin", SymbolQueryExpectedResult{
+                                           .symbolType         = SymbolDeclType::LocalVariable,
+                                           .spelledText        = "local",
+                                           .spelledRangeLabels = {"local.use.begin", "local.use.end"},
+                                           .symbolOccurrence =
+                                               AstSymbolExpectedResult{
+                                                   .tag = AstNodeTag::AstNameAccessExpr,
+                                               },
+                                       });
+        checkSymbol("unknown.use.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::GlobalVariable,
+                                             .spelledText        = "unknown",
+                                             .spelledRangeLabels = {"unknown.use.begin", "unknown.use.end"},
+                                             .symbolOccurrence =
+                                                 AstSymbolExpectedResult{
+                                                     .tag = AstNodeTag::AstNameAccessExpr,
+                                                 },
+                                         });
+    }
+
+    SECTION("Parameter")
+    {
+        CompileLabelledSource(R"(
+            int identity(int ^[param.decl.begin]param^[param.decl.end])
+            {
+                return ^[param.use.begin]param^[param.use.end];
+            }
+        )");
+
+        checkSymbol("param.decl.begin", SymbolQueryExpectedResult{
+                                            .symbolType         = SymbolDeclType::Parameter,
+                                            .spelledText        = "param",
+                                            .spelledRangeLabels = {"param.decl.begin", "param.decl.end"},
+                                            .symbolOccurrence =
+                                                AstSymbolExpectedResult{
+                                                    .tag = AstNodeTag::AstParamDecl,
+                                                },
+                                            .isDeclaration = true,
+                                        });
+        checkSymbol("param.use.begin", SymbolQueryExpectedResult{
+                                           .symbolType         = SymbolDeclType::Parameter,
+                                           .spelledText        = "param",
+                                           .spelledRangeLabels = {"param.use.begin", "param.use.end"},
+                                           .symbolOccurrence =
+                                               AstSymbolExpectedResult{
+                                                   .tag = AstNodeTag::AstNameAccessExpr,
+                                               },
+                                       });
+    }
+
+    SECTION("Function")
+    {
+        CompileLabelledSource(R"(
+            void ^[foo.decl.begin]foo^[foo.decl.end]();
 
             void bar()
             {
-                ^[func.use.pos]foo();
-                ^[unknown.use.pos]unknown();
+                ^[foo.use.begin]foo^[foo.use.end]();
+                ^[unknown.use.begin]unknown^[unknown.use.end]();
+            }
+
+            void ^[foo.decl.def.begin]foo^[foo.decl.def.end]()
+            {
             }
         )");
 
-        checkSymbol("func.decl.pos", SymbolDeclType::Function, "foo");
-        checkSymbol("func.use.pos", SymbolDeclType::Function, "foo");
-        checkSymbol("unknown.use.pos", SymbolDeclType::Function, "unknown", true);
+        checkSymbol("foo.decl.begin", SymbolQueryExpectedResult{
+                                          .symbolType         = SymbolDeclType::Function,
+                                          .spelledText        = "foo",
+                                          .spelledRangeLabels = {"foo.decl.begin", "foo.decl.end"},
+                                          .symbolOccurrence =
+                                              AstSymbolExpectedResult{
+                                                  .tag = AstNodeTag::AstFunctionDecl,
+                                              },
+                                          .isDeclaration = true,
+                                      });
+        checkSymbol("foo.use.begin", SymbolQueryExpectedResult{
+                                         .symbolType         = SymbolDeclType::Function,
+                                         .spelledText        = "foo",
+                                         .spelledRangeLabels = {"foo.use.begin", "foo.use.end"},
+                                         .symbolOccurrence =
+                                             AstSymbolExpectedResult{
+                                                 .tag = AstNodeTag::AstFunctionCallExpr,
+                                             },
+                                     });
+        checkSymbol("unknown.use.begin", SymbolQueryExpectedResult{
+                                             .symbolType         = SymbolDeclType::Function,
+                                             .spelledText        = "unknown",
+                                             .spelledRangeLabels = {"unknown.use.begin", "unknown.use.end"},
+                                             .symbolOccurrence =
+                                                 AstSymbolExpectedResult{
+                                                     .tag = AstNodeTag::AstFunctionCallExpr,
+                                                 },
+                                         });
+        checkSymbol("foo.decl.def.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::Function,
+                                              .spelledText        = "foo",
+                                              .spelledRangeLabels = {"foo.decl.def.begin", "foo.decl.def.end"},
+                                              .symbolOccurrence =
+                                                  AstSymbolExpectedResult{
+                                                      .tag = AstNodeTag::AstFunctionDecl,
+                                                  },
+                                              .isDeclaration = true,
+                                          });
     }
 
     SECTION("SwizzleName")
@@ -162,12 +545,28 @@ TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
             void foo()
             {
                 vec4 v;
-                v.^[swizzle1.use.pos]x;
-                v.^[swizzle2.use.pos]xyzw;
+                v.^[swizzle1.use.begin]x^[swizzle1.use.end];
+                v.^[swizzle2.use.begin]xyzw^[swizzle2.use.end];
             }
         )");
 
-        checkSymbol("swizzle1.use.pos", SymbolDeclType::Swizzle, "x");
-        checkSymbol("swizzle2.use.pos", SymbolDeclType::Swizzle, "xyzw");
+        checkSymbol("swizzle1.use.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::Swizzle,
+                                              .spelledText        = "x",
+                                              .spelledRangeLabels = {"swizzle1.use.begin", "swizzle1.use.end"},
+                                              .symbolOccurrence =
+                                                  AstSymbolExpectedResult{
+                                                      .tag = AstNodeTag::AstSwizzleAccessExpr,
+                                                  },
+                                          });
+        checkSymbol("swizzle2.use.begin", SymbolQueryExpectedResult{
+                                              .symbolType         = SymbolDeclType::Swizzle,
+                                              .spelledText        = "xyzw",
+                                              .spelledRangeLabels = {"swizzle2.use.begin", "swizzle2.use.end"},
+                                              .symbolOccurrence =
+                                                  AstSymbolExpectedResult{
+                                                      .tag = AstNodeTag::AstSwizzleAccessExpr,
+                                                  },
+                                          });
     }
 }

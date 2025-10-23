@@ -40,6 +40,11 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
                                         EmptyStmt(),
                                         CompoundStmt({}),
                                     }));
+        GLSLD_CHECK_AST("{ int i = 0; return; }",
+                        CompoundStmt({
+                            DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("i"), NullAst(), LiteralExpr(0))),
+                            ReturnStmt(),
+                        }));
 
         SECTION("Permissive")
         {
@@ -68,7 +73,24 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
         }
     }
 
-    // TODO: DeclStmt
+    SECTION("DeclStmt")
+    {
+        GLSLD_CHECK_AST("int v;",
+                        DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("v"), NullAst(), NullAst())));
+        GLSLD_CHECK_AST("int v = 1;",
+                        DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("v"), NullAst(), LiteralExpr(1))));
+        GLSLD_CHECK_AST("int v[2];", DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("v"),
+                                                           ArraySpec({LiteralExpr(2)}), NullAst())));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("int v",
+                            DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("v"), NullAst(), NullAst())));
+            GLSLD_CHECK_AST("int v =", DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("v"), NullAst(),
+                                                             ImplicitCastExpr(ErrorExpr()))));
+            GLSLD_CHECK_AST("int;", DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), {})));
+        }
+    }
 
     SECTION("IfStmt")
     {
@@ -83,6 +105,11 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
         GLSLD_CHECK_AST("if (true) {} else if (false) {} else {}",
                         IfStmt(LiteralExpr(true), CompoundStmt({}),
                                IfStmt(LiteralExpr(false), CompoundStmt({}), CompoundStmt({}))));
+        GLSLD_CHECK_AST("if (true) return;", IfStmt(LiteralExpr(true), ReturnStmt()));
+        GLSLD_CHECK_AST("if (true) { return 1; } else discard;",
+                        IfStmt(LiteralExpr(true), CompoundStmt({ReturnStmt(LiteralExpr(1))}), DiscardStmt()));
+        GLSLD_CHECK_AST("if (true) {} else if (false) return;",
+                        IfStmt(LiteralExpr(true), CompoundStmt({}), IfStmt(LiteralExpr(false), ReturnStmt())));
     }
 
     SECTION("WhileStmt")
@@ -92,6 +119,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
 
         GLSLD_CHECK_AST("while (true) while (false) {}",
                         WhileStmt(LiteralExpr(true), WhileStmt(LiteralExpr(false), CompoundStmt({}))));
+        GLSLD_CHECK_AST("while (true) { continue; }", WhileStmt(LiteralExpr(true), CompoundStmt({ContinueStmt()})));
 
         SECTION("Permissive")
         {
@@ -110,6 +138,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
     {
         GLSLD_CHECK_AST("do {} while (true);", DoWhileStmt(CompoundStmt({}), LiteralExpr(true)));
         GLSLD_CHECK_AST("do ; while (false);", DoWhileStmt(EmptyStmt(), LiteralExpr(false)));
+        GLSLD_CHECK_AST("do { break; } while (true);", DoWhileStmt(CompoundStmt({BreakStmt()}), LiteralExpr(true)));
 
         SECTION("Permissive")
         {
@@ -139,6 +168,10 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
             ForStmt(DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("i"), NullAst(), LiteralExpr(0))),
                     BinaryExpr(BinaryOp::Less, NameAccessExpr("i"), LiteralExpr(4)),
                     UnaryExpr(UnaryOp::PrefixInc, NameAccessExpr("i")), CompoundStmt({})));
+        GLSLD_CHECK_AST(
+            "for (int i = 0; i < 10; ) break;",
+            ForStmt(DeclStmt(VariableDecl(NamedType(TokenKlass::K_int), IdTok("i"), NullAst(), LiteralExpr(0))),
+                    BinaryExpr(BinaryOp::Less, NameAccessExpr("i"), LiteralExpr(10)), NullAst(), BreakStmt()));
 
         SECTION("Permissive")
         {
@@ -156,6 +189,10 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
         GLSLD_CHECK_AST("switch (1) { case 2: break; default: break; }",
                         SwitchStmt(LiteralExpr(1), CompoundStmt({CaseLabelStmt(LiteralExpr(2)), BreakStmt(),
                                                                  DefaultLabelStmt(), BreakStmt()})));
+        GLSLD_CHECK_AST("switch (value) { case 1: return; case 2: continue; default: discard; }",
+                        SwitchStmt(NameAccessExpr("value"), CompoundStmt({CaseLabelStmt(LiteralExpr(1)), ReturnStmt(),
+                                                                          CaseLabelStmt(LiteralExpr(2)), ContinueStmt(),
+                                                                          DefaultLabelStmt(), DiscardStmt()})));
 
         SECTION("Permissive")
         {
@@ -196,6 +233,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstStmtTest")
     {
         GLSLD_CHECK_AST("return;", ReturnStmt());
         GLSLD_CHECK_AST("return 1;", ReturnStmt(LiteralExpr(1)));
+        GLSLD_CHECK_AST("return foo;", ReturnStmt(NameAccessExpr("foo")));
 
         SECTION("Permissive")
         {

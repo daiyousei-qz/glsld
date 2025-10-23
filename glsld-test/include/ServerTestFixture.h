@@ -1,5 +1,7 @@
 #pragma once
 
+#include "StringMaker.h"
+
 #include "Basic/SourceInfo.h"
 #include "Basic/StringMap.h"
 #include "Compiler/CompilerInvocation.h"

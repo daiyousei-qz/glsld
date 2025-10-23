@@ -311,24 +311,27 @@ namespace glsld
     {
         // First, we need to do a binary search to see if the cursor is on a macro/header name.
         // These are not in the AST, so we need to check them first.
-        if (auto ppSymbolOccurence = GetPreprocessInfo().QueryPPSymbol(position); ppSymbolOccurence) {
+        if (auto ppSymbolOccurrence = GetPreprocessInfo().QueryPPSymbol(position); ppSymbolOccurrence) {
             SymbolDeclType symbolType;
             std::string spelledText;
-            if (auto headerNameInfo = ppSymbolOccurence->GetHeaderNameInfo(); headerNameInfo) {
+            bool isDeclaration = false;
+            if (auto headerNameInfo = ppSymbolOccurrence->GetHeaderNameInfo(); headerNameInfo) {
                 symbolType  = SymbolDeclType::HeaderName;
                 spelledText = headerNameInfo->headerName.text.Str();
             }
-            else if (auto macroUsageInfo = ppSymbolOccurence->GetMacroInfo(); macroUsageInfo) {
-                symbolType  = SymbolDeclType::Macro;
-                spelledText = macroUsageInfo->macroName.text.Str();
+            else if (auto macroUsageInfo = ppSymbolOccurrence->GetMacroInfo(); macroUsageInfo) {
+                symbolType    = SymbolDeclType::Macro;
+                spelledText   = macroUsageInfo->macroName.text.Str();
+                isDeclaration = macroUsageInfo->occurrenceType == PPMacroOccurrenceType::Define;
             }
 
             return SymbolQueryResult{
                 .symbolType         = symbolType,
                 .symbolRange        = {},
                 .spelledText        = std::move(spelledText),
-                .spelledRange       = ppSymbolOccurence->GetSpelledRange(),
-                .ppSymbolOccurrence = ppSymbolOccurence,
+                .spelledRange       = ppSymbolOccurrence->GetSpelledRange(),
+                .ppSymbolOccurrence = ppSymbolOccurrence,
+                .isDeclaration      = isDeclaration,
             };
         }
 

@@ -41,7 +41,7 @@ namespace glsld
         bool unknown = false;
     };
 
-    auto CollectHover(const LanguageQueryInfo& info, TextPosition position) -> std::optional<HoverContent>;
+    auto ComputeHoverText(const HoverContent& hover) -> std::string;
 
     auto GetHoverOptions(const HoverConfig& config) -> std::optional<lsp::HoverOptions>;
 

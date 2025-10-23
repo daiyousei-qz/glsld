@@ -66,6 +66,18 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                                             StructFieldDeclaratorDecl(IdTok("a1"), NullAst()),
                                             StructFieldDeclaratorDecl(IdTok("a2"), ArraySpec({LiteralExpr(2)})),
                                         })}));
+        GLSLD_CHECK_AST(
+            "struct A { mat4[2] m; vec3 pos; };",
+            StructDecl(IdTok("A"), {
+                                       StructFieldDecl(QualType(NullAst(), KeywordTok(TokenKlass::K_mat4),
+                                                                ArraySpec({LiteralExpr(2)})),
+                                                       IdTok("m"), NullAst()),
+                                       StructFieldDecl(NamedType(TokenKlass::K_vec3), IdTok("pos"), NullAst()),
+                                   }));
+        GLSLD_CHECK_AST("struct B { highp float value; };",
+                        StructDecl(IdTok("B"), {StructFieldDecl(QualType(NamedQual({TokenKlass::K_highp}),
+                                                                         KeywordTok(TokenKlass::K_float), NullAst()),
+                                                                IdTok("value"), NullAst())}));
 
         SECTION("Permissive")
         {
@@ -143,6 +155,17 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                               IdTok("d"), NullAst()),
                 },
                 NullAst()));
+        GLSLD_CHECK_AST("highp float foo();", FunctionDecl(QualType(NamedQual({TokenKlass::K_highp}),
+                                                                    KeywordTok(TokenKlass::K_float), NullAst()),
+                                                           IdTok("foo"), {}, NullAst()));
+        GLSLD_CHECK_AST("void foo(int a[2][3], vec3 b);",
+                        FunctionDecl(NamedType(TokenKlass::K_void), IdTok("foo"),
+                                     {
+                                         ParamDecl(NamedType(TokenKlass::K_int), IdTok("a"),
+                                                   ArraySpec({LiteralExpr(2), LiteralExpr(3)})),
+                                         ParamDecl(NamedType(TokenKlass::K_vec3), IdTok("b"), NullAst()),
+                                     },
+                                     NullAst()));
     }
 
     SECTION("Global Variable Decl")
@@ -157,6 +180,16 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                                      InitializerList({
                                          LiteralExpr(1),
                                          LiteralExpr(2),
+                                     })));
+        GLSLD_CHECK_AST("const int a = 1;", VariableDecl(QualType(NamedQual({TokenKlass::K_const}),
+                                                                  KeywordTok(TokenKlass::K_int), NullAst()),
+                                                         IdTok("a"), NullAst(), LiteralExpr(1)));
+        GLSLD_CHECK_AST("int a[2][3] = {{1, 2, 3}, {4, 5, 6}};",
+                        VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"),
+                                     ArraySpec({LiteralExpr(2), LiteralExpr(3)}),
+                                     InitializerList({
+                                         InitializerList({LiteralExpr(1), LiteralExpr(2), LiteralExpr(3)}),
+                                         InitializerList({LiteralExpr(4), LiteralExpr(5), LiteralExpr(6)}),
                                      })));
 
         SECTION("Permissive")
@@ -194,6 +227,11 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
                                          LiteralExpr(1),
                                          LiteralExpr(2),
                                      })));
+        GLSLD_CHECK_AST("const int a = 41;", VariableDecl(QualType(NamedQual({TokenKlass::K_const}),
+                                                                   KeywordTok(TokenKlass::K_int), NullAst()),
+                                                          IdTok("a"), NullAst(), LiteralExpr(41)));
+        GLSLD_CHECK_AST("int a[2][3];", VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"),
+                                                     ArraySpec({LiteralExpr(2), LiteralExpr(3)}), NullAst()));
 
         GLSLD_CHECK_AST("StructType a;", VariableDecl(NamedType("StructType"), IdTok("a"), NullAst(), NullAst()));
         GLSLD_CHECK_AST("StructType[2] a;",

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Basic/StringView.h"
 #include <nlohmann/json.hpp>
 
 #include <cstdint>
@@ -248,6 +249,11 @@ namespace glsld::lsp
         MarkupContent() = default;
         MarkupContent(bool markdown, std::string value) : isMarkdown(markdown), value(std::move(value))
         {
+        }
+
+        auto GetValue() const -> StringView
+        {
+            return value;
         }
 
         auto Serialize() const -> nlohmann::json

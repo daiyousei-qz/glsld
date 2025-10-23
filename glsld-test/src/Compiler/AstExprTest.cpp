@@ -52,6 +52,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST("a--", UnaryExpr(UnaryOp::PostfixDec, NameAccessExpr("a")));
         GLSLD_CHECK_AST("vec3().length()",
                         UnaryExpr(UnaryOp::Length, ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {})));
+        GLSLD_CHECK_AST("--(--a)", UnaryExpr(UnaryOp::PrefixDec, UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a"))));
+        GLSLD_CHECK_AST("-~a", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::BitwiseNot, NameAccessExpr("a"))));
+        GLSLD_CHECK_AST("-(a++)", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a"))));
 
         SECTION("Permissive")
         {
@@ -71,6 +74,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST(
             "1, 2, 3",
             BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        GLSLD_CHECK_AST("(a = 1, b)",
+                        BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)),
+                                   NameAccessExpr("b")));
     }
 
     SECTION("AssignmentExpr")
@@ -96,6 +102,11 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
                                                 BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
         GLSLD_CHECK_AST("a += b = 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"),
                                                  BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
+        GLSLD_CHECK_AST("a = b += 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
+                                                 BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), LiteralExpr(1))));
+        GLSLD_CHECK_AST("a *= b += c",
+                        BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"),
+                                   BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), NameAccessExpr("c"))));
 
         SECTION("Permissive")
         {
@@ -135,6 +146,13 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST(
             "1 * 2 + 3",
             BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        GLSLD_CHECK_AST(
+            "1 - 2 - 3",
+            BinaryExpr(BinaryOp::Minus, BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        GLSLD_CHECK_AST("1 << 2 + 3", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1),
+                                                 BinaryExpr(BinaryOp::Plus, LiteralExpr(2), LiteralExpr(3))));
+        GLSLD_CHECK_AST("1 + (2 << 3)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
+                                                   BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(2), LiteralExpr(3))));
 
         SECTION("Permissive")
         {
@@ -152,6 +170,12 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST("true ? 1 : false ? 2 : 3",
                         SelectExpr(LiteralExpr(true), LiteralExpr(1),
                                    SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3))));
+        GLSLD_CHECK_AST("true ? false ? 1 : 2 : 3",
+                        SelectExpr(LiteralExpr(true), SelectExpr(LiteralExpr(false), LiteralExpr(1), LiteralExpr(2)),
+                                   LiteralExpr(3)));
+        GLSLD_CHECK_AST("a ? b : c + d",
+                        SelectExpr(NameAccessExpr("a"), NameAccessExpr("b"),
+                                   BinaryExpr(BinaryOp::Plus, NameAccessExpr("c"), NameAccessExpr("d"))));
 
         SECTION("Permissive")
         {
@@ -187,6 +211,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST("a[1][2]",
                         IndexAccessExpr(IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)), LiteralExpr(2)));
 
+        GLSLD_CHECK_AST("foo()[1]", IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)));
+        GLSLD_CHECK_AST("foo()[bar]", IndexAccessExpr(FunctionCallExpr("foo", {}), NameAccessExpr("bar")));
+
         SECTION("Permissive")
         {
             GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
@@ -197,12 +224,25 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         }
     }
 
+    SECTION("MixedAccessExpr")
+    {
+        GLSLD_CHECK_AST("foo().bar[1]",
+                        IndexAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("foo()[1].bar",
+                        FieldAccessExpr(IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)), "bar"));
+        GLSLD_CHECK_AST("foo().bar.baz", FieldAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), "baz"));
+    }
+
     SECTION("FunctionCallExpr")
     {
         GLSLD_CHECK_AST("foo()", FunctionCallExpr("foo", {}));
         GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", {LiteralExpr(1)}));
         GLSLD_CHECK_AST("foo((1))", FunctionCallExpr("foo", {LiteralExpr(1)}));
         GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", {LiteralExpr(1), LiteralExpr(2)}));
+        GLSLD_CHECK_AST("foo(bar(1))", FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)})}));
+        GLSLD_CHECK_AST("foo(bar(1), baz(2, 3))",
+                        FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)}),
+                                                 FunctionCallExpr("baz", {LiteralExpr(2), LiteralExpr(3)})}));
 
         SECTION("Permissive")
         {
@@ -233,11 +273,13 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST("vec3(1)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
                                                                                           LiteralExpr(1),
                                                                                       }));
-        GLSLD_CHECK_AST("vec3(1, 2, 3)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
-                                                                                                LiteralExpr(1),
-                                                                                                LiteralExpr(2),
-                                                                                                LiteralExpr(3),
-                                                                                            }));
+        GLSLD_CHECK_AST("mat3(vec3(1), vec3(2), vec3(3))",
+                        ConstructorCallExpr(NamedType(TokenKlass::K_mat3),
+                                            {
+                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(1)}),
+                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(2)}),
+                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(3)}),
+                                            }));
 
         GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S"), {}));
         GLSLD_CHECK_AST("S[2]()",
@@ -272,6 +314,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
         GLSLD_CHECK_AST(
             "(1 + 2) * 3",
             BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        GLSLD_CHECK_AST("(true ? 1 : 2)", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
 
         SECTION("Permissive")
         {
@@ -404,6 +447,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstImplicitCast")
     {
         StringView testTemplate = R"(
             void foo(uint x);
+            void bar(double x, double y);
             void main() {{
                 {};
             }}
@@ -419,6 +463,16 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstImplicitCast")
                                                         return type.IsSameWith(GlslBuiltinType::Ty_uint);
                                                     }),
                                                 }));
+        GLSLD_CHECK_AST(
+            "bar(1, 2.0f)",
+            FunctionCallExpr("bar", {
+                                        ImplicitCastExpr(LiteralExpr(1))->CheckType([](const Type& type) {
+                                            return type.IsSameWith(GlslBuiltinType::Ty_double);
+                                        }),
+                                        ImplicitCastExpr(LiteralExpr(2.0f))->CheckType([](const Type& type) {
+                                            return type.IsSameWith(GlslBuiltinType::Ty_double);
+                                        }),
+                                    }));
     }
 
     SECTION("Initializer")
@@ -445,6 +499,13 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstImplicitCast")
                         InitializerList({
                             ImplicitCastExpr(LiteralExpr(1))->CheckType(checkFloatType),
                             ImplicitCastExpr(LiteralExpr(2))->CheckType(checkDoubleType),
+                        }));
+
+        GLSLD_CHECK_AST(SOURCE_PIECES("vec3", "{1, true, 3}"),
+                        InitializerList({
+                            ImplicitCastExpr(LiteralExpr(1))->CheckType(checkFloatType),
+                            ImplicitCastExpr(LiteralExpr(true))->CheckType(checkFloatType),
+                            ImplicitCastExpr(LiteralExpr(3))->CheckType(checkFloatType),
                         }));
     }
 }
