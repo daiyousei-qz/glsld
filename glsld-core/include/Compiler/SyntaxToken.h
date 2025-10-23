@@ -45,55 +45,6 @@ namespace glsld
 #undef DECL_PUNCT
     };
 
-    inline auto TokenKlassToString(TokenKlass klass) -> std::string_view
-    {
-#define STRINGIZE(X) #X
-
-        switch (klass) {
-        case TokenKlass::Invalid:
-            return "Invalid";
-        case TokenKlass::Unknown:
-            return "Unknown";
-        case TokenKlass::Eof:
-            return "Eof";
-        case TokenKlass::Comment:
-            return "Comment";
-        case TokenKlass::Hash:
-            return "#";
-        case TokenKlass::HashHash:
-            return "##";
-        case TokenKlass::SystemHeaderName:
-            return "SystemHeaderName";
-        case TokenKlass::UserHeaderName:
-            return "UserHeaderName";
-        case TokenKlass::DefinedYes:
-            return "DefinedYes";
-        case TokenKlass::DefinedNo:
-            return "DefinedNo";
-        case TokenKlass::IntegerConstant:
-            return "IntegerConstant";
-        case TokenKlass::FloatConstant:
-            return "FloatConstant";
-        case TokenKlass::Identifier:
-            return "Identifier";
-
-#define DECL_KEYWORD(KEYWORD)                                                                                          \
-    case TokenKlass::K_##KEYWORD:                                                                                      \
-        return STRINGIZE(K_##KEYWORD);
-#include "GlslKeywords.inc"
-#undef DECL_KEYWORD
-
-#define DECL_PUNCT(PUNCT_NAME, ...)                                                                                    \
-    case TokenKlass::PUNCT_NAME:                                                                                       \
-        return STRINGIZE(PUNCT_NAME);
-#include "GlslPunctuation.inc"
-#undef DECL_PUNCT
-        }
-
-#undef STRINGIZE
-        GLSLD_UNREACHABLE();
-    }
-
     inline auto GetAllKeywords() -> ArrayView<std::pair<TokenKlass, StringView>>
     {
         static constexpr std::pair<TokenKlass, StringView> allKeywords[] = {

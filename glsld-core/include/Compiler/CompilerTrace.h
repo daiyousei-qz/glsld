@@ -1,6 +1,7 @@
 #pragma once
 #include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
+#include "Support/Reflection.h"
 
 #if defined(GLSLD_DEBUG)
 #define GLSLD_ENABLE_COMPILER_TRACE 1
@@ -68,14 +69,14 @@ namespace glsld
 
         auto TracePPTokenLexed(const PPToken& tok) -> void
         {
-            EmitTraceMessage(CompilerTraceSource::Lexer, "Lexed token [{}]'{}'", TokenKlassToString(tok.klass),
+            EmitTraceMessage(CompilerTraceSource::Lexer, "Lexed token [{}]'{}'", EnumToString(tok.klass),
                              tok.text.StrView());
         }
 
         auto TraceLexTokenIssued(const PPToken& tok, const TextRange& expandedRange) -> void
         {
             EmitTraceMessage(CompilerTraceSource::Preprocessor, "Issued token [{}]'{}' @ ({},{}~{},{})",
-                             TokenKlassToString(tok.klass), tok.text.StrView(), expandedRange.start.line,
+                             EnumToString(tok.klass), tok.text.StrView(), expandedRange.start.line,
                              expandedRange.start.character, expandedRange.end.line, expandedRange.end.character);
         }
 
@@ -91,7 +92,7 @@ namespace glsld
 
         auto TraceTokenConsumed(const RawSyntaxToken& tok) -> void
         {
-            EmitTraceMessage(CompilerTraceSource::Parser, "Consumed token [{}]'{}'", TokenKlassToString(tok.klass),
+            EmitTraceMessage(CompilerTraceSource::Parser, "Consumed token [{}]'{}'", EnumToString(tok.klass),
                              tok.text.StrView());
         }
 

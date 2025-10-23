@@ -139,7 +139,7 @@ namespace glsld
         }
         auto KeywordTok(TokenKlass keyword) -> TokenMatcher*
         {
-            return CreateTokenMatcher(fmt::format("Keyword[{}]", TokenKlassToString(keyword)), keyword, std::nullopt);
+            return CreateTokenMatcher(fmt::format("Keyword[{}]", EnumToString(keyword)), keyword, std::nullopt);
         }
         auto IntTok(StringView value) -> TokenMatcher*
         {

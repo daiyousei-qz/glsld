@@ -11,6 +11,7 @@
 #include "Compiler/MacroTable.h"
 #include "Compiler/SourceManager.h"
 #include "Compiler/SymbolTable.h"
+#include "Support/Reflection.h"
 
 #include <memory>
 
@@ -68,7 +69,7 @@ namespace glsld
 
                 for (const auto& token : tokens) {
                     const auto& expanedRange = token.expandedRange;
-                    Print("[{}]'{}' @ ({},{}~{},{})\n", TokenKlassToString(token.klass), token.text.StrView(),
+                    Print("[{}]'{}' @ ({},{}~{},{})\n", EnumToString(token.klass), token.text.StrView(),
                           expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
                           expanedRange.end.character);
                 }
