@@ -1,13 +1,14 @@
 #include "Ast/AstPrinter.h"
 #include "Ast/Dispatch.h"
+#include "Support/Reflection.h"
 
 namespace glsld
 {
     auto AstPrinter::PrintChildNode(StringView key, const AstNode& node) -> void
     {
         PrintIndentation();
-        fmt::format_to(std::back_inserter(buffer), "+{}: {}[{}, {}) #{:x} -> {{\n", key,
-                       AstNodeTagToString(node.GetTag()), node.GetSyntaxRange().GetBeginID().GetTokenIndex(),
+        fmt::format_to(std::back_inserter(buffer), "+{}: {}[{}, {}) #{:x} -> {{\n", key, EnumToString(node.GetTag()),
+                       node.GetSyntaxRange().GetBeginID().GetTokenIndex(),
                        node.GetSyntaxRange().GetEndID().GetTokenIndex(), GetPointerIdentifier(&node));
 
         PushIndent();
@@ -16,7 +17,7 @@ namespace glsld
         PopIndent();
 
         PrintIndentation();
-        fmt::format_to(std::back_inserter(buffer), "}}\n", key, AstNodeTagToString(node.GetTag()));
+        fmt::format_to(std::back_inserter(buffer), "}}\n", key, EnumToString(node.GetTag()));
     }
 
     auto AstPrinter::PrintChildItem(StringView key, std::function<void(AstPrinter&)> callback) -> void

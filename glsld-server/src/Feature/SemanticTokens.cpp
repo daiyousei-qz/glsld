@@ -1,12 +1,13 @@
 #include "Compiler/SyntaxToken.h"
 #include "Feature/SemanticTokens.h"
 #include "Server/LanguageQueryVisitor.h"
+#include "Support/Reflection.h"
 
 namespace glsld
 {
     auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryInfo& info,
-                                 SyntaxTokenID tokID, SemanticTokenType type,
-                                 SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
+                                 SyntaxTokenID tokID, SemanticTokenType type, SemanticTokenModifierBits modifiers = {})
+        -> void
     {
         // FIXME: how to handle multi-line token
         //            a\
@@ -18,7 +19,7 @@ namespace glsld
                     .character = tokTextRange->start.character,
                     .length    = tokTextRange->end.character - tokTextRange->start.character,
                     .type      = type,
-                    .modifier  = modifier,
+                    .modifiers = modifiers,
                 });
             }
         }
@@ -57,8 +58,8 @@ namespace glsld
                     .character = headerName->headerName.spelledRange.start.character,
                     .length    = headerName->headerName.spelledRange.end.character -
                               headerName->headerName.spelledRange.start.character,
-                    .type     = SemanticTokenType::String,
-                    .modifier = SemanticTokenModifier::None,
+                    .type      = SemanticTokenType::String,
+                    .modifiers = {},
                 });
             }
             else if (auto macroSymbol = ppSymbol.GetMacroInfo(); macroSymbol) {
@@ -67,8 +68,8 @@ namespace glsld
                     .character = macroSymbol->macroName.spelledRange.start.character,
                     .length    = macroSymbol->macroName.spelledRange.end.character -
                               macroSymbol->macroName.spelledRange.start.character,
-                    .type     = SemanticTokenType::Macro,
-                    .modifier = SemanticTokenModifier::None,
+                    .type      = SemanticTokenType::Macro,
+                    .modifiers = {},
                 });
             }
         }
@@ -104,16 +105,16 @@ namespace glsld
             auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
             {
                 if (expr.GetNameToken().IsIdentifier()) {
-                    auto modifier = SemanticTokenModifier::None;
+                    SemanticTokenModifierBits modifiers;
                     if (expr.IsConstNameAccess()) {
-                        modifier |= SemanticTokenModifier::Readonly;
+                        modifiers |= SemanticTokenModifier::Readonly;
                     }
 
                     if (expr.IsParameter()) {
-                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Parameter, modifier);
+                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Parameter, modifiers);
                     }
                     else {
-                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable, modifier);
+                        TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable, modifiers);
                     }
                 }
             }
@@ -138,13 +139,13 @@ namespace glsld
             }
             auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
             {
-                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                SemanticTokenModifierBits modifiers;
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
-                    modifier |= SemanticTokenModifier::Readonly;
+                    modifiers |= SemanticTokenModifier::Readonly;
                 }
 
                 if (decl.GetNameToken().IsIdentifier()) {
-                    TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifier);
+                    TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifiers);
                 }
             }
             auto VisitAstStructDecl(const AstStructDecl& decl) -> void
@@ -156,12 +157,12 @@ namespace glsld
             }
             auto VisitAstBlockFieldDecl(const AstBlockFieldDecl& decl) -> void
             {
-                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
                 // TODO: say uniform block member is readonly
 
                 for (const auto& declarator : decl.GetDeclarators()) {
                     if (declarator->GetNameToken().klass == TokenKlass::Identifier) {
-                        TryAddSementicToken(declarator->GetNameToken(), SemanticTokenType::Variable, modifier);
+                        TryAddSementicToken(declarator->GetNameToken(), SemanticTokenType::Variable, modifiers);
                     }
                 }
             }
@@ -174,7 +175,7 @@ namespace glsld
                 }
 
                 // Interface block decl
-                SemanticTokenModifier instanceModifier = SemanticTokenModifier::Declaration;
+                SemanticTokenModifierBits instanceModifier = SemanticTokenModifier::Declaration;
                 // TODO: say uniform block member is readonly
                 if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
                     TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Variable, instanceModifier);
@@ -190,27 +191,27 @@ namespace glsld
             auto VisitAstParamDecl(const AstParamDecl& decl) -> void
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
-                    SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                    SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
                     if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
-                        modifier |= SemanticTokenModifier::Readonly;
+                        modifiers |= SemanticTokenModifier::Readonly;
                     }
-                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Parameter, modifier);
+                    TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Parameter, modifiers);
                 }
             }
             auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
             {
-                SemanticTokenModifier modifier = SemanticTokenModifier::Declaration;
+                SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
 
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
-                    modifier |= SemanticTokenModifier::Readonly;
+                    modifiers |= SemanticTokenModifier::Readonly;
                 }
 
-                TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifier);
+                TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifiers);
             }
 
         private:
             auto TryAddSementicToken(AstSyntaxToken token, SemanticTokenType type,
-                                     SemanticTokenModifier modifier = SemanticTokenModifier::None) -> void
+                                     SemanticTokenModifierBits modifier = {}) -> void
             {
                 if (token.IsValid()) {
                     CreateSemanticTokenInfo(output, GetInfo(), token.id, type, modifier);
@@ -244,7 +245,7 @@ namespace glsld
 
             result.data.push_back(tokInfo.length);
             result.data.push_back(GetTokenTypeIndex(tokInfo.type));
-            result.data.push_back(GetTokenModifierMask(tokInfo.modifier));
+            result.data.push_back(tokInfo.modifiers.GetBits());
 
             lastTokLine   = tokInfo.line;
             lastTokColumn = tokInfo.character;

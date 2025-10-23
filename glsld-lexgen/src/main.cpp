@@ -1,5 +1,6 @@
 #include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
+#include "Support/Reflection.h"
 
 #include "LexerBuilder.h"
 
@@ -91,7 +92,7 @@ auto GenerateLexSource(FILE* file, const NfaAutomata& automata) -> void
 
         printToFile("LexState_{}:\n", i);
         if (state->GetAcceptId() != -1) {
-            printToFile("// Accepting as {}\n", TokenKlassToString(static_cast<TokenKlass>(state->GetAcceptId())));
+            printToFile("// Accepting as {}\n", EnumToString(static_cast<TokenKlass>(state->GetAcceptId())));
             printToFile("acceptedCheckpoint = srcView.CreateCheckPoint();\n");
             printToFile("acceptedKlass = static_cast<TokenKlass>({});\n", state->GetAcceptId());
             printToFile("acceptedSize = buffer.size();\n\n");

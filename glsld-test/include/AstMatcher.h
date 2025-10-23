@@ -72,7 +72,7 @@ namespace glsld
             -> AstMatchResult
         {
             return Failure(failedNode, "Unexpected AST node, expecting {}, got {}", expectedAstTypeName,
-                           failedNode ? AstNodeTagToString(failedNode->GetTag()) : "null");
+                           failedNode ? EnumToString(failedNode->GetTag()) : "null");
         }
     };
 

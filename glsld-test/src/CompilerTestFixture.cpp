@@ -1,4 +1,5 @@
 #include "CompilerTestFixture.h"
+#include "Support/Reflection.h"
 
 namespace glsld
 {
@@ -417,7 +418,7 @@ namespace glsld
         return CreateAstMatcher<AstUnaryExpr>(__func__,
                                               [op, operandMatcher](const AstUnaryExpr* node) -> AstMatchResult {
                                                   return AstMatchPipeline{node}
-                                                      .TryEqual(UnaryOpToString(op), UnaryOpToString(node->GetOpcode()),
+                                                      .TryEqual(EnumToString(op), EnumToString(node->GetOpcode()),
                                                                 "Unexpected unary operator: expected {}, got {}")
                                                       .TryMatch(node->GetOperand(), operandMatcher)
                                                       .Finish();
@@ -428,7 +429,7 @@ namespace glsld
         return CreateAstMatcher<AstBinaryExpr>(
             __func__, [op, lhsMatcher, rhsMatcher](const AstBinaryExpr* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
-                    .TryEqual(BinaryOpToString(op), BinaryOpToString(node->GetOpcode()),
+                    .TryEqual(EnumToString(op), EnumToString(node->GetOpcode()),
                               "Unexpected binary operator: expected {}, got {}")
                     .TryMatch(node->GetLhsOperand(), lhsMatcher)
                     .TryMatch(node->GetRhsOperand(), rhsMatcher)

@@ -4,6 +4,7 @@
 #include "Ast/Base.h"
 #include "Ast/Decl.h"
 #include "Language/ConstValue.h"
+#include "Support/Reflection.h"
 
 namespace glsld
 {
@@ -475,7 +476,7 @@ namespace glsld
         auto DoPrint(Printer& printer) const -> void
         {
             AstExpr::DoPrint(printer);
-            printer.PrintAttribute("Opcode", UnaryOpToString(opcode));
+            printer.PrintAttribute("Opcode", EnumToString(opcode));
             printer.PrintChildNode("Operand", *operand);
         }
     };
@@ -533,7 +534,7 @@ namespace glsld
         auto DoPrint(Printer& printer) const -> void
         {
             AstExpr::DoPrint(printer);
-            printer.PrintAttribute("Opcode", BinaryOpToString(opcode));
+            printer.PrintAttribute("Opcode", EnumToString(opcode));
             printer.PrintChildNode("LhsOperand", *lhsOperand);
             printer.PrintChildNode("RhsOperand", *rhsOperand);
         }
