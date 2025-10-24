@@ -9,6 +9,9 @@ namespace glsld
     class PPCallback
     {
     public:
+        PPCallback()          = default;
+        virtual ~PPCallback() = default;
+
         // Called when a `#version XXX` directive is encountered
         virtual auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void
         {
@@ -17,6 +20,11 @@ namespace glsld
         // Called when a `#extension EXTENSION : behavior` directive is encountered
         virtual auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
                                           ExtensionBehavior behavior) -> void
+        {
+        }
+
+        // Called when an unknown `#pragma XXX` directive is encountered
+        virtual auto OnUnknownPragmaDirective(ArrayView<PPToken> argTokens) -> void
         {
         }
 

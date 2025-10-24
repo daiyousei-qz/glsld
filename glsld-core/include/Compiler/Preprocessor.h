@@ -251,6 +251,10 @@ namespace glsld
         // This stack stores all information about the conditional directives.
         std::vector<PPConditionalInfo> conditionalStack = {};
 
+        AtomString atomBuiltinLineMacro    = {};
+        AtomString atomBuiltinFileMacro    = {};
+        AtomString atomBuiltinVersionMacro = {};
+
     public:
         PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, TranslationUnitID tuId,
                                PPCallback* callback, std::optional<TextRange> includeExpansionRange,
@@ -260,6 +264,9 @@ namespace glsld
               outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
         {
+            atomBuiltinLineMacro    = atomTable.GetAtom("__LINE__");
+            atomBuiltinFileMacro    = atomTable.GetAtom("__FILE__");
+            atomBuiltinVersionMacro = atomTable.GetAtom("__VERSION__");
         }
 
         auto GetState() const noexcept -> PreprocessorState
@@ -405,6 +412,7 @@ namespace glsld
         auto HandleEndifDirective(PPTokenScanner& scanner) -> void;
         auto HandleExtensionDirective(PPTokenScanner& scanner) -> void;
         auto HandleVersionDirective(PPTokenScanner& scanner) -> void;
+        auto HandlePragmaDirective(PPTokenScanner& scanner) -> void;
         auto HandleLineDirective(PPTokenScanner& scanner) -> void;
 
         // Consumes all tokens and returns the result of the preprocessing expression.

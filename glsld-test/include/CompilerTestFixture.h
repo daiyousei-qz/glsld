@@ -5,6 +5,7 @@
 
 #include "Basic/StringView.h"
 #include "Compiler/CompilerInvocation.h"
+#include "Compiler/PPCallback.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
@@ -109,12 +110,13 @@ namespace glsld
             return matcherTemplate(matcher);
         }
 
-        auto Compile(StringView sourceText, CompileMode compileMode) const -> std::unique_ptr<CompilerResult>
+        auto Compile(StringView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
+            -> std::unique_ptr<CompilerResult>
         {
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
-            return compiler->CompileMainFile(nullptr, compileMode);
+            return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
 #pragma region Token Matchers
