@@ -73,7 +73,7 @@ namespace glsld
     struct DiagnosticConfig
     {
         // Master toggle for diagnostic.
-        bool enable = false;
+        bool enable = true;
     };
 
     struct SignatureHelpConfig

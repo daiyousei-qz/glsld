@@ -10,6 +10,7 @@
         "argparse",
         "nlohmann-json",
         "bshoshany-thread-pool",
+        "glslang",
         "boost-pfr",
         "magic-enum",
         "catch2"

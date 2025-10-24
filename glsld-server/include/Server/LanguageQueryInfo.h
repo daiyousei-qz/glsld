@@ -94,13 +94,27 @@ namespace glsld
     private:
         friend class BackgroundCompilation;
 
+        int version;
+        std::string uri;
         std::unique_ptr<CompilerResult> compilerResult     = nullptr;
         std::unique_ptr<PreprocessSymbolStore> ppInfoStore = nullptr;
 
     public:
-        LanguageQueryInfo(std::unique_ptr<CompilerResult> result, std::unique_ptr<PreprocessSymbolStore> ppInfoStore)
-            : compilerResult(std::move(result)), ppInfoStore(std::move(ppInfoStore))
+        LanguageQueryInfo(int version, std::string uri, std::unique_ptr<CompilerResult> result,
+                          std::unique_ptr<PreprocessSymbolStore> ppInfoStore)
+            : version(version), uri(std::move(uri)), compilerResult(std::move(result)),
+              ppInfoStore(std::move(ppInfoStore))
         {
+        }
+
+        auto GetVersion() const -> int
+        {
+            return version;
+        }
+
+        auto GetUri() const -> StringView
+        {
+            return uri;
         }
 
         auto GetCompilerResult() const -> const CompilerResult&

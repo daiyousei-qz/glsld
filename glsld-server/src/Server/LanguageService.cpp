@@ -1,6 +1,7 @@
 #include "Server/LanguageService.h"
 #include "Feature/Completion.h"
 #include "Feature/Definition.h"
+#include "Feature/Diagnostic.h"
 #include "Feature/DocumentSymbol.h"
 #include "Feature/FoldingRange.h"
 #include "Feature/Hover.h"
@@ -68,10 +69,16 @@ namespace glsld
             return;
         }
 
-        providerEntry = std::make_shared<BackgroundCompilation>(
+        auto sourceBuffer2 = params.textDocument.text;
+        providerEntry      = std::make_shared<BackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text));
 
-        server.ScheduleBackgroundTask([provider = providerEntry]() { provider->Setup(); });
+        server.ScheduleBackgroundTask([this, provider = providerEntry, sourceBuffer2 = std::move(sourceBuffer2)]() {
+            provider->Setup();
+            server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic,
+                                            HandleDiagnostic(server.GetConfig().languageService.diagnostic,
+                                                             provider->GetProvider(), sourceBuffer2));
+        });
         server.LogInfo("Opened document: {}", params.textDocument.uri);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
     }
@@ -94,10 +101,16 @@ namespace glsld
                 sourceBuffer = std::move(change.text);
             }
         }
-        providerEntry = std::make_shared<BackgroundCompilation>(
+        auto sourceBuffer2 = sourceBuffer;
+        providerEntry      = std::make_shared<BackgroundCompilation>(
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
 
-        server.ScheduleBackgroundTask([provider = providerEntry]() { provider->Setup(); });
+        server.ScheduleBackgroundTask([this, provider = providerEntry, sourceBuffer2 = std::move(sourceBuffer2)]() {
+            provider->Setup();
+            server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic,
+                                            HandleDiagnostic(server.GetConfig().languageService.diagnostic,
+                                                             provider->GetProvider(), sourceBuffer2));
+        });
         server.LogInfo("Edited document: {}", params.textDocument.uri);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
     }

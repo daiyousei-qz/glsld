@@ -41,7 +41,7 @@ namespace glsld
             compiler->SetMainFileFromBuffer(sourceString);
             auto result = compiler->CompileMainFile(ppCallback.get());
 
-            info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
+            info = std::make_unique<LanguageQueryInfo>(version, uri, std::move(result), std::move(ppInfoStore));
 
             std::unique_lock<std::mutex> lock{mu};
             available = true;

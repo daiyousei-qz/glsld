@@ -1673,6 +1673,122 @@ namespace glsld::lsp
     };
 #pragma endregion
 
+#pragma region Publish Diagnostic
+    inline constexpr const char* LSPMethod_PublishDiagnostic = "textDocument/publishDiagnostics";
+
+    enum class DiagnosticSeverity
+    {
+        // /**
+        //  * Reports an error.
+        //  */
+        // export const Error: 1 = 1;
+        Error = 1,
+        // /**
+        //  * Reports a warning.
+        //  */
+        // export const Warning: 2 = 2;
+        Warning = 2,
+        // /**
+        //  * Reports an information.
+        //  */
+        // export const Information: 3 = 3;
+        Information = 3,
+        // /**
+        //  * Reports a hint.
+        //  */
+        // export const Hint: 4 = 4;
+        Hint = 4,
+    };
+
+    struct Diagnostic
+    {
+        // /**
+        //  * The range at which the message applies.
+        //  */
+        //  range: Range;
+        Range range;
+
+        //  /**
+        //   * The diagnostic's severity. To avoid interpretation mismatches when a
+        //   * server is used with different clients it is highly recommended that
+        //   * servers always provide a severity value. If omitted, it’s recommended
+        //   * for the client to interpret it as an Error severity.
+        //   */
+        //  severity?: DiagnosticSeverity;
+        DiagnosticSeverity severity;
+
+        //  /**
+        //   * The diagnostic's code, which might appear in the user interface.
+        //   */
+        //  code?: integer | string;
+
+        //  /**
+        //   * An optional property to describe the error code.
+        //   *
+        //   * @since 3.16.0
+        //   */
+        //  codeDescription?: CodeDescription;
+
+        //  /**
+        //   * A human-readable string describing the source of this
+        //   * diagnostic, e.g. 'typescript' or 'super lint'.
+        //   */
+        //  source?: string;
+
+        //  /**
+        //   * The diagnostic's message.
+        //   */
+        //  message: string;
+        std::string message;
+
+        //  /**
+        //   * Additional metadata about the diagnostic.
+        //   *
+        //   * @since 3.15.0
+        //   */
+        //  tags?: DiagnosticTag[];
+
+        //  /**
+        //   * An array of related diagnostic information, e.g. when symbol-names within
+        //   * a scope collide all definitions can be marked via this property.
+        //   */
+        //  relatedInformation?: DiagnosticRelatedInformation[];
+
+        //  /**
+        //   * A data entry field that is preserved between a
+        //   * `textDocument/publishDiagnostics` notification and
+        //   * `textDocument/codeAction` request.
+        //   *
+        //   * @since 3.16.0
+        //   */
+        //  data?: LSPAny;
+    };
+
+    struct PublishDiagnosticParams
+    {
+        // /**
+        //  * The URI for which diagnostic information is reported.
+        //  */
+        // uri: DocumentUri;
+        DocumentUri uri;
+
+        // /**
+        //  * Optional the version number of the document the diagnostics are published
+        //  * for.
+        //  *
+        //  * @since 3.15.0
+        //  */
+        // version?: integer;
+        int version;
+
+        // /**
+        //  * An array of diagnostic information items.
+        //  */
+        // diagnostics: Diagnostic[];
+        std::vector<Diagnostic> diagnostics;
+    };
+#pragma endregion
+
 #pragma region Lifecycle
     inline constexpr const char* LSPMethod_Initialize  = "initialize";
     inline constexpr const char* LSPMethod_Initialized = "initialized";
