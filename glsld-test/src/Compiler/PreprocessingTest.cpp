@@ -6,6 +6,67 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 {
     SetTestTemplate("{}");
 
+    SECTION("Version")
+    {
+        const auto sourceText = R"(
+            #version 450 core
+        )";
+
+        struct TestPPCallback : public PPCallback
+        {
+            auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile)
+                -> void override
+            {
+                CHECK(version == GlslVersion::Ver450);
+                CHECK(profile == GlslProfile::Core);
+            }
+        };
+
+        TestPPCallback testCallback;
+        Compile(sourceText, CompileMode::PreprocessOnly, &testCallback);
+    }
+
+    SECTION("Extension")
+    {
+        const auto sourceText = R"(
+            #extension GL_EXT_ray_tracing : enable
+        )";
+
+        struct TestPPCallback : public PPCallback
+        {
+            auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension, ExtensionBehavior behavior)
+                -> void override
+            {
+                CHECK(extension == ExtensionId::GL_EXT_ray_tracing);
+                CHECK(behavior == ExtensionBehavior::Enable);
+            }
+        };
+
+        TestPPCallback testCallback;
+        Compile(sourceText, CompileMode::PreprocessOnly, &testCallback);
+    }
+
+    SECTION("Pragma")
+    {
+        const auto sourceText = R"(
+            #pragma some_pragma argument1 argument2
+        )";
+
+        struct TestPPCallback : public PPCallback
+        {
+            auto OnUnknownPragmaDirective(ArrayView<PPToken> argTokens) -> void override
+            {
+                CHECK(argTokens.size() == 3);
+                CHECK(argTokens[0].text.StrView() == "some_pragma");
+                CHECK(argTokens[1].text.StrView() == "argument1");
+                CHECK(argTokens[2].text.StrView() == "argument2");
+            }
+        };
+
+        TestPPCallback testCallback;
+        Compile(sourceText, CompileMode::PreprocessOnly, &testCallback);
+    }
+
     SECTION("Macro")
     {
         GLSLD_CHECK_TOKENS("#define MACRO test\nMACRO", IdTok("test"), EofTok());

@@ -4,6 +4,7 @@
 #include "Compiler/SyntaxToken.h"
 #include "Language/ShaderTarget.h"
 #include "Language/ConstValue.h"
+#include <string>
 
 namespace glsld
 {
@@ -149,7 +150,57 @@ namespace glsld
         GLSLD_ASSERT(witheldTokens.empty() && argLParenCounter == 0);
 
         if (token.klass == TokenKlass::Identifier) {
-            if (auto macroDefinition = pp.FindEnabledMacroDefinition(token.text); macroDefinition) {
+            if (token.text == pp.atomBuiltinLineMacro) {
+                // Handle __LINE__ builtin macro
+                const auto nextTokenId = pp.GetNextTokenId();
+                YieldToken(PPToken{
+                    .klass                = TokenKlass::IntegerConstant,
+                    .spelledFile          = token.spelledFile,
+                    .spelledRange         = TextRange{token.spelledRange.start},
+                    .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledRange.start.line + 1)),
+                    .isFirstTokenOfLine   = false,
+                    .hasLeadingWhitespace = false,
+                });
+
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(token, AstSyntaxRange{nextTokenId});
+                }
+            }
+            else if (token.text == pp.atomBuiltinFileMacro) {
+                // Handle __FILE__ builtin macro
+                // FIXME: Need clarification of what value to use here.
+                const auto nextTokenId = pp.GetNextTokenId();
+                YieldToken(PPToken{
+                    .klass                = TokenKlass::IntegerConstant,
+                    .spelledFile          = token.spelledFile,
+                    .spelledRange         = TextRange{token.spelledRange.start},
+                    .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledFile.GetValue())),
+                    .isFirstTokenOfLine   = false,
+                    .hasLeadingWhitespace = false,
+                });
+
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(token, AstSyntaxRange{nextTokenId});
+                }
+            }
+            else if (token.text == pp.atomBuiltinVersionMacro) {
+                // Handle __VERSION__ builtin macro
+                const auto nextTokenId = pp.GetNextTokenId();
+                YieldToken(PPToken{
+                    .klass        = TokenKlass::IntegerConstant,
+                    .spelledFile  = token.spelledFile,
+                    .spelledRange = TextRange{token.spelledRange.start},
+                    .text         = pp.atomTable.GetAtom(
+                        std::to_string(static_cast<uint32_t>(pp.compiler.GetLanguageConfig().version))),
+                    .isFirstTokenOfLine   = false,
+                    .hasLeadingWhitespace = false,
+                });
+
+                if (pp.callback) {
+                    pp.callback->OnMacroExpansion(token, AstSyntaxRange{nextTokenId});
+                }
+            }
+            else if (auto macroDefinition = pp.FindEnabledMacroDefinition(token.text); macroDefinition) {
                 if (macroDefinition->IsFunctionLike()) {
                     // Could be a function-like macro invocation. We withold the token for potential expansion.
                     witheldTokens.push_back(token);
@@ -472,14 +523,14 @@ namespace glsld
         else if (directiveToken.text == "error") {
             // FIXME: report error
         }
-        else if (directiveToken.text == "pragma") {
-            // Ignore pragma directives
-        }
         else if (directiveToken.text == "extension") {
             HandleExtensionDirective(scanner);
         }
         else if (directiveToken.text == "version") {
             HandleVersionDirective(scanner);
+        }
+        else if (directiveToken.text == "pragma") {
+            HandlePragmaDirective(scanner);
         }
         else if (directiveToken.text == "line") {
             HandleLineDirective(scanner);
@@ -979,6 +1030,27 @@ namespace glsld
         // TODO: validate the version number and profile
         if (callback) {
             callback->OnVersionDirective(versionTok.spelledFile, versionTok.spelledRange, *version, *profile);
+        }
+    }
+
+    auto PreprocessStateMachine::HandlePragmaDirective(PPTokenScanner& scanner) -> void
+    {
+        if (scanner.CursorAtEnd()) {
+            // FIXME: report warning, expected pragma arguments
+            return;
+        }
+
+        PPToken pragmaTok = scanner.ConsumeToken();
+        // FIXME: handle known pragmas
+
+        if (callback) {
+            std::vector<PPToken> pragmaArgs;
+            pragmaArgs.push_back(pragmaTok);
+            while (!scanner.CursorAtEnd()) {
+                pragmaArgs.push_back(scanner.ConsumeToken());
+            }
+
+            callback->OnUnknownPragmaDirective(pragmaArgs);
         }
     }
 
