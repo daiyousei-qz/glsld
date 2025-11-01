@@ -69,7 +69,10 @@ namespace glsld
             }
 
         public:
-            constexpr auto operator*() const -> E
+            using difference_type = std::ptrdiff_t;
+            using value_type      = E;
+
+            constexpr auto operator*() const -> value_type
             {
                 return GetEnumValues()[index];
             }
@@ -79,6 +82,11 @@ namespace glsld
                 ++index;
                 MoveToSetBit();
                 return *this;
+            }
+
+            constexpr auto operator++(int) -> void
+            {
+                ++*this;
             }
 
             constexpr auto operator==(EnumFlagSentinel) const -> bool
