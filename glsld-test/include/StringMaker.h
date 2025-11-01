@@ -3,6 +3,7 @@
 #include "Basic/SourceInfo.h"
 #include "Ast/Base.h"
 
+#include "Support/EnumReflection.h"
 #include "catch2/catch_tostring.hpp"
 
 namespace Catch
@@ -41,7 +42,7 @@ namespace Catch
     {
         static auto convert(const glsld::AstNodeTag& value) -> std::string
         {
-            return glsld::AstNodeTagToString(value).Str();
+            return glsld::EnumToString(value).Str();
         }
     };
 } // namespace Catch

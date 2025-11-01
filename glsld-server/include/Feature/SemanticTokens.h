@@ -2,6 +2,7 @@
 #include "Server/Config.h"
 #include "Server/LanguageQueryInfo.h"
 #include "Server/Protocol.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld::lsp
 {
@@ -26,30 +27,15 @@ namespace glsld
 
     enum class SemanticTokenModifier
     {
-        None        = 0,
-        Readonly    = 1 << 0,
-        Declaration = 1 << 1,
+        Readonly    = 0,
+        Declaration = 1,
     };
 
-    constexpr inline auto operator|(SemanticTokenModifier lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier
-    {
-        using EnumInt = std::underlying_type_t<SemanticTokenModifier>;
-        return static_cast<SemanticTokenModifier>(static_cast<EnumInt>(lhs) | static_cast<EnumInt>(rhs));
-    }
-    constexpr inline auto operator|=(SemanticTokenModifier& lhs, SemanticTokenModifier rhs) -> SemanticTokenModifier&
-    {
-        lhs = lhs | rhs;
-        return lhs;
-    }
+    using SemanticTokenModifierBits = EnumBitFlags<SemanticTokenModifier>;
 
     inline auto GetTokenTypeIndex(SemanticTokenType type) -> int
     {
         return static_cast<int>(type);
-    }
-
-    inline auto GetTokenModifierMask(SemanticTokenModifier modifier) -> int
-    {
-        return static_cast<int>(modifier);
     }
 
     struct SemanticTokenInfo
@@ -58,7 +44,7 @@ namespace glsld
         int character;
         int length;
         SemanticTokenType type;
-        SemanticTokenModifier modifier;
+        SemanticTokenModifierBits modifiers;
     };
 
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)

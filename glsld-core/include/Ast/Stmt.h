@@ -2,6 +2,7 @@
 #include "Basic/Common.h"
 #include "Ast/Base.h"
 #include "Language/Semantic.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld
 {
@@ -526,7 +527,7 @@ namespace glsld
         auto DoPrint(Printer& printer) const -> void
         {
             AstStmt::DoPrint(printer);
-            printer.PrintAttribute("JumpType", JumpTypeToString(jumpType));
+            printer.PrintAttribute("JumpType", EnumToString(jumpType));
         }
     };
 

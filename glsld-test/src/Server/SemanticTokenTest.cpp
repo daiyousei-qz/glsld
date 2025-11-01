@@ -13,8 +13,7 @@ static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticT
 TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 {
     auto checkSemanticToken = [&](ArrayView<SemanticTokenInfo> tokens, StringView labelBegin, StringView labelEnd,
-                                  SemanticTokenType type,
-                                  SemanticTokenModifier modifier = SemanticTokenModifier::None) {
+                                  SemanticTokenType type, SemanticTokenModifierBits modifiers = {}) {
         auto posBegin = GetLabelledPosition(labelBegin);
         auto posEnd   = GetLabelledPosition(labelEnd);
         auto it       = std::ranges::find_if(tokens, [=](const SemanticTokenInfo& token) {
@@ -23,7 +22,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         });
         REQUIRE(it != tokens.end());
         REQUIRE(it->type == type);
-        REQUIRE(it->modifier == modifier);
+        REQUIRE(it->modifiers == modifiers);
     };
 
     SECTION("Config")
