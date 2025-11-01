@@ -26,11 +26,7 @@ namespace glsld
                 break;
             }
 
-            if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                pp.FeedPPToken(token);
-            }
-
-            if (pp.InActiveRegion()) {
+            if (pp.InActiveRegion() || (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine)) {
                 pp.FeedPPToken(token);
             }
             else {

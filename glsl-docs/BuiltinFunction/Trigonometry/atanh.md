@@ -1,1 +1,0 @@
-Arc hyperbolic tangent; returns the inverse of tanh. Results are undefined if x ≥ 1.

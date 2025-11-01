@@ -1,1 +1,0 @@
-Arc tangent. Returns an angle whose tangent is y_over_x. The range of values returned by this function is [-π / 2, π / 2].

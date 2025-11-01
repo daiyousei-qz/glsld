@@ -1,9 +1,11 @@
-#include "Compiler/CompilerInvocationState.h"
 #include "Basic/AtomTable.h"
+#include "Compiler/CompilerInvocationState.h"
 #include "Compiler/AstContext.h"
 #include "Compiler/CompilerArtifacts.h"
 #include "Compiler/MacroTable.h"
 #include "Compiler/SymbolTable.h"
+#include "Language/Stdlib.Generated.h"
+
 #include <memory>
 
 namespace glsld
@@ -42,19 +44,15 @@ namespace glsld
 
         // Initialize system preamble
         if (!languageConfig.noStdlib) {
-            StringView systemPreamble =
-#include "Language/Stdlib.Generated.h"
-                ;
-            sourceManager.SetSystemPreamble(systemPreamble);
+            sourceManager.SetSystemPreamble(GlslStdlibText);
         }
 
         // Initialize feature macros
-        auto one                = atomTable->GetAtom("1");
-        auto defineFeatureMacro = [this, one](StringView name) {
+        auto defineFeatureMacro = [this, one = atomTable->GetAtom("1")](StringView name) {
             macroTable->DefineFeatureMacro(atomTable->GetAtom(name), one);
         };
 
-        macroTable->DefineFeatureMacro(atomTable->GetAtom("GL_core_profile"), one);
+        defineFeatureMacro("GL_core_profile");
 
         switch (languageConfig.version) {
         default:
@@ -129,5 +127,38 @@ namespace glsld
         defineFeatureMacro("__GLSLD_FEATURE_ENABLE_RAY_QUERY");
         defineFeatureMacro("__GLSLD_FEATURE_ENABLE_RAY_TRACING_EXT");
         defineFeatureMacro("__GLSLD_FEATURE_ENABLE_RAY_TRACING_NV");
+    }
+
+    auto CompilerInvocationState::TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
+    {
+        if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
+            if (id == TranslationUnitID::UserPreamble) {
+                Print("=====Tokens of User Preamble=====\n");
+            }
+            else if (id == TranslationUnitID::UserFile) {
+                Print("=====Tokens of User File=====\n");
+            }
+
+            for (const auto& token : tokens) {
+                const auto& expanedRange = token.expandedRange;
+                Print("[{}]'{}' @ ({},{}~{},{})\n", EnumToString(token.klass), token.text.StrView(),
+                      expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
+                      expanedRange.end.character);
+            }
+        }
+    }
+
+    auto CompilerInvocationState::TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
+    {
+        if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
+            if (id == TranslationUnitID::UserPreamble) {
+                Print("=====AST of User Preamble=====\n");
+            }
+            else if (id == TranslationUnitID::UserFile) {
+                Print("=====AST of User File=====\n");
+            }
+
+            Print("{}", ast->ToString());
+        }
     }
 } // namespace glsld

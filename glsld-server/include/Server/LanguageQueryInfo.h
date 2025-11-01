@@ -1,24 +1,15 @@
 #pragma once
+#include "Ast/Decl.h"
 #include "Ast/Expr.h"
 #include "Ast/Misc.h"
 #include "Basic/Common.h"
-#include "Compiler/CompilerInvocation.h"
+#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/CompilerResult.h"
 #include "Compiler/SyntaxToken.h"
 #include "Server/PreprocessSymbolStore.h"
 
 namespace glsld
 {
-    inline auto GetStdlibModule() -> const std::shared_ptr<PrecompiledPreamble>&
-    {
-        static std::shared_ptr<PrecompiledPreamble> stdlibPreamble = []() {
-            CompilerInvocation compiler;
-            return compiler.CompilePreamble(nullptr);
-        }();
-
-        return stdlibPreamble;
-    }
-
     enum class SymbolDeclType
     {
         // The symbol is a header name. e.g. `"header.h"` in `#include "header.h"`
@@ -94,7 +85,10 @@ namespace glsld
     private:
         friend class BackgroundCompilation;
 
-        std::unique_ptr<CompilerResult> compilerResult     = nullptr;
+        // The result of the compilation.
+        std::unique_ptr<CompilerResult> compilerResult = nullptr;
+
+        // The preprocessor info collected during the compilation.
         std::unique_ptr<PreprocessSymbolStore> ppInfoStore = nullptr;
 
     public:
@@ -116,6 +110,20 @@ namespace glsld
         auto GetPreprocessInfo() const -> const PreprocessSymbolStore&
         {
             return *ppInfoStore;
+        }
+
+        auto LookupArtifact(TranslationUnitID id) const -> const CompilerArtifact*
+        {
+            switch (id) {
+            case TranslationUnitID::SystemPreamble:
+                return &compilerResult->GetSystemPreambleArtifacts();
+            case TranslationUnitID::UserPreamble:
+                return &compilerResult->GetUserPreambleArtifacts();
+            case TranslationUnitID::UserFile:
+                return &compilerResult->GetUserFileArtifacts();
+            }
+
+            return nullptr;
         }
 
         // Returns the token entry of the specified token.
@@ -235,5 +243,8 @@ namespace glsld
         // TODO: Should we support query for non-identifier?
         // Returns the related information if the cursor position hits an identifier that's accessing a symbol.
         auto QuerySymbolByPosition(TextPosition position) const -> std::optional<SymbolQueryResult>;
+
+        // Returns the comment description associated with the declaration.
+        auto QueryCommentDescription(const AstDecl& decl) const -> std::string;
     };
 } // namespace glsld

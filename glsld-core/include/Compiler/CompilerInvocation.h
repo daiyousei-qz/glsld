@@ -126,6 +126,13 @@ namespace glsld
             }
         }
 
+        auto ApplyLanguageConfig(const LanguageConfig& config) -> void
+        {
+            if (!preamble) {
+                languageConfig = config;
+            }
+        }
+
         // User should ensure that the preamble text outlive the CompilerInvocation
         auto SetUserPreamble(StringView content) -> void
         {

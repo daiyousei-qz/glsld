@@ -1,1 +1,0 @@
-Arc hyperbolic sine; returns the inverse of sinh.

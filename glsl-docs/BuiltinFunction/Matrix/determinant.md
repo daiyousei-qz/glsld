@@ -1,1 +1,0 @@
-Returns the determinant of m.

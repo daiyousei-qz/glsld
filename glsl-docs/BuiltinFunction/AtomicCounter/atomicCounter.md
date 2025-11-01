@@ -1,1 +1,0 @@
-Returns the counter value for c.

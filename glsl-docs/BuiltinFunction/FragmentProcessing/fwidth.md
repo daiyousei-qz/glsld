@@ -1,1 +1,0 @@
-Returns abs(dFdx(p)) + abs(dFdy(p)).

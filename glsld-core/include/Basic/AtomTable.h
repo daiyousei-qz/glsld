@@ -52,23 +52,6 @@ namespace glsld
         }
     };
 
-    inline auto operator==(const AtomString& lhs, const char* rhs) noexcept -> bool
-    {
-        return lhs.Equals(rhs);
-    }
-    inline auto operator==(const char* lhs, const AtomString& rhs) noexcept -> bool
-    {
-        return rhs.Equals(lhs);
-    }
-    inline auto operator==(const AtomString& lhs, StringView rhs) noexcept -> bool
-    {
-        return lhs.Equals(rhs);
-    }
-    inline auto operator==(StringView lhs, const AtomString& rhs) noexcept -> bool
-    {
-        return rhs.Equals(lhs);
-    }
-
     // NOTE this is only valid if both args are registered in the same AtomTable, either directly or indirectly.
     // Otherwise, the comparison always returns false even if the two strings are equal.
     inline auto operator==(const AtomString& lhs, const AtomString& rhs) noexcept -> bool

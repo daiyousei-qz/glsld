@@ -1,1 +1,0 @@
-Perform a texture gather operation as in textureGather by offset as described in textureOffset except that the offset can be variable (non constant) and the implementation-dependent minimum and maximum offset values are given by MIN_PROGRAM_TEXTURE_GATHER_OFFSET and MAX_PROGRAM_TEXTURE_GATHER_OFFSET, respectively.

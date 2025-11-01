@@ -1,1 +1,0 @@
-Returns the number of samples of the texture or textures bound to sampler.

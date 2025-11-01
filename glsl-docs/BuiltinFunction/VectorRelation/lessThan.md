@@ -1,1 +1,0 @@
-Returns the component-wise compare of x < y.

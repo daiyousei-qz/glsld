@@ -57,38 +57,8 @@ namespace glsld
         auto Initialize() -> void;
         auto InitializeStdlib() -> void;
 
-        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
-        {
-            if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
-                if (id == TranslationUnitID::UserPreamble) {
-                    Print("=====Tokens of User Preamble=====\n");
-                }
-                else if (id == TranslationUnitID::UserFile) {
-                    Print("=====Tokens of User File=====\n");
-                }
-
-                for (const auto& token : tokens) {
-                    const auto& expanedRange = token.expandedRange;
-                    Print("[{}]'{}' @ ({},{}~{},{})\n", EnumToString(token.klass), token.text.StrView(),
-                          expanedRange.start.line, expanedRange.start.character, expanedRange.end.line,
-                          expanedRange.end.character);
-                }
-            }
-        }
-
-        auto TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
-        {
-            if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
-                if (id == TranslationUnitID::UserPreamble) {
-                    Print("=====AST of User Preamble=====\n");
-                }
-                else if (id == TranslationUnitID::UserFile) {
-                    Print("=====AST of User File=====\n");
-                }
-
-                Print("{}", ast->ToString());
-            }
-        }
+        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void;
+        auto TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void;
 
     public:
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
@@ -99,6 +69,7 @@ namespace glsld
             GLSLD_ASSERT(this->preamble != nullptr);
             Initialize();
             // stdlib imported from preamble if any.
+            // FIXME: import macros from preamble
         }
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
                                 LanguageConfig languageConfig)

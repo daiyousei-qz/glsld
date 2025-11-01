@@ -1,1 +1,0 @@
-Returns true if and only if value is true for at least one active invocation in the group.

@@ -1,1 +1,0 @@
-Do a projective texture lookup with explicit level-of-detail. See textureProj and textureLod.

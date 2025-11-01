@@ -1,1 +1,0 @@
-Returns the hyperbolic cosine function (e^x + e^-x) / 2.

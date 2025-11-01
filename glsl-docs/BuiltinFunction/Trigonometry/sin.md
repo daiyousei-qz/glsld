@@ -1,1 +1,0 @@
-The standard trigonometric sine function.

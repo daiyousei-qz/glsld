@@ -28,9 +28,6 @@ namespace glsld
         // The description of the hovered symbol, typically parsed from nearby comments or documentation.
         std::string description;
 
-        // The built-in documentation of the hovered symbol.
-        std::string documentation;
-
         // The reconstructed source code of the hovered symbol.
         std::string code;
 
@@ -39,6 +36,9 @@ namespace glsld
 
         // We can't resolve the AST node that declares the symbol.
         bool unknown = false;
+
+        // Whether the symbol is defined in the system preamble
+        bool builtin = false;
     };
 
     auto ComputeHoverText(const HoverContent& hover) -> std::string;

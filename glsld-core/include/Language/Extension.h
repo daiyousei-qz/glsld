@@ -50,9 +50,17 @@ namespace glsld
     class ExtensionStatus
     {
     private:
-#define DECL_EXTENSION(EXTENSION_NAME) bool EXTENSION_NAME##_enable : 1 = false;
+        union
+        {
+            struct
+            {
+#define DECL_EXTENSION(EXTENSION_NAME) bool EXTENSION_NAME##_enable : 1;
 #include "GlslExtension.inc"
 #undef DECL_EXTENSION
+            };
+
+            uint32_t bitfields = 0;
+        };
 
     public:
         ExtensionStatus() = default;
@@ -89,6 +97,16 @@ namespace glsld
             }
 
             GLSLD_UNREACHABLE();
+        }
+
+        auto GetHashCode() const noexcept -> size_t
+        {
+            return std::hash<uint32_t>()(bitfields);
+        }
+
+        auto operator==(const ExtensionStatus& other) const noexcept -> bool
+        {
+            return bitfields == other.bitfields;
         }
     };
 } // namespace glsld

@@ -1,1 +1,0 @@
-Returns true if x holds a NaN. Returns false otherwise. Always returns false if NaNs are not implemented.

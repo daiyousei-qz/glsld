@@ -1,1 +1,0 @@
-Control the ordering of accesses to atomic-counter variables issued by a single shader invocation.

@@ -1,2 +1,0 @@
-Emits the current values of output variables to the current output primitive on stream stream. The argument to stream must be a constant integral expression. On return from this call, the values of all output variables are undefined.
-Can only be used if multiple output streams are supported.

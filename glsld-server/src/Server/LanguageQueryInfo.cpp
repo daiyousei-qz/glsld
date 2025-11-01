@@ -1,24 +1,13 @@
 #include "Server/LanguageQueryInfo.h"
+#include "Compiler/CompilerArtifacts.h"
+#include "Compiler/SyntaxToken.h"
 #include "Server/LanguageQueryVisitor.h"
 
 namespace glsld
 {
     auto LanguageQueryInfo::LookupToken(SyntaxTokenID id) const -> const RawSyntaxToken*
     {
-        const CompilerArtifact* artifacts = nullptr;
-        switch (id.GetTU()) {
-        case TranslationUnitID::SystemPreamble:
-            artifacts = &compilerResult->GetSystemPreambleArtifacts();
-            break;
-        case TranslationUnitID::UserPreamble:
-            artifacts = &compilerResult->GetUserPreambleArtifacts();
-            break;
-        case TranslationUnitID::UserFile:
-            artifacts = &compilerResult->GetUserFileArtifacts();
-            break;
-        }
-
-        return &artifacts->GetTokens()[id.GetTokenIndex()];
+        return &LookupArtifact(id.GetTU())->GetTokens()[id.GetTokenIndex()];
     }
     auto LanguageQueryInfo::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxToken>
     {
@@ -56,11 +45,7 @@ namespace glsld
     }
     auto LanguageQueryInfo::LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentToken>
     {
-        if (id.GetTU() != TranslationUnitID::UserFile) {
-            return {};
-        }
-
-        auto comments         = compilerResult->GetUserFileArtifacts().GetComments();
+        auto comments         = LookupArtifact(id.GetTU())->GetComments();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             comments, id.GetTokenIndex(), {}, [](const RawCommentToken& token) { return token.nextTokenIndex; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
@@ -337,5 +322,48 @@ namespace glsld
 
         // Then, we traverse the AST to search for the identifier that the cursor is on, if any.
         return SymbolQueryVisitor{*this, position}.Execute();
+    }
+
+    auto LanguageQueryInfo::QueryCommentDescription(const AstDecl& decl) const -> std::string
+    {
+        auto declRange          = LookupExpandedTextRange(decl.GetSyntaxRange());
+        auto preceedingComments = LookupPreceedingComment(decl.GetSyntaxRange().GetBeginID());
+        auto trailingComments   = LookupPreceedingComment(decl.GetSyntaxRange().GetEndID());
+
+        auto unwrapComment = [](const RawCommentToken& token) -> StringView {
+            auto commentText = token.text.StrView();
+            if (commentText.StartWith("//")) {
+                return commentText.Drop(2).Trim();
+            }
+            else if (commentText.StartWith("/*")) {
+                return commentText.Drop(2).DropBack(2);
+            }
+            return commentText;
+        };
+
+        // Case 1: Trailing comment in the same line
+        // e.g. `int a; // comment`
+        if (trailingComments.size() == 1 && declRange.GetNumLines() == 1 &&
+            trailingComments.front().spelledRange.end.line == declRange.start.line) {
+            return unwrapComment(trailingComments.front()).Str();
+        }
+
+        // Case 2: Preceeding comments in the previous lines
+        // e.g. ```
+        //      // comment
+        //      int a;
+        //      ```
+        if (!preceedingComments.empty()) {
+            // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
+            std::string result;
+            for (const auto& token : preceedingComments) {
+                result += unwrapComment(token);
+                result += "\n";
+            }
+
+            return result;
+        }
+
+        return "";
     }
 } // namespace glsld

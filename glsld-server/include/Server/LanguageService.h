@@ -1,88 +1,13 @@
 #pragma once
+#include "Basic/StringView.h"
+#include "Language/ShaderTarget.h"
+#include "Server/BackgroundCompilation.h"
 #include "Server/Protocol.h"
 #include "Server/LanguageServer.h"
 #include "Server/LanguageQueryInfo.h"
-#include "Support/Uri.h"
-
-#include <mutex>
-#include <condition_variable>
 
 namespace glsld
 {
-    class BackgroundCompilation
-    {
-    private:
-        // Document version
-        int version;
-        std::string uri;
-        std::string sourceString;
-
-        std::unique_ptr<CompilerInvocation> compiler = nullptr;
-        std::unique_ptr<LanguageQueryInfo> info      = nullptr;
-
-        std::atomic<bool> available = false;
-        std::mutex mu;
-        std::condition_variable cv;
-
-    public:
-        BackgroundCompilation(int version, std::string uri, std::string sourceString)
-            : version(version), uri(std::move(uri)), sourceString(std::move(sourceString))
-        {
-        }
-
-        auto Setup()
-        {
-            auto ppInfoStore = std::make_unique<PreprocessSymbolStore>();
-            auto ppCallback  = ppInfoStore->GetCollectionCallback();
-
-            compiler = std::make_unique<CompilerInvocation>(GetStdlibModule());
-            compiler->SetCountUtf16Characters(true);
-            compiler->AddIncludePath(std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
-            compiler->SetMainFileFromBuffer(sourceString);
-            auto result = compiler->CompileMainFile(ppCallback.get());
-
-            info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
-
-            std::unique_lock<std::mutex> lock{mu};
-            available = true;
-            cv.notify_all();
-        }
-
-        auto WaitAvailable() -> bool
-        {
-            using namespace std::literals;
-            std::unique_lock<std::mutex> lock{mu};
-            if (available || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
-                return available;
-            }
-
-            return false;
-        }
-
-        auto StealBuffer() -> std::string
-        {
-            std::unique_lock<std::mutex> lock{mu};
-            if (available) {
-                // After compilation finishes, the sourceString buffer is no longer needed
-                return std::move(sourceString);
-            }
-            else {
-                return sourceString;
-            }
-        }
-
-        auto GetBuffer() const -> StringView
-        {
-            return sourceString;
-        }
-
-        auto GetProvider() -> const LanguageQueryInfo&
-        {
-            GLSLD_ASSERT(available);
-            return *info;
-        }
-    };
-
     class LanguageService
     {
     private:
@@ -91,10 +16,18 @@ namespace glsld
         // uri -> provider
         std::map<std::string, std::shared_ptr<BackgroundCompilation>> providerLookup;
 
+        // FIXME: we should allow a preamble to expire if no one is using it
+        std::unordered_map<LanguageConfig, std::shared_ptr<LanguagePreambleInfo>> preambleInfoCache;
+
         // Schedule a language query for the given uri in a background thread, which waits for the compilation and then
         // runs the callback.
-        auto ScheduleLanguageQuery(const std::string& uri, std::function<auto(const LanguageQueryInfo&)->void> callback)
-            -> void;
+        auto ScheduleLanguageQuery(
+            const std::string& uri,
+            std::function<auto(const LanguagePreambleInfo&, const LanguageQueryInfo&)->void> callback) -> void;
+
+        auto InferShaderStageFromUri(StringView uri) -> GlslShaderStage;
+
+        auto GetLanguageQueryPreambleInfo(const LanguageConfig& config) -> std::shared_ptr<LanguagePreambleInfo>;
 
     public:
         LanguageService(LanguageServer& server) : server(server)

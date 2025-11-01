@@ -1,1 +1,0 @@
-Returns the hyperbolic tangent function sinh(x) / cosh(x).

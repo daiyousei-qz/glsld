@@ -1,1 +1,0 @@
-Returns true only if all components of x are true.

@@ -1,1 +1,0 @@
-Returns a value equal to the nearest integer that is greater than or equal to x.

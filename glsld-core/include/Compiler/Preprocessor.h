@@ -248,12 +248,55 @@ namespace glsld
         // This buffer stores the tokens following the PP directive.
         std::vector<PPToken> directiveArgBuffer = {};
 
-        // This stack stores all information about the conditional directives.
+        // This stack stores all information about the effective conditional directives.
         std::vector<PPConditionalInfo> conditionalStack = {};
 
-        AtomString atomBuiltinLineMacro    = {};
-        AtomString atomBuiltinFileMacro    = {};
-        AtomString atomBuiltinVersionMacro = {};
+        // This tracks the number of parsed #if/#ifdef/#ifndef directives in inactive regions.
+        // We need ignore their pairing #else/#elif/#endif directives.
+        size_t skippedInactiveConditionalCount = 0;
+
+        AtomString atomDirectiveInclude   = {};
+        AtomString atomDirectiveDefine    = {};
+        AtomString atomDirectiveUndef     = {};
+        AtomString atomDirectiveIf        = {};
+        AtomString atomDirectiveIfdef     = {};
+        AtomString atomDirectiveIfndef    = {};
+        AtomString atomDirectiveElse      = {};
+        AtomString atomDirectiveElif      = {};
+        AtomString atomDirectiveEndif     = {};
+        AtomString atomDirectiveError     = {};
+        AtomString atomDirectiveExtension = {};
+        AtomString atomDirectiveVersion   = {};
+        AtomString atomDirectivePragma    = {};
+        AtomString atomDirectiveLine      = {};
+
+        AtomString atomBuiltinLineMacro     = {};
+        AtomString atomBuiltinFileMacro     = {};
+        AtomString atomBuiltinVersionMacro  = {};
+        AtomString atomMacroOperatorDefined = {};
+
+        AtomString atomExtensionBehaviorEnable  = {};
+        AtomString atomExtensionBehaviorRequire = {};
+        AtomString atomExtensionBehaviorWarn    = {};
+        AtomString atomExtensionBehaviorDisable = {};
+
+        AtomString atomGlslVersion110 = {};
+        AtomString atomGlslVersion120 = {};
+        AtomString atomGlslVersion130 = {};
+        AtomString atomGlslVersion140 = {};
+        AtomString atomGlslVersion150 = {};
+        AtomString atomGlslVersion330 = {};
+        AtomString atomGlslVersion400 = {};
+        AtomString atomGlslVersion410 = {};
+        AtomString atomGlslVersion420 = {};
+        AtomString atomGlslVersion430 = {};
+        AtomString atomGlslVersion440 = {};
+        AtomString atomGlslVersion450 = {};
+        AtomString atomGlslVersion460 = {};
+
+        AtomString atomGlslProfileCore          = {};
+        AtomString atomGlslProfileCompatibility = {};
+        AtomString atomGlslProfileEs            = {};
 
     public:
         PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, TranslationUnitID tuId,
@@ -264,9 +307,48 @@ namespace glsld
               outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
         {
-            atomBuiltinLineMacro    = atomTable.GetAtom("__LINE__");
-            atomBuiltinFileMacro    = atomTable.GetAtom("__FILE__");
-            atomBuiltinVersionMacro = atomTable.GetAtom("__VERSION__");
+            atomDirectiveInclude   = atomTable.GetAtom("include");
+            atomDirectiveDefine    = atomTable.GetAtom("define");
+            atomDirectiveUndef     = atomTable.GetAtom("undef");
+            atomDirectiveIf        = atomTable.GetAtom("if");
+            atomDirectiveIfdef     = atomTable.GetAtom("ifdef");
+            atomDirectiveIfndef    = atomTable.GetAtom("ifndef");
+            atomDirectiveElse      = atomTable.GetAtom("else");
+            atomDirectiveElif      = atomTable.GetAtom("elif");
+            atomDirectiveEndif     = atomTable.GetAtom("endif");
+            atomDirectiveError     = atomTable.GetAtom("error");
+            atomDirectiveExtension = atomTable.GetAtom("extension");
+            atomDirectiveVersion   = atomTable.GetAtom("version");
+            atomDirectivePragma    = atomTable.GetAtom("pragma");
+            atomDirectiveLine      = atomTable.GetAtom("line");
+
+            atomBuiltinLineMacro     = atomTable.GetAtom("__LINE__");
+            atomBuiltinFileMacro     = atomTable.GetAtom("__FILE__");
+            atomBuiltinVersionMacro  = atomTable.GetAtom("__VERSION__");
+            atomMacroOperatorDefined = atomTable.GetAtom("defined");
+
+            atomExtensionBehaviorEnable  = atomTable.GetAtom("enable");
+            atomExtensionBehaviorRequire = atomTable.GetAtom("require");
+            atomExtensionBehaviorWarn    = atomTable.GetAtom("warn");
+            atomExtensionBehaviorDisable = atomTable.GetAtom("disable");
+
+            atomGlslVersion110 = atomTable.GetAtom("110");
+            atomGlslVersion120 = atomTable.GetAtom("120");
+            atomGlslVersion130 = atomTable.GetAtom("130");
+            atomGlslVersion140 = atomTable.GetAtom("140");
+            atomGlslVersion150 = atomTable.GetAtom("150");
+            atomGlslVersion330 = atomTable.GetAtom("330");
+            atomGlslVersion400 = atomTable.GetAtom("400");
+            atomGlslVersion410 = atomTable.GetAtom("410");
+            atomGlslVersion420 = atomTable.GetAtom("420");
+            atomGlslVersion430 = atomTable.GetAtom("430");
+            atomGlslVersion440 = atomTable.GetAtom("440");
+            atomGlslVersion450 = atomTable.GetAtom("450");
+            atomGlslVersion460 = atomTable.GetAtom("460");
+
+            atomGlslProfileCore          = atomTable.GetAtom("core");
+            atomGlslProfileCompatibility = atomTable.GetAtom("compatibility");
+            atomGlslProfileEs            = atomTable.GetAtom("es");
         }
 
         auto GetState() const noexcept -> PreprocessorState
@@ -400,6 +482,10 @@ namespace glsld
         auto AcceptOnInactiveState(const PPToken& token) -> void;
         auto AcceptOnExpectDirectiveState(const PPToken& token) -> void;
         auto AcceptOnExpectDirectiveTailState(const PPToken& token) -> void;
+
+        auto ParseExtensionBehavior(const PPToken& toggle) -> std::optional<ExtensionBehavior>;
+        auto ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>;
+        auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>;
 
         auto HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void;
         auto HandleIncludeDirective(PPTokenScanner& scanner) -> void;

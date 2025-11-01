@@ -1,1 +1,0 @@
-Converts radians to degrees, i.e., (180 / π) · radians.

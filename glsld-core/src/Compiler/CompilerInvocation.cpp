@@ -1,4 +1,5 @@
 #include "Basic/Common.h"
+#include "Basic/ScopeExit.h"
 #include "Basic/SimpleTimer.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/CompilerInvocationState.h"
@@ -36,11 +37,11 @@ namespace glsld
             return;
         }
 
-        SimpleTimer timer([this](SimpleTimer& timer) {
+        ScopeExit _{[this, timer = SimpleTimer{}] {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.totalCompileTime += elapsedTime;
             statistics.versionScanning += elapsedTime;
-        });
+        }};
 
         CompilerInvocationState compiler{sourceManager, compilerConfig, languageConfig};
         Preprocessor{compiler, mainFileId, ppCallback, true}.DoPreprocess();
@@ -50,10 +51,10 @@ namespace glsld
     {
         GLSLD_REQUIRE(!preamble);
 
-        SimpleTimer timer([this](SimpleTimer& timer) {
+        ScopeExit _{[this, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.totalCompileTime += elapsedTime;
-        });
+        }};
 
         auto compiler = InitializeCompilation();
 
@@ -78,10 +79,10 @@ namespace glsld
             return nullptr;
         }
 
-        SimpleTimer timer([this](SimpleTimer& timer) {
+        ScopeExit _{[this, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.totalCompileTime += elapsedTime;
-        });
+        }};
 
         auto compiler = InitializeCompilation();
 
@@ -118,7 +119,7 @@ namespace glsld
     {
         GLSLD_REQUIRE(file.IsValid());
 
-        SimpleTimer timer([this, file](SimpleTimer& timer) {
+        ScopeExit _{[this, file, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             if (file.IsPreamble()) {
                 statistics.preambleLexing += elapsedTime;
@@ -126,16 +127,16 @@ namespace glsld
             else {
                 statistics.mainFileLexing += elapsedTime;
             }
-        });
+        }};
 
         Preprocessor{compiler, file, callback, false}.DoPreprocess();
     }
     auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void
     {
-        SimpleTimer timer([this](SimpleTimer& timer) {
+        ScopeExit _{[this, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.mainFileParsing += elapsedTime;
-        });
+        }};
 
         Parser{compiler, id, compiler.GetArtifact(id)->GetTokens()}.DoParse();
     }

@@ -1,4 +1,6 @@
-#include "Server/LanguageService.h"
+#include "Basic/SimpleTimer.h"
+#include "Compiler/CompilerConfig.h"
+#include "Compiler/CompilerInvocation.h"
 #include "Feature/Completion.h"
 #include "Feature/Definition.h"
 #include "Feature/DocumentSymbol.h"
@@ -8,22 +10,89 @@
 #include "Feature/Reference.h"
 #include "Feature/SemanticTokens.h"
 #include "Feature/SignatureHelp.h"
+#include "Server/LanguageService.h"
+#include "Server/LanguageQueryInfo.h"
 #include "Support/SourceText.h"
+#include "Support/Uri.h"
 
 namespace glsld
 {
-    auto LanguageService::ScheduleLanguageQuery(const std::string& uri,
-                                                std::function<auto(const LanguageQueryInfo&)->void> callback) -> void
+    LanguagePreambleInfo::LanguagePreambleInfo()
+    {
+    }
+
+    LanguagePreambleInfo::LanguagePreambleInfo(std::shared_ptr<PrecompiledPreamble> preamble)
+        : preamble(std::move(preamble))
+    {
+        completionData    = ComputeCompletionPreambleInfo(*GetPreamble());
+        signatureHelpData = ComputeSignatureHelpPreambleInfo(*GetPreamble());
+    }
+
+    LanguagePreambleInfo::~LanguagePreambleInfo()
+    {
+    }
+
+    auto LanguageService::ScheduleLanguageQuery(
+        const std::string& uri,
+        std::function<auto(const LanguagePreambleInfo&, const LanguageQueryInfo&)->void> callback) -> void
     {
         // NOTE we need to make a copy of the provider here so it doesn't get released while in analysis
-        auto provider = providerLookup[uri];
-        if (provider != nullptr) {
-            server.ScheduleBackgroundTask([this, provider = std::move(provider), callback = std::move(callback)] {
-                if (provider->WaitAvailable()) {
-                    callback(provider->GetProvider());
+        auto backgroundCompilation = providerLookup[uri];
+        if (backgroundCompilation != nullptr) {
+            server.ScheduleBackgroundTask([backgroundCompilation = std::move(backgroundCompilation),
+                                           callback              = std::move(callback)] {
+                if (backgroundCompilation->WaitAvailable()) {
+                    callback(backgroundCompilation->GetPreambleInfo(), backgroundCompilation->GetLanguageQueryInfo());
                 }
             });
         }
+    }
+
+    auto LanguageService::InferShaderStageFromUri(StringView uri) -> GlslShaderStage
+    {
+        constexpr auto cases = std::to_array<std::pair<StringView, GlslShaderStage>>({
+            {".vert", GlslShaderStage::Vertex},
+            {".vs", GlslShaderStage::Vertex},
+            {".frag", GlslShaderStage::Fragment},
+            {".fs", GlslShaderStage::Fragment},
+            {".geom", GlslShaderStage::Geometry},
+            {".gs", GlslShaderStage::Geometry},
+            {".tesc", GlslShaderStage::TessControl},
+            {".tese", GlslShaderStage::TessEvaluation},
+            {".comp", GlslShaderStage::Compute},
+            {".cs", GlslShaderStage::Compute},
+            {".rgen", GlslShaderStage::RayGeneration},
+            {".rint", GlslShaderStage::RayIntersection},
+            {".rahit", GlslShaderStage::RayAnyHit},
+            {".rchit", GlslShaderStage::RayClosestHit},
+            {".rmiss", GlslShaderStage::RayMiss},
+            {".rcall", GlslShaderStage::RayCallable},
+            {".task", GlslShaderStage::Task},
+            {".mesh", GlslShaderStage::Mesh},
+        });
+
+        for (const auto& [ext, stage] : cases) {
+            if (uri.EndWith(ext)) {
+                return stage;
+            }
+        }
+
+        return GlslShaderStage::Unknown;
+    }
+
+    auto LanguageService::GetLanguageQueryPreambleInfo(const LanguageConfig& config)
+        -> std::shared_ptr<LanguagePreambleInfo>
+    {
+        if (auto it = preambleInfoCache.find(config); it != preambleInfoCache.end()) {
+            return it->second;
+        }
+
+        // FIXME: this compilation could happen in a background thread
+        CompilerInvocation invocation;
+        invocation.ApplyLanguageConfig(config);
+        auto preambleInfo         = std::make_shared<LanguagePreambleInfo>(invocation.CompilePreamble(nullptr));
+        preambleInfoCache[config] = preambleInfo;
+        return preambleInfo;
     }
 
     auto LanguageService::Initialize(int requestId, lsp::InitializeParams params) -> void
@@ -62,30 +131,36 @@ namespace glsld
 
     auto LanguageService::DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
     {
-        auto& providerEntry = providerLookup[params.textDocument.uri];
-        if (providerEntry) {
-            // Bad request
+        auto& backgroundCompilation = providerLookup[params.textDocument.uri];
+        if (backgroundCompilation) {
+            // Bad request. Document is already open.
             return;
         }
 
-        providerEntry = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text));
+        backgroundCompilation = std::make_shared<BackgroundCompilation>(
+            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text),
+            GetLanguageQueryPreambleInfo({.stage = InferShaderStageFromUri(params.textDocument.uri)}));
 
-        server.ScheduleBackgroundTask([provider = providerEntry]() { provider->Setup(); });
-        server.LogInfo("Opened document: {}", params.textDocument.uri);
-        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
+        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation]() {
+            SimpleTimer timer;
+            backgroundCompilation->Setup();
+            server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
+                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+        });
+        server.LogInfo("Opened document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
+        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
     auto LanguageService::DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
     {
-        auto& providerEntry = providerLookup[params.textDocument.uri];
-        if (!providerEntry) {
-            // Bad request
+        auto& backgroundCompilation = providerLookup[params.textDocument.uri];
+        if (!backgroundCompilation) {
+            // Bad request. Document is not open.
             return;
         }
 
         // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
         // compilation
-        auto sourceBuffer = providerEntry->StealBuffer();
+        auto sourceBuffer = backgroundCompilation->StealBuffer();
         for (const auto& change : params.contentChanges) {
             if (change.range) {
                 ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
@@ -94,12 +169,18 @@ namespace glsld
                 sourceBuffer = std::move(change.text);
             }
         }
-        providerEntry = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer));
+        backgroundCompilation = std::make_shared<BackgroundCompilation>(
+            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer),
+            GetLanguageQueryPreambleInfo(backgroundCompilation->GetNextLanguageConfig()));
 
-        server.ScheduleBackgroundTask([provider = providerEntry]() { provider->Setup(); });
-        server.LogInfo("Edited document: {}", params.textDocument.uri);
-        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, providerEntry->GetBuffer());
+        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation]() {
+            SimpleTimer timer;
+            backgroundCompilation->Setup();
+            server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
+                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+        });
+        server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
+        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
     auto LanguageService::DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
     {
@@ -115,10 +196,13 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "documentSymbol", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
-            auto result = HandleDocumentSymbol(server.GetConfig().languageService.documentSymbol, info, params);
+        ScheduleLanguageQuery(uri, [&server = this->server, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
+            auto result = HandleDocumentSymbol(server.GetConfig().languageService.documentSymbol, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "documentSymbol");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "documentSymbol",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -126,11 +210,14 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
             lsp::SemanticTokens result =
-                HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, info, params);
+                HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "semanticTokensFull");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -138,11 +225,14 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "completion", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
-            std::vector<lsp::CompletionItem> result =
-                HandleCompletion(server.GetConfig().languageService.completion, info, params);
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
+            std::vector<lsp::CompletionItem> result = HandleCompletion(
+                server.GetConfig().languageService.completion, preambleInfo.GetCompletionInfo(), queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "completion");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "completion",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -150,11 +240,15 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "signatureHelp", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
             std::optional<lsp::SignatureHelp> result =
-                HandleSignatureHelp(server.GetConfig().languageService.signatureHelp, info, params);
+                HandleSignatureHelp(server.GetConfig().languageService.signatureHelp,
+                                    preambleInfo.GetSignatureHelpInfo(), queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "signatureHelp");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "signatureHelp",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -162,10 +256,13 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "hover", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
-            std::optional<lsp::Hover> result = HandleHover(server.GetConfig().languageService.hover, info, params);
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
+            std::optional<lsp::Hover> result = HandleHover(server.GetConfig().languageService.hover, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "hover");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "hover",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -173,11 +270,14 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "definition", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
             std::vector<lsp::Location> result =
-                HandleDefinition(server.GetConfig().languageService.definition, info, params);
+                HandleDefinition(server.GetConfig().languageService.definition, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "definition");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "definition",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -185,11 +285,14 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "references", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
             std::vector<lsp::Location> result =
-                HandleReferences(server.GetConfig().languageService.reference, info, params);
+                HandleReferences(server.GetConfig().languageService.reference, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "references");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "references",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
@@ -197,11 +300,14 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "inlayHint", uri);
-        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& info) {
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
             std::vector<lsp::InlayHint> result =
-                HandleInlayHints(server.GetConfig().languageService.inlayHint, info, params);
+                HandleInlayHints(server.GetConfig().languageService.inlayHint, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}", requestId, "inlayHint");
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "inlayHint",
+                           timer.GetElapsedMilliseconds());
         });
     }
 
