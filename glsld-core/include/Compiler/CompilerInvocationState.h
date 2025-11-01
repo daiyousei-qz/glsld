@@ -11,7 +11,7 @@
 #include "Compiler/MacroTable.h"
 #include "Compiler/SourceManager.h"
 #include "Compiler/SymbolTable.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 #include <memory>
 

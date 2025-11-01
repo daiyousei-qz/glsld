@@ -1,6 +1,6 @@
 #include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 #include "LexerBuilder.h"
 

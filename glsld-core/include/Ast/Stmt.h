@@ -2,7 +2,7 @@
 #include "Basic/Common.h"
 #include "Ast/Base.h"
 #include "Language/Semantic.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld
 {

@@ -1,16 +1,16 @@
 #pragma once
+#include "Basic/Common.h"
 #include "Basic/StringView.h"
 
 #include <magic_enum/magic_enum.hpp>
 
-#include <algorithm>
 #include <type_traits>
 
 namespace glsld
 {
     template <typename E>
         requires std::is_enum_v<E>
-    auto EnumToString(E value) -> StringView
+    inline auto EnumToString(E value) -> StringView
     {
         return magic_enum::enum_name(value);
     }
@@ -38,6 +38,55 @@ namespace glsld
         static_assert(ValidateEnum(),
                       "All enum values of E must be non-negative and not exceeding the number of bits in T.");
 
+        static constexpr auto GetEnumValues() -> ArrayView<E, magic_enum::enum_count<E>()>
+        {
+            constexpr static auto values = magic_enum::enum_values<E>();
+            return values;
+        }
+
+        class EnumFlagSentinel
+        {
+        };
+
+        class EnumFlagIterator
+        {
+        private:
+            EnumBitFlags<E, T> bits;
+            size_t index;
+
+            friend class EnumBitFlags<E, T>;
+
+            // Moves the iterator to the next set bit if the current bit is not set
+            constexpr auto MoveToSetBit() -> void
+            {
+                while (index < GetEnumValues().size() && !bits.TestBit(GetEnumValues()[index])) {
+                    ++index;
+                }
+            }
+
+            constexpr EnumFlagIterator(EnumBitFlags<E, T> bits, size_t index) : bits(bits), index(index)
+            {
+            }
+
+        public:
+            constexpr auto operator*() const -> E
+            {
+                return GetEnumValues()[index];
+            }
+
+            constexpr auto operator++() -> EnumFlagIterator&
+            {
+                ++index;
+                MoveToSetBit();
+                return *this;
+            }
+
+            constexpr auto operator==(EnumFlagSentinel) const -> bool
+            {
+                return index >= GetEnumValues().size();
+            }
+        };
+
         T bits = 0;
 
         constexpr EnumBitFlags(T bits) : bits(bits)
@@ -64,23 +113,34 @@ namespace glsld
 
         constexpr auto TestBit(E flag) const noexcept -> bool
         {
-            T flagBit = 1 << static_cast<T>(flag);
+            T flagBit = static_cast<T>(1) << static_cast<T>(flag);
             return (bits & flagBit) != 0;
         }
 
         constexpr auto SetBit(E flag) noexcept -> void
         {
-            bits |= 1 << static_cast<uint32_t>(flag);
+            bits |= static_cast<T>(1) << static_cast<T>(flag);
         }
 
         constexpr auto ClearBit(E flag) noexcept -> void
         {
-            bits &= ~(1 << static_cast<uint32_t>(flag));
+            bits &= ~(static_cast<T>(1) << static_cast<T>(flag));
         }
 
         constexpr auto ClearAll() noexcept -> void
         {
             bits = 0;
+        }
+
+        constexpr auto begin() const noexcept -> EnumFlagIterator
+        {
+            auto result = EnumFlagIterator{*this, 0};
+            result.MoveToSetBit();
+            return result;
+        }
+        constexpr auto end() const noexcept -> EnumFlagSentinel
+        {
+            return EnumFlagSentinel{};
         }
 
         constexpr auto operator&(EnumBitFlags<E, T> rhs) const noexcept -> EnumBitFlags<E, T>

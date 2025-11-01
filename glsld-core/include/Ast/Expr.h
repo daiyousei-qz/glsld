@@ -4,7 +4,7 @@
 #include "Ast/Base.h"
 #include "Ast/Decl.h"
 #include "Language/ConstValue.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld
 {

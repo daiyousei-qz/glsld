@@ -3,7 +3,7 @@
 #include "Basic/SourceInfo.h"
 #include "Ast/Base.h"
 
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 #include "catch2/catch_tostring.hpp"
 
 namespace Catch

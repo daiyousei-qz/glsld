@@ -2,7 +2,7 @@
 #include "Server/Config.h"
 #include "Server/LanguageQueryInfo.h"
 #include "Server/Protocol.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld::lsp
 {

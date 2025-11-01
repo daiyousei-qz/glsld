@@ -1,7 +1,7 @@
 #pragma once
 #include "Basic/Print.h"
 #include "Compiler/SyntaxToken.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 #if defined(GLSLD_DEBUG)
 #define GLSLD_ENABLE_COMPILER_TRACE 1

@@ -1,7 +1,7 @@
 #include "Compiler/SyntaxToken.h"
 #include "Feature/SemanticTokens.h"
 #include "Server/LanguageQueryVisitor.h"
-#include "Support/Reflection.h"
+#include "Support/EnumReflection.h"
 
 namespace glsld
 {
