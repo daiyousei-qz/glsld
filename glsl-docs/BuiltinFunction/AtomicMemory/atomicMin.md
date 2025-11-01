@@ -1,1 +1,0 @@
-Computes a new value by taking the minimum of the value of data and the contents of mem.

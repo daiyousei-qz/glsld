@@ -22,7 +22,12 @@ namespace glsld
             case SymbolDeclType::LayoutQualifier:
                 return "Layout Qualifier";
             case SymbolDeclType::GlobalVariable:
-                return "Global Variable";
+                if (hover.builtin) {
+                    return "Built-in Variable";
+                }
+                else {
+                    return "Global Variable";
+                }
             case SymbolDeclType::LocalVariable:
                 return "Local Variable";
             case SymbolDeclType::Swizzle:
@@ -32,7 +37,12 @@ namespace glsld
             case SymbolDeclType::Parameter:
                 return "Parameter";
             case SymbolDeclType::Function:
-                return "Function";
+                if (hover.builtin) {
+                    return "Built-in Function";
+                }
+                else {
+                    return "Function";
+                }
             case SymbolDeclType::Type:
                 return "Type";
             case SymbolDeclType::Block:
@@ -54,6 +64,7 @@ namespace glsld
             for (const auto& param : hover.parameters) {
                 builder.AppendBullet("`{}`", param);
             }
+            builder.AppendParagraph("");
         }
         if (!hover.exprType.empty() && hover.returnType.empty()) {
             // We omit the expression type if the return type is already shown.
@@ -69,12 +80,6 @@ namespace glsld
             builder.AppendParagraph(hover.description);
         }
 
-        // Documentation
-        if (!hover.documentation.empty()) {
-            builder.AppendRuler();
-            builder.AppendParagraph(hover.documentation);
-        }
-
         // Reconstructed Code
         if (!hover.code.empty()) {
             builder.AppendRuler();
@@ -82,46 +87,6 @@ namespace glsld
         }
 
         return builder.Export();
-    }
-
-    static auto ComposeCommentDescription(TextRange declTextRange, ArrayView<RawCommentToken> preceedingComments,
-                                          ArrayView<RawCommentToken> trailingComments) -> std::string
-    {
-        auto unwrapComment = [](const RawCommentToken& token) -> StringView {
-            auto commentText = token.text.StrView();
-            if (commentText.StartWith("//")) {
-                return commentText.Drop(2).Trim();
-            }
-            else if (commentText.StartWith("/*")) {
-                return commentText.Drop(2).DropBack(2);
-            }
-            return commentText;
-        };
-
-        // Case 1: Trailing comment in the same line
-        // e.g. `int a; // comment`
-        if (trailingComments.size() == 1 && declTextRange.GetNumLines() == 1 &&
-            trailingComments.front().spelledRange.end.line == declTextRange.start.line) {
-            return unwrapComment(trailingComments.front()).Str();
-        }
-
-        // Case 2: Preceeding comments in the previous lines
-        // e.g. ```
-        //      // comment
-        //      int a;
-        //      ```
-        if (!preceedingComments.empty()) {
-            // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
-            std::string result;
-            for (const auto& token : preceedingComments) {
-                result += unwrapComment(token);
-                result += "\n";
-            }
-
-            return result;
-        }
-
-        return "";
     }
 
     static auto CreateHoverContentForPPSymbol(const LanguageQueryInfo& info, const SymbolQueryResult& symbolInfo)
@@ -263,19 +228,16 @@ namespace glsld
                 .code        = "",
                 .range       = symbolInfo.spelledRange,
                 .unknown     = isUnknown,
+                .builtin     = false,
             };
         }
 
-        std::string description = ComposeCommentDescription(
-            info.LookupExpandedTextRange(symbolInfo.symbolDecl->GetSyntaxRange()),
-            info.LookupPreceedingComment(symbolInfo.symbolDecl->GetSyntaxRange().GetBeginID()),
-            info.LookupPreceedingComment(symbolInfo.symbolDecl->GetSyntaxRange().GetEndID()));
-        std::string documentation;
+        std::string description = info.QueryCommentDescription(*symbolInfo.symbolDecl);
         std::string codeBuffer;
         if (auto funcDecl = symbolInfo.symbolDecl->As<AstFunctionDecl>();
             funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
             ReconstructSourceText(codeBuffer, *funcDecl);
-            documentation = QueryFunctionDocumentation(funcDecl->GetNameToken().text.StrView()).Str();
+            // documentation = QueryFunctionDocumentation(funcDecl->GetNameToken().text.StrView()).Str();
         }
         else if (auto paramDecl = symbolInfo.symbolDecl->As<AstParamDecl>();
                  paramDecl && symbolInfo.symbolType == SymbolDeclType::Parameter) {
@@ -320,6 +282,8 @@ namespace glsld
             .description = description,
             .code        = codeBuffer,
             .range       = symbolInfo.spelledRange,
+            .builtin     = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
+                                                    TranslationUnitID::SystemPreamble,
         };
     }
 

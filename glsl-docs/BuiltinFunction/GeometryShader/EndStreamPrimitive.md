@@ -1,2 +1,0 @@
-Completes the current output primitive on stream stream and starts a new one. The argument to stream must be a constant integral expression. No vertex is emitted.
-Can only be used if multiple output streams are supported.

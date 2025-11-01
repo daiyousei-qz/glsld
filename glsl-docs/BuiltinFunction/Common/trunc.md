@@ -1,1 +1,0 @@
-Returns a value equal to the nearest integer to x whose absolute value is not larger than the absolute value of x.

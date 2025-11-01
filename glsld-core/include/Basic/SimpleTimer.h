@@ -13,18 +13,11 @@ namespace glsld
 
     private:
         TimePoint t0;
-        std::function<void(SimpleTimer&)> callback;
 
     public:
-        SimpleTimer(std::function<void(SimpleTimer&)> callback = {}) : callback(callback)
+        SimpleTimer()
         {
             Reset();
-        }
-        ~SimpleTimer()
-        {
-            if (callback) {
-                callback(*this);
-            }
         }
 
         auto Reset() -> void
@@ -33,10 +26,15 @@ namespace glsld
         }
 
         template <typename Duration>
-        auto GetElapsedTime() -> Duration
+        auto GetElapsedTime() const -> Duration
         {
             auto t1 = Clock::now();
             return std::chrono::duration_cast<Duration>(t1 - t0);
+        }
+
+        auto GetElapsedMilliseconds() const -> float
+        {
+            return GetElapsedTime<std::chrono::duration<float, std::milli>>().count();
         }
     };
 } // namespace glsld

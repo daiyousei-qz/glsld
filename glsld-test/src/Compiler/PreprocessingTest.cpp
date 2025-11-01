@@ -106,5 +106,28 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
         GLSLD_CHECK_TOKENS("#if 0\na\n#elif 1\nb\n#endif", IdTok("b"), EofTok());
         GLSLD_CHECK_TOKENS("#if 0\na\n#elif 0\nb\n#endif", EofTok());
         GLSLD_CHECK_TOKENS("#if 0\na\n#elif 0\nb\n#else\nc\n#endif", IdTok("c"), EofTok());
+
+        GLSLD_CHECK_TOKENS("#define MACRO 0\n#if MACRO\na\n#else\nb\n#endif", IdTok("b"), EofTok());
+        GLSLD_CHECK_TOKENS("#define MACRO 1\n#if MACRO\na\n#else\nb\n#endif", IdTok("a"), EofTok());
+        GLSLD_CHECK_TOKENS("#if UNDEFINED_MACRO\na\n#else\nb\n#endif", IdTok("b"), EofTok());
+
+        GLSLD_CHECK_TOKENS(R"(
+            #if 0
+            #if 1
+            a
+            #endif
+            #endif
+        )",
+                           EofTok());
+        GLSLD_CHECK_TOKENS(R"(
+            #if 0
+            #if 1
+            a
+            #else
+            b
+            #endif
+            #endif
+        )",
+                           EofTok());
     }
 }

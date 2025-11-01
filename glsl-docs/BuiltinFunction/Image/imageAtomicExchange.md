@@ -1,1 +1,0 @@
-Computes a new value by simply copying the value of data.

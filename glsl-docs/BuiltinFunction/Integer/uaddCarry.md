@@ -1,1 +1,0 @@
-Adds 32-bit unsigned integers x and y, returning the sum modulo 2^32. The value carry is set to zero if the sum was less than 2^32, or one otherwise.

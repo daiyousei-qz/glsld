@@ -1,1 +1,0 @@
-Returns the linear blend of x and y, i.e., x · (1 - a) + y · a.

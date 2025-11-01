@@ -1,1 +1,0 @@
-Returns the bit number of the least significant one bit in the binary representation of value. If value is zero, -1 will be returned.

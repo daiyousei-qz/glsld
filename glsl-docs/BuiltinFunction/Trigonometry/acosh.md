@@ -1,1 +1,0 @@
-Arc hyperbolic cosine; returns the non-negative inverse of cosh. Results are undefined if x < 1.

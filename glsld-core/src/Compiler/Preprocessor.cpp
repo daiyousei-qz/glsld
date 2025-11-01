@@ -232,10 +232,10 @@ namespace glsld
             ExitMacroExpansion(macroNameTok, macroDefinition, AstSyntaxRange{expansionStartId, pp.GetNextTokenId()});
         }};
 
-        const auto& paramTokens = macroDefinition.GetParamTokens();
+        ArrayView<PPToken> paramTokens = macroDefinition.GetParamTokens();
 
         PPTokenScanner macroScanner{macroDefinition.GetExpansionTokens()};
-        MacroExpansionProcessor nextProcessor{pp};
+        MacroExpansionProcessor nextProcessor{pp, outputBuffer};
         while (!macroScanner.CursorAtEnd()) {
             // NOTE we assume that all tokens are expanded into the beginning of the macro use token.
             PPToken token              = macroScanner.ConsumeToken();
@@ -433,7 +433,7 @@ namespace glsld
             // A PP directive parsed.
             directiveToken = token;
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                if (directiveToken->text == "include") {
+                if (directiveToken->text == atomDirectiveInclude) {
                     TransitionTo(PreprocessorState::ExpectIncludeDirectiveTail);
                 }
                 else {
@@ -441,13 +441,15 @@ namespace glsld
                 }
             }
             else {
-                if (directiveToken->text == "elif" || directiveToken->text == "else" ||
-                    directiveToken->text == "endif") {
+                // We are in an inactive region.
+                if (directiveToken->text == atomDirectiveIf || directiveToken->text == atomDirectiveIfdef ||
+                    directiveToken->text == atomDirectiveIfndef || directiveToken->text == atomDirectiveElif ||
+                    directiveToken->text == atomDirectiveElse || directiveToken->text == atomDirectiveEndif) {
                     // These directives may change the state of the conditional stack.
                     TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
                 }
                 else {
-                    // Other directives are not skipped in inactive regions.
+                    // Other directives are skipped in inactive regions.
                     TransitionTo(PreprocessorState::Inactive);
                     directiveToken = std::nullopt;
                 }
@@ -493,46 +495,46 @@ namespace glsld
     auto PreprocessStateMachine::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
         PPTokenScanner scanner{restTokens};
-        if (directiveToken.text == "include") {
+        if (directiveToken.text == atomDirectiveInclude) {
             HandleIncludeDirective(scanner);
         }
-        else if (directiveToken.text == "define") {
+        else if (directiveToken.text == atomDirectiveDefine) {
             HandleDefineDirective(scanner);
         }
-        else if (directiveToken.text == "undef") {
+        else if (directiveToken.text == atomDirectiveUndef) {
             HandleUndefDirective(scanner);
         }
-        else if (directiveToken.text == "if") {
+        else if (directiveToken.text == atomDirectiveIf) {
             HandleIfDirective(scanner);
         }
-        else if (directiveToken.text == "ifdef") {
+        else if (directiveToken.text == atomDirectiveIfdef) {
             HandleIfdefDirective(scanner, false);
         }
-        else if (directiveToken.text == "ifndef") {
+        else if (directiveToken.text == atomDirectiveIfndef) {
             HandleIfdefDirective(scanner, true);
         }
-        else if (directiveToken.text == "else") {
+        else if (directiveToken.text == atomDirectiveElse) {
             HandleElseDirective(scanner);
         }
-        else if (directiveToken.text == "elif") {
+        else if (directiveToken.text == atomDirectiveElif) {
             HandleElifDirective(scanner);
         }
-        else if (directiveToken.text == "endif") {
+        else if (directiveToken.text == atomDirectiveEndif) {
             HandleEndifDirective(scanner);
         }
-        else if (directiveToken.text == "error") {
+        else if (directiveToken.text == atomDirectiveError) {
             // FIXME: report error
         }
-        else if (directiveToken.text == "extension") {
+        else if (directiveToken.text == atomDirectiveExtension) {
             HandleExtensionDirective(scanner);
         }
-        else if (directiveToken.text == "version") {
+        else if (directiveToken.text == atomDirectiveVersion) {
             HandleVersionDirective(scanner);
         }
-        else if (directiveToken.text == "pragma") {
+        else if (directiveToken.text == atomDirectivePragma) {
             HandlePragmaDirective(scanner);
         }
-        else if (directiveToken.text == "line") {
+        else if (directiveToken.text == atomDirectiveLine) {
             HandleLineDirective(scanner);
         }
         else {
@@ -732,6 +734,11 @@ namespace glsld
 
     auto PreprocessStateMachine::HandleIfDirective(PPTokenScanner& scanner) -> void
     {
+        if (!conditionalStack.empty() && !conditionalStack.back().active) {
+            skippedInactiveConditionalCount += 1;
+            return;
+        }
+
         bool evalToTrue = EvaluatePPExpression(scanner);
 
         // Run PP callback event if any
@@ -744,10 +751,19 @@ namespace glsld
             .seenActiveBranch = evalToTrue,
             .seenElse         = false,
         });
+
+#if defined(GLSLD_DEBUG)
+        compiler.GetCompilerTrace().TracePPConditionalInfo(evalToTrue);
+#endif
     }
 
     auto PreprocessStateMachine::HandleIfdefDirective(PPTokenScanner& scanner, bool isNDef) -> void
     {
+        if (!conditionalStack.empty() && !conditionalStack.back().active) {
+            skippedInactiveConditionalCount += 1;
+            return;
+        }
+
         // Parse the macro name
         PPToken macroName;
         if (auto tok = scanner.TryConsumeToken(TokenKlass::Identifier); tok) {
@@ -773,10 +789,18 @@ namespace glsld
             .seenActiveBranch = active,
             .seenElse         = false,
         });
+
+#if defined(GLSLD_DEBUG)
+        compiler.GetCompilerTrace().TracePPConditionalInfo(active);
+#endif
     }
 
     auto PreprocessStateMachine::HandleElifDirective(PPTokenScanner& scanner) -> void
     {
+        if (skippedInactiveConditionalCount > 0) {
+            return;
+        }
+
         bool evalToTrue = EvaluatePPExpression(scanner);
 
         if (conditionalStack.empty()) {
@@ -797,10 +821,18 @@ namespace glsld
 
         conditionalInfo.active           = !conditionalInfo.seenActiveBranch && evalToTrue;
         conditionalInfo.seenActiveBranch = conditionalInfo.active;
+
+#if defined(GLSLD_DEBUG)
+        compiler.GetCompilerTrace().TracePPConditionalInfo(conditionalInfo.active);
+#endif
     }
 
     auto PreprocessStateMachine::HandleElseDirective(PPTokenScanner& scanner) -> void
     {
+        if (skippedInactiveConditionalCount > 0) {
+            return;
+        }
+
         if (!scanner.CursorAtEnd()) {
             // FIXME: report warning, expected no more tokens after the directive.
         }
@@ -824,10 +856,19 @@ namespace glsld
         conditionalInfo.active           = !conditionalInfo.seenActiveBranch;
         conditionalInfo.seenActiveBranch = true;
         conditionalInfo.seenElse         = true;
+
+#if defined(GLSLD_DEBUG)
+        compiler.GetCompilerTrace().TracePPConditionalInfo(conditionalInfo.active);
+#endif
     }
 
     auto PreprocessStateMachine::HandleEndifDirective(PPTokenScanner& scanner) -> void
     {
+        if (skippedInactiveConditionalCount > 0) {
+            skippedInactiveConditionalCount -= 1;
+            return;
+        }
+
         if (!scanner.CursorAtEnd()) {
             // FIXME: report warning, expected no more tokens after the directive.
         }
@@ -845,19 +886,19 @@ namespace glsld
         conditionalStack.pop_back();
     }
 
-    auto ParseExtensionBehavior(const PPToken& toggle) -> std::optional<ExtensionBehavior>
+    auto PreprocessStateMachine::ParseExtensionBehavior(const PPToken& toggle) -> std::optional<ExtensionBehavior>
     {
         GLSLD_ASSERT(toggle.klass == TokenKlass::Identifier);
-        if (toggle.text == "enable") {
+        if (toggle.text == atomExtensionBehaviorEnable) {
             return ExtensionBehavior::Enable;
         }
-        else if (toggle.text == "require") {
+        else if (toggle.text == atomExtensionBehaviorRequire) {
             return ExtensionBehavior::Require;
         }
-        else if (toggle.text == "warn") {
+        else if (toggle.text == atomExtensionBehaviorWarn) {
             return ExtensionBehavior::Warn;
         }
-        else if (toggle.text == "disable") {
+        else if (toggle.text == atomExtensionBehaviorDisable) {
             return ExtensionBehavior::Disable;
         }
         else {
@@ -900,49 +941,49 @@ namespace glsld
         }
     }
 
-    auto ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>
+    auto PreprocessStateMachine::ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>
     {
         if (versionNumber.klass != TokenKlass::IntegerConstant) {
             return std::nullopt;
         }
 
-        if (versionNumber.text == "110") {
+        if (versionNumber.text == atomGlslVersion110) {
             return GlslVersion::Ver110;
         }
-        else if (versionNumber.text == "120") {
+        else if (versionNumber.text == atomGlslVersion120) {
             return GlslVersion::Ver120;
         }
-        else if (versionNumber.text == "130") {
+        else if (versionNumber.text == atomGlslVersion130) {
             return GlslVersion::Ver130;
         }
-        else if (versionNumber.text == "140") {
+        else if (versionNumber.text == atomGlslVersion140) {
             return GlslVersion::Ver140;
         }
-        else if (versionNumber.text == "150") {
+        else if (versionNumber.text == atomGlslVersion150) {
             return GlslVersion::Ver150;
         }
-        else if (versionNumber.text == "330") {
+        else if (versionNumber.text == atomGlslVersion330) {
             return GlslVersion::Ver330;
         }
-        else if (versionNumber.text == "400") {
+        else if (versionNumber.text == atomGlslVersion400) {
             return GlslVersion::Ver400;
         }
-        else if (versionNumber.text == "410") {
+        else if (versionNumber.text == atomGlslVersion410) {
             return GlslVersion::Ver410;
         }
-        else if (versionNumber.text == "420") {
+        else if (versionNumber.text == atomGlslVersion420) {
             return GlslVersion::Ver420;
         }
-        else if (versionNumber.text == "430") {
+        else if (versionNumber.text == atomGlslVersion430) {
             return GlslVersion::Ver430;
         }
-        else if (versionNumber.text == "440") {
+        else if (versionNumber.text == atomGlslVersion440) {
             return GlslVersion::Ver440;
         }
-        else if (versionNumber.text == "450") {
+        else if (versionNumber.text == atomGlslVersion450) {
             return GlslVersion::Ver450;
         }
-        else if (versionNumber.text == "460") {
+        else if (versionNumber.text == atomGlslVersion460) {
             return GlslVersion::Ver460;
         }
         else {
@@ -950,16 +991,16 @@ namespace glsld
         }
     }
 
-    auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>
+    auto PreprocessStateMachine::ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>
     {
         GLSLD_ASSERT(profile.klass == TokenKlass::Identifier);
-        if (profile.text == "core") {
+        if (profile.text == atomGlslProfileCore) {
             return GlslProfile::Core;
         }
-        else if (profile.text == "compatibility") {
+        else if (profile.text == atomGlslProfileCompatibility) {
             return GlslProfile::Compatibility;
         }
-        else if (profile.text == "es") {
+        else if (profile.text == atomGlslProfileEs) {
             return GlslProfile::Es;
         }
         else {
@@ -1394,7 +1435,7 @@ namespace glsld
         // However, it is not a problem since it's a UB.
         while (!scanner.CursorAtEnd()) {
             auto token = scanner.ConsumeToken();
-            if (token.klass == TokenKlass::Identifier && token.text == "defined") {
+            if (token.klass == TokenKlass::Identifier && token.text == atomMacroOperatorDefined) {
                 PPToken macroName;
                 if (scanner.TryTestToken(TokenKlass::Identifier)) {
                     macroName = scanner.ConsumeToken();

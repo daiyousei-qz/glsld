@@ -1,1 +1,0 @@
-Returns the partial derivative of p with respect to the window x coordinate. Will use local differencing based on the value of p for the current fragment and its immediate neighbor(s).

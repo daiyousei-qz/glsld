@@ -1,1 +1,0 @@
-Returns abs(dFdxFine(p)) + abs(dFdyFine(p)).

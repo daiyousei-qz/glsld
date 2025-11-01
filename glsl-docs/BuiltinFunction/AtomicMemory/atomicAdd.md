@@ -1,1 +1,0 @@
-Computes a new value by adding the value of data to the contents mem.

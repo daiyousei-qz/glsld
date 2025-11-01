@@ -32,7 +32,7 @@ namespace glsld
             if (expectedKlass && token.klass != *expectedKlass) {
                 return false;
             }
-            if (expectedText && token.text != *expectedText) {
+            if (expectedText && !token.text.Equals(*expectedText)) {
                 return false;
             }
 

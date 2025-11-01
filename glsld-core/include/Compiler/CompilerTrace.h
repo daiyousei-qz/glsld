@@ -73,6 +73,12 @@ namespace glsld
                              tok.text.StrView());
         }
 
+        auto TracePPConditionalInfo(bool active) -> void
+        {
+            EmitTraceMessage(CompilerTraceSource::Preprocessor, "Conditional branch is {}",
+                             active ? "active" : "inactive");
+        }
+
         auto TraceLexTokenIssued(const PPToken& tok, const TextRange& expandedRange) -> void
         {
             EmitTraceMessage(CompilerTraceSource::Preprocessor, "Issued token [{}]'{}' @ ({},{}~{},{})",

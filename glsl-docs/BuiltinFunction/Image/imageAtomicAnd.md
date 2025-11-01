@@ -1,1 +1,0 @@
-Computes a new value by performing a bit-wise AND of the value of data and the contents of the selected texel.

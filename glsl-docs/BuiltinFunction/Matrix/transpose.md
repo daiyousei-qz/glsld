@@ -1,1 +1,0 @@
-Returns a matrix that is the transpose of m. The input matrix m is not modified.

@@ -161,13 +161,15 @@ namespace glsld
                 callback(paramDecl->GetDeclarator()->nameToken, lsp::CompletionItemKind::Variable);
             }
         }
-        else if (auto varDecl = decl.As<AstVariableDeclaratorDecl>()) {
-            callback(varDecl->GetNameToken(), lsp::CompletionItemKind::Variable);
-
+        else if (auto varDecl = decl.As<AstVariableDecl>()) {
             if (auto structDecl = varDecl->GetQualType()->GetStructDecl()) {
                 if (structDecl->GetNameToken()) {
                     callback(*structDecl->GetNameToken(), lsp::CompletionItemKind::Struct);
                 }
+            }
+
+            for (const auto& declaratorDecl : varDecl->GetDeclarators()) {
+                callback(declaratorDecl->GetNameToken(), lsp::CompletionItemKind::Variable);
             }
         }
         else if (auto blockDecl = decl.As<AstInterfaceBlockDecl>()) {
@@ -282,40 +284,35 @@ namespace glsld
         }
     };
 
-    auto GetDefaultLibraryCompletionList() -> ArrayView<lsp::CompletionItem>
+    auto ComputeCompletionPreambleInfo(const PrecompiledPreamble& preamble) -> std::unique_ptr<CompletionPreambleInfo>
     {
-        static const auto cachedCompletionItems = []() {
-            std::vector<lsp::CompletionItem> result;
-            std::unordered_set<AtomString> seenIds;
+        std::vector<lsp::CompletionItem> builtinCompletionItems;
 
-            // Builtins
-            // FIXME: support user preamble
-            for (const AstDecl* decl : GetStdlibModule()->GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
-                CollectCompletionFromDecl(
-                    [&](const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) {
-                        if (seenIds.find(declTok.text) == seenIds.end()) {
-                            seenIds.insert(declTok.text);
-                            result.push_back({lsp::CompletionItem{
-                                .label = declTok.text.Str(),
-                                .kind  = kind,
-                            }});
-                        }
-                    },
-                    *decl);
-            }
+        // Builtins
+        std::unordered_set<AtomString> seenIds;
+        for (const AstDecl* decl : preamble.GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
+            CollectCompletionFromDecl(
+                [&](const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) {
+                    if (seenIds.find(declTok.text) == seenIds.end()) {
+                        seenIds.insert(declTok.text);
+                        builtinCompletionItems.push_back(lsp::CompletionItem{
+                            .label = declTok.text.Str(),
+                            .kind  = kind,
+                        });
+                    }
+                },
+                *decl);
+        }
 
-            // Keywords
-            for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
-                result.push_back(lsp::CompletionItem{
-                    .label = std::string{keywordText},
-                    .kind  = lsp::CompletionItemKind::Keyword,
-                });
-            }
+        // Keywords
+        for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
+            builtinCompletionItems.push_back(lsp::CompletionItem{
+                .label = std::string{keywordText},
+                .kind  = lsp::CompletionItemKind::Keyword,
+            });
+        }
 
-            return result;
-        }();
-
-        return cachedCompletionItems;
+        return std::make_unique<CompletionPreambleInfo>(std::move(builtinCompletionItems));
     }
 
     auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>
@@ -329,19 +326,20 @@ namespace glsld
         };
     }
 
-    auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& info,
-                          const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>
+    auto HandleCompletion(const CompletionConfig& config, const CompletionPreambleInfo& preambleInfo,
+                          const LanguageQueryInfo& queryInfo, const lsp::CompletionParams& params)
+        -> std::vector<lsp::CompletionItem>
     {
         if (!config.enable) {
             return {};
         }
 
-        const auto& compilerObject = info.GetCompilerResult();
+        const auto& compilerResult = queryInfo.GetCompilerResult();
 
         auto cursorPosition = FromLspPosition(params.position);
 
         std::vector<lsp::CompletionItem> result;
-        auto completionType = CompletionTypeDecider{info, cursorPosition}.Execute();
+        auto completionType = CompletionTypeDecider{queryInfo, cursorPosition}.Execute();
         if (completionType.accessChainExpr) {
             auto type = completionType.accessChainExpr->GetDeducedType();
             if (type->IsArray() || type->IsVector()) {
@@ -364,7 +362,7 @@ namespace glsld
         }
         else {
             // Copy the completion items from the language and standard library
-            std::ranges::copy_if(GetDefaultLibraryCompletionList(), std::back_inserter(result),
+            std::ranges::copy_if(preambleInfo.builtinCompletionItems, std::back_inserter(result),
                                  [&](const lsp::CompletionItem& item) -> bool {
                                      switch (item.kind) {
                                      case lsp::CompletionItemKind::Struct:
@@ -381,7 +379,7 @@ namespace glsld
 
             // Add the completion items from the AST
             if (completionType.allowExpr || completionType.allowType) {
-                CompletionCollector{result, info, completionType, cursorPosition}.Execute();
+                CompletionCollector{result, queryInfo, completionType, cursorPosition}.Execute();
             }
 
             // FIXME: add the completion items from the preprocessor, aka. macros

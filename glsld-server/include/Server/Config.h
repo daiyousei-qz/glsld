@@ -108,7 +108,7 @@ namespace glsld
     struct LanguageServerConfig
     {
         LanguageServiceConfig languageService;
-        StringEnum<LoggingLevel> loggingLevel;
+        StringEnum<LoggingLevel> loggingLevel = LoggingLevel::Info;
     };
 
     auto ParseLanguageServerConfig(StringView configFile) -> std::optional<LanguageServerConfig>;

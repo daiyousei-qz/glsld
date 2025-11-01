@@ -2,8 +2,10 @@
 
 #include "Language/ShaderTarget.h"
 #include "Language/Extension.h"
+#include "Support/Hash.h"
 
 #include <filesystem>
+#include <type_traits>
 #include <vector>
 #include <string>
 
@@ -44,5 +46,17 @@ namespace glsld
         GlslShaderStage stage      = GlslShaderStage::Unknown;
         ExtensionStatus extensions = {};
         bool noStdlib              = false;
+
+        auto GetHashCode() const noexcept -> size_t
+        {
+            size_t hash = 0;
+            hash        = HashCombine(hash, static_cast<std::underlying_type_t<GlslVersion>>(version));
+            hash        = HashCombine(hash, static_cast<std::underlying_type_t<GlslProfile>>(profile));
+            hash        = HashCombine(hash, static_cast<std::underlying_type_t<GlslShaderStage>>(stage));
+            hash        = HashCombine(hash, extensions.GetHashCode());
+            hash        = HashCombine(hash, noStdlib ? 1 : 0);
+            return hash;
+        }
+        auto operator==(const LanguageConfig& other) const noexcept -> bool = default;
     };
 } // namespace glsld
