@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-from re import match
-from typing import Generator, TypedDict
 from StdlibBuilder import StdlibBuilder, GenTypePrefix, VectorGenTypeInfo, allMatrixGenTypes, allVectorGenTypes
 
 GEN_FTYPE_PREFIXES: list[GenTypePrefix] = ["", "f16"]
@@ -706,10 +704,10 @@ Operate identically to textureGatherOffset except that offsets is used to determ
 """,
     }
 
+    # FIXME: add texture functions with bias parameter
     for genPrefix, genPostfix, dim, setup in getAllTextureModifiers():
         genVecType = VectorGenTypeInfo(genPrefix, dim)
         genVecTypeDimPlus1 = VectorGenTypeInfo(genPrefix, min(4, dim + 1))
-        genVecTypeDimPlus2 = VectorGenTypeInfo(genPrefix, min(4, dim + 2))
         genVec4Type = VectorGenTypeInfo(genPrefix, 4)
         genIVecType = VectorGenTypeInfo(genPrefix, dim)
         genSamplerParam = f"{genPrefix}sampler{genPostfix} sampler_"
@@ -765,7 +763,7 @@ Operate identically to textureGatherOffset except that offsets is used to determ
             builder.addFunction(f"{texLookupReturnType} texelFetch({genSamplerParam}, {texLookupPType.getIType()} P, int {thirdParamName})", documentations["texelFetch"])
 
         if setup.test(TextureConfig(has1D=True, has2D=True, has3D=True, hasArray=True, hasRect=True)):
-            lodParam = ", int lod" if not setup.hasRect else ""
+            lodParam = texLookupIntLodParam if not setup.hasRect else ""
             builder.addFunction(f"{texLookupReturnType} texelFetchOffset({genSamplerParam}{texLookupIntPParam}{lodParam}{texLookupOffsetParam})", documentations["texelFetchOffset"])
 
         if setup.test(TextureConfig(has1D=True, has2D=True, has3D=True, hasShadow=True, hasRect=True)):

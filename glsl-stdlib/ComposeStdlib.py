@@ -1,6 +1,4 @@
 from StdlibBuilder import StdlibBuilder
-from BuiltinFunction import *
-from BuiltinVariables import *
 
 import os
 
@@ -10,6 +8,17 @@ def escapeString(string: str):
     return string.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 def addAllBuiltinVariables(builder: StdlibBuilder):
+    from BuiltinVariables import (
+        addBuiltinConstant,
+        addBuiltinVariablesForVertexShader,
+        addBuiltinVariablesForFragmentShader,
+        addBuiltinVariablesForComputeShader,
+        addBuiltinVariablesForGeometryShader,
+        addBuiltinVariablesForTessControlShader,
+        addBuiltinVariablesForTessEvaluationShader,
+        addBuiltinVariablesForRayTracingEXTShader,
+        addBuiltinVariablesForRayTracingNVShader,
+    )
     addBuiltinConstant(builder)
     addBuiltinVariablesForVertexShader(builder)
     addBuiltinVariablesForFragmentShader(builder)
@@ -21,6 +30,27 @@ def addAllBuiltinVariables(builder: StdlibBuilder):
     addBuiltinVariablesForRayTracingNVShader(builder)
 
 def addAllBuiltinFunctions(builder: StdlibBuilder):
+    from BuiltinFunction import (
+        addTrigonometryFunctions,
+        addExponentialFunctions,
+        addCommonFunctions,
+        addFPPackUnpackFunctions,
+        addGeometricFunctions,
+        addMatrixFunctions,
+        addVectorRelationalFunctions,
+        addIntegerFunctions,
+        addTextureFunctions,
+        addAtomicCounterFunctions,
+        addAtomicMemoryFunctions,
+        addImageFunctions,
+        addGeometryShaderFunctions,
+        addFragmentProcessingFunctions,
+        addNoiseFunctions,
+        addShaderInvocationFunctions,
+        addShaderMemoryFunctions,
+        addSubpassInputFunctions,
+        addShaderInvocationGroupFunctions,
+    )
     addTrigonometryFunctions(builder)
     addExponentialFunctions(builder)
     addCommonFunctions(builder)
