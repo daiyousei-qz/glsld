@@ -55,10 +55,10 @@ jobs:
       run: cmake --preset Release
 
     - name: Build
-      run: cmake --build ${{ github.workspace }}/build-release --parallel
+      run: cmake --build ${{ github.workspace }}/build --parallel
 
     - name: Run Tests
-      run: ctest --test-dir ${{ github.workspace }}/build-release
+      run: ctest --test-dir ${{ github.workspace }}/build
 
     - name: Upload Artifacts
       if: github.ref_type == 'tag'
@@ -67,8 +67,8 @@ jobs:
         name: release-assets
         if-no-files-found: ignore
         path: |
-          ${{ github.workspace }}/build-release/glsld
-          ${{ github.workspace }}/build-release/glsld.exe
+          ${{ github.workspace }}/build/glsld
+          ${{ github.workspace }}/build/glsld.exe
 
   release:
     needs: build
