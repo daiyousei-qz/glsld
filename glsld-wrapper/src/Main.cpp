@@ -5,6 +5,7 @@
 #include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <unordered_map>
 
 namespace glsld
 {
@@ -100,52 +101,29 @@ namespace glsld
 
     static auto ParseShaderStage(const ProgramArgs& args) -> GlslShaderStage
     {
-        if (args.stage == GLSLD_FLAG_STAGE_VERTEX) {
-            return GlslShaderStage::Vertex;
+        std::unordered_map<std::string, GlslShaderStage> stageMap = {
+            {GLSLD_FLAG_STAGE_VERTEX, GlslShaderStage::Vertex},
+            {GLSLD_FLAG_STAGE_FRAGMENT, GlslShaderStage::Fragment},
+            {GLSLD_FLAG_STAGE_COMPUTE, GlslShaderStage::Compute},
+            {GLSLD_FLAG_STAGE_GEOMETRY, GlslShaderStage::Geometry},
+            {GLSLD_FLAG_STAGE_TESS_CONTROL, GlslShaderStage::TessControl},
+            {GLSLD_FLAG_STAGE_TESS_EVALUATION, GlslShaderStage::TessEvaluation},
+            {GLSLD_FLAG_STAGE_MESH, GlslShaderStage::Mesh},
+            {GLSLD_FLAG_STAGE_TASK, GlslShaderStage::Task},
+            {GLSLD_FLAG_STAGE_RAYGEN, GlslShaderStage::RayGeneration},
+            {GLSLD_FLAG_STAGE_ANYHIT, GlslShaderStage::RayAnyHit},
+            {GLSLD_FLAG_STAGE_CLOSESTHIT, GlslShaderStage::RayClosestHit},
+            {GLSLD_FLAG_STAGE_MISS, GlslShaderStage::RayMiss},
+            {GLSLD_FLAG_STAGE_INTERSECTION, GlslShaderStage::RayIntersection},
+            {GLSLD_FLAG_STAGE_CALLABLE, GlslShaderStage::RayCallable},
+        };
+
+        if (auto it = stageMap.find(args.stage); it != stageMap.end()) {
+            return it->second;
         }
-        else if (args.stage == GLSLD_FLAG_STAGE_FRAGMENT) {
-            return GlslShaderStage::Fragment;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_COMPUTE) {
-            return GlslShaderStage::Compute;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_GEOMETRY) {
-            return GlslShaderStage::Geometry;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_TESS_CONTROL) {
-            return GlslShaderStage::TessControl;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_TESS_EVALUATION) {
-            return GlslShaderStage::TessEvaluation;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_MESH) {
-            return GlslShaderStage::Mesh;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_TASK) {
-            return GlslShaderStage::Task;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_RAYGEN) {
-            return GlslShaderStage::RayGeneration;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_ANYHIT) {
-            return GlslShaderStage::RayAnyHit;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_CLOSESTHIT) {
-            return GlslShaderStage::RayClosestHit;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_MISS) {
-            return GlslShaderStage::RayMiss;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_INTERSECTION) {
-            return GlslShaderStage::RayIntersection;
-        }
-        else if (args.stage == GLSLD_FLAG_STAGE_CALLABLE) {
-            return GlslShaderStage::RayCallable;
-        }
-        else {
-            // FIXME: infer from file name or content
-            return GlslShaderStage::Unknown;
-        }
+
+        // FIXME: infer from file name or content
+        return GlslShaderStage::Unknown;
     }
 
     static auto DoMain(ProgramArgs args) -> void
