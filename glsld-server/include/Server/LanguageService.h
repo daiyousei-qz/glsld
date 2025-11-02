@@ -1,10 +1,10 @@
 #pragma once
-#include "Basic/StringView.h"
 #include "Language/ShaderTarget.h"
 #include "Server/BackgroundCompilation.h"
 #include "Server/Protocol.h"
 #include "Server/LanguageServer.h"
 #include "Server/LanguageQueryInfo.h"
+#include "Support/StringView.h"
 
 namespace glsld
 {

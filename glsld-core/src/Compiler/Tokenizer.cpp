@@ -1,5 +1,5 @@
 #include "Compiler/Tokenizer.h"
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Compiler/Preprocessor.h"
 #include "Compiler/CompilerTrace.h"
 

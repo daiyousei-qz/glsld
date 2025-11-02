@@ -1,6 +1,6 @@
 #pragma once
-#include "Basic/StringView.h"
-#include "Basic/StringMap.h"
+#include "Support/StringView.h"
+#include "Support/StringMap.h"
 #include "Ast/Base.h"
 #include "Language/Typing.h"
 

@@ -1,6 +1,6 @@
 #include "Server/PreprocessSymbolStore.h"
 
-#include "Basic/StringMap.h"
+#include "Support/StringMap.h"
 
 #include <algorithm>
 

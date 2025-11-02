@@ -132,7 +132,7 @@ namespace glsld
     {
     }
 
-    auto LanguageServer::InitializeReplayDumpFile(File dumpFile) -> void
+    auto LanguageServer::InitializeReplayDumpFile(UniqueFile dumpFile) -> void
     {
         GLSLD_ASSERT(!replayDumpFile);
         replayDumpFile = std::move(dumpFile);

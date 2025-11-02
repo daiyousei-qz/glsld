@@ -1,5 +1,5 @@
 #pragma once
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Compiler/SyntaxToken.h"
 
 #include <optional>

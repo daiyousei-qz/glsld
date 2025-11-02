@@ -3,7 +3,7 @@
 #include "StringMaker.h"
 #include "AstMatcher.h"
 
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 

@@ -3,7 +3,7 @@
 #include "StringMaker.h"
 
 #include "Basic/SourceInfo.h"
-#include "Basic/StringMap.h"
+#include "Support/StringMap.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/SourceScanner.h"
 #include "Server/LanguageQueryInfo.h"

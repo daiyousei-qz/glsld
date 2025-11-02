@@ -21,7 +21,7 @@ namespace glsld
         }
     } // namespace
 
-    auto File::Open(const char* path, const char* mode) -> std::expected<File, Status>
+    auto UniqueFile::Open(const char* path, const char* mode) -> std::expected<UniqueFile, Status>
     {
         if (!path || !mode) {
             return std::unexpected(Status::InvalidArgument);
@@ -31,10 +31,10 @@ namespace glsld
             return std::unexpected(TranslateFromErrno(errno));
         }
 
-        return File(handle);
+        return UniqueFile(handle);
     }
 
-    auto File::ReadAllText(const char* path) -> std::optional<std::string>
+    auto UniqueFile::ReadAllText(const char* path) -> std::optional<std::string>
     {
         auto fileOrErr = Open(path, "rb");
         if (!fileOrErr) {
@@ -62,12 +62,12 @@ namespace glsld
         return result;
     }
 
-    File::File(File&& other) noexcept : handle(other.handle)
+    UniqueFile::UniqueFile(UniqueFile&& other) noexcept : handle(other.handle)
     {
         other.handle = nullptr;
     }
 
-    File& File::operator=(File&& other) noexcept
+    UniqueFile& UniqueFile::operator=(UniqueFile&& other) noexcept
     {
         if (this != &other) {
             Close();
@@ -77,7 +77,7 @@ namespace glsld
         return *this;
     }
 
-    auto File::Close() noexcept -> Status
+    auto UniqueFile::Close() noexcept -> Status
     {
         if (!handle) {
             return Status::NotOpen;
@@ -88,7 +88,7 @@ namespace glsld
         return result == 0 ? Status::Ok : TranslateFromErrno(errno);
     }
 
-    auto File::Read(void* buffer, std::size_t elementSize, std::size_t elementCount) noexcept -> Status
+    auto UniqueFile::Read(void* buffer, std::size_t elementSize, std::size_t elementCount) noexcept -> Status
     {
         if (!handle) {
             return Status::NotOpen;
@@ -98,12 +98,12 @@ namespace glsld
         return result == elementCount ? Status::Ok : TranslateFromErrno(errno);
     }
 
-    auto File::Read(char* buffer, std::size_t elementCount) noexcept -> Status
+    auto UniqueFile::Read(char* buffer, std::size_t elementCount) noexcept -> Status
     {
         return Read(buffer, 1, elementCount);
     }
 
-    auto File::Write(const void* buffer, std::size_t elementSize, std::size_t elementCount) noexcept -> Status
+    auto UniqueFile::Write(const void* buffer, std::size_t elementSize, std::size_t elementCount) noexcept -> Status
     {
         if (!handle) {
             return Status::NotOpen;
@@ -113,17 +113,17 @@ namespace glsld
         return result == elementCount ? Status::Ok : TranslateFromErrno(errno);
     }
 
-    auto File::Write(const char* buffer, std::size_t elementCount) noexcept -> Status
+    auto UniqueFile::Write(const char* buffer, std::size_t elementCount) noexcept -> Status
     {
         return Write(buffer, 1, elementCount);
     }
 
-    auto File::Write(StringView text) noexcept -> Status
+    auto UniqueFile::Write(StringView text) noexcept -> Status
     {
         return Write(text.data(), 1, text.Size());
     }
 
-    auto File::Flush() noexcept -> Status
+    auto UniqueFile::Flush() noexcept -> Status
     {
         if (!handle) {
             return Status::NotOpen;
@@ -132,7 +132,7 @@ namespace glsld
         return std::fflush(handle) == 0 ? Status::Ok : TranslateFromErrno(errno);
     }
 
-    auto File::Seek(long offset, int origin) noexcept -> Status
+    auto UniqueFile::Seek(long offset, int origin) noexcept -> Status
     {
         if (!handle) {
             return Status::NotOpen;
@@ -140,7 +140,7 @@ namespace glsld
         return std::fseek(handle, offset, origin) == 0 ? Status::Ok : TranslateFromErrno(errno);
     }
 
-    auto File::Tell() noexcept -> std::expected<PositionType, Status>
+    auto UniqueFile::Tell() noexcept -> std::expected<PositionType, Status>
     {
         if (!handle) {
             return std::unexpected(Status::NotOpen);
@@ -152,7 +152,7 @@ namespace glsld
         return pos;
     }
 
-    auto File::SizeFast() noexcept -> std::expected<PositionType, Status>
+    auto UniqueFile::SizeFast() noexcept -> std::expected<PositionType, Status>
     {
         if (!handle) {
             return std::unexpected(Status::NotOpen);

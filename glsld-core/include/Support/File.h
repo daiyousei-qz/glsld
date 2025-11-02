@@ -1,5 +1,5 @@
 #pragma once
-#include <Basic/StringView.h>
+#include <Support/StringView.h>
 
 #include <cstdio>
 #include <cstddef>
@@ -17,27 +17,27 @@ namespace glsld
         NotOpen
     };
 
-    class File final
+    class UniqueFile final
     {
     private:
         FILE* handle = nullptr;
 
-        explicit File(FILE* handle) noexcept : handle(handle)
+        explicit UniqueFile(FILE* handle) noexcept : handle(handle)
         {
         }
 
     public:
         using PositionType = long;
 
-        static auto Open(const char* path, const char* mode) -> std::expected<File, Status>;
+        static auto Open(const char* path, const char* mode) -> std::expected<UniqueFile, Status>;
         static auto ReadAllText(const char* path) -> std::optional<std::string>;
 
-        File() noexcept = default;
-        File(File&& other) noexcept;
-        File& operator=(File&& other) noexcept;
-        File(const File&)            = delete;
-        File& operator=(const File&) = delete;
-        ~File()
+        UniqueFile() noexcept = default;
+        UniqueFile(UniqueFile&& other) noexcept;
+        UniqueFile& operator=(UniqueFile&& other) noexcept;
+        UniqueFile(const UniqueFile&)            = delete;
+        UniqueFile& operator=(const UniqueFile&) = delete;
+        ~UniqueFile()
         {
             Close();
         }

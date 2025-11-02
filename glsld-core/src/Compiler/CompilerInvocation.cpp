@@ -1,6 +1,6 @@
 #include "Basic/Common.h"
-#include "Basic/ScopeExit.h"
-#include "Basic/SimpleTimer.h"
+#include "Support/ScopeExit.h"
+#include "Support/SimpleTimer.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/CompilerInvocationState.h"
 #include "Compiler/CompilerResult.h"
