@@ -3,7 +3,7 @@
 #include "Basic/AtomTable.h"
 #include "Basic/Common.h"
 #include "Basic/SourceInfo.h"
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Compiler/AstContext.h"
 #include "Compiler/CompilerArtifacts.h"
 #include "Compiler/CompilerConfig.h"

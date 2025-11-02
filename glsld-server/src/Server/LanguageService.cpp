@@ -1,4 +1,3 @@
-#include "Basic/SimpleTimer.h"
 #include "Compiler/CompilerConfig.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Feature/Completion.h"
@@ -12,6 +11,7 @@
 #include "Feature/SignatureHelp.h"
 #include "Server/LanguageService.h"
 #include "Server/LanguageQueryInfo.h"
+#include "Support/SimpleTimer.h"
 #include "Support/SourceText.h"
 #include "Support/Uri.h"
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "Basic/Common.h"
 #include "Basic/SourceInfo.h"
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Compiler/CompilerInvocationState.h"
 #include "Language/ShaderTarget.h"
 #include "Language/Extension.h"

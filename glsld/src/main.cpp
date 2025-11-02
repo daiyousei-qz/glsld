@@ -1,4 +1,4 @@
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Support/File.h"
 #include "Server/LanguageServer.h"
 
@@ -141,7 +141,7 @@ namespace glsld
         return *config;
     }
 
-    static auto CreateReplayDumpFile(StringView dumpDir) -> File
+    static auto CreateReplayDumpFile(StringView dumpDir) -> UniqueFile
     {
         auto now = std::chrono::system_clock::now();
         auto t   = std::chrono::system_clock::to_time_t(now);
@@ -158,7 +158,7 @@ namespace glsld
                     fmt::format("glsld-replay-{:02d}_{:02d}-{:02d}_{:02d}_{:02d}_{:02d}.{:03d}.txt", tm.tm_mon + 1,
                                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, tm.tm_year + 1900, ms.count());
 
-        return File::Open(path.string().c_str(), "wb").value_or(File{});
+        return UniqueFile::Open(path.string().c_str(), "wb").value_or(UniqueFile{});
     }
 
     static auto DoMain(ProgramArgs args) -> int
@@ -167,7 +167,7 @@ namespace glsld
         glsld::LanguageServer server{config};
 
         if (!args.replayFile.empty()) {
-            auto replayCommands = File::ReadAllText(args.replayFile.c_str());
+            auto replayCommands = UniqueFile::ReadAllText(args.replayFile.c_str());
             if (!replayCommands) {
                 fmt::print(stderr, "Failed to read replay file: {}\n", args.replayFile);
                 return 1;

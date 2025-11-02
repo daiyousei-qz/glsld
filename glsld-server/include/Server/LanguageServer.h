@@ -2,7 +2,7 @@
 
 #include "Basic/Common.h"
 #include "Support/File.h"
-#include "Basic/StringView.h"
+#include "Support/StringView.h"
 #include "Server/Config.h"
 #include "Support/JsonSerializer.h"
 
@@ -34,7 +34,7 @@ namespace glsld
         // Replay file is formatted like a JSON array, but excluding the enclosing brackets.
         // This is to ensure that crashing server doesn't produce invalid replay file. A final json should be composed
         // while replay file is loaded.
-        File replayDumpFile;
+        UniqueFile replayDumpFile;
 
         using MessageDispatcherType = std::function<void(LanguageServer& server, const nlohmann::json& rpcBlob)>;
         std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
@@ -46,7 +46,7 @@ namespace glsld
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
 
-        auto InitializeReplayDumpFile(File dumpFile) -> void;
+        auto InitializeReplayDumpFile(UniqueFile dumpFile) -> void;
 
         auto Run() -> void;
 
