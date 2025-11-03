@@ -173,6 +173,10 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
         GLSLD_CHECK_AST("int a;", VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst(), NullAst()));
         GLSLD_CHECK_AST("int a[2];",
                         VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"), ArraySpec({LiteralExpr(2)}), NullAst()));
+        GLSLD_CHECK_AST("int a[2u];",
+                        VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"),
+                                     ArraySpec({ImplicitCastExpr(LiteralExpr(2u))->CheckType(GlslBuiltinType::Ty_int)}),
+                                     NullAst()));
         GLSLD_CHECK_AST("int a = 1;",
                         VariableDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst(), LiteralExpr(1)));
         GLSLD_CHECK_AST("int a[2] = {1, 2};",

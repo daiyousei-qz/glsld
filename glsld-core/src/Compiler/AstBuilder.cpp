@@ -18,6 +18,12 @@ namespace glsld
 
     auto AstBuilder::BuildArraySpec(AstSyntaxRange range, std::vector<AstExpr*> sizes) -> AstArraySpec*
     {
+        for (auto& sizeExpr : sizes) {
+            if (sizeExpr) {
+                sizeExpr = TryMakeImplicitCast(sizeExpr, Type::GetBuiltinType(GlslBuiltinType::Ty_int));
+            }
+        }
+
         return CreateAstNode<AstArraySpec>(range, CopyArray(sizes));
     }
 
@@ -310,6 +316,7 @@ namespace glsld
     auto AstBuilder::BuildIndexAccessExpr(AstSyntaxRange range, AstExpr* baseExpr, AstExpr* indexExpr)
         -> AstIndexAccessExpr*
     {
+        indexExpr   = TryMakeImplicitCast(indexExpr, Type::GetBuiltinType(GlslBuiltinType::Ty_int));
         auto result = CreateAstNode<AstIndexAccessExpr>(range, baseExpr, indexExpr);
 
         result->SetDeducedType(DeduceIndexAccessType(baseExpr->GetDeducedType()));
