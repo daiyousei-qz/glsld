@@ -56,7 +56,7 @@ namespace glsld
             }
             else if (auto matDesc = ilist.GetDeducedType()->GetMatrixDesc()) {
                 // FIXME: handle row-major matrix correctly
-                for (size_t i = 0; i < ilist.GetItems().size() && i < matDesc->dimCol; ++i) {
+                for (size_t i = 0; i < ilist.GetItems().size() && i < matDesc->dimRow; ++i) {
                     TryAddInlayHintBefore(*ilist.GetItems()[i], fmt::format("[{}]:", i));
                 }
             }

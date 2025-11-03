@@ -178,17 +178,20 @@ TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
             CompileLabelledSource(R"(
                 ^[source.begin]
                 void foo() {
-                    mat2 m = { ^[m.column.0]{1, 0}, ^[m.column.1]{0, 1}, /* error */{0, 0} };
+                    mat2 m1 = { ^[m1.column.0]{1, 0}, ^[m1.column.1]{0, 1}, /* error */{0, 0} };
+                    mat2x3 m2 = { ^[m2.column.0]{1,0,0}, ^[m2.column.1]{0,1,0} };
                 }
                 ^[source.end]
             )");
 
             checkInlayHints("source.begin", "source.end",
-                            InlayHintsExpectedResult{.numberOfHints = 6,
+                            InlayHintsExpectedResult{.numberOfHints = 14,
                                                      .hints =
                                                          {
-                                                             {.positionLabel = "m.column.0", .labelText = "[0]:"},
-                                                             {.positionLabel = "m.column.1", .labelText = "[1]:"},
+                                                             {.positionLabel = "m1.column.0", .labelText = "[0]:"},
+                                                             {.positionLabel = "m1.column.1", .labelText = "[1]:"},
+                                                             {.positionLabel = "m2.column.0", .labelText = "[0]:"},
+                                                             {.positionLabel = "m2.column.1", .labelText = "[1]:"},
                                                          }},
                             config);
         }
