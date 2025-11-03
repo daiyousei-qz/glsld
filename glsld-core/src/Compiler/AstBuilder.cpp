@@ -1,5 +1,11 @@
 #include "Compiler/AstBuilder.h"
 #include "Ast/Eval.h"
+#include "Ast/Expr.h"
+#include "Ast/Type.h"
+#include "Basic/Common.h"
+#include "Language/Typing.h"
+#include <algorithm>
+#include <cstddef>
 
 namespace glsld
 {
@@ -54,12 +60,33 @@ namespace glsld
     auto AstBuilder::BuildInitializerList(AstSyntaxRange range, std::vector<AstInitializer*> initializers,
                                           const Type* contextType) -> AstInitializerList*
     {
-        for (size_t i = 0; i < initializers.size(); ++i) {
-            initializers[i] = TryMakeImplicitCast(initializers[i], contextType->GetComponentType(i));
+        // Make implicit cast if needed
+        if (contextType->IsArithmetic()) {
+            // Initializer list initialize an arithmetic type component-wisely
+            for (size_t i = 0; i < initializers.size(); ++i) {
+                if (initializers[i]->GetDeducedType()->IsArithmetic()) {
+                    initializers[i] = TryMakeImplicitCast(
+                        initializers[i], Type::GetArithmeticType(*contextType->GetElementScalarKind(),
+                                                                 initializers[i]->GetDeducedType()->GetDimension()));
+                }
+            }
+        }
+        else if (contextType->IsStruct() || contextType->IsArray()) {
+            for (size_t i = 0; i < initializers.size(); ++i) {
+                initializers[i] = TryMakeImplicitCast(initializers[i], contextType->GetComponentType(i));
+            }
+        }
+
+        // Infer implicit array size if needed
+        const Type* resolvedType = contextType;
+        if (auto arrayDesc = resolvedType->GetArrayDesc(); arrayDesc && arrayDesc->dimSize == 0) {
+            // FIXME: handle multi-dimensional array
+            resolvedType = astContext.GetArrayType(arrayDesc->elementType, initializers.size());
         }
 
         auto result = CreateAstNode<AstInitializerList>(range, CopyArray(initializers));
         result->SetConst(std::ranges::all_of(initializers, [](const AstInitializer* init) { return init->IsConst(); }));
+        result->SetDeducedType(resolvedType);
         return result;
     }
 
@@ -487,9 +514,12 @@ namespace glsld
     static auto DeduceScalarBroadcastBinaryExprType(BinaryOp op, const Type* lhsType, const Type* rhsType)
         -> BinaryExprTypeInfo
     {
+        GLSLD_ASSERT((lhsType->IsScalar() && (rhsType->IsVector() || rhsType->IsMatrix())) ||
+                     (rhsType->IsScalar() && (lhsType->IsVector() || lhsType->IsMatrix())));
+
         const Type* scalarType        = lhsType->IsScalar() ? lhsType : rhsType;
         const Type* compositeType     = lhsType->IsScalar() ? rhsType : lhsType;
-        const Type* compositeElemType = compositeType->GetElementScalarType();
+        const Type* compositeElemType = Type::GetScalarType(*compositeType->GetElementScalarKind());
         GLSLD_ASSERT(compositeType->IsVector() || compositeType->IsMatrix());
 
         const Type* deducedType          = Type::GetErrorType();
@@ -593,8 +623,8 @@ namespace glsld
         const Type* lhsContextType = lhsType;
         const Type* rhsContextType = rhsType;
 
-        auto lhsElemType = lhsType->GetElementScalarType();
-        auto rhsElemType = rhsType->GetElementScalarType();
+        auto lhsElemType = Type::GetScalarType(*lhsType->GetElementScalarKind());
+        auto rhsElemType = Type::GetScalarType(*rhsType->GetElementScalarKind());
         if (op == BinaryOp::Mul) {
             // This is matrix multiplication
             const Type* resultElemType;
@@ -662,8 +692,6 @@ namespace glsld
         }
         else if (op == BinaryOp::Plus || op == BinaryOp::Minus || op == BinaryOp::Div) {
             // This is component-wise operation
-            auto lhsElemType = lhsType->GetElementScalarType();
-            auto rhsElemType = rhsType->GetElementScalarType();
             if (lhsElemType->IsSameWith(rhsElemType)) {
                 deducedType = lhsType;
             }
@@ -893,24 +921,37 @@ namespace glsld
     auto AstBuilder::BuildConstructorCallExpr(AstSyntaxRange range, AstQualType* qualType, std::vector<AstExpr*> args)
         -> AstConstructorCallExpr*
     {
-        bool isConst         = true;
+        // Infer implicit array size if needed
         auto constructedType = qualType->GetResolvedType();
-        for (size_t i = 0; i < args.size(); ++i) {
-            if (!args[i]->IsConst()) {
-                isConst = false;
-            }
+        if (auto arrayDesc = constructedType->GetArrayDesc(); arrayDesc && arrayDesc->dimSize == 0) {
+            // FIXME: handle multi-dimensional array
+            constructedType = astContext.GetArrayType(arrayDesc->elementType, static_cast<size_t>(args.size()));
+        }
 
-            // Construct implicit cast if needed
-            // Note we only do this for composite types. For primitive ctors, type conversion is handled by the type
-            // checkker.
-            if (constructedType->IsStruct() || constructedType->IsArray()) {
+        // Make implicit cast if needed
+        // Note we don't add implicit cast for casting constructor
+        if (constructedType->IsArithmetic()) {
+            const bool isConversionCtor =
+                args.size() == 1 && args.front()->GetDeducedType()->GetDimension() == constructedType->GetDimension();
+            if (!isConversionCtor) {
+                for (size_t i = 0; i < args.size(); ++i) {
+                    if (args[i]->GetDeducedType()->IsArithmetic()) {
+                        args[i] = TryMakeImplicitCast(
+                            args[i], Type::GetArithmeticType(*constructedType->GetElementScalarKind(),
+                                                             args[i]->GetDeducedType()->GetDimension()));
+                    }
+                }
+            }
+        }
+        else if (constructedType->IsStruct() || constructedType->IsArray()) {
+            for (size_t i = 0; i < args.size(); ++i) {
                 args[i] = TryMakeImplicitCast(args[i], constructedType->GetComponentType(i));
             }
         }
 
         auto result = CreateAstNode<AstConstructorCallExpr>(range, qualType, CopyArray(args));
-        result->SetConst(isConst);
-        result->SetDeducedType(qualType->GetResolvedType());
+        result->SetConst(std::ranges::all_of(args, [](const AstExpr* arg) { return arg->IsConst(); }));
+        result->SetDeducedType(constructedType);
         return result;
     }
 #pragma endregion
@@ -1015,6 +1056,16 @@ namespace glsld
             arena.Construct<AstVariableDeclaratorDecl*[]>(declarators.size()), declarators.size()};
         for (const auto& [i, declarator] : std::views::enumerate(declarators)) {
             auto resolvedType = astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec);
+
+            // Infer implicit array size if needed
+            if (auto arrayDesc = resolvedType->GetArrayDesc();
+                arrayDesc && arrayDesc->dimSize == 0 && declarator.arraySpec && declarator.initializer) {
+                // FIXME: handle multi-dimensional array
+                if (auto initArrayDesc = declarator.initializer->GetDeducedType()->GetArrayDesc();
+                    initArrayDesc && arrayDesc->elementType == initArrayDesc->elementType) {
+                    resolvedType = astContext.GetArrayType(arrayDesc->elementType, initArrayDesc->dimSize);
+                }
+            }
 
             // FIXME: avoids const_cast
             declaratorNodes[i] = CreateAstNode<AstVariableDeclaratorDecl>(

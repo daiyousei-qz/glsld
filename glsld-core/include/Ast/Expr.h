@@ -18,6 +18,12 @@ namespace glsld
         // Whether this initializer is const, i.e. can be evaluated at compile time.
         bool isConst = false;
 
+        // [Payload]
+        // The type of the evaluated initializer.
+        // For initializer lists, this is the constructed type.
+        // For expressions, this is the deduced type of the expression.
+        const Type* deducedType = nullptr;
+
     protected:
         AstInitializer() = default;
 
@@ -31,6 +37,7 @@ namespace glsld
         auto DoPrint(Printer& printer) const -> void
         {
             printer.PrintAttribute("IsConst", IsConst());
+            printer.PrintAttribute("DeducedType", GetDeducedType()->GetDebugName());
         }
 
     public:
@@ -41,6 +48,14 @@ namespace glsld
         auto IsConst() const noexcept -> bool
         {
             return isConst;
+        }
+        auto SetDeducedType(const Type* deducedType) noexcept -> void
+        {
+            this->deducedType = deducedType;
+        }
+        auto GetDeducedType() const noexcept -> const Type*
+        {
+            return deducedType;
         }
     };
 
@@ -90,11 +105,6 @@ namespace glsld
     // Base class of all AST nodes that could be used as an expression.
     class AstExpr : public AstInitializer
     {
-    private:
-        // [Payload]
-        // The type that this expression is deduced to.
-        const Type* deducedType = nullptr;
-
     protected:
         AstExpr() = default;
 
@@ -108,17 +118,6 @@ namespace glsld
         auto DoPrint(Printer& printer) const -> void
         {
             AstInitializer::DoPrint(printer);
-            printer.PrintAttribute("DeducedType", GetDeducedType()->GetDebugName());
-        }
-
-    public:
-        auto SetDeducedType(const Type* deducedType) noexcept -> void
-        {
-            this->deducedType = deducedType;
-        }
-        auto GetDeducedType() const noexcept -> const Type*
-        {
-            return deducedType;
         }
     };
 

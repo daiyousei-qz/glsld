@@ -7,7 +7,7 @@
 
 using namespace glsld;
 
-static auto MockHover(const ServerTestFixture& fixture, TextPosition pos, const HoverConfig& config = {})
+static auto MockHover(const ServerTestFixture& fixture, TextPosition pos, const HoverConfig& config = {.enable = true})
     -> std::optional<lsp::Hover>
 {
     return HandleHover(config, fixture.GetLanguageQueryInfo(),
@@ -19,12 +19,13 @@ static auto MockHover(const ServerTestFixture& fixture, TextPosition pos, const 
 
 TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 {
-    auto checkNoHover = [this](StringView labelPos, const HoverConfig& config = {}) {
+    auto checkNoHover = [this](StringView labelPos, const HoverConfig& config = {.enable = true}) {
         auto hover = MockHover(*this, GetLabelledPosition(labelPos), config);
         REQUIRE(!hover.has_value());
     };
 
-    auto checkHover = [this](StringView labelPos, const HoverContent& expectedHover, const HoverConfig& config = {}) {
+    auto checkHover = [this](StringView labelPos, const HoverContent& expectedHover,
+                             const HoverConfig& config = {.enable = true}) {
         auto hover = MockHover(*this, GetLabelledPosition(labelPos), config);
         REQUIRE(hover.has_value());
         REQUIRE(hover->contents.GetValue() == ComputeHoverText(expectedHover));

@@ -1,6 +1,13 @@
 #include "Feature/InlayHint.h"
+#include "Ast/Expr.h"
+#include "Ast/Type.h"
+#include "Basic/Common.h"
+#include "Basic/SourceInfo.h"
+#include "Compiler/SyntaxToken.h"
 #include "Server/LanguageQueryVisitor.h"
 #include "Support/SourceText.h"
+#include "Support/StringView.h"
+#include <ranges>
 
 namespace glsld
 {
@@ -25,6 +32,36 @@ namespace glsld
             return std::move(result);
         }
 
+        auto VisitAstInitializerList(const AstInitializerList& ilist) -> void
+        {
+            if (!config.enableInitializerHint) {
+                return;
+            }
+
+            if (auto structDesc = ilist.GetDeducedType()->GetStructDesc()) {
+                for (const auto& [memberDesc, initializer] : std::views::zip(structDesc->members, ilist.GetItems())) {
+                    TryAddInlayHintBefore(*initializer, fmt::format(".{}:", memberDesc.name));
+                }
+            }
+            else if (auto arrayDesc = ilist.GetDeducedType()->GetArrayDesc()) {
+                for (size_t i = 0; i < ilist.GetItems().size() && i < arrayDesc->dimSize; ++i) {
+                    TryAddInlayHintBefore(*ilist.GetItems()[i], fmt::format("[{}]:", i));
+                }
+            }
+            else if (auto vecDesc = ilist.GetDeducedType()->GetVectorDesc()) {
+                for (auto [swizzleName, item] :
+                     std::views::zip(StringView{"xyzw"}.Take(vecDesc->vectorSize), ilist.GetItems())) {
+                    TryAddInlayHintBefore(*item, fmt::format(".{}:", swizzleName));
+                }
+            }
+            else if (auto matDesc = ilist.GetDeducedType()->GetMatrixDesc()) {
+                // FIXME: handle row-major matrix correctly
+                for (size_t i = 0; i < ilist.GetItems().size() && i < matDesc->dimRow; ++i) {
+                    TryAddInlayHintBefore(*ilist.GetItems()[i], fmt::format("[{}]:", i));
+                }
+            }
+        }
+
         auto VisitAstImplicitCastExpr(const AstImplicitCastExpr& expr) -> void
         {
             if (!config.enableImplicitCastHint) {
@@ -35,13 +72,7 @@ namespace glsld
                 return;
             }
 
-            auto exprTextRange = GetInfo().LookupExpandedTextRange(expr);
-            if (exprTextRange.IsEmpty()) {
-                return;
-            }
-
-            TryAddInlayHint(exprTextRange.start, fmt::format("({})", expr.GetDeducedType()->GetDebugName()), false,
-                            false);
+            TryAddInlayHintBefore(expr, fmt::format("({})", expr.GetDeducedType()->GetDebugName()));
         }
 
         auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
@@ -60,11 +91,6 @@ namespace glsld
                 auto paramDecl = paramDeclList[i];
                 auto argExpr   = expr.GetArgs()[i];
 
-                auto argTextRange = GetInfo().LookupExpandedTextRange(*argExpr);
-                if (argTextRange.IsEmpty()) {
-                    continue;
-                }
-
                 StringView outputHint = "";
                 if (paramDecl->IsOutputParam()) {
                     outputHint = "&";
@@ -75,7 +101,84 @@ namespace glsld
                 }
 
                 if (!outputHint.Empty() || !paramNameHint.Empty()) {
-                    TryAddInlayHint(argTextRange.start, fmt::format("{}{}:", outputHint, paramNameHint), false, true);
+                    TryAddInlayHintBefore(*argExpr, fmt::format("{}{}:", outputHint, paramNameHint));
+                }
+            }
+        }
+
+        auto VisitAstConstructorCallExpr(const AstConstructorCallExpr& expr) -> void
+        {
+            // Handle hints for implicit array size
+            // FIXME: handle multi-dimensional array
+            if (config.enableImplicitArraySizeHint) {
+                if (auto arraySpec = expr.GetConstructedType()->GetArraySpec();
+                    arraySpec && arraySpec->GetSizeList().back() == nullptr) {
+                    if (auto arrayDesc = expr.GetDeducedType()->GetArrayDesc(); arrayDesc) {
+                        TryAddInlayHint(arraySpec->GetSyntaxRange().GetBeginID() + 1,
+                                        fmt::format("{}", arrayDesc->dimSize), false, false);
+                    }
+                }
+            }
+
+            // Handle hints for constructor arguments
+            if (!config.enableInitializerHint) {
+                return;
+            }
+            const auto args = expr.GetArgs();
+            if (auto structDesc = expr.GetDeducedType()->GetStructDesc()) {
+                for (const auto& [memberDesc, argExpr] : std::views::zip(structDesc->members, args)) {
+                    TryAddInlayHintBefore(*argExpr, fmt::format(".{}:", memberDesc.name));
+                }
+            }
+            else if (auto arrayDesc = expr.GetDeducedType()->GetArrayDesc()) {
+                for (size_t i = 0; i < args.size() && i < arrayDesc->dimSize; ++i) {
+                    TryAddInlayHintBefore(*args[i], fmt::format("[{}]:", i));
+                }
+            }
+            else if (auto vecDesc = expr.GetDeducedType()->GetVectorDesc()) {
+                StringView remainingSwizzleNames = StringView{"xyzw"}.Take(vecDesc->vectorSize);
+                if (args.size() == 1 && args.front()->GetDeducedType()->IsScalar()) {
+                    TryAddInlayHintBefore(*args.front(), fmt::format(".{}:", remainingSwizzleNames));
+                }
+                else {
+                    for (auto argExpr : args) {
+                        if (remainingSwizzleNames.Empty()) {
+                            break;
+                        }
+
+                        StringView swizzleName =
+                            remainingSwizzleNames.Take(argExpr->GetDeducedType()->GetElementScalarCount().value_or(1));
+                        remainingSwizzleNames = remainingSwizzleNames.Drop(swizzleName.Size());
+                        TryAddInlayHintBefore(*argExpr, fmt::format(".{}:", swizzleName));
+                    }
+                }
+            }
+            else if (auto matDesc = expr.GetDeducedType()->GetMatrixDesc()) {
+                if (args.size() == 1 && args.front()->GetDeducedType()->IsScalar()) {
+                    TryAddInlayHintBefore(*args.front(), "diag:");
+                }
+                else if (args.size() == 1 && args.front()->GetDeducedType()->IsMatrix()) {
+                    TryAddInlayHintBefore(*args.front(), "m:");
+                }
+                else {
+                    // FIXME: handle composing a matrix from scalar/vector
+                }
+            }
+        }
+
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+        {
+            if (!config.enableImplicitArraySizeHint) {
+                return;
+            }
+
+            // Handle hints for implicit array size
+            // FIXME: handle multi-dimensional array
+            if (auto arraySpec = decl.GetArraySpec();
+                arraySpec && arraySpec->GetSizeList().back() == nullptr && decl.GetInitializer()) {
+                if (auto arrayDesc = decl.GetResolvedType()->GetArrayDesc(); arrayDesc) {
+                    TryAddInlayHint(arraySpec->GetSyntaxRange().GetBeginID() + 1, fmt::format("{}", arrayDesc->dimSize),
+                                    false, false);
                 }
             }
         }
@@ -109,6 +212,26 @@ namespace glsld
                     .paddingRight = paddingRight,
                 });
             }
+        }
+
+        auto TryAddInlayHint(SyntaxTokenID token, std::string label, bool paddingLeft, bool paddingRight) -> void
+        {
+            const auto range = GetInfo().LookupExpandedTextRange(token);
+            if (range.IsEmpty()) {
+                return;
+            }
+
+            TryAddInlayHint(range.start, std::move(label), paddingLeft, paddingRight);
+        }
+
+        auto TryAddInlayHintBefore(const AstNode& node, std::string label) -> void
+        {
+            const auto range = GetInfo().LookupExpandedTextRange(node);
+            if (range.IsEmpty()) {
+                return;
+            }
+
+            TryAddInlayHint(range.start, std::move(label), false, true);
         }
     };
 

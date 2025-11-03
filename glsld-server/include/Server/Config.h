@@ -10,25 +10,25 @@ namespace glsld
     struct DeclarationConfig
     {
         // Master toggle for declaration.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct DefinitionConfig
     {
         // Master toggle for definition.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct ReferenceConfig
     {
         // Master toggle for reference.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct HoverConfig
     {
         // Master toggle for hover.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct FoldingRangeConfig
@@ -40,25 +40,29 @@ namespace glsld
     struct DocumentSymbolConfig
     {
         // Master toggle for document symbol.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct SemanticTokenConfig
     {
         // Master toggle for semantic token.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct InlayHintConfig
     {
         // Master toggle for inlay hint.
-        bool enable = true;
+        bool enable = false;
         // Show the argument name hint for function calls.
-        bool enableArgumentNameHint = true;
+        bool enableArgumentNameHint = false;
+        // Show the initializer hint for constructor calls and initializer lists.
+        bool enableInitializerHint = false;
+        // Show the implicit array size hint for array declarations and constructor calls.
+        bool enableImplicitArraySizeHint = false;
         // Show the implicit cast hint for function calls.
         bool enableImplicitCastHint = false;
         // Show the block end hint for function body.
-        bool enableBlockEndHint = true;
+        bool enableBlockEndHint = false;
 
         // The threshold of lines to show the block end hint.
         size_t blockEndHintLineThreshold = 0;
@@ -67,7 +71,7 @@ namespace glsld
     struct CompletionConfig
     {
         // Master toggle for completion.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct DiagnosticConfig
@@ -79,7 +83,7 @@ namespace glsld
     struct SignatureHelpConfig
     {
         // Master toggle for signature help.
-        bool enable = true;
+        bool enable = false;
     };
 
     struct LanguageServiceConfig
@@ -108,8 +112,10 @@ namespace glsld
     struct LanguageServerConfig
     {
         LanguageServiceConfig languageService;
-        StringEnum<LoggingLevel> loggingLevel = LoggingLevel::Info;
+        StringEnum<LoggingLevel> loggingLevel;
     };
+
+    auto GetDefaultLanguageServerConfig() -> LanguageServerConfig;
 
     auto ParseLanguageServerConfig(StringView configFile) -> std::optional<LanguageServerConfig>;
 } // namespace glsld

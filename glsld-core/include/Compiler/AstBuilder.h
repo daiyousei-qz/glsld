@@ -3,6 +3,7 @@
 #include "Ast/Stmt.h"
 #include "Ast/Decl.h"
 #include "Ast/Misc.h"
+#include "Basic/Common.h"
 #include "Compiler/AstContext.h"
 #include "Compiler/CompilerInvocationState.h"
 #include "Compiler/SymbolTable.h"
