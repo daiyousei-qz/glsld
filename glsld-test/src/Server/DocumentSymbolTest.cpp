@@ -5,7 +5,7 @@
 
 using namespace glsld;
 
-static auto MockDocumentSymbol(const ServerTestFixture& fixture, const DocumentSymbolConfig& config = {})
+static auto MockDocumentSymbol(const ServerTestFixture& fixture, const DocumentSymbolConfig& config = {.enable = true})
     -> std::vector<lsp::DocumentSymbol>
 {
     return HandleDocumentSymbol(config, fixture.GetLanguageQueryInfo(),

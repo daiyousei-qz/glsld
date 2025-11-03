@@ -5,8 +5,8 @@
 
 using namespace glsld;
 
-static auto MockDefinition(const ServerTestFixture& fixture, TextPosition pos, const DefinitionConfig& config = {})
-    -> std::vector<lsp::Location>
+static auto MockDefinition(const ServerTestFixture& fixture, TextPosition pos,
+                           const DefinitionConfig& config = {.enable = true}) -> std::vector<lsp::Location>
 {
     return HandleDefinition(config, fixture.GetLanguageQueryInfo(),
                             lsp::DefinitionParams{

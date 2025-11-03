@@ -119,7 +119,7 @@ namespace glsld
     static auto LoadConfig(const std::string& configFilePath) -> LanguageServerConfig
     {
         if (configFilePath.empty()) {
-            return LanguageServerConfig{};
+            return GetDefaultLanguageServerConfig();
         }
 
         std::ifstream configFileStream(configFilePath);

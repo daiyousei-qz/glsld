@@ -182,6 +182,21 @@ namespace glsld
         return Type::GetErrorType();
     }
 
+    auto Type::GetArithmeticType(ScalarKind kind, ValueDimension dim) -> const Type*
+    {
+        if (dim.dimCol > 1 && dim.dimRow > 1) {
+            return Type::GetMatrixType(kind, dim.dimRow, dim.dimCol);
+        }
+        else if (dim.dimCol > 1 && dim.dimRow == 1) {
+            return Type::GetVectorType(kind, dim.dimCol);
+        }
+        else if (dim.dimCol == 1 && dim.dimRow == 1) {
+            return Type::GetScalarType(kind);
+        }
+
+        return Type::GetErrorType();
+    }
+
     auto Type::IsSameWith(GlslBuiltinType type) const -> bool
     {
         return this == Type::GetBuiltinType(type);

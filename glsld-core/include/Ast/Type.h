@@ -4,6 +4,8 @@
 #include "Ast/Base.h"
 #include "Language/Typing.h"
 
+#include <cstddef>
+#include <optional>
 #include <variant>
 #include <vector>
 
@@ -161,6 +163,11 @@ namespace glsld
         // NOTE if the matrix type doesn't exist in glsl language, returns nullptr
         static auto GetMatrixType(ScalarKind kind, size_t dimRow, size_t dimCol) -> const Type*;
 
+        // Get a globally unique type instance for the particular arithmetic type, if any
+        // This includes scalar, vector and matrix types.
+        // NOTE if the arithmetic type doesn't exist in glsl language, returns nullptr
+        static auto GetArithmeticType(ScalarKind kind, ValueDimension dim) -> const Type*;
+
         auto IsError() const noexcept -> bool
         {
             return std::holds_alternative<ErrorTypeDesc>(descPayload);
@@ -237,20 +244,37 @@ namespace glsld
             return false;
         }
 
-        // Returns the underlying scalar type of a scalar, vector or matrix type. Returns nullptr otherwise.
-        auto GetElementScalarType() const noexcept -> const Type*
+        // Returns the underlying scalar type of a scalar, vector or matrix type. Returns nullopt otherwise.
+        auto GetElementScalarKind() const noexcept -> std::optional<ScalarKind>
         {
             if (auto desc = GetScalarDesc()) {
-                return GetScalarType(desc->type);
+                return desc->type;
             }
             else if (auto desc = GetVectorDesc()) {
-                return GetScalarType(desc->scalarType);
+                return desc->scalarType;
             }
             else if (auto desc = GetMatrixDesc()) {
-                return GetScalarType(desc->scalarType);
+                return desc->scalarType;
             }
             else {
-                return nullptr;
+                return std::nullopt;
+            }
+        }
+
+        // Returns the number of underlying scalars of a scalar, vector or matrix type. Returns nullopt otherwise.
+        auto GetElementScalarCount() const noexcept -> std::optional<size_t>
+        {
+            if (auto desc = GetScalarDesc()) {
+                return 1;
+            }
+            else if (auto desc = GetVectorDesc()) {
+                return desc->vectorSize;
+            }
+            else if (auto desc = GetMatrixDesc()) {
+                return desc->dimRow * desc->dimCol;
+            }
+            else {
+                return std::nullopt;
             }
         }
 

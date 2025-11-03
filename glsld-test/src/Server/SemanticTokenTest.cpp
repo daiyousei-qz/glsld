@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticTokenConfig& config = {})
+static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticTokenConfig& config = {.enable = true})
     -> std::vector<SemanticTokenInfo>
 {
     return CollectSemanticTokens(config, fixture.GetLanguageQueryInfo());

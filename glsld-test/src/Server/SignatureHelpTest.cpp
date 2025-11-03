@@ -6,7 +6,7 @@
 using namespace glsld;
 
 static auto MockSignatureHelp(const ServerTestFixture& fixture, TextPosition pos,
-                              const SignatureHelpConfig& config = {}) -> std::optional<lsp::SignatureHelp>
+                              const SignatureHelpConfig& config = {.enable = true}) -> std::optional<lsp::SignatureHelp>
 {
     SignatureHelpPreambleInfo preambleInfo;
     return HandleSignatureHelp(config, preambleInfo, fixture.GetLanguageQueryInfo(),

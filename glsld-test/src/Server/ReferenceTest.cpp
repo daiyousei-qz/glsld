@@ -8,7 +8,7 @@
 using namespace glsld;
 
 static auto MockReferences(const ServerTestFixture& fixture, TextPosition pos, bool includeDeclaration,
-                           const ReferenceConfig& config = {}) -> std::vector<lsp::Location>
+                           const ReferenceConfig& config = {.enable = true}) -> std::vector<lsp::Location>
 {
     return HandleReferences(config, fixture.GetLanguageQueryInfo(),
                             lsp::ReferenceParams{
@@ -21,14 +21,14 @@ static auto MockReferences(const ServerTestFixture& fixture, TextPosition pos, b
 TEST_CASE_METHOD(ServerTestFixture, "ReferenceTest")
 {
     auto checkNoReference = [this](StringView labelPos, bool includeDeclaration = false,
-                                   const ReferenceConfig& config = {}) {
+                                   const ReferenceConfig& config = {.enable = true}) {
         auto refs = MockReferences(*this, GetLabelledPosition(labelPos), includeDeclaration, config);
         REQUIRE(refs.empty());
     };
 
     auto checkReference = [this](StringView labelPos,
                                  const std::vector<std::pair<StringView, StringView>>& expectedRefLabels,
-                                 bool includeDeclaration = false, const ReferenceConfig& config = {}) {
+                                 bool includeDeclaration = false, const ReferenceConfig& config = {.enable = true}) {
         auto refs = MockReferences(*this, GetLabelledPosition(labelPos), includeDeclaration, config);
         REQUIRE(refs.size() == expectedRefLabels.size());
         for (auto [ref, labelPair] : std::views::zip(refs, expectedRefLabels)) {
