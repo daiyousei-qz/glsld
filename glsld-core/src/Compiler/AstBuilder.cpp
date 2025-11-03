@@ -371,18 +371,16 @@ namespace glsld
         bool isConst            = false;
         const Type* deducedType = DeduceUnaryExprType(opcode, operandType);
 
-        if (!deducedType->IsError() && operand->IsConst()) {
-            if (opcode == UnaryOp::Length) {
-                if (operandType->IsVector() || operandType->IsMatrix()) {
-                    isConst = true;
-                }
-                else if (auto desc = operandType->GetArrayDesc()) {
-                    isConst = desc->dimSize != 0;
-                }
-            }
-            else {
+        if (opcode == UnaryOp::Length) {
+            if (operandType->IsVector() || operandType->IsMatrix()) {
                 isConst = true;
             }
+            else if (auto desc = operandType->GetArrayDesc()) {
+                isConst = desc->dimSize != 0;
+            }
+        }
+        else if (!deducedType->IsError() && operand->IsConst()) {
+            isConst = true;
         }
 
         auto result = CreateAstNode<AstUnaryExpr>(range, operand, opcode);

@@ -317,15 +317,27 @@ namespace glsld
             }
         }
         else if (auto unaryExpr = init.As<AstUnaryExpr>(); unaryExpr) {
-            // Because `.length()` works on aggregate as well, we need to handle it here.
-            auto operandResult = EvalAstInitializerLazy(*unaryExpr->GetOperand());
-            if (operandResult.IsLazyAggregate()) {
-                if (unaryExpr->GetOpcode() == UnaryOp::Length) {
-                    return ConstValue::CreateScalar(static_cast<int>(operandResult.AsLazyAggregate().size()));
+            if (unaryExpr->GetOpcode() == UnaryOp::Length) {
+                // Because `.length()` may work on non-constant expression. We need to handle it separately.
+                const auto operandType = unaryExpr->GetOperand()->GetDeducedType();
+                if (operandType->IsScalar()) {
+                    return ConstValue::CreateScalar(1);
+                }
+                else if (auto vecDesc = operandType->GetVectorDesc(); vecDesc) {
+                    return ConstValue::CreateScalar(static_cast<int>(vecDesc->vectorSize));
+                }
+                else if (auto matDesc = operandType->GetMatrixDesc(); matDesc) {
+                    return ConstValue::CreateScalar(static_cast<int>(matDesc->dimCol));
+                }
+                else if (auto arrayDesc = operandType->GetArrayDesc(); arrayDesc && arrayDesc->dimSize != 0) {
+                    return ConstValue::CreateScalar(static_cast<int>(arrayDesc->dimSize));
+                }
+                else {
+                    return ConstValue{};
                 }
             }
             else {
-                return EvalUnaryConstExpr(unaryExpr->GetOpcode(), operandResult.AsConstValue());
+                return EvalUnaryConstExpr(unaryExpr->GetOpcode(), EvalAstExpr(*unaryExpr->GetOperand()));
             }
         }
         else if (auto binaryExpr = init.As<AstBinaryExpr>(); binaryExpr) {
