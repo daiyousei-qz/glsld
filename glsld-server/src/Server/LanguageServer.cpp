@@ -1,5 +1,6 @@
 #include "Server/LanguageServer.h"
 #include "Server/LanguageService.h"
+#include "Server/Protocol.h"
 #include "Server/TransportService.h"
 
 #include <cctype>
@@ -8,7 +9,6 @@
 #include <spdlog/sinks/basic_file_sink.h>
 
 #include <cstdio>
-#include <filesystem>
 
 #if defined(GLSLD_OS_WIN)
 #include <io.h>
@@ -64,23 +64,30 @@ namespace glsld
     using RequestHandlerType = void (LanguageService::*)(int requestId, ParamType params);
 
     template <typename ParamType>
-    static auto CreateRequestHandler(RequestHandlerType<ParamType> handler)
+    static auto CreateRequestHandler(RequestHandlerType<ParamType> handler, bool allowNoParams = false)
         -> std::function<auto(LanguageServer&, const nlohmann::json&)->void>
     {
-        return [handler](LanguageServer& server, const nlohmann::json& rpcBlob) {
-            const auto& jreqid = rpcBlob["id"];
-            if (!jreqid.is_number_integer()) {
+        return [handler, allowNoParams](LanguageServer& server, const nlohmann::json& rpcBlob) {
+            int requestId;
+            if (auto itReqId = rpcBlob.find("id"); itReqId != rpcBlob.end() && itReqId->is_number_integer()) {
+                requestId = *itReqId;
+            }
+            else {
                 server.LogError("JSON-RPC request ID must be a valid integer.");
                 return;
             }
-            int requestId = jreqid;
 
             ParamType params;
-            if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
-                std::invoke(handler, &server.GetLanguageService(), requestId, std::move(params));
+            if (auto itParam = rpcBlob.find("params"); itParam != rpcBlob.end()) {
+                if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
+                    std::invoke(handler, &server.GetLanguageService(), requestId, std::move(params));
+                }
+                else {
+                    server.LogError("Failed to deserialize JSON-RPC request parameters.");
+                }
             }
-            else {
-                server.LogError("Failed to deserialize JSON-RPC request parameters.");
+            else if (allowNoParams) {
+                std::invoke(handler, &server.GetLanguageService(), requestId, params);
             }
         };
     }
@@ -89,16 +96,21 @@ namespace glsld
     using NotificationHandlerType = void (LanguageService::*)(ParamType params);
 
     template <typename ParamType>
-    static auto CreateNotificationHandler(NotificationHandlerType<ParamType> handler)
+    static auto CreateNotificationHandler(NotificationHandlerType<ParamType> handler, bool allowNoParams = false)
         -> std::function<auto(LanguageServer&, const nlohmann::json&)->void>
     {
-        return [handler](LanguageServer& server, const nlohmann::json& rpcBlob) {
+        return [handler, allowNoParams](LanguageServer& server, const nlohmann::json& rpcBlob) {
             ParamType params;
-            if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
-                std::invoke(handler, &server.GetLanguageService(), std::move(params));
+            if (auto itParam = rpcBlob.find("params"); itParam != rpcBlob.end()) {
+                if (JsonSerializer<ParamType>::Deserialize(params, rpcBlob["params"])) {
+                    std::invoke(handler, &server.GetLanguageService(), std::move(params));
+                }
+                else {
+                    server.LogError("Failed to deserialize JSON-RPC notification parameters.");
+                }
             }
-            else {
-                server.LogError("Failed to deserialize JSON-RPC notification parameters.");
+            else if (allowNoParams) {
+                std::invoke(handler, &server.GetLanguageService(), params);
             }
         };
     }
@@ -111,6 +123,11 @@ namespace glsld
         transport = CreateStdioTransportService(*this);
 
         AddClientMessageHandler(lsp::LSPMethod_Initialize, CreateRequestHandler(&LanguageService::Initialize));
+        AddClientMessageHandler(lsp::LSPMethod_Initialized, [](LanguageServer&, const nlohmann::json&) {});
+        AddClientMessageHandler(lsp::LSPMethod_SetTrace, [](LanguageServer&, const nlohmann::json&) {});
+        AddClientMessageHandler(lsp::LSPMethod_Shutdown, CreateRequestHandler(&LanguageService::Shutdown, true));
+        AddClientMessageHandler(lsp::LSPMethod_Exit, CreateNotificationHandler(&LanguageService::Exit, true));
+
         AddClientMessageHandler(lsp::LSPMethod_DocumentSymbol, CreateRequestHandler(&LanguageService::DocumentSymbol));
         AddClientMessageHandler(lsp::LSPMethod_SemanticTokensFull,
                                 CreateRequestHandler(&LanguageService::SemanticTokensFull));
@@ -140,11 +157,18 @@ namespace glsld
 
     auto LanguageServer::Run() -> void
     {
-        while (auto message = transport->PullMessage()) {
+        running = true;
+        while (running) {
+            auto message = transport->PullMessage();
+            if (!message.has_value()) {
+                break;
+            }
+
             DoHandleClientMessage(*message);
         }
 
         threadPool.wait();
+        running = false;
     }
 
     auto LanguageServer::Replay(std::string replayCommands) -> void
@@ -184,12 +208,14 @@ namespace glsld
             return;
         }
 
-        const auto& jmethod = j["method"];
-        if (!jmethod.is_string()) {
-            LogError("JSON-RPC method is not valid.");
+        std::string method;
+        if (auto itMethod = j.find("method"); itMethod != j.end() && itMethod->is_string()) {
+            method = *itMethod;
+        }
+        else {
+            LogError("JSON-RPC method must be a valid string.");
             return;
         }
-        std::string method = jmethod;
 
         if (auto it = dispatcherMap.find(method); it != dispatcherMap.end()) {
             it->second(*this, j);

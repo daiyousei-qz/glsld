@@ -39,6 +39,7 @@ namespace glsld
         using MessageDispatcherType = std::function<void(LanguageServer& server, const nlohmann::json& rpcBlob)>;
         std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
 
+        bool running = false;
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TransportService> transport;
 
@@ -51,6 +52,11 @@ namespace glsld
         auto Run() -> void;
 
         auto Replay(std::string replayCommands) -> void;
+
+        auto Shutdown() -> void
+        {
+            running = false;
+        }
 
         auto GetConfig() const -> const LanguageServerConfig&
         {

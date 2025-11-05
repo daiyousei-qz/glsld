@@ -1676,6 +1676,8 @@ namespace glsld::lsp
 #pragma region Lifecycle
     inline constexpr const char* LSPMethod_Initialize  = "initialize";
     inline constexpr const char* LSPMethod_Initialized = "initialized";
+    inline constexpr const char* LSPMethod_SetTrace    = "$/setTrace";
+    inline constexpr const char* LSPMethod_LogTrace    = "$/logTrace";
     inline constexpr const char* LSPMethod_Shutdown    = "shutdown";
     inline constexpr const char* LSPMethod_Exit        = "exit";
 

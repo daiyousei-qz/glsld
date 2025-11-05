@@ -127,6 +127,18 @@ namespace glsld
         server.LogInfo("GLSLD initialized");
     }
 
+    auto LanguageService::Shutdown(int requestId, std::monostate) -> void
+    {
+        // We ignore shutdown request.
+        server.HandleServerResponse(requestId, nullptr, false);
+        server.LogInfo("GLSLD shutting down");
+    }
+
+    auto LanguageService::Exit(std::monostate) -> void
+    {
+        server.Shutdown();
+    }
+
 #pragma region Document Synchronization
 
     auto LanguageService::DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
