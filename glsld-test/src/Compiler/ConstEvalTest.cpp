@@ -9,6 +9,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "ConstEval")
                          FunctionDecl(AnyQualType(), AnyTok(), {}, FindMatch(ExprStmt(AnyExpr()), ExprStmt(matcher))));
     });
 
+    auto checkError = [this]() {
+        return AnyExpr()->CheckValue([](const ConstValue& value) { return value.IsError(); });
+    };
     auto checkScalar = [this](auto scalarValue) {
         return AnyExpr()->CheckValue(
             [scalarValue](const ConstValue& value) { return value == ConstValue::CreateScalar(scalarValue); });
@@ -65,6 +68,12 @@ TEST_CASE_METHOD(CompilerTestFixture, "ConstEval")
     {
         GLSLD_CHECK_AST("-1", checkScalar(-1));
         GLSLD_CHECK_AST("!true", checkScalar(false));
+
+        GLSLD_CHECK_AST("(1).length()", checkError());
+        GLSLD_CHECK_AST("vec4(1).length()", checkScalar(4));
+        GLSLD_CHECK_AST("mat2(1).length()", checkScalar(2));
+        GLSLD_CHECK_AST("mat2x3(1).length()", checkScalar(3));
+        GLSLD_CHECK_AST("mat3x2(1).length()", checkScalar(2));
         GLSLD_CHECK_AST("int[2u](1, 2).length()", checkScalar(2));
         GLSLD_CHECK_AST("int[2](unknown1, unknown2).length()", checkScalar(2));
     }

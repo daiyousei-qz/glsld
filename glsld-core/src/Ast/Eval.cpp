@@ -318,12 +318,10 @@ namespace glsld
         }
         else if (auto unaryExpr = init.As<AstUnaryExpr>(); unaryExpr) {
             if (unaryExpr->GetOpcode() == UnaryOp::Length) {
-                // Because `.length()` may work on non-constant expression. We need to handle it separately.
+                // Because `.length()` may introduce a constant with a non-constant expression.
+                // We need to handle it separately.
                 const auto operandType = unaryExpr->GetOperand()->GetDeducedType();
-                if (operandType->IsScalar()) {
-                    return ConstValue::CreateScalar(1);
-                }
-                else if (auto vecDesc = operandType->GetVectorDesc(); vecDesc) {
+                if (auto vecDesc = operandType->GetVectorDesc(); vecDesc) {
                     return ConstValue::CreateScalar(static_cast<int>(vecDesc->vectorSize));
                 }
                 else if (auto matDesc = operandType->GetMatrixDesc(); matDesc) {
