@@ -127,14 +127,24 @@ namespace glsld
         server.LogInfo("GLSLD initialized");
     }
 
-    auto LanguageService::Shutdown(int requestId, std::monostate) -> void
+    auto LanguageService::Initialized(lsp::InitializedParams) -> void
     {
-        // We ignore shutdown request.
+        // No-op for now
+    }
+
+    auto LanguageService::SetTrace(lsp::SetTraceParams params) -> void
+    {
+        // No-op for now
+    }
+
+    auto LanguageService::Shutdown(int requestId, std::nullptr_t) -> void
+    {
+        // We do nothing on shutdown request but an acknowledgement
         server.HandleServerResponse(requestId, nullptr, false);
         server.LogInfo("GLSLD shutting down");
     }
 
-    auto LanguageService::Exit(std::monostate) -> void
+    auto LanguageService::Exit(std::nullptr_t) -> void
     {
         server.Shutdown();
     }

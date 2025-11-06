@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Basic/Common.h"
 #include "Support/File.h"
+#include "Support/JsonSerializer.h"
+#include "Support/StringMap.h"
 #include "Support/StringView.h"
 #include "Server/Config.h"
-#include "Support/JsonSerializer.h"
 
 #include <BS_thread_pool.hpp>
 #include <nlohmann/json.hpp>
@@ -12,7 +12,6 @@
 
 #include <cstdio>
 #include <memory>
-#include <unordered_map>
 #include <functional>
 
 namespace glsld
@@ -36,8 +35,9 @@ namespace glsld
         // while replay file is loaded.
         UniqueFile replayDumpFile;
 
-        using MessageDispatcherType = std::function<void(LanguageServer& server, const nlohmann::json& rpcBlob)>;
-        std::unordered_map<std::string, MessageDispatcherType> dispatcherMap;
+        using ClientMessageHandlerType =
+            std::function<auto(LanguageServer& server, const nlohmann::json& rpcBlob)->void>;
+        UnorderedStringMap<ClientMessageHandlerType> handlerDispatchMap;
 
         bool running = false;
         std::unique_ptr<LanguageService> language;
@@ -155,7 +155,6 @@ namespace glsld
         auto DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
         auto DoHandleServerNotification(const char* method, nlohmann::json params) -> void;
 
-        auto AddClientMessageHandler(StringView methodName,
-                                     std::function<auto(LanguageServer&, const nlohmann::json&)->void> handler) -> void;
+        auto InitializeClientMessageHandlers() -> void;
     };
 } // namespace glsld

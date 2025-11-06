@@ -6,7 +6,7 @@
 #include "Server/LanguageQueryInfo.h"
 #include "Support/StringView.h"
 
-#include <variant>
+#include <cstddef>
 
 namespace glsld
 {
@@ -40,9 +40,13 @@ namespace glsld
 
         auto Initialize(int requestId, lsp::InitializeParams params) -> void;
 
-        auto Shutdown(int requestId, std::monostate) -> void;
+        auto Initialized(lsp::InitializedParams) -> void;
 
-        auto Exit(std::monostate) -> void;
+        auto SetTrace(lsp::SetTraceParams params) -> void;
+
+        auto Shutdown(int requestId, std::nullptr_t) -> void;
+
+        auto Exit(std::nullptr_t) -> void;
 
 #pragma endregion
 

@@ -2104,5 +2104,13 @@ namespace glsld::lsp
     struct InitializedParams
     {
     };
+
+    struct SetTraceParams
+    {
+        // /**
+        //  * The new value that should be assigned to the trace setting.
+        //  */
+        // value : TraceValue;
+    };
 #pragma endregion
 } // namespace glsld::lsp
