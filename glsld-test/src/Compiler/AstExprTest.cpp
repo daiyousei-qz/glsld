@@ -208,16 +208,23 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
     SECTION("IndexAccessExpr")
     {
         GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+        GLSLD_CHECK_AST("a[1u]",
+                        IndexAccessExpr(NameAccessExpr("a"),
+                                        ImplicitCastExpr(LiteralExpr(1u))->CheckType(GlslBuiltinType::Ty_int)));
         GLSLD_CHECK_AST("a[1][2]",
                         IndexAccessExpr(IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)), LiteralExpr(2)));
 
         GLSLD_CHECK_AST("foo()[1]", IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)));
-        GLSLD_CHECK_AST("foo()[bar]", IndexAccessExpr(FunctionCallExpr("foo", {}), NameAccessExpr("bar")));
+        GLSLD_CHECK_AST("foo()[bar]",
+                        IndexAccessExpr(FunctionCallExpr("foo", {}),
+                                        ImplicitCastExpr(NameAccessExpr("bar"))->CheckType(GlslBuiltinType::Ty_int)));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
-            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"),
+                                                   ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
+            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"),
+                                                  ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
             GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
             // FIXME: this is seen as a constructor call???
             // GLSLD_CHECK_AST("a[int bool]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
