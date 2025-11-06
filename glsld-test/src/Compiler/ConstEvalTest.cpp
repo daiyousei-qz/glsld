@@ -65,6 +65,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "ConstEval")
     {
         GLSLD_CHECK_AST("-1", checkScalar(-1));
         GLSLD_CHECK_AST("!true", checkScalar(false));
+        GLSLD_CHECK_AST("int[2u](1, 2).length()", checkScalar(2));
+        GLSLD_CHECK_AST("int[2](unknown1, unknown2).length()", checkScalar(2));
     }
 
     SECTION("BinaryExpr")
