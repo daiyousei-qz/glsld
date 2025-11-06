@@ -1066,6 +1066,7 @@ namespace glsld
             // Notably, for implicitly sized array, only outermost dimension could be unsized.
             if (auto arrayDesc = resolvedType->GetArrayDesc();
                 arrayDesc && arrayDesc->dimSize == 0 && declarator.initializer) {
+                // FIXME: handle multi-dimensional array
                 if (auto initArrayDesc = declarator.initializer->GetDeducedType()->GetArrayDesc();
                     initArrayDesc && arrayDesc->elementType == initArrayDesc->elementType) {
                     resolvedType = astContext.GetArrayType(arrayDesc->elementType, initArrayDesc->dimSize);
