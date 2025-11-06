@@ -6,6 +6,8 @@
 #include "Server/LanguageQueryInfo.h"
 #include "Support/StringView.h"
 
+#include <cstddef>
+
 namespace glsld
 {
     class LanguageService
@@ -34,7 +36,19 @@ namespace glsld
         {
         }
 
+#pragma region Lifecycle
+
         auto Initialize(int requestId, lsp::InitializeParams params) -> void;
+
+        auto Initialized(lsp::InitializedParams) -> void;
+
+        auto SetTrace(lsp::SetTraceParams params) -> void;
+
+        auto Shutdown(int requestId, std::nullptr_t) -> void;
+
+        auto Exit(std::nullptr_t) -> void;
+
+#pragma endregion
 
 #pragma region Document Synchronization
 

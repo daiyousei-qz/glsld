@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include <optional>
+#include <cstddef>
 #include <type_traits>
 
 namespace glsld
@@ -143,6 +144,25 @@ namespace glsld
                 return false;
             }
 
+            return true;
+        }
+    };
+
+    template <>
+    struct JsonSerializer<std::nullptr_t>
+    {
+        static auto Serialize(const std::nullptr_t&) -> nlohmann::json
+        {
+            return nullptr;
+        }
+
+        static auto Deserialize(std::nullptr_t& data, const nlohmann::json& j) -> bool
+        {
+            if (!j.is_null()) {
+                return false;
+            }
+
+            data = nullptr;
             return true;
         }
     };
