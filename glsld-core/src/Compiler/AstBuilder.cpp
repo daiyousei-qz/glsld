@@ -84,9 +84,9 @@ namespace glsld
         }
 
         // Infer implicit array size if needed
+        // Notably, for implicitly sized array, only outermost dimension could be unsized.
         const Type* resolvedType = contextType;
         if (auto arrayDesc = resolvedType->GetArrayDesc(); arrayDesc && arrayDesc->dimSize == 0) {
-            // FIXME: handle multi-dimensional array
             resolvedType = astContext.GetArrayType(arrayDesc->elementType, initializers.size());
         }
 
@@ -927,10 +927,10 @@ namespace glsld
         -> AstConstructorCallExpr*
     {
         // Infer implicit array size if needed
+        // Notably, for implicitly sized array, only outermost dimension could be unsized.
         auto constructedType = qualType->GetResolvedType();
         if (auto arrayDesc = constructedType->GetArrayDesc(); arrayDesc && arrayDesc->dimSize == 0) {
-            // FIXME: handle multi-dimensional array
-            constructedType = astContext.GetArrayType(arrayDesc->elementType, static_cast<size_t>(args.size()));
+            constructedType = astContext.GetArrayType(arrayDesc->elementType, args.size());
         }
 
         // Make implicit cast if needed
@@ -1063,9 +1063,9 @@ namespace glsld
             auto resolvedType = astContext.GetArrayType(qualType->GetResolvedType(), declarator.arraySpec);
 
             // Infer implicit array size if needed
+            // Notably, for implicitly sized array, only outermost dimension could be unsized.
             if (auto arrayDesc = resolvedType->GetArrayDesc();
                 arrayDesc && arrayDesc->dimSize == 0 && declarator.initializer) {
-                // FIXME: handle multi-dimensional array
                 if (auto initArrayDesc = declarator.initializer->GetDeducedType()->GetArrayDesc();
                     initArrayDesc && arrayDesc->elementType == initArrayDesc->elementType) {
                     resolvedType = astContext.GetArrayType(arrayDesc->elementType, initArrayDesc->dimSize);
