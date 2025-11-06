@@ -1064,7 +1064,7 @@ namespace glsld
 
             // Infer implicit array size if needed
             if (auto arrayDesc = resolvedType->GetArrayDesc();
-                arrayDesc && arrayDesc->dimSize == 0 && declarator.arraySpec && declarator.initializer) {
+                arrayDesc && arrayDesc->dimSize == 0 && declarator.initializer) {
                 // FIXME: handle multi-dimensional array
                 if (auto initArrayDesc = declarator.initializer->GetDeducedType()->GetArrayDesc();
                     initArrayDesc && arrayDesc->elementType == initArrayDesc->elementType) {
