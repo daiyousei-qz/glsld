@@ -43,6 +43,8 @@ namespace glsld
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TransportService> transport;
 
+        std::mutex transportMutex;
+
     public:
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
@@ -74,6 +76,7 @@ namespace glsld
         }
 
         // Dispatch a response from the language server to the client.
+        // This function is thread-safe.
         template <typename T>
         auto HandleServerResponse(int requestId, const T& result, bool isError) -> void
         {
@@ -81,6 +84,7 @@ namespace glsld
         }
 
         // Dispatch a notification from the language server to the client.
+        // This function is thread-safe.
         template <typename T>
         auto HandleServerNotification(const char* method, const T& params) -> void
         {

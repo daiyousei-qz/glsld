@@ -164,6 +164,8 @@ namespace glsld
         }
 
         auto payload = rpcBlob.dump();
+
+        std::lock_guard<std::mutex> lock{transportMutex};
         transport->PushMessage(StringView{payload});
     }
 
@@ -175,6 +177,8 @@ namespace glsld
         rpcBlob["params"]  = std::move(params);
 
         auto payload = rpcBlob.dump();
+
+        std::lock_guard<std::mutex> lock{transportMutex};
         transport->PushMessage(StringView{payload});
     }
 
