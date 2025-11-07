@@ -48,9 +48,19 @@ namespace glsld
             case SymbolDeclType::Block:
                 return "Interface Block";
             case SymbolDeclType::BlockInstance:
-                return "Interface Block Instance";
+                if (hover.builtin) {
+                    return "Built-in Block Instance";
+                }
+                else {
+                    return "Interface Block Instance";
+                }
             case SymbolDeclType::BlockMember:
-                return "Interface Block Member";
+                if (hover.builtin) {
+                    return "Built-in Block Member";
+                }
+                else {
+                    return "Interface Block Member";
+                }
             }
         }();
         builder.AppendHeader(3, "{}{} `{}`", hover.unknown ? "Unknown " : "", hoverTypeName, hover.name);
@@ -150,143 +160,100 @@ namespace glsld
         -> std::optional<HoverContent>
     {
         GLSLD_ASSERT(symbolInfo.astSymbolOccurrence);
-        std::string returnType;
-        std::vector<std::string> parameters;
-        std::string exprType;
-        std::string exprValue;
-        {
-            if (!symbolInfo.symbolDecl) {
-                // This branch is only used to filter out symbols without known declaration.
+
+        HoverContent result;
+        result.type  = symbolInfo.symbolType;
+        result.name  = symbolInfo.spelledText;
+        result.range = symbolInfo.spelledRange;
+
+        if (auto expr = symbolInfo.astSymbolOccurrence->As<AstExpr>(); expr) {
+            result.exprType = expr->GetDeducedType()->GetDebugName().Str();
+            if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
+                result.exprValue = constValue.ToString();
             }
-            else if (auto funcDecl = symbolInfo.symbolDecl->As<AstFunctionDecl>();
-                     funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
-                returnType = funcDecl->GetReturnType()->GetResolvedType()->GetDebugName().Str();
+        }
+
+        if (!symbolInfo.symbolDecl) {
+            result.unknown = symbolInfo.symbolType != SymbolDeclType::Swizzle &&
+                             symbolInfo.symbolType != SymbolDeclType::LayoutQualifier;
+        }
+        else {
+            result.description = info.QueryCommentDescription(*symbolInfo.symbolDecl);
+            result.builtin = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
+                                                          TranslationUnitID::SystemPreamble;
+
+            if (auto funcDecl = symbolInfo.symbolDecl->As<AstFunctionDecl>();
+                funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
+                result.returnType = funcDecl->GetReturnType()->GetResolvedType()->GetDebugName().Str();
                 if (!funcDecl->GetParams().empty()) {
                     for (auto paramDecl : funcDecl->GetParams()) {
                         std::string paramText;
                         ReconstructSourceText(paramText, *paramDecl);
-                        parameters.push_back(std::move(paramText));
+                        result.parameters.push_back(std::move(paramText));
                     }
                 }
+
+                ReconstructSourceText(result.code, *funcDecl);
             }
             else if (auto paramDecl = symbolInfo.symbolDecl->As<AstParamDecl>();
                      paramDecl && symbolInfo.symbolType == SymbolDeclType::Parameter) {
-                exprType = paramDecl->GetResolvedType()->GetDebugName().Str();
+                if (result.exprType.empty()) {
+                    result.exprType = paramDecl->GetResolvedType()->GetDebugName().Str();
+                }
+                ReconstructSourceText(result.code, *paramDecl);
             }
             else if (auto varDeclaratorDecl = symbolInfo.symbolDecl->As<AstVariableDeclaratorDecl>();
                      varDeclaratorDecl && (symbolInfo.symbolType == SymbolDeclType::GlobalVariable ||
                                            symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
                 auto resolvedType = varDeclaratorDecl->GetResolvedType();
-                exprType          = resolvedType->GetDebugName().Str();
+                if (result.exprType.empty()) {
+                    result.exprType = resolvedType->GetDebugName().Str();
+                }
 
                 // We only compute value for declaration here. Const variable value in expression will be handled later.
                 if (symbolInfo.isDeclaration && varDeclaratorDecl->IsConstVariable()) {
                     if (auto init = varDeclaratorDecl->GetInitializer(); init) {
                         if (auto constValue = EvalAstInitializer(*init, resolvedType); !constValue.IsError()) {
-                            exprValue = constValue.ToString();
+                            result.exprValue = constValue.ToString();
                         }
                     }
                 }
+
+                ReconstructSourceText(result.code, *varDeclaratorDecl->GetQualType(), varDeclaratorDecl->GetNameToken(),
+                                      varDeclaratorDecl->GetArraySpec(), varDeclaratorDecl->GetInitializer());
             }
             else if (auto structFieldDeclaratorDecl = symbolInfo.symbolDecl->As<AstStructFieldDeclaratorDecl>();
                      structFieldDeclaratorDecl && symbolInfo.symbolType == SymbolDeclType::StructMember) {
-                exprType = structFieldDeclaratorDecl->GetResolvedType()->GetDebugName().Str();
+                if (result.exprType.empty()) {
+                    result.exprType = structFieldDeclaratorDecl->GetResolvedType()->GetDebugName().Str();
+                }
+                ReconstructSourceText(
+                    result.code, *structFieldDeclaratorDecl->GetQualType(), structFieldDeclaratorDecl->GetNameToken(),
+                    structFieldDeclaratorDecl->GetArraySpec(), structFieldDeclaratorDecl->GetInitializer());
             }
             else if (auto structDecl = symbolInfo.symbolDecl->As<AstStructDecl>();
                      structDecl && symbolInfo.symbolType == SymbolDeclType::Type) {
                 // TODO: maybe show struct size and alignment?
+                ReconstructSourceText(result.code, *structDecl);
             }
             else if (auto blockFieldDeclaratorDecl = symbolInfo.symbolDecl->As<AstBlockFieldDeclaratorDecl>();
                      blockFieldDeclaratorDecl && symbolInfo.symbolType == SymbolDeclType::BlockMember) {
-                exprType = blockFieldDeclaratorDecl->GetResolvedType()->GetDebugName().Str();
+                if (result.exprType.empty()) {
+                    result.exprType = blockFieldDeclaratorDecl->GetResolvedType()->GetDebugName().Str();
+                }
+                ReconstructSourceText(
+                    result.code, *blockFieldDeclaratorDecl->GetQualType(), blockFieldDeclaratorDecl->GetNameToken(),
+                    blockFieldDeclaratorDecl->GetArraySpec(), blockFieldDeclaratorDecl->GetInitializer());
             }
             else if (auto blockDecl = symbolInfo.symbolDecl->As<AstInterfaceBlockDecl>();
                      blockDecl && (symbolInfo.symbolType == SymbolDeclType::Block ||
                                    symbolInfo.symbolType == SymbolDeclType::BlockInstance)) {
                 // TODO: maybe show block layouts?
-            }
-
-            if (symbolInfo.astSymbolOccurrence) {
-                if (auto expr = symbolInfo.astSymbolOccurrence->As<AstExpr>(); expr) {
-                    if (auto constValue = EvalAstExpr(*expr); !constValue.IsError()) {
-                        exprValue = constValue.ToString();
-                    }
-                }
+                ReconstructSourceText(result.code, *blockDecl);
             }
         }
 
-        if (!symbolInfo.symbolDecl) {
-            bool isUnknown = symbolInfo.symbolType != SymbolDeclType::Swizzle &&
-                             symbolInfo.symbolType != SymbolDeclType::LayoutQualifier;
-
-            return HoverContent{
-                .type        = symbolInfo.symbolType,
-                .name        = symbolInfo.spelledText,
-                .returnType  = returnType,
-                .parameters  = parameters,
-                .exprType    = exprType,
-                .exprValue   = exprValue,
-                .description = "",
-                .code        = "",
-                .range       = symbolInfo.spelledRange,
-                .unknown     = isUnknown,
-                .builtin     = false,
-            };
-        }
-
-        std::string description = info.QueryCommentDescription(*symbolInfo.symbolDecl);
-        std::string codeBuffer;
-        if (auto funcDecl = symbolInfo.symbolDecl->As<AstFunctionDecl>();
-            funcDecl && symbolInfo.symbolType == SymbolDeclType::Function) {
-            ReconstructSourceText(codeBuffer, *funcDecl);
-            // documentation = QueryFunctionDocumentation(funcDecl->GetNameToken().text.StrView()).Str();
-        }
-        else if (auto paramDecl = symbolInfo.symbolDecl->As<AstParamDecl>();
-                 paramDecl && symbolInfo.symbolType == SymbolDeclType::Parameter) {
-            ReconstructSourceText(codeBuffer, *paramDecl);
-        }
-        else if (auto varDecl = symbolInfo.symbolDecl->As<AstVariableDeclaratorDecl>();
-                 varDecl && (symbolInfo.symbolType == SymbolDeclType::GlobalVariable ||
-                             symbolInfo.symbolType == SymbolDeclType::LocalVariable)) {
-            ReconstructSourceText(codeBuffer, *varDecl->GetQualType(), varDecl->GetNameToken(), varDecl->GetArraySpec(),
-                                  varDecl->GetInitializer());
-        }
-        else if (auto structMemberDecl = symbolInfo.symbolDecl->As<AstStructFieldDeclaratorDecl>();
-                 structMemberDecl && symbolInfo.symbolType == SymbolDeclType::StructMember) {
-            ReconstructSourceText(codeBuffer, *structMemberDecl->GetQualType(), structMemberDecl->GetNameToken(),
-                                  structMemberDecl->GetArraySpec(), structMemberDecl->GetInitializer());
-        }
-        else if (auto structDecl = symbolInfo.symbolDecl->As<AstStructDecl>();
-                 structDecl && symbolInfo.symbolType == SymbolDeclType::Type) {
-            ReconstructSourceText(codeBuffer, *structDecl);
-        }
-        else if (auto blockMemberDecl = symbolInfo.symbolDecl->As<AstBlockFieldDeclaratorDecl>();
-                 blockMemberDecl && symbolInfo.symbolType == SymbolDeclType::BlockMember) {
-            ReconstructSourceText(codeBuffer, *blockMemberDecl->GetQualType(), blockMemberDecl->GetNameToken(),
-                                  blockMemberDecl->GetArraySpec(), blockMemberDecl->GetInitializer());
-        }
-        else if (auto blockDecl = symbolInfo.symbolDecl->As<AstInterfaceBlockDecl>();
-                 blockDecl && (symbolInfo.symbolType == SymbolDeclType::Block ||
-                               symbolInfo.symbolType == SymbolDeclType::BlockInstance)) {
-            ReconstructSourceText(codeBuffer, *blockDecl);
-        }
-        else {
-            return std::nullopt;
-        }
-
-        return HoverContent{
-            .type        = symbolInfo.symbolType,
-            .name        = symbolInfo.spelledText,
-            .returnType  = returnType,
-            .parameters  = parameters,
-            .exprType    = exprType,
-            .exprValue   = exprValue,
-            .description = description,
-            .code        = codeBuffer,
-            .range       = symbolInfo.spelledRange,
-            .builtin     = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
-                                                    TranslationUnitID::SystemPreamble,
-        };
+        return result;
     }
 
     auto CollectHover(const LanguageQueryInfo& info, TextPosition position) -> std::optional<HoverContent>
