@@ -3,6 +3,7 @@
 #include <charconv>
 #include <concepts>
 #include <functional>
+#include <iterator>
 #include <numbers>
 
 #if GLSLD_COMPILER_MSVC
@@ -309,7 +310,7 @@ namespace glsld
             default:
                 return "<vector>";
             }
-            result += std::to_string(GetArraySize());
+            result += fmt::to_string(GetArraySize());
             result += "(";
         }
         else if (IsMatrix()) {
@@ -354,9 +355,9 @@ namespace glsld
                 return "<matrix>";
             }
 
-            result += std::to_string(GetRowSize());
+            result += fmt::to_string(GetRowSize());
             result += "x";
-            result += std::to_string(GetColumnSize());
+            result += fmt::to_string(GetColumnSize());
             result += "(";
         }
 
@@ -370,34 +371,34 @@ namespace glsld
                 result += GetBufferAs<bool>()[0] ? "true" : "false";
                 break;
             case ScalarKind::Int:
-                result += std::to_string(GetBufferAs<int32_t>()[index]);
+                result += fmt::to_string(GetBufferAs<int32_t>()[index]);
                 break;
             case ScalarKind::Uint:
-                result += std::to_string(GetBufferAs<uint32_t>()[index]);
+                result += fmt::to_string(GetBufferAs<uint32_t>()[index]);
                 break;
             case ScalarKind::Float:
-                result += std::to_string(GetBufferAs<float>()[index]);
+                result += fmt::to_string(GetBufferAs<float>()[index]);
                 break;
             case ScalarKind::Double:
-                result += std::to_string(GetBufferAs<double>()[index]);
+                result += fmt::to_string(GetBufferAs<double>()[index]);
                 break;
             case ScalarKind::Int8:
-                result += std::to_string(GetBufferAs<int8_t>()[index]);
+                result += fmt::to_string(GetBufferAs<int8_t>()[index]);
                 break;
             case ScalarKind::Int16:
-                result += std::to_string(GetBufferAs<int16_t>()[index]);
+                result += fmt::to_string(GetBufferAs<int16_t>()[index]);
                 break;
             case ScalarKind::Int64:
-                result += std::to_string(GetBufferAs<int64_t>()[index]);
+                result += fmt::to_string(GetBufferAs<int64_t>()[index]);
                 break;
             case ScalarKind::Uint8:
-                result += std::to_string(GetBufferAs<uint8_t>()[index]);
+                result += fmt::to_string(GetBufferAs<uint8_t>()[index]);
                 break;
             case ScalarKind::Uint16:
-                result += std::to_string(GetBufferAs<uint16_t>()[index]);
+                result += fmt::to_string(GetBufferAs<uint16_t>()[index]);
                 break;
             case ScalarKind::Uint64:
-                result += std::to_string(GetBufferAs<uint64_t>()[index]);
+                result += fmt::to_string(GetBufferAs<uint64_t>()[index]);
                 break;
             case ScalarKind::Float16:
                 result += "<float16>";
