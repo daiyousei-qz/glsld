@@ -65,8 +65,10 @@ namespace glsld
             std::string replayFile;
             // Path to the directory to dump replay files
             std::string replayDumpDir;
+#if defined(GLSLD_DEBUG)
             // Wait for a debugger to attach before starting the server
             bool waitDebugger;
+#endif
         };
     } // namespace
 

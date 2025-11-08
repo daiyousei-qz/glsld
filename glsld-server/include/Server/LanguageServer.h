@@ -145,11 +145,11 @@ namespace glsld
         }
 
     private:
-        // Synchrounously pull a client message from the input transport and forward it to the server.
+        // Synchronously pull a client message from the input transport and forward it to the server.
         // Returns true if a message is successfully pulled.
         auto PullMessage() -> bool;
 
-        // Synchrounously push a server message to the output transport.
+        // Synchronously push a server message to the output transport.
         // Returns true if a message is successfully pushed.
         auto PushMessage(StringView payload) -> bool;
 

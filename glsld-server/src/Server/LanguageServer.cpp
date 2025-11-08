@@ -127,12 +127,17 @@ namespace glsld
             }
         }
 
+        if (payloadLength == 0) {
+            LogError("LSP message payload length is missing or incorrectly set to zero.");
+            return false;
+        }
         auto payload = transport->Read(payloadLength);
         if (!payload.has_value()) {
             LogError("Failed to read LSP message payload.");
             return false;
         }
 
+        LogDebug("Received LSP message payload:\n```\n{}\n```", *payload);
         DoHandleClientMessage(*payload);
         return true;
     }

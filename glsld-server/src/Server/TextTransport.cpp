@@ -22,7 +22,7 @@ namespace glsld
         StdioTransport()
         {
 #if defined(GLSLD_OS_WIN)
-            // Use binary mode for stdin/stdout. We handle "/r/n" conversion inhouse.
+            // Use binary mode for stdin/stdout. We handle "\r\n" conversion inhouse.
             _setmode(_fileno(stdout), O_BINARY);
             _setmode(_fileno(stdin), O_BINARY);
 #else
