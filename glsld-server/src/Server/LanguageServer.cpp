@@ -1,7 +1,6 @@
 #include "Server/LanguageServer.h"
 #include "Server/LanguageService.h"
 #include "Server/Protocol.h"
-#include "Server/TransportService.h"
 #include "Support/StringView.h"
 
 #include <cctype>
@@ -9,36 +8,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
 
-#include <cstdio>
-
-#if defined(GLSLD_OS_WIN)
-#include <io.h>
-#include <fcntl.h>
-#endif
-
 namespace glsld
 {
-    static auto CreateDefaultLanguageService(LanguageServer& server) -> std::unique_ptr<LanguageService>
-    {
-        return std::make_unique<LanguageService>(server);
-    }
-
-    static auto CreateStdioTransportService(LanguageServer& server) -> std::unique_ptr<TransportService>
-    {
-#if defined(GLSLD_OS_WIN)
-        // Use binary mode for stdin/stdout. We handle "/r/n" conversion inhouse.
-        _setmode(_fileno(stdout), O_BINARY);
-        _setmode(_fileno(stdin), O_BINARY);
-#else
-        // FIXME: not sure if this is needed
-        // freopen(nullptr, "rb", stdout);
-        // freopen(nullptr, "wb", stdin);
-#endif
-
-        setvbuf(stdin, nullptr, _IOFBF, 64 * 1024);
-        return std::make_unique<TransportService>(server, stdin, stdout);
-    }
-
     static auto CreateLogger(LoggingLevel level) -> std::shared_ptr<spdlog::logger>
     {
         auto logger = spdlog::stderr_color_mt("glsld_logger");
@@ -65,8 +36,8 @@ namespace glsld
     {
         logger = CreateLogger(config.loggingLevel);
 
-        language  = CreateDefaultLanguageService(*this);
-        transport = CreateStdioTransportService(*this);
+        language  = std::make_unique<LanguageService>(*this);
+        transport = CreateStdioTextTransport();
 
         InitializeClientMessageHandlers();
     }
@@ -83,13 +54,7 @@ namespace glsld
     auto LanguageServer::Run() -> void
     {
         running = true;
-        while (running) {
-            auto message = transport->PullMessage();
-            if (!message.has_value()) {
-                break;
-            }
-
-            DoHandleClientMessage(*message);
+        while (running && PullMessage()) {
         }
 
         threadPool.wait();
@@ -121,6 +86,80 @@ namespace glsld
         }
 
         threadPool.wait();
+    }
+
+    auto LanguageServer::PullMessage() -> bool
+    {
+        // We have a single thread loop here, no need to lock
+        // std::lock_guard<std::mutex> lock{transportMutex};
+
+        size_t payloadLength = 0;
+        while (true) {
+            StringView headerView;
+            if (auto headerLine = transport->ReadLine(); headerLine.has_value()) {
+                headerView = headerLine->Trim();
+            }
+            else {
+                LogError("Failed to read LSP message header.");
+                return false;
+            }
+
+            LogDebug("Received LSP message header line: `{}`", headerView);
+            if (headerView.Empty()) {
+                // Empty line indicates end of headers, aka. start of payload.
+                break;
+            }
+
+            if (headerView.StartWith("Content-Length: ")) {
+                auto lengthView = headerView.Drop(16);
+                if (std::from_chars(lengthView.data(), lengthView.data() + lengthView.Size(), payloadLength).ec !=
+                    std::errc()) {
+                    LogError("Failed to parse Content-Length header.");
+                    return false;
+                }
+            }
+            else if (headerView.StartWith("Content-Type: ")) {
+                // do nothing...
+            }
+            else {
+                LogWarn("Unknown LSP message header: {}", headerView);
+                // We ignore any unknown header fields
+            }
+        }
+
+        auto payload = transport->Read(payloadLength);
+        if (!payload.has_value()) {
+            LogError("Failed to read LSP message payload.");
+            return false;
+        }
+
+        DoHandleClientMessage(*payload);
+        return true;
+    }
+
+    auto LanguageServer::PushMessage(StringView payload) -> bool
+    {
+        std::lock_guard<std::mutex> lock{serverOutputMutex};
+
+        // TODO: optimize this
+        std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
+        LogDebug("Sending LSP message header:\n```\n{}```", header);
+        LogDebug("Sending LSP message payload:\n```\n{}\n```", payload);
+
+        if (!transport->Write(header)) {
+            LogError("Failed to write LSP message header.");
+            return false;
+        }
+        if (!transport->Write(payload)) {
+            LogError("Failed to write LSP message payload.");
+            return false;
+        }
+        if (!transport->Flush()) {
+            LogError("Failed to flush LSP message.");
+            return false;
+        }
+
+        return true;
     }
 
     auto LanguageServer::DoHandleClientMessage(StringView messagePayload) -> void
@@ -165,8 +204,10 @@ namespace glsld
 
         auto payload = rpcBlob.dump();
 
-        std::lock_guard<std::mutex> lock{transportMutex};
-        transport->PushMessage(StringView{payload});
+        if (!PushMessage(payload)) {
+            LogError("Failed to push server response:\n{}", payload);
+            Shutdown();
+        }
     }
 
     auto LanguageServer::DoHandleServerNotification(const char* method, nlohmann::json params) -> void
@@ -178,8 +219,10 @@ namespace glsld
 
         auto payload = rpcBlob.dump();
 
-        std::lock_guard<std::mutex> lock{transportMutex};
-        transport->PushMessage(StringView{payload});
+        if (!PushMessage(payload)) {
+            LogError("Failed to push server notification:\n{}", payload);
+            Shutdown();
+        }
     }
 
     template <typename ParamType>
@@ -204,7 +247,7 @@ namespace glsld
                 ParamType params = {};
                 if (auto itParam = rpcBlob.find("params");
                     JsonSerializer<ParamType>::Deserialize(params, itParam != rpcBlob.end() ? *itParam : nullptr)) {
-                    std::invoke(handler, &server.GetLanguageService(), requestId, std::move(params));
+                    std::invoke(handler, server.language.get(), requestId, std::move(params));
                 }
                 else {
                     server.LogError("Failed to deserialize JSON-RPC request parameters.");
@@ -217,7 +260,7 @@ namespace glsld
                 ParamType params = {};
                 if (auto itParam = rpcBlob.find("params");
                     JsonSerializer<ParamType>::Deserialize(params, itParam != rpcBlob.end() ? *itParam : nullptr)) {
-                    std::invoke(handler, &server.GetLanguageService(), std::move(params));
+                    std::invoke(handler, server.language.get(), std::move(params));
                 }
                 else {
                     server.LogError("Failed to deserialize JSON-RPC notification parameters.");

@@ -5,6 +5,7 @@
 #include "Support/StringMap.h"
 #include "Support/StringView.h"
 #include "Server/Config.h"
+#include "Server/TextTransport.h"
 
 #include <BS_thread_pool.hpp>
 #include <nlohmann/json.hpp>
@@ -17,7 +18,6 @@
 namespace glsld
 {
     class LanguageService;
-    class TransportService;
 
     // handles jsonrpc
     class LanguageServer
@@ -41,9 +41,9 @@ namespace glsld
 
         bool running = false;
         std::unique_ptr<LanguageService> language;
-        std::unique_ptr<TransportService> transport;
+        std::unique_ptr<TextTransport> transport;
 
-        std::mutex transportMutex;
+        std::mutex serverOutputMutex;
 
     public:
         LanguageServer(const LanguageServerConfig& config);
@@ -63,16 +63,6 @@ namespace glsld
         auto GetConfig() const -> const LanguageServerConfig&
         {
             return config;
-        }
-
-        auto GetLanguageService() -> LanguageService&
-        {
-            return *language;
-        }
-
-        auto GetTransportService() -> TransportService&
-        {
-            return *transport;
         }
 
         // Dispatch a response from the language server to the client.
@@ -155,6 +145,14 @@ namespace glsld
         }
 
     private:
+        // Synchrounously pull a client message from the input transport and forward it to the server.
+        // Returns true if a message is successfully pulled.
+        auto PullMessage() -> bool;
+
+        // Synchrounously push a server message to the output transport.
+        // Returns true if a message is successfully pushed.
+        auto PushMessage(StringView payload) -> bool;
+
         auto DoHandleClientMessage(StringView messagePayload) -> void;
         auto DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
         auto DoHandleServerNotification(const char* method, nlohmann::json params) -> void;

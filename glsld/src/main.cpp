@@ -65,6 +65,8 @@ namespace glsld
             std::string replayFile;
             // Path to the directory to dump replay files
             std::string replayDumpDir;
+            // Wait for a debugger to attach before starting the server
+            bool waitDebugger;
         };
     } // namespace
 
@@ -88,6 +90,13 @@ namespace glsld
             .help("Directory to dump the replay file (for reproducing client messages)")
             .default_value(std::string{})
             .store_into(result.replayDumpDir);
+#if defined(GLSLD_DEBUG)
+        program.add_argument("--waitDebugger")
+            .help("Wait for a debugger to attach before starting the server")
+            .flag()
+            .default_value(false)
+            .store_into(result.waitDebugger);
+#endif
 
         program.parse_args(argc, argv);
         return result;
@@ -163,6 +172,12 @@ namespace glsld
 
     static auto DoMain(ProgramArgs args) -> int
     {
+#if defined(GLSLD_DEBUG)
+        if (args.waitDebugger) {
+            glsld::WaitDebuggerToAttach();
+        }
+#endif
+
         auto config = LoadConfig(args.configFile);
         glsld::LanguageServer server{config};
 
@@ -194,10 +209,6 @@ namespace glsld
 
 auto main(int argc, char* argv[]) -> int
 {
-#if defined(GLSLD_DEBUG) && defined(GLSLD_OS_WIN)
-    glsld::WaitDebuggerToAttach();
-#endif
-
 #if defined(GLSLD_OS_WIN)
     SetUnhandledExceptionFilter();
 #endif
