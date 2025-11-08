@@ -16,8 +16,20 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
 
     SECTION("LiteralExpr")
     {
+        // Integer literal
         GLSLD_CHECK_AST("1", LiteralExpr(1));
+        GLSLD_CHECK_AST("0xe1", LiteralExpr(0xe1));
+        GLSLD_CHECK_AST("0xf", LiteralExpr(0xf));
+
+        // Float literal
         GLSLD_CHECK_AST("1.0", LiteralExpr(1.0f));
+        GLSLD_CHECK_AST("1e1", LiteralExpr(1e1f));
+
+        // Double literal
+        GLSLD_CHECK_AST("1.0lf", LiteralExpr(1.0));
+        GLSLD_CHECK_AST("1e1lf", LiteralExpr(1e1));
+
+        // Bool literal
         GLSLD_CHECK_AST("true", LiteralExpr(true));
     }
 
