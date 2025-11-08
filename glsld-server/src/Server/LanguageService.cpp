@@ -243,6 +243,21 @@ namespace glsld
         });
     }
 
+    auto LanguageService::SemanticTokensFullDelta(int requestId, lsp::SemanticTokensDeltaParams params) -> void
+    {
+        auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFullDelta", uri);
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
+            lsp::SemanticTokensDelta result =
+                HandleSemanticTokensDelta(server.GetConfig().languageService.semanticTokens, queryInfo, params);
+            server.HandleServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFullDelta",
+                           timer.GetElapsedMilliseconds());
+        });
+    }
+
     auto LanguageService::Completion(int requestId, lsp::CompletionParams params) -> void
     {
         auto uri = params.textDocument.uri;

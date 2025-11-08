@@ -3,8 +3,16 @@
 #include "Server/LanguageQueryVisitor.h"
 #include "Support/EnumReflection.h"
 
+#include <algorithm>
+#include <mutex>
+#include <unordered_map>
+
 namespace glsld
 {
+    // Cache for storing previous semantic tokens results
+    static std::mutex semanticTokensCacheMutex;
+    static std::unordered_map<std::string, std::vector<lsp::uinteger>> semanticTokensCache;
+    static int nextResultId = 1;
     auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryInfo& info,
                                  SyntaxTokenID tokID, SemanticTokenType type, SemanticTokenModifierBits modifiers = {})
         -> void
@@ -272,6 +280,56 @@ namespace glsld
         return tokenBuffer;
     }
 
+    // Compute edits to transform oldData into newData
+    auto ComputeSemanticTokensEdits(const std::vector<lsp::uinteger>& oldData,
+                                    const std::vector<lsp::uinteger>& newData) -> std::vector<lsp::SemanticTokensEdit>
+    {
+        std::vector<lsp::SemanticTokensEdit> edits;
+
+        // Use a simple diff algorithm: find common prefix and suffix, then replace the middle
+        size_t prefixLen = 0;
+        size_t minLen    = std::min(oldData.size(), newData.size());
+
+        // Find common prefix
+        while (prefixLen < minLen && oldData[prefixLen] == newData[prefixLen]) {
+            prefixLen++;
+        }
+
+        // Find common suffix
+        size_t suffixLen = 0;
+        while (suffixLen < minLen - prefixLen && 
+               oldData[oldData.size() - 1 - suffixLen] == newData[newData.size() - 1 - suffixLen]) {
+            suffixLen++;
+        }
+
+        // If everything is the same, no edits needed
+        if (prefixLen + suffixLen >= minLen && oldData.size() == newData.size()) {
+            return edits;
+        }
+
+        // Compute the edit
+        size_t deleteStart = prefixLen;
+        size_t deleteCount = oldData.size() - prefixLen - suffixLen;
+        
+        std::vector<lsp::uinteger> insertData;
+        if (newData.size() > prefixLen + suffixLen) {
+            insertData.insert(insertData.end(), 
+                            newData.begin() + prefixLen, 
+                            newData.end() - suffixLen);
+        }
+
+        // Only add an edit if there's actually a change
+        if (deleteCount > 0 || !insertData.empty()) {
+            edits.push_back(lsp::SemanticTokensEdit{
+                .start       = static_cast<lsp::uinteger>(deleteStart),
+                .deleteCount = static_cast<lsp::uinteger>(deleteCount),
+                .data        = std::move(insertData),
+            });
+        }
+
+        return edits;
+    }
+
     auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> std::optional<lsp::SemanticTokensOptions>
     {
         if (!config.enable) {
@@ -302,7 +360,7 @@ namespace glsld
                 },
             .full =
                 lsp::SemanticTokensOptions::FullOptions{
-                    .delta = false,
+                    .delta = true,
                 },
         };
     }
@@ -310,12 +368,44 @@ namespace glsld
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
                               const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens
     {
-        return ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        auto result = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        
+        // Generate a result ID and cache the data
+        std::lock_guard<std::mutex> lock(semanticTokensCacheMutex);
+        result.resultId = std::to_string(nextResultId++);
+        semanticTokensCache[result.resultId] = result.data;
+        
+        return result;
     }
 
     auto HandleSemanticTokensDelta(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
                                    const lsp::SemanticTokensDeltaParams& params) -> lsp::SemanticTokensDelta
     {
-        GLSLD_NO_IMPL();
+        // Get the new semantic tokens data
+        auto newResult = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        
+        lsp::SemanticTokensDelta delta;
+        
+        // Look up the previous data
+        std::lock_guard<std::mutex> lock(semanticTokensCacheMutex);
+        auto it = semanticTokensCache.find(params.previousResultId);
+        
+        if (it != semanticTokensCache.end()) {
+            // Compute the diff
+            delta.edits = ComputeSemanticTokensEdits(it->second, newResult.data);
+        } else {
+            // If we don't have the previous result, return an edit that replaces everything
+            delta.edits.push_back(lsp::SemanticTokensEdit{
+                .start       = 0,
+                .deleteCount = 0,  // No delete since we don't know the old size
+                .data        = newResult.data,
+            });
+        }
+        
+        // Generate a new result ID and cache the new data
+        delta.resultId = std::to_string(nextResultId++);
+        semanticTokensCache[delta.resultId] = newResult.data;
+        
+        return delta;
     }
 } // namespace glsld
