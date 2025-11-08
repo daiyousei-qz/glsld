@@ -464,14 +464,24 @@ namespace glsld
     auto ConstValue::GetElement(int index) const -> ConstValue
     {
         // FIXME: verify this is correct
-        if (IsError() || index < 0 || index > colSize) {
+        if (IsError() || index < 0) {
             return ConstValue{};
         }
 
         ConstValue result;
-        auto blob          = result.InitializeAsBlob(GetScalarKind(), 1, rowSize);
-        auto elementSize   = GetBufferSize() / colSize;
-        auto elementOffset = index * elementSize;
+        ArraySpan<std::byte> blob;
+        if (IsScalar() || IsVector()) {
+            blob = result.InitializeAsBlob(GetScalarKind(), 1, 1);
+        }
+        else if (IsMatrix()) {
+            blob = result.InitializeAsBlob(GetScalarKind(), 1, colSize);
+        }
+
+        auto elementOffset = index * blob.size();
+        if (elementOffset + blob.size() > GetBufferSize()) {
+            return ConstValue{};
+        }
+
         std::ranges::copy_n(GetBufferAsBlob().begin() + elementOffset, blob.size(), blob.begin());
         return result;
     }
@@ -483,19 +493,17 @@ namespace glsld
             return ConstValue{};
         }
 
-        std::vector<std::byte> buffer;
-        for (auto index : swizzle.GetIndices()) {
+        ConstValue result;
+        auto blob = result.InitializeAsBlob(GetScalarKind(), rowSize, swizzle.GetDimension());
+        for (auto it = blob.begin(); auto index : swizzle.GetIndices()) {
             auto elem = GetElement(index);
             if (elem.IsError()) {
                 return ConstValue{};
             }
 
-            std::ranges::copy(elem.GetBufferAsBlob(), std::back_inserter(buffer));
+            it = std::ranges::copy(elem.GetBufferAsBlob(), it).out;
         }
 
-        ConstValue result;
-        auto blob = result.InitializeAsBlob(GetScalarKind(), rowSize, swizzle.GetDimension());
-        std::ranges::copy(buffer, blob.data());
         return result;
     }
 
@@ -1003,18 +1011,22 @@ namespace glsld
 
     auto ParseNumberLiteral(StringView literalText) -> ConstValue
     {
+        bool hasHexPrefix    = literalText.StartWith("0x") || literalText.StartWith("0X");
+        bool hasDecimalPoint = literalText.Contains('.');
+        bool hasExponent     = !hasHexPrefix && (literalText.Contains('e') || literalText.Contains('E'));
+
         // FIXME: make sure we don't allow overflow
         if (literalText.EndWith("u") || literalText.EndWith("U")) {
             return ParseIntegralLiteral<uint32_t>(literalText.DropBack(1));
         }
-        else if (literalText.EndWith("lf") || literalText.EndWith("LF")) {
+        else if ((hasDecimalPoint || hasExponent) && (literalText.EndWith("lf") || literalText.EndWith("LF"))) {
             return ParseFloatLiteral<double>(literalText.DropBack(2));
         }
-        else if (literalText.EndWith("f") || literalText.EndWith("F")) {
+        else if ((hasDecimalPoint || hasExponent) && (literalText.EndWith("f") || literalText.EndWith("F"))) {
             return ParseFloatLiteral<float>(literalText.DropBack(1));
         }
         else {
-            if (literalText.Contains('.') || literalText.Contains('e')) {
+            if (hasDecimalPoint || hasExponent) {
                 return ParseFloatLiteral<float>(literalText);
             }
             else {

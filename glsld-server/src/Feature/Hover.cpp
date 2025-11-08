@@ -182,7 +182,9 @@ namespace glsld
                 // We only compute value for declaration here. Const variable value in expression will be handled later.
                 if (symbolInfo.isDeclaration && varDeclaratorDecl->IsConstVariable()) {
                     if (auto init = varDeclaratorDecl->GetInitializer(); init) {
-                        exprValue = EvalAstInitializer(*init, resolvedType).ToString();
+                        if (auto constValue = EvalAstInitializer(*init, resolvedType); !constValue.IsError()) {
+                            exprValue = constValue.ToString();
+                        }
                     }
                 }
             }
