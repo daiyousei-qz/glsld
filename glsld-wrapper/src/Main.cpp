@@ -1,3 +1,4 @@
+#include "AppVersion.h"
 #include "Basic/Print.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
@@ -43,7 +44,8 @@ namespace glsld
 
         ProgramArgs result;
 
-        ArgumentParser program("glsld-wrapper");
+        ArgumentParser program("glsld-wrapper",
+                               fmt::format("{}.{}.{}", GlsldVersionMajor, GlsldVersionMinor, GlsldVersionPatch));
         program.add_argument("input-file").help("Input file to be compiled").required().store_into(result.inputFile);
         program.add_argument("--dump-token")
             .help("Dumps tokens when a translation unit is preprocessed.")

@@ -1,3 +1,4 @@
+#include "AppVersion.h"
 #include "Support/StringView.h"
 #include "Support/File.h"
 #include "Server/LanguageServer.h"
@@ -74,7 +75,8 @@ namespace glsld
 
         ProgramArgs result;
 
-        ArgumentParser program("glsld");
+        ArgumentParser program("glsld",
+                               fmt::format("{}.{}.{}", GlsldVersionMajor, GlsldVersionMinor, GlsldVersionPatch));
         program.add_argument("--stdio").help("Use stdio for communication").default_value(true);
         program.add_argument("--configFile")
             .help("Path to the configuration file")
