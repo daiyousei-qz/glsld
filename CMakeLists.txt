@@ -141,6 +141,7 @@ if(GLSLD_BUILD_LANGUAGE_SERVER)
 
     add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
     target_include_directories(glsld PRIVATE glsld/include)
+    target_include_directories(glsld PRIVATE share)
 
     target_link_libraries(glsld PRIVATE glsld-server)
 
@@ -154,6 +155,7 @@ if(GLSLD_BUILD_WRAPPER)
 
     add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
     target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
+    target_include_directories(glsld-wrapper PRIVATE share)
 
     target_link_libraries(glsld-wrapper PRIVATE glsld-core)
 
