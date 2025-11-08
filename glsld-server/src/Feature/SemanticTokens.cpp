@@ -13,6 +13,21 @@ namespace glsld
     static std::mutex semanticTokensCacheMutex;
     static std::unordered_map<std::string, std::vector<lsp::uinteger>> semanticTokensCache;
     static int nextResultId = 1;
+    
+    // Limit cache size to prevent unbounded growth
+    constexpr size_t MAX_CACHE_SIZE = 100;
+    
+    static auto CleanupCacheIfNeeded() -> void
+    {
+        // Simple cleanup: remove oldest entries if cache is too large
+        if (semanticTokensCache.size() > MAX_CACHE_SIZE) {
+            // Remove the first half of entries (not perfect LRU but good enough)
+            auto it = semanticTokensCache.begin();
+            for (size_t i = 0; i < MAX_CACHE_SIZE / 2 && it != semanticTokensCache.end();) {
+                it = semanticTokensCache.erase(it);
+            }
+        }
+    }
     auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryInfo& info,
                                  SyntaxTokenID tokID, SemanticTokenType type, SemanticTokenModifierBits modifiers = {})
         -> void
@@ -372,6 +387,7 @@ namespace glsld
         
         // Generate a result ID and cache the data
         std::lock_guard<std::mutex> lock(semanticTokensCacheMutex);
+        CleanupCacheIfNeeded();
         result.resultId = std::to_string(nextResultId++);
         semanticTokensCache[result.resultId] = result.data;
         
@@ -403,6 +419,7 @@ namespace glsld
         }
         
         // Generate a new result ID and cache the new data
+        CleanupCacheIfNeeded();
         delta.resultId = std::to_string(nextResultId++);
         semanticTokensCache[delta.resultId] = newResult.data;
         
