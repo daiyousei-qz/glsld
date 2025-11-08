@@ -13,10 +13,9 @@ namespace glsld
     class StdioTransport : public TextTransport
     {
     private:
-        static constexpr size_t MinBufferSize = 10 * 1024;        // 10 KB
         static constexpr size_t MaxBufferSize = 10 * 1024 * 1024; // 10 MB
 
-        std::vector<char> buffer = std::vector<char>(MinBufferSize);
+        std::vector<char> buffer;
 
     public:
         StdioTransport()
@@ -36,12 +35,26 @@ namespace glsld
 
         auto ReadLine() -> std::expected<StringView, TextTransportError> override
         {
-            if (fgets(buffer.data(), static_cast<int>(buffer.size()), stdin) != nullptr) {
-                return StringView{buffer.data(), strlen(buffer.data())};
+            // TODO: optimize this
+            buffer.clear();
+            while (true) {
+                int ch = fgetc(stdin);
+                if (ch == EOF) {
+                    return std::unexpected(TextTransportError::Unknown);
+                }
+                else {
+                    buffer.push_back(static_cast<char>(ch));
+                    if (ch == '\n') {
+                        break;
+                    }
+                }
+
+                if (buffer.size() >= MaxBufferSize) {
+                    return std::unexpected(TextTransportError::Unknown);
+                }
             }
-            else {
-                return std::unexpected(TextTransportError::Unknown);
-            }
+
+            return StringView{buffer.data(), buffer.size()};
         }
 
         auto Read(size_t size) -> std::expected<StringView, TextTransportError> override
