@@ -222,10 +222,11 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                            .range    = GetLabelledRange("member.use.begin", "member.use.end"),
                                        });
         checkHover("unknown.use.begin", HoverContent{
-                                            .type    = SymbolDeclType::StructMember,
-                                            .name    = "unknown",
-                                            .range   = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
-                                            .unknown = true,
+                                            .type     = SymbolDeclType::StructMember,
+                                            .name     = "unknown",
+                                            .exprType = "__ErrorType",
+                                            .range    = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
+                                            .unknown  = true,
                                         });
     }
 
@@ -239,14 +240,14 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
             void main()
             {
                 ^[foo.use.begin]foo^[foo.use.end](41);
-                ^[bar.use.begin]bar^[bar.use.end]();
+                ^[unknown.use.begin]unknown^[unknown.use.end]();
             }
         )");
 
         checkHover("foo.decl.begin", HoverContent{
                                          .type       = SymbolDeclType::Function,
                                          .name       = "foo",
-                                         .returnType = "void",
+                                         .exprType   = "void",
                                          .parameters = {"int x"},
                                          .code       = "void foo(int x)",
                                          .range      = GetLabelledRange("foo.decl.begin", "foo.decl.end"),
@@ -255,18 +256,19 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         checkHover("foo.use.begin", HoverContent{
                                         .type       = SymbolDeclType::Function,
                                         .name       = "foo",
-                                        .returnType = "void",
+                                        .exprType   = "void",
                                         .parameters = {"int x"},
                                         .code       = "void foo(int x)",
                                         .range      = GetLabelledRange("foo.use.begin", "foo.use.end"),
                                         .unknown    = false,
                                     });
-        checkHover("bar.use.begin", HoverContent{
-                                        .type    = SymbolDeclType::Function,
-                                        .name    = "bar",
-                                        .range   = GetLabelledRange("bar.use.begin", "bar.use.end"),
-                                        .unknown = true,
-                                    });
+        checkHover("unknown.use.begin", HoverContent{
+                                            .type     = SymbolDeclType::Function,
+                                            .name     = "unknown",
+                                            .exprType = "__ErrorType",
+                                            .range    = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
+                                            .unknown  = true,
+                                        });
     }
 
     SECTION("BlockName")
@@ -283,11 +285,12 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         )");
 
         checkHover("ubo.decl.begin", HoverContent{
-                                         .type    = SymbolDeclType::Block,
-                                         .name    = "UBO",
-                                         .code    = "uniform UBO {\n    int x;\n}\n",
-                                         .range   = GetLabelledRange("ubo.decl.begin", "ubo.decl.end"),
-                                         .unknown = false,
+                                         .type     = SymbolDeclType::Block,
+                                         .name     = "UBO",
+                                         .exprType = "UBO",
+                                         .code     = "uniform UBO {\n    int x;\n}\n",
+                                         .range    = GetLabelledRange("ubo.decl.begin", "ubo.decl.end"),
+                                         .unknown  = false,
                                      });
         checkHover("ubo.invalid.use.begin",
                    HoverContent{
@@ -358,17 +361,19 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
         checkHover("ubo.instance.decl.begin",
                    HoverContent{
-                       .type  = SymbolDeclType::BlockInstance,
-                       .name  = "uboInstance",
-                       .code  = "uniform UBO {\n    int x;\n} uboInstance\n",
-                       .range = GetLabelledRange("ubo.instance.decl.begin", "ubo.instance.decl.end"),
+                       .type     = SymbolDeclType::BlockInstance,
+                       .name     = "uboInstance",
+                       .exprType = "UBO",
+                       .code     = "uniform UBO {\n    int x;\n} uboInstance\n",
+                       .range    = GetLabelledRange("ubo.instance.decl.begin", "ubo.instance.decl.end"),
                    });
         checkHover("ubo.instance.use.begin",
                    HoverContent{
-                       .type  = SymbolDeclType::BlockInstance,
-                       .name  = "uboInstance",
-                       .code  = "uniform UBO {\n    int x;\n} uboInstance\n",
-                       .range = GetLabelledRange("ubo.instance.use.begin", "ubo.instance.use.end"),
+                       .type     = SymbolDeclType::BlockInstance,
+                       .name     = "uboInstance",
+                       .exprType = "UBO",
+                       .code     = "uniform UBO {\n    int x;\n} uboInstance\n",
+                       .range    = GetLabelledRange("ubo.instance.use.begin", "ubo.instance.use.end"),
                    });
     }
 
@@ -437,10 +442,11 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                            .unknown  = false,
                                        });
         checkHover("unknown.use.begin", HoverContent{
-                                            .type    = SymbolDeclType::GlobalVariable,
-                                            .name    = "unknown",
-                                            .range   = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
-                                            .unknown = true,
+                                            .type     = SymbolDeclType::GlobalVariable,
+                                            .name     = "unknown",
+                                            .exprType = "__ErrorType",
+                                            .range    = GetLabelledRange("unknown.use.begin", "unknown.use.end"),
+                                            .unknown  = true,
                                         });
     }
 
@@ -455,18 +461,18 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         )");
 
         checkHover("swizzle1.begin", HoverContent{
-                                         .type = SymbolDeclType::Swizzle,
-                                         .name = "x",
-                                         // FIXME: add expression type info
-                                         .range   = GetLabelledRange("swizzle1.begin", "swizzle1.end"),
-                                         .unknown = false,
+                                         .type     = SymbolDeclType::Swizzle,
+                                         .name     = "x",
+                                         .exprType = "float",
+                                         .range    = GetLabelledRange("swizzle1.begin", "swizzle1.end"),
+                                         .unknown  = false,
                                      });
         checkHover("swizzle2.begin", HoverContent{
-                                         .type = SymbolDeclType::Swizzle,
-                                         .name = "xyz",
-                                         // FIXME: add expression type info
-                                         .range   = GetLabelledRange("swizzle2.begin", "swizzle2.end"),
-                                         .unknown = false,
+                                         .type     = SymbolDeclType::Swizzle,
+                                         .name     = "xyz",
+                                         .exprType = "vec3",
+                                         .range    = GetLabelledRange("swizzle2.begin", "swizzle2.end"),
+                                         .unknown  = false,
                                      });
     }
 
@@ -474,6 +480,9 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
     {
         CompileLabelledSource(R"(
             const int ^[one.decl.begin]one^[one.decl.end] = 1;
+            const vec3 ^[v.decl.begin]v^[v.decl.end] = vec3(1.0, 2.0, 3.0);
+            const int[2] ^[arr.decl.begin]arr^[arr.decl.end] = {1, 2};
+            const struct S { int a; float b; } ^[complex.decl.begin]complex^[complex.decl.end] = {1, 2.0};
         )");
 
         checkHover("one.decl.begin", HoverContent{
@@ -485,6 +494,32 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                          .range     = GetLabelledRange("one.decl.begin", "one.decl.end"),
                                      });
 
+        checkHover("v.decl.begin", HoverContent{
+                                       .type      = SymbolDeclType::GlobalVariable,
+                                       .name      = "v",
+                                       .exprType  = "vec3",
+                                       .exprValue = "vec3(1, 2, 3)",
+                                       .code      = "const vec3 v = ...",
+                                       .range     = GetLabelledRange("v.decl.begin", "v.decl.end"),
+                                   });
+
+        // Note that we don't show constant value for aggregate types.
+        checkHover("arr.decl.begin", HoverContent{
+                                         .type     = SymbolDeclType::GlobalVariable,
+                                         .name     = "arr",
+                                         .exprType = "int[2]",
+                                         .code     = "const int[2] arr = ...",
+                                         .range    = GetLabelledRange("arr.decl.begin", "arr.decl.end"),
+                                     });
+
+        // Note that we don't show constant value for aggregate types.
+        checkHover("complex.decl.begin", HoverContent{
+                                             .type     = SymbolDeclType::GlobalVariable,
+                                             .name     = "complex",
+                                             .exprType = "S",
+                                             .code     = "const struct S { ... } complex = ...",
+                                             .range    = GetLabelledRange("complex.decl.begin", "complex.decl.end"),
+                                         });
         // TODO: add more tests
     }
 
