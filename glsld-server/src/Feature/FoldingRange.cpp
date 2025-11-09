@@ -34,11 +34,13 @@ namespace glsld
 
         auto VisitAstStructDecl(const AstStructDecl& decl) -> void
         {
+            // FIXME: We may want to only fold contents within the struct braces
             TryAddFoldingRange(decl.GetSyntaxRange());
         }
 
         auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
         {
+            // FIXME: We may want to only fold contents within the block braces
             TryAddFoldingRange(decl.GetSyntaxRange());
         }
 

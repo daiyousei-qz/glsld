@@ -23,6 +23,9 @@ namespace glsld
                         },
                     .foldingRange =
                         FoldingRangeConfig{
+                            // Although folding range is implemented, it seems it's not better than default VSCode
+                            // heuristics.
+                            // We disable it by default, and users can enable it in config if needed.
                             .enable = false,
                         },
                     .documentSymbol =
