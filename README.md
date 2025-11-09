@@ -18,6 +18,7 @@ Currently, language features below are (partially) implemented:
 - Inlay Hint
 - Completion Proposals
 - Signature Help
+- Folding Range
 
 The following features are planned:
 - Rename
