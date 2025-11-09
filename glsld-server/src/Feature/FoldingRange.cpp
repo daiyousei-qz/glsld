@@ -1,15 +1,23 @@
 #include "Feature/FoldingRange.h"
+#include "Ast/Decl.h"
+#include "Ast/Stmt.h"
 #include "Support/SourceText.h"
 
 namespace glsld
 {
+    // Forward declarations
+    static auto CollectCompoundStmtFoldingRanges(std::vector<lsp::FoldingRange>& output,
+                                                  const LanguageQueryInfo& info, const AstStmt* stmt) -> void;
+    static auto CollectCompoundStmtFoldingRanges(std::vector<lsp::FoldingRange>& output,
+                                                  const LanguageQueryInfo& info, const AstDecl* decl) -> void;
+
     // Helper function to add a folding range if it spans multiple lines
     static auto TryAddFoldingRange(std::vector<lsp::FoldingRange>& output, const LanguageQueryInfo& info,
                                    AstSyntaxRange range) -> void
     {
         // Look up the spelled text range in the main file
-        auto startSpelledRange = info.LookupSpelledTextRangeInMainFile(range.startID);
-        auto endSpelledRange   = info.LookupSpelledTextRangeInMainFile(range.endID);
+        auto startSpelledRange = info.LookupSpelledTextRangeInMainFile(range.GetBeginID());
+        auto endSpelledRange   = info.LookupSpelledTextRangeInMainFile(range.GetBackID());
 
         if (!startSpelledRange || !endSpelledRange) {
             return;
