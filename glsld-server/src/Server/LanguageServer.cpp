@@ -288,6 +288,7 @@ namespace glsld
         handlerDispatchMap[lsp::LSPMethod_References]    = createRequestHandler(&LanguageService::References);
         handlerDispatchMap[lsp::LSPMethod_Definition]    = createRequestHandler(&LanguageService::Definition);
         handlerDispatchMap[lsp::LSPMethod_InlayHint]     = createRequestHandler(&LanguageService::InlayHint);
+        handlerDispatchMap[lsp::LSPMethod_FoldingRange]  = createRequestHandler(&LanguageService::FoldingRange);
 
         handlerDispatchMap[lsp::LSPMethod_DidOpenTextDocument] =
             createNotificationHandler(&LanguageService::DidOpenTextDocument);

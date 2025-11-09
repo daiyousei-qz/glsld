@@ -5,15 +5,9 @@
 
 namespace glsld
 {
-    auto GetFoldingRangeOptions(const FoldingRangeConfig& config) -> std::optional<lsp::FoldingRangeOptions>
-    {
-        return std::nullopt;
-    }
+    auto GetFoldingRangeOptions(const FoldingRangeConfig& config) -> std::optional<lsp::FoldingRangeOptions>;
 
     auto HandleFoldingRange(const FoldingRangeConfig& config, const LanguageQueryInfo& info,
-                            const lsp::FoldingRangeParams& params) -> std::vector<lsp::FoldingRange>
-    {
-        return {};
-    }
+                            const lsp::FoldingRangeParams& params) -> std::vector<lsp::FoldingRange>;
 
 } // namespace glsld
