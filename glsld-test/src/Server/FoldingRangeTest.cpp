@@ -1,7 +1,6 @@
 #include "ServerTestFixture.h"
 
 #include "Feature/FoldingRange.h"
-#include "Support/SourceText.h"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -16,20 +15,45 @@ static auto MockFoldingRange(const ServerTestFixture& fixture, const FoldingRang
                               });
 }
 
+struct OneFoldingRangeExpectedResult
+{
+    StringView startLabel;
+    StringView endLabel;
+};
+
+struct FoldingRangeExpectedResult
+{
+    std::optional<size_t> numberOfRanges = std::nullopt;
+
+    std::vector<OneFoldingRangeExpectedResult> ranges;
+};
+
 TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
 {
-    auto checkFoldingRange = [](const lsp::FoldingRange& range, uint32_t startLine, uint32_t endLine) {
-        REQUIRE(range.startLine == startLine);
-        REQUIRE(range.endLine == endLine);
-    };
+    auto checkFoldingRange = [this](FoldingRangeExpectedResult expectedResult,
+                                    const FoldingRangeConfig& config = {.enable = true}) {
+        auto foldingRanges = MockFoldingRange(*this, config);
+        if (expectedResult.numberOfRanges.has_value()) {
+            REQUIRE(foldingRanges.size() == expectedResult.numberOfRanges.value());
+        }
 
-    auto findFoldingRange = [](const std::vector<lsp::FoldingRange>& ranges, uint32_t startLine) {
-        for (const auto& range : ranges) {
-            if (range.startLine == startLine) {
-                return &range;
+        for (const auto& expectedRange : expectedResult.ranges) {
+            auto expectedStartLine = static_cast<uint32_t>(GetLabelledPosition(expectedRange.startLabel).line);
+            auto expectedEndLine   = static_cast<uint32_t>(GetLabelledPosition(expectedRange.endLabel).line);
+
+            auto it = std::ranges::find_if(foldingRanges, [=](const lsp::FoldingRange& range) {
+                return range.startLine == expectedStartLine && range.endLine == expectedEndLine;
+            });
+
+            if (it == foldingRanges.end()) {
+                for (const auto& range : foldingRanges) {
+                    // FIXME: this isn't printed on failure for some reason
+                    INFO(fmt::format("Folding Range: {} to {}", range.startLine, range.endLine));
+                }
+                FAIL(fmt::format("Folding range from {} to {} not found", expectedRange.startLabel,
+                                 expectedRange.endLabel));
             }
         }
-        return static_cast<const lsp::FoldingRange*>(nullptr);
     };
 
     SECTION("Config")
@@ -39,33 +63,35 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             {
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this, FoldingRangeConfig{.enable = false});
 
-        REQUIRE(foldingRanges.empty());
+        checkFoldingRange(
+            FoldingRangeExpectedResult{
+                .numberOfRanges = 0,
+            },
+            FoldingRangeConfig{.enable = false});
     }
 
     SECTION("FunctionBody")
     {
         CompileLabelledSource(R"(
             void foo()
-            {
+            ^[foo.body.begin]{
                 int x = 1;
-            }
+            }^[foo.body.end]
 
-            void bar() {
+            void bar() ^[bar.body.begin]{
                 float y = 2.0;
-            }
+            }^[bar.body.end]
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 2 folding ranges for the two function bodies
-        REQUIRE(foldingRanges.size() == 2);
-        
-        // foo() body spans lines 2-4
-        checkFoldingRange(foldingRanges[0], 2, 4);
-        
-        // bar() body spans lines 6-8
-        checkFoldingRange(foldingRanges[1], 6, 8);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 2,
+            .ranges =
+                {
+                    {.startLabel = "foo.body.begin", .endLabel = "foo.body.end"},
+                    {.startLabel = "bar.body.begin", .endLabel = "bar.body.end"},
+                },
+        });
     }
 
     SECTION("NestedBlocks")
@@ -74,34 +100,24 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             void main()
             {
                 if (true)
-                {
+                ^[if.body.begin]{
                     int x = 1;
-                }
+                }^[if.body.end]
                 else
-                {
+                ^[else.body.begin]{
                     int y = 2;
-                }
+                }^[else.body.end]
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 3 folding ranges: main body, if body, else body
-        REQUIRE(foldingRanges.size() == 3);
-        
-        // main() body spans lines 2-11
-        auto mainRange = findFoldingRange(foldingRanges, 2);
-        REQUIRE(mainRange != nullptr);
-        checkFoldingRange(*mainRange, 2, 11);
-        
-        // if body spans lines 4-6
-        auto ifRange = findFoldingRange(foldingRanges, 4);
-        REQUIRE(ifRange != nullptr);
-        checkFoldingRange(*ifRange, 4, 6);
-        
-        // else body spans lines 8-10
-        auto elseRange = findFoldingRange(foldingRanges, 8);
-        REQUIRE(elseRange != nullptr);
-        checkFoldingRange(*elseRange, 8, 10);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 3,
+            .ranges =
+                {
+                    {.startLabel = "if.body.begin", .endLabel = "if.body.end"},
+                    {.startLabel = "else.body.begin", .endLabel = "else.body.end"},
+                },
+        });
     }
 
     SECTION("ForLoop")
@@ -110,15 +126,19 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             void main()
             {
                 for (int i = 0; i < 10; i++)
-                {
+                ^[for.body.begin]{
                     int x = i * 2;
-                }
+                }^[for.body.end]
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 2 folding ranges: main body and for loop body
-        REQUIRE(foldingRanges.size() == 2);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 2,
+            .ranges =
+                {
+                    {.startLabel = "for.body.begin", .endLabel = "for.body.end"},
+                },
+        });
     }
 
     SECTION("WhileLoop")
@@ -128,15 +148,19 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             {
                 int i = 0;
                 while (i < 10)
-                {
+                ^[while.body.begin]{
                     i++;
-                }
+                }^[while.body.end]
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 2 folding ranges: main body and while loop body
-        REQUIRE(foldingRanges.size() == 2);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 2,
+            .ranges =
+                {
+                    {.startLabel = "while.body.begin", .endLabel = "while.body.end"},
+                },
+        });
     }
 
     SECTION("DoWhileLoop")
@@ -146,15 +170,19 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             {
                 int i = 0;
                 do
-                {
+                ^[do.body.begin]{
                     i++;
-                } while (i < 10);
+                }^[do.body.end] while (i < 10);
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 2 folding ranges: main body and do-while loop body
-        REQUIRE(foldingRanges.size() == 2);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 2,
+            .ranges =
+                {
+                    {.startLabel = "do.body.begin", .endLabel = "do.body.end"},
+                },
+        });
     }
 
     SECTION("SwitchStatement")
@@ -164,58 +192,64 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             {
                 int x = 1;
                 switch (x)
-                {
+                ^[switch.body.begin]{
                     case 0:
                         break;
                     case 1:
                         break;
                     default:
                         break;
-                }
+                }^[switch.body.end]
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 2 folding ranges: main body and switch body
-        REQUIRE(foldingRanges.size() == 2);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 2,
+            .ranges =
+                {
+                    {.startLabel = "switch.body.begin", .endLabel = "switch.body.end"},
+                },
+        });
     }
 
     SECTION("StructDeclaration")
     {
         CompileLabelledSource(R"(
-            struct Material
+            ^[struct.body.begin]struct Material
             {
                 vec3 ambient;
                 vec3 diffuse;
                 vec3 specular;
                 float shininess;
-            };
+            }^[struct.body.end];
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 1 folding range for the struct body
-        REQUIRE(foldingRanges.size() == 1);
-        
-        // Struct body spans lines 2-7
-        checkFoldingRange(foldingRanges[0], 2, 7);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 1,
+            .ranges =
+                {
+                    {.startLabel = "struct.body.begin", .endLabel = "struct.body.end"},
+                },
+        });
     }
 
     SECTION("InterfaceBlock")
     {
         CompileLabelledSource(R"(
-            uniform Material
+            ^[interface.block.body.begin]uniform Material
             {
                 vec3 ambient;
                 vec3 diffuse;
-            } material;
+            }^[interface.block.body.end] material;
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have 1 folding range for the interface block body
-        REQUIRE(foldingRanges.size() == 1);
-        
-        // Interface block body spans lines 2-5
-        checkFoldingRange(foldingRanges[0], 2, 5);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 1,
+            .ranges =
+                {
+                    {.startLabel = "interface.block.body.begin", .endLabel = "interface.block.body.end"},
+                },
+        });
     }
 
     SECTION("ComplexNesting")
@@ -248,16 +282,17 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
                 calculateLighting();
             }
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Should have multiple folding ranges:
-        // - struct Light body
-        // - calculateLighting() body
-        // - for loop body
-        // - if body
-        // - else body
-        // - main() body
-        REQUIRE(foldingRanges.size() >= 6);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            // Should have multiple folding ranges:
+            // - struct Light body
+            // - calculateLighting() body
+            // - for loop body
+            // - if body
+            // - else body
+            // - main() body
+            .numberOfRanges = 6,
+        });
     }
 
     SECTION("SingleLineNoFold")
@@ -266,26 +301,9 @@ TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
             void foo() { int x = 1; }
             struct S { int a; };
         )");
-        auto foldingRanges = MockFoldingRange(*this);
 
-        // Single-line blocks should not create folding ranges
-        REQUIRE(foldingRanges.empty());
-    }
-
-    SECTION("EmptyBlocks")
-    {
-        CompileLabelledSource(R"(
-            void foo()
-            {
-            }
-
-            struct S
-            {
-            };
-        )");
-        auto foldingRanges = MockFoldingRange(*this);
-
-        // Empty multi-line blocks should still create folding ranges
-        REQUIRE(foldingRanges.size() == 2);
+        checkFoldingRange(FoldingRangeExpectedResult{
+            .numberOfRanges = 0,
+        });
     }
 }

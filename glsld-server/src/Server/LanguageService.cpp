@@ -113,11 +113,10 @@ namespace glsld
                     .referencesProvider = GetReferenceOptions(server.GetConfig().languageService.reference),
                     .documentSymbolProvider =
                         GetDocumentSymbolOptions(server.GetConfig().languageService.documentSymbol),
+                    .foldingRangeProvider = GetFoldingRangeOptions(server.GetConfig().languageService.foldingRange),
                     .semanticTokensProvider =
                         GetSemanticTokensOptions(server.GetConfig().languageService.semanticTokens),
                     .inlayHintProvider = GetInlayHintsOptions(server.GetConfig().languageService.inlayHint),
-                    .foldingRangeProvider =
-                        GetFoldingRangeOptions(server.GetConfig().languageService.foldingRange),
                     // .renameProvider = std::nullopt,
                 },
             .serverInfo =

@@ -2,7 +2,6 @@
 #include "Ast/Decl.h"
 #include "Ast/Stmt.h"
 #include "Server/LanguageQueryVisitor.h"
-#include "Support/SourceText.h"
 
 namespace glsld
 {
@@ -20,9 +19,9 @@ namespace glsld
         {
             TraverseTranslationUnit();
 
-            // Sort folding ranges by start line
-            std::sort(result.begin(), result.end(), [](const lsp::FoldingRange& a, const lsp::FoldingRange& b) {
-                return a.startLine < b.startLine;
+            // Sort folding ranges by start line then end line
+            std::ranges::sort(result, [](const lsp::FoldingRange& a, const lsp::FoldingRange& b) {
+                return std::tie(a.startLine, a.endLine) < std::tie(b.startLine, b.endLine);
             });
 
             return std::move(result);
@@ -47,18 +46,13 @@ namespace glsld
         auto TryAddFoldingRange(AstSyntaxRange range) -> void
         {
             // Look up the spelled text range in the main file
-            auto startSpelledRange = GetInfo().LookupSpelledTextRangeInMainFile(range.GetBeginID());
-            auto endSpelledRange   = GetInfo().LookupSpelledTextRangeInMainFile(range.GetBackID());
-
-            if (!startSpelledRange || !endSpelledRange) {
-                return;
-            }
+            auto textRange = GetInfo().LookupExpandedTextRange(range);
 
             // Only create folding range if it spans multiple lines
-            if (startSpelledRange->start.line < endSpelledRange->end.line) {
+            if (textRange.start.line < textRange.end.line) {
                 result.push_back(lsp::FoldingRange{
-                    .startLine = static_cast<uint32_t>(startSpelledRange->start.line),
-                    .endLine   = static_cast<uint32_t>(endSpelledRange->end.line),
+                    .startLine = static_cast<uint32_t>(textRange.start.line),
+                    .endLine   = static_cast<uint32_t>(textRange.end.line),
                 });
             }
         }
@@ -80,8 +74,7 @@ namespace glsld
             return {};
         }
 
-        FoldingRangeCollector collector(info);
-        return collector.Execute();
+        return FoldingRangeCollector{info}.Execute();
     }
 
 } // namespace glsld
