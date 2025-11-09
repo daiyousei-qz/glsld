@@ -3,7 +3,6 @@
 #include <charconv>
 #include <concepts>
 #include <functional>
-#include <iterator>
 #include <numbers>
 
 #if GLSLD_COMPILER_MSVC
