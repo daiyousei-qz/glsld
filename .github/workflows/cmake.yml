@@ -36,7 +36,7 @@ jobs:
     steps:
 
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         submodules: true
 
@@ -69,6 +69,8 @@ jobs:
         path: |
           ${{ github.workspace }}/build/glsld
           ${{ github.workspace }}/build/glsld.exe
+          ${{ github.workspace }}/build/glsld-wrapper
+          ${{ github.workspace }}/build/glsld-wrapper.exe
 
   release:
     needs: build
@@ -82,28 +84,6 @@ jobs:
           path: ${{ github.workspace }}/release-assets
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-
-      # - uses: actions/upload-release-asset@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
-      #     asset_name: glsld-linux
-      #     asset_path: ${{ github.workspace }}/release-assets/glsld
-      #     asset_content_type: application/octet-stream
-
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: glsld-windows.exe
-          asset_path: ${{ github.workspace }}/release-assets/glsld.exe
-          asset_content_type: application/octet-stream
+          files: ${{ github.workspace }}/release-assets/*
