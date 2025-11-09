@@ -483,6 +483,11 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
             const vec3 ^[v.decl.begin]v^[v.decl.end] = vec3(1.0, 2.0, 3.0);
             const int[2] ^[arr.decl.begin]arr^[arr.decl.end] = {1, 2};
             const struct S { int a; float b; } ^[complex.decl.begin]complex^[complex.decl.end] = {1, 2.0};
+
+            void foo()
+            {
+                v.^[v.swizzle.begin]xy^[v.swizzle.end];
+            }
         )");
 
         checkHover("one.decl.begin", HoverContent{
@@ -520,6 +525,14 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
                                              .code     = "const struct S { ... } complex = ...",
                                              .range    = GetLabelledRange("complex.decl.begin", "complex.decl.end"),
                                          });
+
+        checkHover("v.swizzle.begin", HoverContent{
+                                          .type      = SymbolDeclType::Swizzle,
+                                          .name      = "xy",
+                                          .exprType  = "vec2",
+                                          .exprValue = "vec2(1, 2)",
+                                          .range     = GetLabelledRange("v.swizzle.begin", "v.swizzle.end"),
+                                      });
         // TODO: add more tests
     }
 
@@ -549,7 +562,8 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         //                                     .exprType    = "int",
         //                                     .description = "This is a global variable.",
         //                                     .code        = "int global",
-        //                                     .range       = GetLabelledRange("global.decl.begin", "global.decl.end"),
+        //                                     .range       = GetLabelledRange("global.decl.begin",
+        //                                     "global.decl.end"),
         //                                 });
         // checkHover("foo.decl.begin", HoverContent{
         //                                  .type        = SymbolDeclType::Function,
