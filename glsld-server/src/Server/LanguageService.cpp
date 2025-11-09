@@ -116,6 +116,8 @@ namespace glsld
                     .semanticTokensProvider =
                         GetSemanticTokensOptions(server.GetConfig().languageService.semanticTokens),
                     .inlayHintProvider = GetInlayHintsOptions(server.GetConfig().languageService.inlayHint),
+                    .foldingRangeProvider =
+                        GetFoldingRangeOptions(server.GetConfig().languageService.foldingRange),
                     // .renameProvider = std::nullopt,
                 },
             .serverInfo =
@@ -329,6 +331,21 @@ namespace glsld
                 HandleInlayHints(server.GetConfig().languageService.inlayHint, queryInfo, params);
             server.HandleServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "inlayHint",
+                           timer.GetElapsedMilliseconds());
+        });
+    }
+
+    auto LanguageService::FoldingRange(int requestId, lsp::FoldingRangeParams params) -> void
+    {
+        auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "foldingRange", uri);
+        ScheduleLanguageQuery(uri, [this, requestId, params = std::move(params)](
+                                       const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
+            SimpleTimer timer;
+            std::vector<lsp::FoldingRange> result =
+                HandleFoldingRange(server.GetConfig().languageService.foldingRange, queryInfo, params);
+            server.HandleServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "foldingRange",
                            timer.GetElapsedMilliseconds());
         });
     }

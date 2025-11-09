@@ -78,6 +78,8 @@ namespace glsld
 
         auto InlayHint(int requestId, lsp::InlayHintParams params) -> void;
 
+        auto FoldingRange(int requestId, lsp::FoldingRangeParams params) -> void;
+
 #pragma endregion
 
 #pragma region Window Features
