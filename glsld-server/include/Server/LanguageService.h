@@ -66,6 +66,8 @@ namespace glsld
 
         auto SemanticTokensFull(int requestId, lsp::SemanticTokensParams params) -> void;
 
+        auto SemanticTokensFullDelta(int requestId, lsp::SemanticTokensDeltaParams params) -> void;
+
         auto Completion(int requestId, lsp::CompletionParams params) -> void;
 
         auto SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void;

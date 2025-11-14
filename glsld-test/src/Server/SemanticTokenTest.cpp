@@ -160,3 +160,115 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         checkSemanticToken(semanticTokens, "unknown.access.begin", "unknown.access.end", SemanticTokenType::Variable);
     }
 }
+
+TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
+{
+    SECTION("DeltaEnabled")
+    {
+        CompileLabelledSource(R"(
+            void foo()
+            {
+            }
+        )");
+        
+        auto options = GetSemanticTokensOptions(SemanticTokenConfig{.enable = true});
+        REQUIRE(options.has_value());
+        REQUIRE(options->full.delta == true);
+    }
+
+    SECTION("DeltaWithSameContent")
+    {
+        CompileLabelledSource(R"(
+            int x;
+        )");
+        
+        // Get initial tokens
+        lsp::SemanticTokensParams params;
+        params.textDocument.uri = "test://test.glsl";
+        auto initialTokens = HandleSemanticTokens(SemanticTokenConfig{.enable = true}, 
+                                                   GetLanguageQueryInfo(), params);
+        REQUIRE(!initialTokens.resultId.empty());
+        REQUIRE(!initialTokens.data.empty());
+        
+        // Get delta with same content (no changes)
+        lsp::SemanticTokensDeltaParams deltaParams;
+        deltaParams.textDocument.uri = "test://test.glsl";
+        deltaParams.previousResultId = initialTokens.resultId;
+        auto delta = HandleSemanticTokensDelta(SemanticTokenConfig{.enable = true}, 
+                                               GetLanguageQueryInfo(), deltaParams);
+        REQUIRE(!delta.resultId.empty());
+        REQUIRE(delta.edits.empty());  // No changes, so no edits
+    }
+
+    SECTION("DeltaWithChangedContent")
+    {
+        // Get initial tokens with one variable
+        CompileLabelledSource(R"(
+            int x;
+        )");
+        
+        lsp::SemanticTokensParams params;
+        params.textDocument.uri = "test://test.glsl";
+        auto initialTokens = HandleSemanticTokens(SemanticTokenConfig{.enable = true}, 
+                                                   GetLanguageQueryInfo(), params);
+        auto previousResultId = initialTokens.resultId;
+        auto previousData = initialTokens.data;
+        
+        // Change content - add another variable
+        CompileLabelledSource(R"(
+            int x;
+            int y;
+        )");
+        
+        // Get delta
+        lsp::SemanticTokensDeltaParams deltaParams;
+        deltaParams.textDocument.uri = "test://test.glsl";
+        deltaParams.previousResultId = previousResultId;
+        auto delta = HandleSemanticTokensDelta(SemanticTokenConfig{.enable = true}, 
+                                               GetLanguageQueryInfo(), deltaParams);
+        
+        REQUIRE(!delta.resultId.empty());
+        REQUIRE(!delta.edits.empty());  // Should have edits due to changes
+        
+        // Apply the edits to verify correctness
+        std::vector<lsp::uinteger> appliedData = previousData;
+        for (const auto& edit : delta.edits) {
+            // Remove deleteCount elements starting at start
+            appliedData.erase(appliedData.begin() + edit.start, 
+                            appliedData.begin() + edit.start + edit.deleteCount);
+            // Insert new data at start
+            appliedData.insert(appliedData.begin() + edit.start, 
+                             edit.data.begin(), edit.data.end());
+        }
+        
+        // Get fresh tokens for comparison
+        auto newTokens = HandleSemanticTokens(SemanticTokenConfig{.enable = true}, 
+                                             GetLanguageQueryInfo(), params);
+        
+        // The applied data should match the new tokens data
+        REQUIRE(appliedData.size() == newTokens.data.size());
+        REQUIRE(appliedData == newTokens.data);
+    }
+
+    SECTION("DeltaWithInvalidPreviousId")
+    {
+        CompileLabelledSource(R"(
+            int x;
+        )");
+        
+        // Request delta with invalid previous result ID
+        lsp::SemanticTokensDeltaParams deltaParams;
+        deltaParams.textDocument.uri = "test://test.glsl";
+        deltaParams.previousResultId = "invalid-id-12345";
+        auto delta = HandleSemanticTokensDelta(SemanticTokenConfig{.enable = true}, 
+                                               GetLanguageQueryInfo(), deltaParams);
+        
+        REQUIRE(!delta.resultId.empty());
+        REQUIRE(!delta.edits.empty());  // Should return full data as an edit
+        // Should have one edit with all the data
+        REQUIRE(delta.edits.size() == 1);
+        REQUIRE(delta.edits[0].start == 0);
+        REQUIRE(delta.edits[0].deleteCount == 0);
+        REQUIRE(!delta.edits[0].data.empty());
+    }
+}
