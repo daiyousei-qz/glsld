@@ -1,3 +1,4 @@
+#include "Compiler/PPEval.h"
 #include "CompilerTestFixture.h"
 
 using namespace glsld;
@@ -129,5 +130,67 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
             #endif
         )",
                            EofTok());
+    }
+
+    SECTION("PPEval")
+    {
+        AtomTable atomTable;
+        auto ppInt = [&atomTable](int value) {
+            return PPToken{
+                .klass                = TokenKlass::IntegerConstant,
+                .spelledFile          = FileID{},
+                .spelledRange         = TextRange{},
+                .text                 = atomTable.GetAtom(fmt::to_string(value)),
+                .isFirstTokenOfLine   = false,
+                .hasLeadingWhitespace = false,
+            };
+        };
+        auto ppOp = [&atomTable](TokenKlass klass) {
+            return PPToken{
+                .klass                = klass,
+                .spelledFile          = FileID{},
+                .spelledRange         = TextRange{},
+                .text                 = atomTable.GetAtom(""),
+                .isFirstTokenOfLine   = false,
+                .hasLeadingWhitespace = false,
+            };
+        };
+
+        // Test unary operators
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppOp(TokenKlass::Plus), ppInt(1)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppOp(TokenKlass::Dash), ppInt(1)}) == -1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppOp(TokenKlass::Tilde), ppInt(1)}) == ~1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppOp(TokenKlass::Bang), ppInt(1)}) == 0);
+
+        // Test binary operators
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Plus), ppInt(3)}) == 5);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Dash), ppInt(3)}) == -1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Star), ppInt(3)}) == 6);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Slash), ppInt(3)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Percent), ppInt(3)}) == 2);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::LShift), ppInt(3)}) == 16);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::RShift), ppInt(3)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::LAngle), ppInt(3)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::LessEq), ppInt(3)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::RAngle), ppInt(3)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::GreaterEq), ppInt(3)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Equal), ppInt(3)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::NotEqual), ppInt(3)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Ampersand), ppInt(3)}) == 2);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Caret), ppInt(3)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::VerticalBar), ppInt(3)}) == 3);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::And), ppInt(3)}) == 1);
+        REQUIRE(PPExprEvaluator{}.Evaluate(std::vector{ppInt(2), ppOp(TokenKlass::Or), ppInt(3)}) == 1);
+
+        // Test operator precedence and parentheses
+        REQUIRE(PPExprEvaluator{}.Evaluate(
+                    std::vector{ppInt(1), ppOp(TokenKlass::Plus), ppInt(1), ppOp(TokenKlass::Plus), ppInt(1)}) == 3);
+        REQUIRE(PPExprEvaluator{}.Evaluate(
+                    std::vector{ppInt(1), ppOp(TokenKlass::Plus), ppOp(TokenKlass::Dash), ppInt(1)}) == 0);
+        REQUIRE(PPExprEvaluator{}.Evaluate(
+                    std::vector{ppInt(1), ppOp(TokenKlass::Plus), ppInt(2), ppOp(TokenKlass::Star), ppInt(3)}) == 7);
+        REQUIRE(
+            PPExprEvaluator{}.Evaluate(std::vector{ppOp(TokenKlass::LParen), ppInt(1), ppOp(TokenKlass::Plus), ppInt(2),
+                                                   ppOp(TokenKlass::RParen), ppOp(TokenKlass::Star), ppInt(3)}) == 9);
     }
 }

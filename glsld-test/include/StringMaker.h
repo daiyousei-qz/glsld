@@ -8,6 +8,20 @@
 
 namespace Catch
 {
+    template <typename T>
+    struct StringMaker<std::optional<T>>
+    {
+        static auto convert(const std::optional<T>& value) -> std::string
+        {
+            if (value.has_value()) {
+                return StringMaker<T>::convert(*value);
+            }
+            else {
+                return "std::nullopt";
+            }
+        }
+    };
+
     template <>
     struct StringMaker<glsld::StringView>
     {
