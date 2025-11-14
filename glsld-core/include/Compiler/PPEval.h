@@ -10,7 +10,7 @@ namespace glsld
         // See https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf, section 3.3
         enum class PPOperator
         {
-            // Precedence 1 (highest)
+            // Parentheses are handled specially; assigned precedence 999 in implementation.
             LParen,
 
             // Precedence 2

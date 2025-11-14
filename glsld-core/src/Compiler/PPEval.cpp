@@ -233,8 +233,8 @@ namespace glsld
             return false;
         }
 
-        uint64_t lhs = 0;
-        uint64_t rhs = 0;
+        int64_t lhs = 0;
+        int64_t rhs = 0;
         if (op.isUnary) {
             if (valueStack.empty()) {
                 return false;
