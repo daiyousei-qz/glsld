@@ -2,6 +2,7 @@
 #include "Basic/Common.h"
 #include "Language/Semantic.h"
 #include "Language/Typing.h"
+#include "Support/StringView.h"
 
 #include <algorithm>
 #include <cstdint>
