@@ -282,6 +282,8 @@ namespace glsld
         handlerDispatchMap[lsp::LSPMethod_DocumentSymbol] = createRequestHandler(&LanguageService::DocumentSymbol);
         handlerDispatchMap[lsp::LSPMethod_SemanticTokensFull] =
             createRequestHandler(&LanguageService::SemanticTokensFull);
+        handlerDispatchMap[lsp::LSPMethod_SemanticTokensFullDelta] =
+            createRequestHandler(&LanguageService::SemanticTokensFullDelta);
         handlerDispatchMap[lsp::LSPMethod_Completion]    = createRequestHandler(&LanguageService::Completion);
         handlerDispatchMap[lsp::LSPMethod_SignatureHelp] = createRequestHandler(&LanguageService::SignatureHelp);
         handlerDispatchMap[lsp::LSPMethod_Hover]         = createRequestHandler(&LanguageService::Hover);
