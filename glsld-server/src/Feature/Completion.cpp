@@ -23,7 +23,7 @@ namespace glsld
         const AstExpr* accessChainExpr = nullptr;
     };
 
-    class CompletionTypeDecider : public LanguageQueryVisitor<CompletionTypeDecider>
+    class CompletionTypeDecider : public LanguageQueryVisitor<CompletionTypeDecider, CompletionTypeResult>
     {
     private:
         // True if the cursor is in a declarator
@@ -43,10 +43,8 @@ namespace glsld
         {
         }
 
-        auto Execute() -> CompletionTypeResult
+        auto Finish() -> CompletionTypeResult GLSLD_AST_VISITOR_OVERRIDE
         {
-            TraverseTranslationUnit();
-
             CompletionTypeResult result;
             if (inDeclarator) {
                 result.allowExpr = false;
@@ -69,15 +67,15 @@ namespace glsld
             return result;
         }
 
-        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy GLSLD_AST_VISITOR_OVERRIDE
         {
             return TraverseNodeContains(node, cursorPosition);
         }
 
-        auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
+        auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
         }
-        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
+        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
                 if (GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()},
@@ -87,7 +85,7 @@ namespace glsld
                 }
             }
         }
-        auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
+        auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
                 if (GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()},
@@ -98,14 +96,14 @@ namespace glsld
             }
         }
 
-        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (decl.GetBody() && GetInfo().ContainsPosition(*decl.GetBody(), cursorPosition)) {
                 inFunctionDefinition = true;
             }
         }
 
-        auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+        auto VisitAstParamDecl(const AstParamDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             // FIXME: what about cursor?
             if (GetInfo().ContainsPositionExtended(decl, cursorPosition)) {
@@ -113,7 +111,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstStructDecl(const AstStructDecl& decl) -> void
+        auto VisitAstStructDecl(const AstStructDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (decl.GetNameToken() && GetInfo().ContainsPositionExtended(*decl.GetNameToken(), cursorPosition)) {
                 inDeclarator = true;
@@ -123,19 +121,20 @@ namespace glsld
             inStructDefinition = true;
         }
 
-        auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
+        auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             // FIXME: test if cursor is in the instance name
             inStructDefinition = true;
         }
 
-        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
+        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl)
+            -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             // FIXME: layout?
             TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
         }
 
-        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
         }
@@ -206,12 +205,7 @@ namespace glsld
         {
         }
 
-        auto Execute() -> void
-        {
-            TraverseTranslationUnit();
-        }
-
-        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy GLSLD_AST_VISITOR_OVERRIDE
         {
             if (node.Is<AstTranslationUnit>()) {
                 return AstVisitPolicy::Traverse;
@@ -236,7 +230,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstNode(const AstNode& node) -> void
+        auto VisitAstNode(const AstNode& node) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (auto decl = node.As<AstDecl>()) {
                 CollectCompletionFromDecl([this](const AstSyntaxToken& token,
@@ -339,7 +333,7 @@ namespace glsld
         auto cursorPosition = FromLspPosition(params.position);
 
         std::vector<lsp::CompletionItem> result;
-        auto completionType = CompletionTypeDecider{queryInfo, cursorPosition}.Execute();
+        auto completionType = TraverseAst(CompletionTypeDecider{queryInfo, cursorPosition}, queryInfo.GetUserFileAst());
         if (completionType.accessChainExpr) {
             auto type = completionType.accessChainExpr->GetDeducedType();
             if (type->IsArray() || type->IsVector()) {
@@ -379,7 +373,8 @@ namespace glsld
 
             // Add the completion items from the AST
             if (completionType.allowExpr || completionType.allowType) {
-                CompletionCollector{result, queryInfo, completionType, cursorPosition}.Execute();
+                TraverseAst(CompletionCollector{result, queryInfo, completionType, cursorPosition},
+                            queryInfo.GetUserFileAst());
             }
 
             // FIXME: add the completion items from the preprocessor, aka. macros

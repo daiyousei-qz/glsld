@@ -89,12 +89,7 @@ namespace glsld
             {
             }
 
-            auto Execute() -> void
-            {
-                TraverseTranslationUnit();
-            }
-
-            auto VisitAstQualType(const AstQualType& type) -> void
+            auto VisitAstQualType(const AstQualType& type) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (type.GetTypeNameTok().klass == TokenKlass::Identifier ||
                     GetGlslBuiltinType(type.GetTypeNameTok().klass)) {
@@ -102,7 +97,7 @@ namespace glsld
                 }
             }
 
-            auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
+            auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (expr.GetNameToken().IsIdentifier()) {
                     SemanticTokenModifierBits modifiers;
@@ -118,26 +113,27 @@ namespace glsld
                     }
                 }
             }
-            auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
+            auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (expr.GetNameToken().IsIdentifier()) {
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable);
                 }
             }
-            auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
+            auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (expr.GetNameToken().IsIdentifier()) {
                     // Note we color the identifier regardless of whether it is a valid swizzle.
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Variable);
                 }
             }
-            auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+            auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (expr.GetNameToken().IsIdentifier()) {
                     TryAddSementicToken(expr.GetNameToken(), SemanticTokenType::Function);
                 }
             }
-            auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
+            auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl)
+                -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 SemanticTokenModifierBits modifiers;
                 if (auto quals = decl.GetQualType()->GetQualifiers(); quals && quals->GetQualGroup().qConst) {
@@ -148,14 +144,14 @@ namespace glsld
                     TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Variable, modifiers);
                 }
             }
-            auto VisitAstStructDecl(const AstStructDecl& decl) -> void
+            auto VisitAstStructDecl(const AstStructDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (decl.GetNameToken() && decl.GetNameToken()->IsIdentifier()) {
                     TryAddSementicToken(*decl.GetNameToken(), SemanticTokenType::Struct,
                                         SemanticTokenModifier::Declaration);
                 }
             }
-            auto VisitAstBlockFieldDecl(const AstBlockFieldDecl& decl) -> void
+            auto VisitAstBlockFieldDecl(const AstBlockFieldDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
                 // TODO: say uniform block member is readonly
@@ -166,7 +162,7 @@ namespace glsld
                     }
                 }
             }
-            auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
+            auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 // Interface block name
                 if (decl.GetNameToken().IsIdentifier()) {
@@ -181,14 +177,14 @@ namespace glsld
                     TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Variable, instanceModifier);
                 }
             }
-            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (decl.GetNameToken().IsIdentifier()) {
                     TryAddSementicToken(decl.GetNameToken(), SemanticTokenType::Function,
                                         SemanticTokenModifier::Declaration);
                 }
             }
-            auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+            auto VisitAstParamDecl(const AstParamDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (decl.GetDeclarator() && decl.GetDeclarator()->nameToken.IsIdentifier()) {
                     SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
@@ -198,7 +194,8 @@ namespace glsld
                     TryAddSementicToken(decl.GetDeclarator()->nameToken, SemanticTokenType::Parameter, modifiers);
                 }
             }
-            auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+            auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl)
+                -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 SemanticTokenModifierBits modifiers = SemanticTokenModifier::Declaration;
 
@@ -219,7 +216,7 @@ namespace glsld
             }
         };
 
-        AstSemanticTokenCollector{info, tokenBuffer}.Execute();
+        TraverseAst(AstSemanticTokenCollector{info, tokenBuffer}, info.GetUserFileAst());
     }
 
     auto ToLspSemanticTokens(ArrayView<SemanticTokenInfo> tokenBuffer) -> lsp::SemanticTokens

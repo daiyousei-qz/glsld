@@ -92,11 +92,17 @@ namespace glsld
         // Matchers for children nodes.
         std::vector<AstMatcher*> childrenMatcher;
 
-        struct AstChildCollector : public AstVisitor<AstChildCollector, AstVisitorConfig{.traceTraversalPath = true}>
+        struct AstChildCollector : public AstVisitor<AstChildCollector, std::vector<const AstNode*>,
+                                                     AstVisitorConfig{.traceTraversalPath = true}>
         {
             std::vector<const AstNode*> children;
 
-            auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+            auto Finish() -> std::vector<const AstNode*> GLSLD_AST_VISITOR_OVERRIDE
+            {
+                return std::move(children);
+            }
+
+            auto EnterAstNode(const AstNode& node) -> AstVisitPolicy GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (GetTraversalDepth() == 0) {
                     return AstVisitPolicy::Traverse;
@@ -144,15 +150,15 @@ namespace glsld
         auto Match(const AstNode* node) -> AstMatchResult
         {
             if (findMatchMode) {
-                AstChildCollector collector;
+                std::vector<const AstNode*> children;
                 if (node) {
-                    collector.Traverse(*node);
+                    children = TraverseAst(AstChildCollector{}, *node);
                 }
 
                 auto& finder  = childrenMatcher[0];
                 auto& matcher = childrenMatcher[1];
 
-                for (const auto* child : collector.children) {
+                for (const auto* child : children) {
                     auto found = finder->Match(child);
                     if (found.IsSuccess()) {
                         return matcher->Match(child);
