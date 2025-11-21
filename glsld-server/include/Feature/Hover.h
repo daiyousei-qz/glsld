@@ -13,14 +13,13 @@ namespace glsld
         // The name of the hovered symbol.
         std::string name;
 
-        // The function return type if the hovered symbol is a function.
-        std::string returnType;
+        // The type of the expression if the hovered symbol is part of an expression.
+        // Otherwise, the type of the declared symbol if the hovered symbol is a declarator.
+        // Notably, for functions, this is the return type.
+        std::string exprType;
 
         // The function parameters if the hovered symbol is a function.
         std::vector<std::string> parameters;
-
-        // The type of the expression if the hovered symbol is part of an expression.
-        std::string exprType;
 
         // The (primitive) value of the expression if the hovered symbol is part of an expression.
         std::string exprValue;
