@@ -5,39 +5,39 @@
 
 namespace glsld
 {
-    class CollectReferenceVisitor : public LanguageQueryVisitor<CollectReferenceVisitor>
+    class CollectReferenceVisitor : public LanguageQueryVisitor<CollectReferenceVisitor, std::vector<lsp::Location>>
     {
     private:
-        std::vector<lsp::Location>& output;
-
         lsp::DocumentUri documentUri;
 
         const AstDecl* referenceDecl;
 
         bool includeDeclaration;
 
+        std::vector<lsp::Location> result;
+
         auto AddReferenceToken(const AstSyntaxToken& token) -> void
         {
             // FIXME: Support reference from included files
             if (GetInfo().IsSpelledInMainFile(token.id)) {
-                output.push_back(lsp::Location{documentUri, ToLspRange(GetInfo().LookupExpandedTextRange(token))});
+                result.push_back(lsp::Location{documentUri, ToLspRange(GetInfo().LookupExpandedTextRange(token))});
             }
         }
 
     public:
-        CollectReferenceVisitor(std::vector<lsp::Location>& output, const LanguageQueryInfo& info, lsp::DocumentUri uri,
-                                const AstDecl* referenceDecl, bool includeDeclaration)
-            : LanguageQueryVisitor(info), documentUri(std::move(uri)), output(output), referenceDecl(referenceDecl),
+        CollectReferenceVisitor(const LanguageQueryInfo& info, lsp::DocumentUri uri, const AstDecl* referenceDecl,
+                                bool includeDeclaration)
+            : LanguageQueryVisitor(info), documentUri(std::move(uri)), referenceDecl(referenceDecl),
               includeDeclaration(includeDeclaration)
         {
         }
 
-        auto Execute() -> void
+        auto Finish() -> std::vector<lsp::Location> GLSLD_AST_VISITOR_OVERRIDE
         {
-            TraverseTranslationUnit();
+            return std::move(result);
         }
 
-        auto VisitAstQualType(const AstQualType& qualType) -> void
+        auto VisitAstQualType(const AstQualType& qualType) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (auto structDesc = qualType.GetResolvedType()->GetStructDesc()) {
                 if (structDesc->decl == referenceDecl) {
@@ -46,44 +46,45 @@ namespace glsld
             }
         }
 
-        auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
+        auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (expr.GetResolvedDecl() == referenceDecl) {
                 AddReferenceToken(expr.GetNameToken());
             }
         }
-        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
+        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (expr.GetResolvedDecl() == referenceDecl) {
                 AddReferenceToken(expr.GetNameToken());
             }
         }
-        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (expr.GetResolvedFunction() == referenceDecl) {
                 AddReferenceToken(expr.GetNameToken());
             }
         }
 
-        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 AddReferenceToken(decl.GetNameToken());
             }
         }
-        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 AddReferenceToken(decl.GetNameToken());
             }
         }
-        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
+        auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl)
+            -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 AddReferenceToken(decl.GetNameToken());
             }
         }
-        auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+        auto VisitAstParamDecl(const AstParamDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 if (auto declarator = decl.GetDeclarator()) {
@@ -91,7 +92,7 @@ namespace glsld
                 }
             }
         }
-        auto VisitAstStructDecl(const AstStructDecl& decl) -> void
+        auto VisitAstStructDecl(const AstStructDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 if (decl.GetNameToken()) {
@@ -99,7 +100,7 @@ namespace glsld
                 }
             }
         }
-        auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
+        auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 if (decl.GetDeclarator()) {
@@ -107,7 +108,8 @@ namespace glsld
                 }
             }
         }
-        auto VisitAstBlockFieldDeclaratorDecl(const AstBlockFieldDeclaratorDecl& decl) -> void
+        auto VisitAstBlockFieldDeclaratorDecl(const AstBlockFieldDeclaratorDecl& decl)
+            -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (includeDeclaration && &decl == referenceDecl) {
                 AddReferenceToken(decl.GetNameToken());
@@ -162,9 +164,9 @@ namespace glsld
             }
         }
         else if (symbolInfo->astSymbolOccurrence && symbolInfo->symbolDecl) {
-            CollectReferenceVisitor{result, info, params.textDocument.uri, symbolInfo->symbolDecl,
-                                    params.context.includeDeclaration}
-                .Execute();
+            result = TraverseAst(CollectReferenceVisitor{info, params.textDocument.uri, symbolInfo->symbolDecl,
+                                                         params.context.includeDeclaration},
+                                 info.GetUserFileAst());
         }
 
         return result;

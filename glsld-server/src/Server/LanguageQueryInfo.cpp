@@ -113,7 +113,7 @@ namespace glsld
 
     namespace
     {
-        class SymbolQueryVisitor : public LanguageQueryVisitor<SymbolQueryVisitor>
+        class SymbolQueryVisitor : public LanguageQueryVisitor<SymbolQueryVisitor, std::optional<SymbolQueryResult>>
         {
         private:
             std::optional<SymbolQueryResult> result = std::nullopt;
@@ -145,39 +145,28 @@ namespace glsld
             {
             }
 
-            auto Execute() -> std::optional<SymbolQueryResult>
+            auto Finish() -> std::optional<SymbolQueryResult> GLSLD_AST_VISITOR_OVERRIDE
             {
-                result = std::nullopt;
-
-                TraverseTranslationUnit();
                 return std::move(result);
             }
 
-            auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+            auto EnterAstNode(const AstNode& node) -> AstVisitPolicy GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (result.has_value()) {
                     return AstVisitPolicy::Halt;
                 }
 
-                if (GetInfo().ContainsPosition(node, cursorPos)) {
-                    return AstVisitPolicy::Traverse;
-                }
-                else if (GetInfo().PrecedesPosition(node, cursorPos)) {
-                    return AstVisitPolicy::Leave;
-                }
-                else {
-                    return AstVisitPolicy::Halt;
-                }
+                return TraverseNodeContains(node, cursorPos);
             }
 
-            auto VisitAstTypeQualifierSeq(const AstTypeQualifierSeq& quals) -> void
+            auto VisitAstTypeQualifierSeq(const AstTypeQualifierSeq& quals) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 for (const auto& layoutQual : quals.GetLayoutQuals()) {
                     TryAstToken(layoutQual.idToken, &quals, nullptr, SymbolDeclType::LayoutQualifier, false);
                 }
             }
 
-            auto VisitAstQualType(const AstQualType& type) -> void
+            auto VisitAstQualType(const AstQualType& type) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 // NOTE we handle struct decl at `VisitAstStructDecl`
                 if (!type.GetStructDecl()) {
@@ -205,7 +194,7 @@ namespace glsld
                 }
             }
 
-            auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void
+            auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 // By default, we assume it's a global variable access.
                 SymbolDeclType accessType = SymbolDeclType::GlobalVariable;
@@ -228,7 +217,8 @@ namespace glsld
                 }
                 TryAstToken(expr.GetNameToken(), &expr, expr.GetResolvedDecl(), accessType, false);
             }
-            auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void
+
+            auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 auto resolvedDecl = expr.GetResolvedDecl();
                 auto declType     = (resolvedDecl && resolvedDecl->Is<AstBlockFieldDeclaratorDecl>())
@@ -237,41 +227,50 @@ namespace glsld
 
                 TryAstToken(expr.GetNameToken(), &expr, expr.GetResolvedDecl(), declType, false);
             }
-            auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void
+
+            auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(expr.GetNameToken(), &expr, {}, SymbolDeclType::Swizzle, false);
             }
-            auto VisitAstUnaryExpr(const AstUnaryExpr& expr) -> void
+
+            auto VisitAstUnaryExpr(const AstUnaryExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 // FIXME: .length()
             }
-            auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+
+            auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(expr.GetNameToken(), &expr, expr.GetResolvedFunction(), SymbolDeclType::Function, false);
             }
 
-            auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+            auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl)
+                -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(decl.GetNameToken(), &decl, &decl,
                             decl.GetScope() == DeclScope::Global ? SymbolDeclType::GlobalVariable
                                                                  : SymbolDeclType::LocalVariable,
                             true);
             }
-            auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl) -> void
+
+            auto VisitAstStructFieldDeclaratorDecl(const AstStructFieldDeclaratorDecl& decl)
+                -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::StructMember, true);
             }
-            auto VisitAstStructDecl(const AstStructDecl& decl) -> void
+
+            auto VisitAstStructDecl(const AstStructDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (decl.GetNameToken()) {
                     TryAstToken(*decl.GetNameToken(), &decl, &decl, SymbolDeclType::Type, true);
                 }
             }
-            auto VisitAstBlockFieldDeclaratorDecl(const AstBlockFieldDeclaratorDecl& decl) -> void
+            auto VisitAstBlockFieldDeclaratorDecl(const AstBlockFieldDeclaratorDecl& decl)
+                -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::BlockMember, true);
             }
-            auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void
+
+            auto VisitAstInterfaceBlockDecl(const AstInterfaceBlockDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 // FIXME: explain the symbol access type
                 TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::Block, true);
@@ -279,13 +278,15 @@ namespace glsld
                     TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::BlockInstance, true);
                 }
             }
-            auto VisitAstParamDecl(const AstParamDecl& decl) -> void
+
+            auto VisitAstParamDecl(const AstParamDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 if (decl.GetDeclarator()) {
                     TryAstToken(decl.GetDeclarator()->nameToken, &decl, &decl, SymbolDeclType::Parameter, true);
                 }
             }
-            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+
+            auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
             {
                 TryAstToken(decl.GetNameToken(), &decl, &decl, SymbolDeclType::Function, true);
             }
@@ -321,7 +322,7 @@ namespace glsld
         }
 
         // Then, we traverse the AST to search for the identifier that the cursor is on, if any.
-        return SymbolQueryVisitor{*this, position}.Execute();
+        return TraverseAst(SymbolQueryVisitor{*this, position}, GetUserFileAst());
     }
 
     auto LanguageQueryInfo::QueryCommentDescription(const AstDecl& decl) const -> std::string

@@ -12,7 +12,7 @@
 namespace glsld
 {
     // FIXME: handle display range better
-    class InlayHintCollector : public LanguageQueryVisitor<InlayHintCollector>
+    class InlayHintCollector : public LanguageQueryVisitor<InlayHintCollector, std::vector<lsp::InlayHint>>
     {
     private:
         const InlayHintConfig& config;
@@ -26,13 +26,12 @@ namespace glsld
         {
         }
 
-        auto Execute() -> std::vector<lsp::InlayHint>
+        auto Finish() -> std::vector<lsp::InlayHint> GLSLD_AST_VISITOR_OVERRIDE
         {
-            TraverseTranslationUnit();
             return std::move(result);
         }
 
-        auto VisitAstInitializerList(const AstInitializerList& ilist) -> void
+        auto VisitAstInitializerList(const AstInitializerList& ilist) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (!config.enableInitializerHint) {
                 return;
@@ -62,7 +61,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstImplicitCastExpr(const AstImplicitCastExpr& expr) -> void
+        auto VisitAstImplicitCastExpr(const AstImplicitCastExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (!config.enableImplicitCastHint) {
                 return;
@@ -75,7 +74,7 @@ namespace glsld
             TryAddInlayHintBefore(expr, fmt::format("({})", expr.GetDeducedType()->GetDebugName()));
         }
 
-        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (!config.enableArgumentNameHint) {
                 return;
@@ -106,7 +105,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstConstructorCallExpr(const AstConstructorCallExpr& expr) -> void
+        auto VisitAstConstructorCallExpr(const AstConstructorCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             // Handle hints for implicit array size
             // FIXME: handle multi-dimensional array
@@ -166,7 +165,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void
+        auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (!config.enableImplicitArraySizeHint) {
                 return;
@@ -183,7 +182,7 @@ namespace glsld
             }
         }
 
-        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void
+        auto VisitAstFunctionDecl(const AstFunctionDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             if (!config.enableBlockEndHint) {
                 return;
@@ -253,7 +252,7 @@ namespace glsld
             return {};
         }
 
-        return InlayHintCollector{info, config, FromLspRange(params.range)}.Execute();
+        return TraverseAst(InlayHintCollector{info, config, FromLspRange(params.range)}, info.GetUserFileAst());
     }
 
 } // namespace glsld

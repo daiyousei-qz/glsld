@@ -1,5 +1,5 @@
 #include "Ast/AstPrinter.h"
-#include "Ast/Dispatch.h"
+#include "Ast/AstVisitor.h"
 #include "Support/EnumReflection.h"
 
 namespace glsld

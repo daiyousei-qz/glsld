@@ -125,6 +125,16 @@ namespace glsld
             return (bits & flagBit) != 0;
         }
 
+        constexpr auto TestAnyBits(EnumBitFlags<E, T> other) const noexcept -> bool
+        {
+            return (bits & other.bits) != 0;
+        }
+
+        constexpr auto TestAllBits(EnumBitFlags<E, T> other) const noexcept -> bool
+        {
+            return (bits & other.bits) == other.bits;
+        }
+
         constexpr auto SetBit(E flag) noexcept -> void
         {
             bits |= static_cast<T>(1) << static_cast<T>(flag);

@@ -7,7 +7,8 @@
 
 namespace glsld
 {
-    class SignatureHelpLocatingVisitor : public LanguageQueryVisitor<SignatureHelpLocatingVisitor>
+    class SignatureHelpLocatingVisitor
+        : public LanguageQueryVisitor<SignatureHelpLocatingVisitor, const AstFunctionCallExpr*>
     {
     private:
         TextPosition position;
@@ -20,18 +21,17 @@ namespace glsld
         {
         }
 
-        auto Execute() -> const AstFunctionCallExpr*
+        auto Finish() -> const AstFunctionCallExpr* GLSLD_AST_VISITOR_OVERRIDE
         {
-            TraverseTranslationUnit();
             return functionCallExpr;
         }
 
-        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy
+        auto EnterAstNode(const AstNode& node) -> AstVisitPolicy GLSLD_AST_VISITOR_OVERRIDE
         {
             return TraverseNodeContains(node, position);
         }
 
-        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             functionCallExpr = &expr;
         }
@@ -71,7 +71,8 @@ namespace glsld
             return std::nullopt;
         }
 
-        auto expr = SignatureHelpLocatingVisitor{queryInfo, FromLspPosition(params.position)}.Execute();
+        auto expr = TraverseAst(SignatureHelpLocatingVisitor{queryInfo, FromLspPosition(params.position)},
+                                queryInfo.GetUserFileAst());
 
         if (expr) {
             auto funcName = expr->GetNameToken().text;
