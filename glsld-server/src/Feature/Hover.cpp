@@ -1,7 +1,9 @@
-#include "Compiler/SyntaxToken.h"
 #include "Feature/Hover.h"
+
+#include "Ast/Eval.h"
+#include "Compiler/SyntaxToken.h"
+#include "Server/SourceReconstruction.h"
 #include "Support/Markdown.h"
-#include "Support/SourceReconstruction.h"
 #include "Support/SourceText.h"
 
 #include <string>
@@ -22,12 +24,7 @@ namespace glsld
             case SymbolDeclType::LayoutQualifier:
                 return "Layout Qualifier";
             case SymbolDeclType::GlobalVariable:
-                if (hover.builtin) {
-                    return "Built-in Variable";
-                }
-                else {
-                    return "Global Variable";
-                }
+                return "Global Variable";
             case SymbolDeclType::LocalVariable:
                 return "Local Variable";
             case SymbolDeclType::Swizzle:
@@ -37,33 +34,22 @@ namespace glsld
             case SymbolDeclType::Parameter:
                 return "Parameter";
             case SymbolDeclType::Function:
-                if (hover.builtin) {
-                    return "Built-in Function";
-                }
-                else {
-                    return "Function";
-                }
+                return "Function";
             case SymbolDeclType::Type:
                 return "Type";
             case SymbolDeclType::Block:
                 return "Interface Block";
             case SymbolDeclType::BlockInstance:
-                if (hover.builtin) {
-                    return "Built-in Block Instance";
-                }
-                else {
-                    return "Interface Block Instance";
-                }
+                return "Interface Block Instance";
             case SymbolDeclType::BlockMember:
-                if (hover.builtin) {
-                    return "Built-in Block Member";
-                }
-                else {
-                    return "Interface Block Member";
-                }
+                return "Interface Block Member";
             }
         }();
-        builder.AppendHeader(3, "{}{} `{}`", hover.unknown ? "Unknown " : "", hoverTypeName, hover.name);
+        builder.AppendHeader(3, "{}{} `{}`",
+                             hover.builtin   ? "Built-in "
+                             : hover.unknown ? "Unknown "
+                                             : "",
+                             hoverTypeName, hover.name);
 
         // Hover Info
         if (!hover.symbolType.empty()) {
@@ -188,9 +174,6 @@ namespace glsld
         else if (auto structFieldDeclaratorDecl = symbolInfo.astSymbolOccurrence->As<AstStructFieldDeclaratorDecl>();
                  structFieldDeclaratorDecl) {
             symbolType = structFieldDeclaratorDecl->GetResolvedType();
-        }
-        else if (auto structDecl = symbolInfo.astSymbolOccurrence->As<AstStructDecl>(); structDecl) {
-            symbolType = structDecl->GetDeclaredType();
         }
         else if (auto blockFieldDeclaratorDecl = symbolInfo.astSymbolOccurrence->As<AstBlockFieldDeclaratorDecl>();
                  blockFieldDeclaratorDecl) {

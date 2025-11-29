@@ -249,11 +249,11 @@ namespace glsld
 } // namespace glsld
 
 template <>
-struct fmt::formatter<glsld::StringView>
+struct fmt::formatter<glsld::StringView> : fmt::formatter<std::string_view>
 {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin())
     {
-        return fmt::formatter<std::string_view>{}.parse(ctx);
+        return fmt::formatter<std::string_view>::parse(ctx);
     }
 
     // Formats the point p using the parsed format specification (presentation)
@@ -261,6 +261,6 @@ struct fmt::formatter<glsld::StringView>
     template <typename FormatContext>
     auto format(const glsld::StringView& s, FormatContext& ctx) const -> decltype(ctx.out())
     {
-        return fmt::formatter<std::string_view>{}.format(s.StdStrView(), ctx);
+        return fmt::formatter<std::string_view>::format(s.StdStrView(), ctx);
     }
 };

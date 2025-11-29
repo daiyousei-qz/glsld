@@ -1,8 +1,7 @@
 #include "Feature/SignatureHelp.h"
-#include "Support/SourceReconstruction.h"
-#include "Support/SourceText.h"
-#include "Server/StandardDocumentation.h"
+#include "Server/SourceReconstruction.h"
 #include "Server/LanguageQueryVisitor.h"
+#include "Support/SourceText.h"
 
 #include <unordered_map>
 
