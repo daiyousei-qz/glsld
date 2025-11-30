@@ -249,7 +249,7 @@ namespace glsld
 } // namespace glsld
 
 template <>
-struct fmt::formatter<glsld::StringView> : fmt::formatter<std::string_view>
+struct fmt::formatter<glsld::StringView> : private fmt::formatter<std::string_view>
 {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin())
     {

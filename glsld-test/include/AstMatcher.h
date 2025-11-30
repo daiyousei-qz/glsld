@@ -181,7 +181,7 @@ namespace glsld
                         return AstMatchResult::Failure(node, "Type checker failed for {}. Deduced type is '{}'", name,
                                                        expr->GetDeducedType()->GetDebugName());
                     }
-                    if (valueChecker && !valueChecker(EvalAstExpr(*expr))) {
+                    if (valueChecker && !valueChecker(EvalAstInitializer(*expr))) {
                         return AstMatchResult::Failure(node, "Value checker failed for {}", name);
                     }
                 }

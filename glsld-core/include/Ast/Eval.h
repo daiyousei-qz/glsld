@@ -8,9 +8,5 @@ namespace glsld
 
     // Evaluates an expression Ast node into a compile-time primitive.
     // Returns errorous value if the expression is not a compile-time primitive.
-    auto EvalAstExpr(const AstExpr& expr) -> ConstValue;
-
-    // FIXME: now that AstInitializer has a deduced type, we don't need the 'type' parameter here.
-    // Evaluates an initializer into a compile-time primitive as if it's an implicit cast expression.
-    auto EvalAstInitializer(const AstInitializer& init, const Type* type) -> ConstValue;
+    auto EvalAstInitializer(const AstInitializer& expr) -> ConstValue;
 } // namespace glsld

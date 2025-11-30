@@ -76,7 +76,7 @@ namespace glsld
             for (auto arrayDim : arraySpec->GetSizeList()) {
                 int dimSizeValue = 0;
                 if (arrayDim != nullptr) {
-                    const auto& dimSize = EvalAstExpr(*arrayDim);
+                    const auto& dimSize = EvalAstInitializer(*arrayDim);
                     if (dimSize.IsScalarInt32()) {
                         dimSizeValue = dimSize.GetInt32Value();
                     }

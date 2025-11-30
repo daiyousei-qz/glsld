@@ -152,7 +152,7 @@ namespace glsld
         ConstValue symbolValue;
         if (auto expr = symbolInfo.astSymbolOccurrence->As<AstExpr>(); expr) {
             symbolType  = expr->GetDeducedType();
-            symbolValue = EvalAstExpr(*expr);
+            symbolValue = EvalAstInitializer(*expr);
         }
         else if (auto funcDecl = symbolInfo.astSymbolOccurrence->As<AstFunctionDecl>(); funcDecl) {
             symbolType = funcDecl->GetReturnType()->GetResolvedType();
@@ -167,7 +167,7 @@ namespace glsld
             // We only compute value for declaration here. Const variable value in expression will be handled later.
             if (symbolInfo.isDeclaration && varDeclaratorDecl->IsConstVariable()) {
                 if (auto init = varDeclaratorDecl->GetInitializer(); init) {
-                    symbolValue = EvalAstInitializer(*init, symbolType);
+                    symbolValue = EvalAstInitializer(*init);
                 }
             }
         }

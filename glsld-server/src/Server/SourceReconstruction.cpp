@@ -13,7 +13,7 @@ namespace glsld
     {
         for (auto dimSizeExpr : arraySpec.GetSizeList()) {
             if (dimSizeExpr) {
-                Append("[{}]", EvalAstExpr(*dimSizeExpr));
+                Append("[{}]", EvalAstInitializer(*dimSizeExpr));
             }
             else {
                 Append("[]");
