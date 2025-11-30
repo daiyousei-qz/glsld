@@ -76,8 +76,13 @@ struct std::hash<T>
 };
 
 template <glsld::Printable T>
-struct fmt::formatter<T> : fmt::formatter<std::string>
+struct fmt::formatter<T> : private fmt::formatter<std::string>
 {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin())
+    {
+        return fmt::formatter<std::string>::parse(ctx);
+    }
+
     template <typename FormatContext>
     auto format(const T& value, FormatContext& ctx) const -> decltype(ctx.out())
     {

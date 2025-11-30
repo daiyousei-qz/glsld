@@ -1,7 +1,7 @@
 #include "Feature/SignatureHelp.h"
-#include "Support/SourceText.h"
-#include "Server/StandardDocumentation.h"
+#include "Server/SourceReconstruction.h"
 #include "Server/LanguageQueryVisitor.h"
+#include "Support/SourceText.h"
 
 #include <unordered_map>
 
@@ -78,14 +78,14 @@ namespace glsld
             auto funcName = expr->GetNameToken().text;
 
             std::vector<lsp::SignatureInformation> result;
+            SourceReconstructionBuilder srcBuilder;
 
             // For function in the default library
             // FIXME: handle user preamble
             auto [it, end] = preambleInfo.builtinFunctionDeclMap.equal_range(funcName);
-            for (auto funcDecl : std::ranges::subrange(it, end)) {
-                std::string label;
-                ReconstructSourceText(label, *funcDecl.second);
-                std::string documentation = queryInfo.QueryCommentDescription(*funcDecl.second);
+            for (auto [_, funcDecl] : std::ranges::subrange(it, end)) {
+                std::string label         = srcBuilder.Print(*funcDecl);
+                std::string documentation = queryInfo.QueryCommentDescription(*funcDecl);
 
                 result.push_back(lsp::SignatureInformation{
                     .label         = std::move(label),
@@ -98,8 +98,7 @@ namespace glsld
                 if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                     // NOTE we cannot compare lex string here since they are compiled from different compiler instance
                     if (funcDecl->GetNameToken().text == funcName) {
-                        std::string label;
-                        ReconstructSourceText(label, *funcDecl);
+                        std::string label         = srcBuilder.Print(*funcDecl);
                         std::string documentation = queryInfo.QueryCommentDescription(*funcDecl);
 
                         result.push_back(lsp::SignatureInformation{

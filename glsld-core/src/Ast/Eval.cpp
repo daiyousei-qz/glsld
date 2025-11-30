@@ -161,7 +161,7 @@ namespace glsld
 
     static auto EvalBuiltinFunction1(StringView funcName, const AstExpr* firstArg) -> ConstValue
     {
-        auto firstArgResult = EvalAstExpr(*firstArg);
+        auto firstArgResult = EvalAstInitializer(*firstArg);
         if (firstArgResult.IsError()) {
             return ConstValue{};
         }
@@ -226,8 +226,8 @@ namespace glsld
     static auto EvalBuiltinFunction2(StringView funcName, const AstExpr* firstArg, const AstExpr* secondArg)
         -> ConstValue
     {
-        auto firstArgResult  = EvalAstExpr(*firstArg);
-        auto secondArgResult = EvalAstExpr(*secondArg);
+        auto firstArgResult  = EvalAstInitializer(*firstArg);
+        auto secondArgResult = EvalAstInitializer(*secondArg);
         if (firstArgResult.IsError() || secondArgResult.IsError()) {
             return ConstValue{};
         }
@@ -247,9 +247,9 @@ namespace glsld
     static auto EvalBuiltinFunction3(StringView funcName, const AstExpr* firstArg, const AstExpr* secondArg,
                                      const AstExpr* thirdArg) -> ConstValue
     {
-        auto firstArgResult  = EvalAstExpr(*firstArg);
-        auto secondArgResult = EvalAstExpr(*secondArg);
-        auto thirdArgResult  = EvalAstExpr(*thirdArg);
+        auto firstArgResult  = EvalAstInitializer(*firstArg);
+        auto secondArgResult = EvalAstInitializer(*secondArg);
+        auto thirdArgResult  = EvalAstInitializer(*thirdArg);
         if (firstArgResult.IsError() || secondArgResult.IsError() || thirdArgResult.IsError()) {
             return ConstValue{};
         }
@@ -304,11 +304,12 @@ namespace glsld
         }
         else if (auto swizzleAccessExpr = init.As<AstSwizzleAccessExpr>(); swizzleAccessExpr) {
             // All swizzle access should be evaluated eagerly
-            return EvalAstExpr(*swizzleAccessExpr->GetBaseExpr()).GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
+            return EvalAstInitializer(*swizzleAccessExpr->GetBaseExpr())
+                .GetSwizzle(swizzleAccessExpr->GetSwizzleDesc());
         }
         else if (auto indexAccessExpr = init.As<AstIndexAccessExpr>(); indexAccessExpr) {
             auto baseResult  = EvalAstInitializerLazy(*indexAccessExpr->GetBaseExpr());
-            auto indexResult = EvalAstExpr(*indexAccessExpr->GetIndexExpr());
+            auto indexResult = EvalAstInitializer(*indexAccessExpr->GetIndexExpr());
             if (indexResult.IsScalarInt32()) {
                 return UnwrapConstEvalResult(baseResult, indexResult.GetInt32Value());
             }
@@ -335,17 +336,17 @@ namespace glsld
                 }
             }
             else {
-                return EvalUnaryConstExpr(unaryExpr->GetOpcode(), EvalAstExpr(*unaryExpr->GetOperand()));
+                return EvalUnaryConstExpr(unaryExpr->GetOpcode(), EvalAstInitializer(*unaryExpr->GetOperand()));
             }
         }
         else if (auto binaryExpr = init.As<AstBinaryExpr>(); binaryExpr) {
             // All binary expression should be evaluated eagerly.
             // That is, aggregate cannot be operand of binary expression.
-            return EvalBinaryConstExpr(binaryExpr->GetOpcode(), EvalAstExpr(*binaryExpr->GetLhsOperand()),
-                                       EvalAstExpr(*binaryExpr->GetRhsOperand()));
+            return EvalBinaryConstExpr(binaryExpr->GetOpcode(), EvalAstInitializer(*binaryExpr->GetLhsOperand()),
+                                       EvalAstInitializer(*binaryExpr->GetRhsOperand()));
         }
         else if (auto selectExpr = init.As<AstSelectExpr>(); selectExpr) {
-            auto conditionResult = EvalAstExpr(*selectExpr->GetCondition());
+            auto conditionResult = EvalAstInitializer(*selectExpr->GetCondition());
             if (conditionResult.IsScalarBool()) {
                 return EvalAstInitializerLazy(conditionResult.GetBoolValue() ? *selectExpr->GetTrueExpr()
                                                                              : *selectExpr->GetFalseExpr());
@@ -353,7 +354,24 @@ namespace glsld
         }
         else if (auto implicitCastExpr = init.As<AstImplicitCastExpr>(); implicitCastExpr) {
             // Only primitive type can be casted implicitly, so we can evaluate it eagerly.
-            return EvalAstInitializer(*implicitCastExpr->GetOperand(), implicitCastExpr->GetDeducedType());
+            auto targetType = implicitCastExpr->GetDeducedType();
+            auto result     = EvalAstInitializer(*implicitCastExpr->GetOperand());
+
+            if (auto toScalarDesc = targetType->GetScalarDesc(); result.IsScalar() && toScalarDesc) {
+                return result.CastScalar(toScalarDesc->type);
+            }
+            else if (auto toVectorDesc = targetType->GetVectorDesc();
+                     result.IsVector() && toVectorDesc && result.GetArraySize() == toVectorDesc->vectorSize) {
+                return result.CastScalar(toVectorDesc->scalarType);
+            }
+            else if (auto toMatrixDesc = targetType->GetMatrixDesc(); result.IsMatrix() && toMatrixDesc &&
+                                                                      result.GetRowSize() == toMatrixDesc->dimRow &&
+                                                                      result.GetColumnSize() == toMatrixDesc->dimCol) {
+                return result.CastScalar(toMatrixDesc->scalarType);
+            }
+            else {
+                return ConstValue{};
+            }
         }
         else if (auto fnCallExpr = init.As<AstFunctionCallExpr>(); fnCallExpr) {
             if (fnCallExpr->GetArgs().size() == 1) {
@@ -375,13 +393,13 @@ namespace glsld
                 // 1. if the argument is a scalar, we just returns it casted to the target type
                 // 2. if the argument is a vector or matrix, we returns the first scalar casted to the target type
                 if (ctorCallExpr->GetArgs().size() == 1) {
-                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    auto arg = EvalAstInitializer(*ctorCallExpr->GetArgs()[0]);
                     return ConstValue::ConstructScalar(arg, scalarDesc->type);
                 }
             }
             else if (auto vectorDesc = targetType->GetVectorDesc(); vectorDesc) {
                 if (ctorCallExpr->GetArgs().size() == 1) {
-                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    auto arg = EvalAstInitializer(*ctorCallExpr->GetArgs()[0]);
                     return ConstValue::ConstructVector(arg, vectorDesc->scalarType, vectorDesc->vectorSize);
                 }
                 else {
@@ -389,7 +407,7 @@ namespace glsld
                     std::array<ConstValue, MaxVectorSize> buffer;
                     if (ctorCallExpr->GetArgs().size() <= MaxVectorSize) {
                         for (size_t i = 0; i < ctorCallExpr->GetArgs().size(); ++i) {
-                            buffer[i] = EvalAstExpr(*ctorCallExpr->GetArgs()[i]);
+                            buffer[i] = EvalAstInitializer(*ctorCallExpr->GetArgs()[i]);
                         }
 
                         return ConstValue::ComposeVector({buffer.data(), ctorCallExpr->GetArgs().size()},
@@ -399,7 +417,7 @@ namespace glsld
             }
             else if (auto matrixDesc = targetType->GetMatrixDesc(); matrixDesc) {
                 if (ctorCallExpr->GetArgs().size() == 1) {
-                    auto arg = EvalAstExpr(*ctorCallExpr->GetArgs()[0]);
+                    auto arg = EvalAstInitializer(*ctorCallExpr->GetArgs()[0]);
                     return ConstValue::ConstructMatrix(arg, matrixDesc->scalarType, matrixDesc->dimRow,
                                                        matrixDesc->dimCol);
                 }
@@ -408,7 +426,7 @@ namespace glsld
                     std::array<ConstValue, MaxMatrixSize> buffer;
                     if (ctorCallExpr->GetArgs().size() <= MaxMatrixSize) {
                         for (size_t i = 0; i < ctorCallExpr->GetArgs().size(); ++i) {
-                            buffer[i] = EvalAstExpr(*ctorCallExpr->GetArgs()[i]);
+                            buffer[i] = EvalAstInitializer(*ctorCallExpr->GetArgs()[i]);
                         }
 
                         return ConstValue::ComposeMatrix({buffer.data(), ctorCallExpr->GetArgs().size()},
@@ -425,29 +443,9 @@ namespace glsld
         return LazyConstEvalResult{};
     }
 
-    auto EvalAstExpr(const AstExpr& expr) -> ConstValue
+    auto EvalAstInitializer(const AstInitializer& initializer) -> ConstValue
     {
-        return EvalAstInitializerLazy(expr).AsConstValue();
+        return EvalAstInitializerLazy(initializer).AsConstValue();
     }
 
-    auto EvalAstInitializer(const AstInitializer& init, const Type* type) -> ConstValue
-    {
-        auto result = EvalAstInitializerLazy(init).AsConstValue();
-
-        if (auto toScalarDesc = type->GetScalarDesc(); result.IsScalar() && toScalarDesc) {
-            return result.CastScalar(toScalarDesc->type);
-        }
-        else if (auto toVectorDesc = type->GetVectorDesc();
-                 result.IsVector() && toVectorDesc && result.GetArraySize() == toVectorDesc->vectorSize) {
-            return result.CastScalar(toVectorDesc->scalarType);
-        }
-        else if (auto toMatrixDesc = type->GetMatrixDesc(); result.IsMatrix() && toMatrixDesc &&
-                                                            result.GetRowSize() == toMatrixDesc->dimRow &&
-                                                            result.GetColumnSize() == toMatrixDesc->dimCol) {
-            return result.CastScalar(toMatrixDesc->scalarType);
-        }
-        else {
-            return ConstValue{};
-        }
-    }
 } // namespace glsld
