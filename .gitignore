@@ -1,4 +1,4 @@
 .vscode/
 build/
 build-coverage/
-build-release/
+build-release/_codeql_detected_source_root
