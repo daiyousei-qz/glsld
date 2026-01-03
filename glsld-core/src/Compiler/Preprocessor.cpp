@@ -10,50 +10,6 @@
 
 namespace glsld
 {
-#pragma region TokenStream
-    auto TokenStream::AddToken(const PPToken& token, TextRange expandedRange) -> void
-    {
-        GLSLD_ASSERT(token.klass != TokenKlass::Eof && "EOF is handled separately");
-        // FIXME: why this fails?
-        // if (!tokens.empty()) {
-        //     GLSLD_ASSERT(token.spelledFile != tokens.back().spelledFile ||
-        //                  token.spelledRange.start >= tokens.back().spelledRange.start);
-        //     GLSLD_ASSERT(expandedRange.start >= tokens.back().expandedRange.start);
-        // }
-
-        if (token.klass != TokenKlass::Comment) {
-            tokens.push_back(RawSyntaxToken{
-                .klass         = token.klass,
-                .spelledFile   = token.spelledFile,
-                .spelledRange  = token.spelledRange,
-                .expandedRange = expandedRange,
-                .text          = token.text,
-            });
-        }
-        else {
-            // FIXME: make a toggle for this
-            comments.push_back(RawCommentToken{
-                .spelledFile    = token.spelledFile,
-                .spelledRange   = token.spelledRange,
-                .text           = token.text,
-                .nextTokenIndex = static_cast<uint32_t>(tokens.size()),
-            });
-        }
-    }
-
-    auto TokenStream::AddEofToken(const PPToken& token, TextRange expandedRange) -> void
-    {
-        GLSLD_ASSERT(token.klass == TokenKlass::Eof);
-        tokens.push_back(RawSyntaxToken{
-            .klass         = token.klass,
-            .spelledFile   = token.spelledFile,
-            .spelledRange  = token.spelledRange,
-            .expandedRange = expandedRange,
-            .text          = token.text,
-        });
-    }
-#pragma endregion
-
 #pragma region MacroExpansionProcessor
     auto PreprocessStateMachine::MacroExpansionProcessor::Feed(const PPToken& token) -> void
     {
@@ -374,7 +330,7 @@ namespace glsld
             AcceptOnDefaultState(token);
             break;
 
-        case glsld::PreprocessorState::Halt:
+        case PreprocessorState::Halt:
             GLSLD_ASSERT(false);
             break;
 
@@ -496,6 +452,8 @@ namespace glsld
 
     auto PreprocessStateMachine::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
+        commentAttachmentLine = directiveToken.spelledRange.start.line;
+
         PPTokenScanner scanner{restTokens};
         if (directiveToken.text == atomDirectiveInclude) {
             HandleIncludeDirective(scanner);

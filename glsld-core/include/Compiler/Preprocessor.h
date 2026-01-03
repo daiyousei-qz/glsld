@@ -15,28 +15,10 @@
 
 namespace glsld
 {
-    class TokenStream
+    struct PreprocessedTokens
     {
-    private:
         std::vector<RawSyntaxToken> tokens;
         std::vector<RawCommentToken> comments;
-
-    public:
-        auto GetNextTokenIndex() const noexcept -> uint32_t
-        {
-            return tokens.size();
-        }
-
-        // Add a new token to the token stream.
-        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
-
-        // Add an EOF token to the token stream. This indicates end of a translation unit.
-        auto AddEofToken(const PPToken& token, TextRange expandedRange) -> void;
-
-        auto Export() -> std::pair<std::vector<RawSyntaxToken>, std::vector<RawCommentToken>>
-        {
-            return {std::move(tokens), std::move(comments)};
-        }
     };
 
     enum class PreprocessorState
@@ -90,7 +72,7 @@ namespace glsld
 
         DiagnosticReportor diagReporter;
 
-        TokenStream& outputStream;
+        PreprocessedTokens& outputStream;
 
         // The current translation unit ID.
         TranslationUnitID tuId = TranslationUnitID::UserFile;
@@ -253,7 +235,10 @@ namespace glsld
 
         // This tracks the number of parsed #if/#ifdef/#ifndef directives in inactive regions.
         // We need ignore their pairing #else/#elif/#endif directives.
-        size_t skippedInactiveConditionalCount = 0;
+        uint32_t skippedInactiveConditionalCount = 0;
+
+        // This tracks the line number for following comment attachment.
+        uint32_t commentAttachmentLine = 0;
 
         AtomString atomDirectiveInclude   = {};
         AtomString atomDirectiveDefine    = {};
@@ -299,9 +284,9 @@ namespace glsld
         AtomString atomGlslProfileEs            = {};
 
     public:
-        PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, TranslationUnitID tuId,
-                               PPCallback* callback, std::optional<TextRange> includeExpansionRange,
-                               size_t includeDepth)
+        PreprocessStateMachine(CompilerInvocationState& compiler, PreprocessedTokens& outputStream,
+                               TranslationUnitID tuId, PPCallback* callback,
+                               std::optional<TextRange> includeExpansionRange, size_t includeDepth)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
               outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
@@ -358,7 +343,7 @@ namespace glsld
 
         auto GetNextTokenId() const noexcept -> SyntaxTokenID
         {
-            return SyntaxTokenID{tuId, outputStream.GetNextTokenIndex()};
+            return SyntaxTokenID{tuId, GetNextTokenIndex()};
         }
 
         auto IsVersionScanningMode() const noexcept -> bool
@@ -398,7 +383,7 @@ namespace glsld
                 macroExpansionProcessor.Finalize();
                 if (includeDepth == 0) {
                     // We are done with the main file. Insert an EOF token.
-                    outputStream.AddEofToken(token, token.spelledRange);
+                    OutputEofToken(token, token.spelledRange);
                 }
             }
         }
@@ -439,8 +424,15 @@ namespace glsld
             return nullptr;
         }
 
+        auto GetNextTokenIndex() const noexcept -> uint32_t
+        {
+            return static_cast<uint32_t>(outputStream.tokens.size());
+        }
+
         auto OutputToken(PPToken token, TextRange expandedRange) -> void
         {
+            GLSLD_ASSERT(token.klass != TokenKlass::Eof && "EOF is handled separately");
+
             if (token.klass == TokenKlass::Identifier) {
                 token.klass = FixupKeywordTokenKlass(token.klass, token.text);
             }
@@ -448,7 +440,38 @@ namespace glsld
 #if defined(GLSLD_ENABLE_COMPILER_TRACE)
             compiler.GetCompilerTrace().TraceLexTokenIssued(token, expandedRange);
 #endif
-            outputStream.AddToken(token, expandedRange);
+
+            if (token.klass != TokenKlass::Comment) {
+                commentAttachmentLine = token.spelledRange.end.line;
+                outputStream.tokens.push_back(RawSyntaxToken{
+                    .klass         = token.klass,
+                    .spelledFile   = token.spelledFile,
+                    .spelledRange  = token.spelledRange,
+                    .expandedRange = expandedRange,
+                    .text          = token.text,
+                });
+            }
+            else {
+                outputStream.comments.push_back(RawCommentToken{
+                    .spelledFile    = token.spelledFile,
+                    .spelledRange   = token.spelledRange,
+                    .text           = token.text,
+                    .attachmentLine = commentAttachmentLine,
+                    .nextTokenIndex = GetNextTokenIndex(),
+                });
+            }
+        }
+
+        auto OutputEofToken(PPToken token, TextRange expandedRange) -> void
+        {
+            GLSLD_ASSERT(token.klass == TokenKlass::Eof);
+            outputStream.tokens.push_back(RawSyntaxToken{
+                .klass         = token.klass,
+                .spelledFile   = token.spelledFile,
+                .spelledRange  = token.spelledRange,
+                .expandedRange = expandedRange,
+                .text          = token.text,
+            });
         }
 
         // Possible transitions:
@@ -511,7 +534,7 @@ namespace glsld
     private:
         CompilerInvocationState& compiler;
         FileID sourceFile;
-        TokenStream outputStream;
+        PreprocessedTokens outputStream;
 
         static auto GetTUId(FileID sourceFile) -> TranslationUnitID
         {
@@ -545,8 +568,8 @@ namespace glsld
             PreprocessSourceFile(sourceFile);
 
             if (!IsVersionScanningMode()) {
-                auto [tokens, comments] = outputStream.Export();
-                compiler.UpdateTokenArtifact(GetTUId(sourceFile), std::move(tokens), std::move(comments));
+                compiler.UpdateTokenArtifact(GetTUId(sourceFile), std::move(outputStream.tokens),
+                                             std::move(outputStream.comments));
             }
         }
     };

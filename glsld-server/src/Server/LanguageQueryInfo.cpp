@@ -358,8 +358,10 @@ namespace glsld
             // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
             std::string result;
             for (const auto& token : preceedingComments) {
-                result += unwrapComment(token);
-                result += "\n";
+                if (token.attachmentLine == preceedingComments.back().attachmentLine) {
+                    result += unwrapComment(token);
+                    result += "\n";
+                }
             }
 
             return result;

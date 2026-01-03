@@ -374,6 +374,11 @@ namespace glsld
         // Comment text including control characters
         AtomString text;
 
+        // Line number of the attachment location, one of previous:
+        // - Preprocessing directive line
+        // - Token
+        uint32_t attachmentLine;
+
         // Index of the next non-comment token in this translation unit
         uint32_t nextTokenIndex;
     };
