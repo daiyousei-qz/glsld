@@ -57,16 +57,25 @@ namespace glsld
             .triggerTimer          = SimpleTimer{},
             .backgroundCompilation = std::move(backgroundCompilation),
         });
+        pendingDiagnosticsCv.notify_all();
     }
 
     auto LanguageService::SetupDiagnosticConsumerThread() -> void
     {
         diagnosticConsumerThread = std::jthread{[this]() {
             while (server.IsRunning()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                std::unique_lock lock{pendingDiagnosticsMutex};
+                if (pendingDiagnostics.empty()) {
+                    // Wait until new diagnostics are scheduled or the server is shutting down
+                    pendingDiagnosticsCv.wait(lock,
+                                              [this]() { return !pendingDiagnostics.empty() || !server.IsRunning(); });
+                    if (!server.IsRunning()) {
+                        break;
+                    }
+                }
 
-                std::lock_guard _{pendingDiagnosticsMutex};
                 while (!pendingDiagnostics.empty()) {
+                    // Consume diagnostics that have been pending for long enough
                     const auto& pendingDiagnostic = pendingDiagnostics.front();
                     if (pendingDiagnostic.triggerTimer.GetElapsedMilliseconds() < 1000) {
                         break;
@@ -97,6 +106,11 @@ namespace glsld
                     }
 
                     pendingDiagnostics.pop_front();
+                }
+
+                if (!pendingDiagnostics.empty()) {
+                    // Wait a bit for the remaining diagnostics to be ready
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
             }
         }};
@@ -172,6 +186,8 @@ namespace glsld
 
     auto LanguageService::Finalize() -> void
     {
+        // Notify the diagnostic consumer thread to exit
+        pendingDiagnosticsCv.notify_all();
     }
 
     auto LanguageService::OnInitialize(int requestId, lsp::InitializeParams params) -> void

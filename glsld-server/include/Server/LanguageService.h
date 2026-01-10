@@ -35,6 +35,7 @@ namespace glsld
         // after a delay if no further edits happen to the document, or discarded otherwise.
         std::deque<PendingDiagnostic> pendingDiagnostics;
         std::mutex pendingDiagnosticsMutex;
+        std::condition_variable pendingDiagnosticsCv;
         std::jthread diagnosticConsumerThread;
 
         // Schedule a background compilation for the given BackgroundCompilation instance.
