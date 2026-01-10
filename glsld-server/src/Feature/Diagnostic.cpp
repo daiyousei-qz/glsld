@@ -9,6 +9,20 @@
 
 namespace glsld
 {
+    class GlslangLoader
+    {
+    public:
+        GlslangLoader()
+        {
+            glslang::InitializeProcess();
+        }
+        ~GlslangLoader()
+        {
+            glslang::FinalizeProcess();
+        }
+    };
+    static GlslangLoader glslangLoaderInstance;
+
     static auto GetGlslangVersion(GlslVersion version) -> int
     {
         return static_cast<int>(version);
