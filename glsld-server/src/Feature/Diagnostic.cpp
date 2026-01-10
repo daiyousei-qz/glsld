@@ -14,7 +14,7 @@ namespace glsld
         return static_cast<int>(version);
     }
 
-    static auto GetGlslangShaderStage(GlslShaderStage stage) -> EShLanguage
+    static auto GetGlslangShaderStage(GlslShaderStage stage) -> std::optional<EShLanguage>
     {
         switch (stage) {
         case GlslShaderStage::Vertex:
@@ -46,7 +46,7 @@ namespace glsld
         case GlslShaderStage::Mesh:
             return EShLangMesh;
         default:
-            return EShLangVertex; // Default
+            return std::nullopt;
         }
     }
 
@@ -66,9 +66,9 @@ namespace glsld
             diagnostics.push_back(lsp::Diagnostic{
                 .range =
                     lsp::Range{
-                        // Highlight whole line for now
+                        // GLSLANG does not provide a range for the diagnostic, we just highlight the entire line.
                         .start = lsp::Position{.line = line, .character = 0},
-                        .end   = lsp::Position{.line = line, .character = 255},
+                        .end   = lsp::Position{.line = line, .character = std::numeric_limits<lsp::uinteger>::max()},
                     },
                 .severity = severity,
                 .message  = std::move(message),
@@ -86,15 +86,20 @@ namespace glsld
         }
 
         // Configure glslang parser
-        const int defaultVersion          = GetGlslangVersion(languageConfig.version);
-        const EShLanguage stage           = GetGlslangShaderStage(languageConfig.stage);
-        const TBuiltInResource* resources = GetDefaultResources();
+        const int defaultVersion               = GetGlslangVersion(languageConfig.version);
+        const std::optional<EShLanguage> stage = GetGlslangShaderStage(languageConfig.stage);
+        const TBuiltInResource* resources      = GetDefaultResources();
 
-        glslang::TShader shader(stage);
+        if (!stage) {
+            // Cannot perform diagnostic without a valid shader stage
+            return {};
+        }
 
-        const char* sourceCStr = sourceBuffer.data();
-        int sourceLen          = static_cast<int>(sourceBuffer.Size());
-        shader.setStringsWithLengths(&sourceCStr, &sourceLen, 1);
+        glslang::TShader shader(*stage);
+
+        const char* sourceDataPtr = sourceBuffer.data();
+        int sourceLen             = static_cast<int>(sourceBuffer.Size());
+        shader.setStringsWithLengths(&sourceDataPtr, &sourceLen, 1);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
         shader.setAutoMapBindings(true);
         shader.setAutoMapLocations(true);

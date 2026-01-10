@@ -103,6 +103,11 @@ namespace glsld
             return *preambleInfo;
         }
 
+        auto GetLanguageConfig() const -> const LanguageConfig&
+        {
+            return preambleInfo->GetPreamble()->GetLanguageConfig();
+        }
+
         auto GetNextLanguageConfig() const -> const LanguageConfig&
         {
             if (isAvailable) {

@@ -48,6 +48,10 @@ namespace glsld
     auto LanguageService::ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
         -> void
     {
+        if (backgroundCompilation->GetLanguageConfig().stage == GlslShaderStage::Unknown) {
+            return;
+        }
+
         std::lock_guard _{pendingDiagnosticsMutex};
         pendingDiagnostics.push_back(PendingDiagnostic{
             .triggerTimer          = SimpleTimer{},
