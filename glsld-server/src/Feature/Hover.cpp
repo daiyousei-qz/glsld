@@ -73,7 +73,6 @@ namespace glsld
 
         // Description
         if (!hover.description.empty()) {
-            builder.AppendRuler();
             builder.AppendParagraph(hover.description);
         }
 

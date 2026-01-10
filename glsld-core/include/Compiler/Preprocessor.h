@@ -15,28 +15,11 @@
 
 namespace glsld
 {
-    class TokenStream
+    struct PreprocessedTokens
     {
-    private:
         std::vector<RawSyntaxToken> tokens;
         std::vector<RawCommentToken> comments;
-
-    public:
-        auto GetNextTokenIndex() const noexcept -> uint32_t
-        {
-            return tokens.size();
-        }
-
-        // Add a new token to the token stream.
-        auto AddToken(const PPToken& token, TextRange expandedRange) -> void;
-
-        // Add an EOF token to the token stream. This indicates end of a translation unit.
-        auto AddEofToken(const PPToken& token, TextRange expandedRange) -> void;
-
-        auto Export() -> std::pair<std::vector<RawSyntaxToken>, std::vector<RawCommentToken>>
-        {
-            return {std::move(tokens), std::move(comments)};
-        }
+        std::vector<PreprocessedFile> files;
     };
 
     enum class PreprocessorState
@@ -90,7 +73,7 @@ namespace glsld
 
         DiagnosticReportor diagReporter;
 
-        TokenStream& outputStream;
+        PreprocessedTokens& outputStream;
 
         // The current translation unit ID.
         TranslationUnitID tuId = TranslationUnitID::UserFile;
@@ -253,7 +236,14 @@ namespace glsld
 
         // This tracks the number of parsed #if/#ifdef/#ifndef directives in inactive regions.
         // We need ignore their pairing #else/#elif/#endif directives.
-        size_t skippedInactiveConditionalCount = 0;
+        uint32_t skippedInactiveConditionalCount = 0;
+
+        // Buffer for pending trivia tokens (comments). They are appended to output stream when next non-comment token
+        // is preprocessed.
+        std::vector<PPToken> pendingTriviaBuffer = {};
+
+        // This tracks the (zero-based) line number trivia front attachment location.
+        uint32_t triviaAttachmentLine = 0;
 
         AtomString atomDirectiveInclude   = {};
         AtomString atomDirectiveDefine    = {};
@@ -299,9 +289,9 @@ namespace glsld
         AtomString atomGlslProfileEs            = {};
 
     public:
-        PreprocessStateMachine(CompilerInvocationState& compiler, TokenStream& outputStream, TranslationUnitID tuId,
-                               PPCallback* callback, std::optional<TextRange> includeExpansionRange,
-                               size_t includeDepth)
+        PreprocessStateMachine(CompilerInvocationState& compiler, PreprocessedTokens& outputStream,
+                               TranslationUnitID tuId, PPCallback* callback,
+                               std::optional<TextRange> includeExpansionRange, size_t includeDepth)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
               outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
@@ -358,7 +348,7 @@ namespace glsld
 
         auto GetNextTokenId() const noexcept -> SyntaxTokenID
         {
-            return SyntaxTokenID{tuId, outputStream.GetNextTokenIndex()};
+            return SyntaxTokenID{tuId, GetNextTokenIndex()};
         }
 
         auto IsVersionScanningMode() const noexcept -> bool
@@ -392,13 +382,26 @@ namespace glsld
         // Issue a PP token to the preprocessor. The token will be processed according to the current state.
         auto FeedPPToken(const PPToken& token) -> void
         {
-            DispatchTokenToHandler(token);
+            if (token.klass == TokenKlass::Comment) {
+                pendingTriviaBuffer.push_back(token);
+            }
+            else {
+                uint32_t frontAttachmentLine = triviaAttachmentLine;
+                triviaAttachmentLine         = token.spelledRange.start.line;
+                for (const auto& commentToken : pendingTriviaBuffer) {
+                    OutputCommentToken(commentToken, frontAttachmentLine);
+                }
+                pendingTriviaBuffer.clear();
 
-            if (token.klass == TokenKlass::Eof) {
-                macroExpansionProcessor.Finalize();
-                if (includeDepth == 0) {
-                    // We are done with the main file. Insert an EOF token.
-                    outputStream.AddEofToken(token, token.spelledRange);
+                DispatchTokenToHandler(token);
+
+                if (token.klass == TokenKlass::Eof) {
+                    macroExpansionProcessor.Finalize();
+                    if (includeDepth == 0) {
+                        // We are done with the main file. Insert an EOF token.
+                        OutputToken(token, token.spelledRange);
+                        TransitionTo(PreprocessorState::Halt);
+                    }
                 }
             }
         }
@@ -439,16 +442,44 @@ namespace glsld
             return nullptr;
         }
 
-        auto OutputToken(PPToken token, TextRange expandedRange) -> void
+        auto GetNextTokenIndex() const noexcept -> uint32_t
         {
+            return static_cast<uint32_t>(outputStream.tokens.size());
+        }
+
+        auto OutputToken(const PPToken& token, TextRange expandedRange) -> void
+        {
+            GLSLD_ASSERT(token.klass != TokenKlass::Comment && "Comment is handled separately");
+
+            TokenKlass klass = token.klass;
             if (token.klass == TokenKlass::Identifier) {
-                token.klass = FixupKeywordTokenKlass(token.klass, token.text);
+                klass = FixupKeywordTokenKlass(token.klass, token.text);
             }
 
 #if defined(GLSLD_ENABLE_COMPILER_TRACE)
             compiler.GetCompilerTrace().TraceLexTokenIssued(token, expandedRange);
 #endif
-            outputStream.AddToken(token, expandedRange);
+
+            outputStream.tokens.push_back(RawSyntaxToken{
+                .klass         = klass,
+                .spelledFile   = token.spelledFile,
+                .spelledRange  = token.spelledRange,
+                .expandedRange = expandedRange,
+                .text          = token.text,
+            });
+        }
+
+        auto OutputCommentToken(const PPToken& token, uint32_t frontAttachmentLine) -> void
+        {
+            GLSLD_ASSERT(token.klass == TokenKlass::Comment);
+            outputStream.comments.push_back(RawCommentToken{
+                .spelledFile         = token.spelledFile,
+                .spelledRange        = token.spelledRange,
+                .text                = token.text,
+                .frontAttachmentLine = frontAttachmentLine,
+                .backAttachmentLine  = triviaAttachmentLine,
+                .nextTokenIndex      = GetNextTokenIndex(),
+            });
         }
 
         // Possible transitions:
@@ -511,7 +542,7 @@ namespace glsld
     private:
         CompilerInvocationState& compiler;
         FileID sourceFile;
-        TokenStream outputStream;
+        PreprocessedTokens outputStream;
 
         static auto GetTUId(FileID sourceFile) -> TranslationUnitID
         {
@@ -545,8 +576,8 @@ namespace glsld
             PreprocessSourceFile(sourceFile);
 
             if (!IsVersionScanningMode()) {
-                auto [tokens, comments] = outputStream.Export();
-                compiler.UpdateTokenArtifact(GetTUId(sourceFile), std::move(tokens), std::move(comments));
+                compiler.UpdatePreprocessingArtifact(GetTUId(sourceFile), std::move(outputStream.tokens),
+                                                     std::move(outputStream.comments), std::move(outputStream.files));
             }
         }
     };

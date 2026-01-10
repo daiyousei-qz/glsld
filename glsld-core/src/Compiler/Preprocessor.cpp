@@ -10,50 +10,6 @@
 
 namespace glsld
 {
-#pragma region TokenStream
-    auto TokenStream::AddToken(const PPToken& token, TextRange expandedRange) -> void
-    {
-        GLSLD_ASSERT(token.klass != TokenKlass::Eof && "EOF is handled separately");
-        // FIXME: why this fails?
-        // if (!tokens.empty()) {
-        //     GLSLD_ASSERT(token.spelledFile != tokens.back().spelledFile ||
-        //                  token.spelledRange.start >= tokens.back().spelledRange.start);
-        //     GLSLD_ASSERT(expandedRange.start >= tokens.back().expandedRange.start);
-        // }
-
-        if (token.klass != TokenKlass::Comment) {
-            tokens.push_back(RawSyntaxToken{
-                .klass         = token.klass,
-                .spelledFile   = token.spelledFile,
-                .spelledRange  = token.spelledRange,
-                .expandedRange = expandedRange,
-                .text          = token.text,
-            });
-        }
-        else {
-            // FIXME: make a toggle for this
-            comments.push_back(RawCommentToken{
-                .spelledFile    = token.spelledFile,
-                .spelledRange   = token.spelledRange,
-                .text           = token.text,
-                .nextTokenIndex = static_cast<uint32_t>(tokens.size()),
-            });
-        }
-    }
-
-    auto TokenStream::AddEofToken(const PPToken& token, TextRange expandedRange) -> void
-    {
-        GLSLD_ASSERT(token.klass == TokenKlass::Eof);
-        tokens.push_back(RawSyntaxToken{
-            .klass         = token.klass,
-            .spelledFile   = token.spelledFile,
-            .spelledRange  = token.spelledRange,
-            .expandedRange = expandedRange,
-            .text          = token.text,
-        });
-    }
-#pragma endregion
-
 #pragma region MacroExpansionProcessor
     auto PreprocessStateMachine::MacroExpansionProcessor::Feed(const PPToken& token) -> void
     {
@@ -345,8 +301,18 @@ namespace glsld
             return;
         }
 
-        auto sourceText = sourceManager.GetSourceText(sourceFile);
+        auto beginTokenIndex   = outputStream.tokens.size();
+        auto beginCommentIndex = outputStream.comments.size();
+        auto sourceText        = sourceManager.GetSourceText(sourceFile);
         Tokenizer{compiler, *this, atomTable, sourceFile, sourceText}.DoTokenize();
+
+        outputStream.files.push_back(PreprocessedFile{
+            .fileID            = sourceFile,
+            .beginTokenIndex   = beginTokenIndex,
+            .endTokenIndex     = outputStream.tokens.size(),
+            .beginCommentIndex = beginCommentIndex,
+            .endCommentIndex   = outputStream.comments.size(),
+        });
     }
 
     auto PreprocessStateMachine::InitializeKeywordLookup() -> void
@@ -369,12 +335,14 @@ namespace glsld
 
     auto PreprocessStateMachine::DispatchTokenToHandler(const PPToken& token) -> void
     {
+        GLSLD_ASSERT(token.klass != TokenKlass::Comment);
+
         switch (state) {
         case PreprocessorState::Default:
             AcceptOnDefaultState(token);
             break;
 
-        case glsld::PreprocessorState::Halt:
+        case PreprocessorState::Halt:
             GLSLD_ASSERT(false);
             break;
 
@@ -457,10 +425,6 @@ namespace glsld
                 }
             }
         }
-        else if (token.klass == TokenKlass::Comment) {
-            // FIXME: we ignore comment for now.
-            return;
-        }
         else {
             // A bad directive.
             TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
@@ -487,10 +451,7 @@ namespace glsld
             }
         }
         else {
-            if (token.klass != TokenKlass::Comment) {
-                // FIXME: we ignore comment for now.
-                directiveArgBuffer.push_back(token);
-            }
+            directiveArgBuffer.push_back(token);
         }
     }
 

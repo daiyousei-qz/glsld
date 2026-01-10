@@ -374,7 +374,30 @@ namespace glsld
         // Comment text including control characters
         AtomString text;
 
+        // Line number of previous non-comment preprocessing token
+        uint32_t frontAttachmentLine;
+
+        // Line number of next non-comment preprocessing token
+        uint32_t backAttachmentLine;
+
         // Index of the next non-comment token in this translation unit
         uint32_t nextTokenIndex;
+    };
+
+    struct PreprocessedFile final
+    {
+        FileID fileID;
+
+        // Index of the first token in this file within the preprocessed token stream
+        size_t beginTokenIndex;
+
+        // Index of the one-past-the-last token in this file within the preprocessed token stream
+        size_t endTokenIndex;
+
+        // Index of the first comment in this file within the preprocessed comment stream
+        size_t beginCommentIndex;
+
+        // Index of the one-past-the-last comment in this file within the preprocessed comment stream
+        size_t endCommentIndex;
     };
 } // namespace glsld

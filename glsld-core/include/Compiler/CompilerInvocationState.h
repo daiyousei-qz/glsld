@@ -127,11 +127,12 @@ namespace glsld
                                                            : userFileArtifacts.get();
         }
 
-        auto UpdateTokenArtifact(TranslationUnitID id, std::vector<RawSyntaxToken> tokens,
-                                 std::vector<RawCommentToken> comments) -> void
+        auto UpdatePreprocessingArtifact(TranslationUnitID id, std::vector<RawSyntaxToken> tokens,
+                                         std::vector<RawCommentToken> comments, std::vector<PreprocessedFile> files)
+            -> void
         {
             TryDumpTokens(id, tokens);
-            GetArtifact(id)->UpdateTokenArtifact(std::move(tokens), std::move(comments));
+            GetArtifact(id)->UpdatePreprocessingArtifact(std::move(tokens), std::move(comments), std::move(files));
         }
 
         auto UpdateAstArtifact(TranslationUnitID id, const AstTranslationUnit* ast) -> void

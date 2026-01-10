@@ -327,9 +327,7 @@ namespace glsld
 
     auto LanguageQueryInfo::QueryCommentDescription(const AstDecl& decl) const -> std::string
     {
-        auto declRange          = LookupExpandedTextRange(decl.GetSyntaxRange());
-        auto preceedingComments = LookupPreceedingComment(decl.GetSyntaxRange().GetBeginID());
-        auto trailingComments   = LookupPreceedingComment(decl.GetSyntaxRange().GetEndID());
+        auto declRange = LookupExpandedTextRange(decl.GetSyntaxRange());
 
         auto unwrapComment = [](const RawCommentToken& token) -> StringView {
             auto commentText = token.text.StrView();
@@ -337,6 +335,7 @@ namespace glsld
                 return commentText.Drop(2).Trim();
             }
             else if (commentText.StartWith("/*")) {
+                GLSLD_ASSERT(commentText.EndWith("*/"));
                 return commentText.Drop(2).DropBack(2);
             }
             return commentText;
@@ -344,9 +343,24 @@ namespace glsld
 
         // Case 1: Trailing comment in the same line
         // e.g. `int a; // comment`
-        if (trailingComments.size() == 1 && declRange.GetNumLines() == 1 &&
-            trailingComments.front().spelledRange.end.line == declRange.start.line) {
-            return unwrapComment(trailingComments.front()).Str();
+        auto trailingComments = LookupPreceedingComment(decl.GetSyntaxRange().GetEndID());
+        if (declRange.GetNumLines() == 1 && !trailingComments.empty()) {
+            std::string result;
+            for (const auto& token : trailingComments) {
+                // For a comment to qualify, it must be consecutive comments who:
+                // - appears after the declaration
+                // - has no non-comment token after it in the same line
+                if (token.spelledRange.start.line == declRange.end.line &&
+                    token.spelledRange.end.line == declRange.end.line &&
+                    token.backAttachmentLine != token.spelledRange.end.line) {
+                    result += unwrapComment(token);
+                    result += "\n";
+                }
+            }
+
+            if (!result.empty()) {
+                return result;
+            }
         }
 
         // Case 2: Preceeding comments in the previous lines
@@ -354,12 +368,18 @@ namespace glsld
         //      // comment
         //      int a;
         //      ```
+        auto preceedingComments = LookupPreceedingComment(decl.GetSyntaxRange().GetBeginID());
         if (!preceedingComments.empty()) {
-            // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
             std::string result;
             for (const auto& token : preceedingComments) {
-                result += unwrapComment(token);
-                result += "\n";
+                // For a comment to qualify, it must be consecutive comments who:
+                // - occupies the entire line(s)
+                // - back attach to the declaration line (i.e. no preprocessor lines in between)
+                if (token.backAttachmentLine == declRange.start.line &&
+                    token.frontAttachmentLine != token.spelledRange.start.line) {
+                    result += unwrapComment(token);
+                    result += "\n";
+                }
             }
 
             return result;

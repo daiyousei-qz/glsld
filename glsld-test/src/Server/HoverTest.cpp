@@ -569,39 +569,39 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
 
             // This is a MACRO
             #define ^[MACRO.def.begin]MACRO^[MACRO.def.end] 1
+
             void ^[bar.def.begin]bar^[bar.def.end]() {
                 // Notably, comment description for `MACRO` should not be attached to `bar`
             }
         )");
 
         // FIXME: enable after fixing comment extraction
-        // checkHover("global.decl.begin", HoverContent{
-        //                                     .type        = SymbolDeclType::GlobalVariable,
-        //                                     .name        = "global",
-        //                                     .exprType    = "int",
-        //                                     .description = "This is a global variable.",
-        //                                     .code        = "int global",
-        //                                     .range       = GetLabelledRange("global.decl.begin",
-        //                                     "global.decl.end"),
-        //                                 });
-        // checkHover("foo.decl.begin", HoverContent{
-        //                                  .type        = SymbolDeclType::Function,
-        //                                  .name        = "foo",
-        //                                  .returnType  = "void",
-        //                                  .parameters  = {},
-        //                                  .description = "This is a function.",
-        //                                  .code        = "void foo()",
-        //                                  .range       = GetLabelledRange("foo.decl.begin", "foo.decl.end"),
-        //                              });
-        // checkHover("otherGlobal.decl.begin",
-        //            HoverContent{
-        //                .type        = SymbolDeclType::GlobalVariable,
-        //                .name        = "otherGlobal",
-        //                .exprType    = "int",
-        //                .description = "And here's another comment.",
-        //                .code        = "int otherGlobal",
-        //                .range       = GetLabelledRange("otherGlobal.decl.begin", "otherGlobal.decl.end"),
-        //            });
+        checkHover("global.decl.begin", HoverContent{
+                                            .type        = SymbolDeclType::GlobalVariable,
+                                            .name        = "global",
+                                            .symbolType  = "int",
+                                            .description = "This is a global variable.\n",
+                                            .code        = "int global;",
+                                            .range       = GetLabelledRange("global.decl.begin", "global.decl.end"),
+                                        });
+        checkHover("foo.decl.begin", HoverContent{
+                                         .type        = SymbolDeclType::Function,
+                                         .name        = "foo",
+                                         .symbolType  = "void",
+                                         .parameters  = {},
+                                         .description = "This is a function.\n",
+                                         .code        = "void foo();",
+                                         .range       = GetLabelledRange("foo.decl.begin", "foo.decl.end"),
+                                     });
+        checkHover("otherGlobal.decl.begin",
+                   HoverContent{
+                       .type        = SymbolDeclType::GlobalVariable,
+                       .name        = "otherGlobal",
+                       .symbolType  = "int",
+                       .description = "And here's another comment.\n",
+                       .code        = "int otherGlobal;",
+                       .range       = GetLabelledRange("otherGlobal.decl.begin", "otherGlobal.decl.end"),
+                   });
         // checkHover("MACRO.def.begin", HoverContent{
         //                                   .type        = SymbolDeclType::Macro,
         //                                   .name        = "MACRO",
@@ -609,11 +609,13 @@ TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
         //                                   .code        = "#define MACRO 1",
         //                                   .range       = GetLabelledRange("MACRO.def.begin", "MACRO.def.end"),
         //                               });
-        // checkHover("bar.def.begin", HoverContent{
-        //                                 .type  = SymbolDeclType::Function,
-        //                                 .name  = "bar",
-        //                                 .code  = "void bar()",
-        //                                 .range = GetLabelledRange("bar.def.begin", "bar.def.end"),
-        //                             });
+        checkHover("bar.def.begin", HoverContent{
+                                        .type       = SymbolDeclType::Function,
+                                        .name       = "bar",
+                                        .symbolType = "void",
+                                        .parameters = {},
+                                        .code       = "void bar();",
+                                        .range      = GetLabelledRange("bar.def.begin", "bar.def.end"),
+                                    });
     }
 }
