@@ -51,7 +51,7 @@ namespace glsld
         info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
 
         std::unique_lock<std::mutex> lock{mu};
-        available = true;
+        isAvailable = true;
         cv.notify_all();
     }
 
@@ -59,8 +59,8 @@ namespace glsld
     {
         using namespace std::literals;
         std::unique_lock<std::mutex> lock{mu};
-        if (available || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
-            return available;
+        if (isAvailable || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
+            return isAvailable;
         }
 
         return false;

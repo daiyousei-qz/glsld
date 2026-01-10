@@ -5,6 +5,7 @@
 #include "Server/LanguageServer.h"
 #include "Server/LanguageQueryInfo.h"
 #include "Support/StringView.h"
+#include <memory>
 
 #include <cstddef>
 
@@ -21,8 +22,15 @@ namespace glsld
         // FIXME: we should allow a preamble to expire if no one is using it
         std::unordered_map<LanguageConfig, std::shared_ptr<LanguagePreambleInfo>> preambleInfoCache;
 
+        // Schedule a background compilation for the given BackgroundCompilation instance.
+        auto ScheduleBackgroundCompilation(std::shared_ptr<BackgroundCompilation> backgroundCompilation) -> void;
+
+        // Schedule a background diagnostic for the given BackgroundCompilation instance.
+        auto ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation) -> void;
+
         // Schedule a language query for the given uri in a background thread, which waits for the compilation and then
         // runs the callback.
+        // TODO: could we use std::move_only_function here?
         auto ScheduleLanguageQuery(
             const std::string& uri,
             std::function<auto(const LanguagePreambleInfo&, const LanguageQueryInfo&)->void> callback) -> void;

@@ -25,6 +25,11 @@ namespace glsld
             t0 = Clock::now();
         }
 
+        auto GetStartTime() const -> TimePoint
+        {
+            return t0;
+        }
+
         template <typename Duration>
         auto GetElapsedTime() const -> Duration
         {

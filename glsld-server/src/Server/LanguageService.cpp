@@ -2,6 +2,7 @@
 #include "Compiler/CompilerInvocation.h"
 #include "Feature/Completion.h"
 #include "Feature/Definition.h"
+#include "Feature/Diagnostic.h"
 #include "Feature/DocumentSymbol.h"
 #include "Feature/FoldingRange.h"
 #include "Feature/Hover.h"
@@ -30,6 +31,41 @@ namespace glsld
 
     LanguagePreambleInfo::~LanguagePreambleInfo()
     {
+    }
+
+    auto LanguageService::ScheduleBackgroundCompilation(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
+        -> void
+    {
+        server.ScheduleBackgroundTask(
+            [&server = this->server, backgroundCompilation = std::move(backgroundCompilation)] {
+                SimpleTimer timer;
+                backgroundCompilation->Setup();
+                server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
+                               backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+            });
+    }
+
+    auto LanguageService::ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
+        -> void
+    {
+        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation = std::move(backgroundCompilation),
+                                       triggerTimer = SimpleTimer()] {
+            std::this_thread::sleep_until(triggerTimer.GetStartTime() + std::chrono::milliseconds(1000));
+            if (backgroundCompilation->TestExpired()) {
+                server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
+                               backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
+                return;
+            }
+
+            SimpleTimer timer;
+            auto diagnostics =
+                HandleDiagnostic(server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
+                                 backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
+                                 backgroundCompilation->GetBuffer());
+            server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
+            server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
+                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+        });
     }
 
     auto LanguageService::ScheduleLanguageQuery(
@@ -164,12 +200,9 @@ namespace glsld
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text),
             GetLanguageQueryPreambleInfo({.stage = InferShaderStageFromUri(params.textDocument.uri)}));
 
-        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation]() {
-            SimpleTimer timer;
-            backgroundCompilation->Setup();
-            server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
-                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
-        });
+        ScheduleBackgroundCompilation(backgroundCompilation);
+        ScheduleBackgroundDiagnostic(backgroundCompilation);
+
         server.LogInfo("Opened document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
@@ -181,9 +214,13 @@ namespace glsld
             return;
         }
 
+        // Since the text document is changed, we mark the previous compilation as expired.
+        backgroundCompilation->MarkExpired();
+
         // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
         // compilation
-        auto sourceBuffer = backgroundCompilation->StealBuffer();
+        // TODO: Research if add a line-offset hints vector speedup the editing
+        auto sourceBuffer = backgroundCompilation->GetBuffer().Str();
         for (const auto& change : params.contentChanges) {
             if (change.range) {
                 ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
@@ -196,12 +233,9 @@ namespace glsld
             params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer),
             GetLanguageQueryPreambleInfo(backgroundCompilation->GetNextLanguageConfig()));
 
-        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation]() {
-            SimpleTimer timer;
-            backgroundCompilation->Setup();
-            server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
-                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
-        });
+        ScheduleBackgroundCompilation(backgroundCompilation);
+        ScheduleBackgroundDiagnostic(backgroundCompilation);
+
         server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
