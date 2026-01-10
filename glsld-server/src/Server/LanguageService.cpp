@@ -48,24 +48,54 @@ namespace glsld
     auto LanguageService::ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
         -> void
     {
-        server.ScheduleBackgroundTask([&server = this->server, backgroundCompilation = std::move(backgroundCompilation),
-                                       triggerTimer = SimpleTimer()] {
-            std::this_thread::sleep_until(triggerTimer.GetStartTime() + std::chrono::milliseconds(1000));
-            if (backgroundCompilation->TestExpired()) {
-                server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
-                               backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
-                return;
-            }
-
-            SimpleTimer timer;
-            auto diagnostics =
-                HandleDiagnostic(server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
-                                 backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
-                                 backgroundCompilation->GetBuffer());
-            server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
-            server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
-                           backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+        std::lock_guard _{pendingDiagnosticsMutex};
+        pendingDiagnostics.push_back(PendingDiagnostic{
+            .triggerTimer          = SimpleTimer{},
+            .backgroundCompilation = std::move(backgroundCompilation),
         });
+    }
+
+    auto LanguageService::SetupDiagnosticConsumerThread() -> void
+    {
+        diagnosticConsumerThread = std::jthread{[this]() {
+            while (server.IsRunning()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                std::lock_guard _{pendingDiagnosticsMutex};
+                while (!pendingDiagnostics.empty()) {
+                    const auto& pendingDiagnostic = pendingDiagnostics.front();
+                    if (pendingDiagnostic.triggerTimer.GetElapsedMilliseconds() < 1000) {
+                        break;
+                    }
+
+                    if (pendingDiagnostic.backgroundCompilation->TestExpired()) {
+                        server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
+                                       pendingDiagnostic.backgroundCompilation->GetUri(),
+                                       pendingDiagnostic.backgroundCompilation->GetVersion());
+                    }
+                    else {
+                        server.ScheduleBackgroundTask(
+                            [&server               = this->server,
+                             backgroundCompilation = std::move(pendingDiagnostic.backgroundCompilation)] {
+                                SimpleTimer timer;
+                                auto diagnostics = HandleDiagnostic(
+                                    server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
+                                    backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
+                                    backgroundCompilation->GetBuffer());
+
+                                if (!backgroundCompilation->TestExpired()) {
+                                    server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
+                                }
+                                server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms",
+                                               backgroundCompilation->GetUri(), backgroundCompilation->GetVersion(),
+                                               timer.GetElapsedMilliseconds());
+                            });
+                    }
+
+                    pendingDiagnostics.pop_front();
+                }
+            }
+        }};
     }
 
     auto LanguageService::ScheduleLanguageQuery(
@@ -131,7 +161,16 @@ namespace glsld
         return preambleInfo;
     }
 
-    auto LanguageService::Initialize(int requestId, lsp::InitializeParams params) -> void
+    auto LanguageService::Initialize() -> void
+    {
+        SetupDiagnosticConsumerThread();
+    }
+
+    auto LanguageService::Finalize() -> void
+    {
+    }
+
+    auto LanguageService::OnInitialize(int requestId, lsp::InitializeParams params) -> void
     {
         auto result = lsp::InitializeResult{
             .capabilities =
@@ -164,31 +203,31 @@ namespace glsld
         server.LogInfo("GLSLD initialized");
     }
 
-    auto LanguageService::Initialized(lsp::InitializedParams) -> void
+    auto LanguageService::OnInitialized(lsp::InitializedParams) -> void
     {
         // No-op for now
     }
 
-    auto LanguageService::SetTrace(lsp::SetTraceParams params) -> void
+    auto LanguageService::OnSetTrace(lsp::SetTraceParams params) -> void
     {
         // No-op for now
     }
 
-    auto LanguageService::Shutdown(int requestId, std::nullptr_t) -> void
+    auto LanguageService::OnShutdown(int requestId, std::nullptr_t) -> void
     {
         // We do nothing on shutdown request but an acknowledgement
         server.HandleServerResponse(requestId, nullptr, false);
         server.LogInfo("GLSLD shutting down");
     }
 
-    auto LanguageService::Exit(std::nullptr_t) -> void
+    auto LanguageService::OnExit(std::nullptr_t) -> void
     {
         server.Shutdown();
     }
 
 #pragma region Document Synchronization
 
-    auto LanguageService::DidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
+    auto LanguageService::OnDidOpenTextDocument(lsp::DidOpenTextDocumentParams params) -> void
     {
         auto& backgroundCompilation = providerLookup[params.textDocument.uri];
         if (backgroundCompilation) {
@@ -206,7 +245,7 @@ namespace glsld
         server.LogInfo("Opened document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
-    auto LanguageService::DidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
+    auto LanguageService::OnDidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
     {
         auto& backgroundCompilation = providerLookup[params.textDocument.uri];
         if (!backgroundCompilation) {
@@ -239,7 +278,7 @@ namespace glsld
         server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
-    auto LanguageService::DidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
+    auto LanguageService::OnDidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
     {
         providerLookup.erase(params.textDocument.uri);
         server.LogInfo("Closed document: {}", params.textDocument.uri);
@@ -249,7 +288,7 @@ namespace glsld
 
 #pragma region Language Features
 
-    auto LanguageService::DocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
+    auto LanguageService::OnDocumentSymbol(int requestId, lsp::DocumentSymbolParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "documentSymbol", uri);
@@ -263,7 +302,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::SemanticTokensFull(int requestId, lsp::SemanticTokensParams params) -> void
+    auto LanguageService::OnSemanticTokensFull(int requestId, lsp::SemanticTokensParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
@@ -278,7 +317,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::Completion(int requestId, lsp::CompletionParams params) -> void
+    auto LanguageService::OnCompletion(int requestId, lsp::CompletionParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "completion", uri);
@@ -293,7 +332,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::SignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
+    auto LanguageService::OnSignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "signatureHelp", uri);
@@ -309,7 +348,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::Hover(int requestId, lsp::HoverParams params) -> void
+    auto LanguageService::OnHover(int requestId, lsp::HoverParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "hover", uri);
@@ -323,7 +362,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::Definition(int requestId, lsp::DefinitionParams params) -> void
+    auto LanguageService::OnDefinition(int requestId, lsp::DefinitionParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "definition", uri);
@@ -338,7 +377,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::References(int requestId, lsp::ReferenceParams params) -> void
+    auto LanguageService::OnReferences(int requestId, lsp::ReferenceParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "references", uri);
@@ -353,7 +392,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::InlayHint(int requestId, lsp::InlayHintParams params) -> void
+    auto LanguageService::OnInlayHint(int requestId, lsp::InlayHintParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "inlayHint", uri);
@@ -368,7 +407,7 @@ namespace glsld
         });
     }
 
-    auto LanguageService::FoldingRange(int requestId, lsp::FoldingRangeParams params) -> void
+    auto LanguageService::OnFoldingRange(int requestId, lsp::FoldingRangeParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "foldingRange", uri);
@@ -387,7 +426,7 @@ namespace glsld
 
 #pragma region Window Features
 
-    auto LanguageService::ShowMessage(lsp::ShowMessageParams params) -> void
+    auto LanguageService::OnShowMessage(lsp::ShowMessageParams params) -> void
     {
         server.HandleServerNotification(lsp::LSPMethod_ShowMessage, params);
     }

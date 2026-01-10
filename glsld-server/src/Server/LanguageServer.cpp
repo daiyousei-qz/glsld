@@ -1,6 +1,7 @@
 #include "Server/LanguageServer.h"
 #include "Server/LanguageService.h"
 #include "Server/Protocol.h"
+#include "Support/ScopeExit.h"
 #include "Support/StringView.h"
 
 #include <cctype>
@@ -54,6 +55,8 @@ namespace glsld
     auto LanguageServer::Run() -> void
     {
         running = true;
+        language->Initialize();
+        ScopeExit _{[this]() { language->Finalize(); }};
         while (running && PullMessage()) {
         }
 
@@ -273,29 +276,29 @@ namespace glsld
             };
         };
 
-        handlerDispatchMap[lsp::LSPMethod_Initialize]  = createRequestHandler(&LanguageService::Initialize);
-        handlerDispatchMap[lsp::LSPMethod_Initialized] = createNotificationHandler(&LanguageService::Initialized);
-        handlerDispatchMap[lsp::LSPMethod_SetTrace]    = createNotificationHandler(&LanguageService::SetTrace);
-        handlerDispatchMap[lsp::LSPMethod_Shutdown]    = createRequestHandler(&LanguageService::Shutdown);
-        handlerDispatchMap[lsp::LSPMethod_Exit]        = createNotificationHandler(&LanguageService::Exit);
+        handlerDispatchMap[lsp::LSPMethod_Initialize]  = createRequestHandler(&LanguageService::OnInitialize);
+        handlerDispatchMap[lsp::LSPMethod_Initialized] = createNotificationHandler(&LanguageService::OnInitialized);
+        handlerDispatchMap[lsp::LSPMethod_SetTrace]    = createNotificationHandler(&LanguageService::OnSetTrace);
+        handlerDispatchMap[lsp::LSPMethod_Shutdown]    = createRequestHandler(&LanguageService::OnShutdown);
+        handlerDispatchMap[lsp::LSPMethod_Exit]        = createNotificationHandler(&LanguageService::OnExit);
 
-        handlerDispatchMap[lsp::LSPMethod_DocumentSymbol] = createRequestHandler(&LanguageService::DocumentSymbol);
+        handlerDispatchMap[lsp::LSPMethod_DocumentSymbol] = createRequestHandler(&LanguageService::OnDocumentSymbol);
         handlerDispatchMap[lsp::LSPMethod_SemanticTokensFull] =
-            createRequestHandler(&LanguageService::SemanticTokensFull);
-        handlerDispatchMap[lsp::LSPMethod_Completion]    = createRequestHandler(&LanguageService::Completion);
-        handlerDispatchMap[lsp::LSPMethod_SignatureHelp] = createRequestHandler(&LanguageService::SignatureHelp);
-        handlerDispatchMap[lsp::LSPMethod_Hover]         = createRequestHandler(&LanguageService::Hover);
-        handlerDispatchMap[lsp::LSPMethod_References]    = createRequestHandler(&LanguageService::References);
-        handlerDispatchMap[lsp::LSPMethod_Definition]    = createRequestHandler(&LanguageService::Definition);
-        handlerDispatchMap[lsp::LSPMethod_InlayHint]     = createRequestHandler(&LanguageService::InlayHint);
-        handlerDispatchMap[lsp::LSPMethod_FoldingRange]  = createRequestHandler(&LanguageService::FoldingRange);
+            createRequestHandler(&LanguageService::OnSemanticTokensFull);
+        handlerDispatchMap[lsp::LSPMethod_Completion]    = createRequestHandler(&LanguageService::OnCompletion);
+        handlerDispatchMap[lsp::LSPMethod_SignatureHelp] = createRequestHandler(&LanguageService::OnSignatureHelp);
+        handlerDispatchMap[lsp::LSPMethod_Hover]         = createRequestHandler(&LanguageService::OnHover);
+        handlerDispatchMap[lsp::LSPMethod_References]    = createRequestHandler(&LanguageService::OnReferences);
+        handlerDispatchMap[lsp::LSPMethod_Definition]    = createRequestHandler(&LanguageService::OnDefinition);
+        handlerDispatchMap[lsp::LSPMethod_InlayHint]     = createRequestHandler(&LanguageService::OnInlayHint);
+        handlerDispatchMap[lsp::LSPMethod_FoldingRange]  = createRequestHandler(&LanguageService::OnFoldingRange);
 
         handlerDispatchMap[lsp::LSPMethod_DidOpenTextDocument] =
-            createNotificationHandler(&LanguageService::DidOpenTextDocument);
+            createNotificationHandler(&LanguageService::OnDidOpenTextDocument);
         handlerDispatchMap[lsp::LSPMethod_DidChangeTextDocument] =
-            createNotificationHandler(&LanguageService::DidChangeTextDocument);
+            createNotificationHandler(&LanguageService::OnDidChangeTextDocument);
         handlerDispatchMap[lsp::LSPMethod_DidCloseTextDocument] =
-            createNotificationHandler(&LanguageService::DidCloseTextDocument);
+            createNotificationHandler(&LanguageService::OnDidCloseTextDocument);
     }
 
 } // namespace glsld

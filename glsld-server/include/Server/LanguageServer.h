@@ -49,6 +49,11 @@ namespace glsld
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
 
+        auto IsRunning() const noexcept -> bool
+        {
+            return running;
+        }
+
         auto InitializeReplayDumpFile(UniqueFile dumpFile) -> void;
 
         auto Run() -> void;
