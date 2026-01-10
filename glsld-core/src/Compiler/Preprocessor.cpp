@@ -301,8 +301,18 @@ namespace glsld
             return;
         }
 
-        auto sourceText = sourceManager.GetSourceText(sourceFile);
+        auto beginTokenIndex   = outputStream.tokens.size();
+        auto beginCommentIndex = outputStream.comments.size();
+        auto sourceText        = sourceManager.GetSourceText(sourceFile);
         Tokenizer{compiler, *this, atomTable, sourceFile, sourceText}.DoTokenize();
+
+        outputStream.files.push_back(PreprocessedFile{
+            .fileID            = sourceFile,
+            .beginTokenIndex   = beginTokenIndex,
+            .endTokenIndex     = outputStream.tokens.size(),
+            .beginCommentIndex = beginCommentIndex,
+            .endCommentIndex   = outputStream.comments.size(),
+        });
     }
 
     auto PreprocessStateMachine::InitializeKeywordLookup() -> void
@@ -325,6 +335,8 @@ namespace glsld
 
     auto PreprocessStateMachine::DispatchTokenToHandler(const PPToken& token) -> void
     {
+        GLSLD_ASSERT(token.klass != TokenKlass::Comment);
+
         switch (state) {
         case PreprocessorState::Default:
             AcceptOnDefaultState(token);
@@ -413,10 +425,6 @@ namespace glsld
                 }
             }
         }
-        else if (token.klass == TokenKlass::Comment) {
-            // FIXME: we ignore comment for now.
-            return;
-        }
         else {
             // A bad directive.
             TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
@@ -443,17 +451,12 @@ namespace glsld
             }
         }
         else {
-            if (token.klass != TokenKlass::Comment) {
-                // FIXME: we ignore comment for now.
-                directiveArgBuffer.push_back(token);
-            }
+            directiveArgBuffer.push_back(token);
         }
     }
 
     auto PreprocessStateMachine::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
     {
-        commentAttachmentLine = directiveToken.spelledRange.start.line;
-
         PPTokenScanner scanner{restTokens};
         if (directiveToken.text == atomDirectiveInclude) {
             HandleIncludeDirective(scanner);
