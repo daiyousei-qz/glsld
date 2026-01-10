@@ -370,7 +370,6 @@ namespace glsld
         //      ```
         auto preceedingComments = LookupPreceedingComment(decl.GetSyntaxRange().GetBeginID());
         if (!preceedingComments.empty()) {
-            // FIXME: avoid using comments if there are preprocessor lines between them and the declaration
             std::string result;
             for (const auto& token : preceedingComments) {
                 // For a comment to qualify, it must be consecutive comments who:
