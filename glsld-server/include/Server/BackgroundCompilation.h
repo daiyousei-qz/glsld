@@ -3,6 +3,7 @@
 #include "Compiler/CompilerResult.h"
 #include "Server/LanguageQueryInfo.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <condition_variable>
@@ -53,7 +54,10 @@ namespace glsld
         LanguageConfig nextConfig;
         std::unique_ptr<LanguageQueryInfo> info = nullptr;
 
-        std::atomic<bool> available = false;
+        // Set if the compilation is finished and info is available
+        std::atomic<bool> isAvailable = false;
+        // Set if the compilation is expired by a newer version
+        std::atomic<bool> isExpired = false;
         std::mutex mu;
         std::condition_variable cv;
 
@@ -69,16 +73,14 @@ namespace glsld
 
         auto WaitAvailable() -> bool;
 
-        auto StealBuffer() -> std::string
+        auto MarkExpired() -> void
         {
-            std::unique_lock<std::mutex> lock{mu};
-            if (available) {
-                // After compilation finishes, the sourceString buffer is no longer needed
-                return std::move(sourceString);
-            }
-            else {
-                return sourceString;
-            }
+            isExpired = true;
+        }
+
+        auto TestExpired() -> bool
+        {
+            return isExpired;
         }
 
         auto GetVersion() const -> int
@@ -101,16 +103,27 @@ namespace glsld
             return *preambleInfo;
         }
 
-        auto GetNextLanguageConfig() const -> const LanguageConfig&
+        auto GetLanguageConfig() const -> const LanguageConfig&
         {
-            // FIXME: this could result in a race condition if the previous compilation is still ongoing
-            GLSLD_ASSERT(available);
-            return nextConfig;
+            return preambleInfo->GetPreamble()->GetLanguageConfig();
         }
 
+        auto GetNextLanguageConfig() const -> const LanguageConfig&
+        {
+            if (isAvailable) {
+                return nextConfig;
+            }
+            else {
+                // If the compilation has not yet finished, return the current config as a fallback as
+                // we need start a new compilation now.
+                return preambleInfo->GetPreamble()->GetLanguageConfig();
+            }
+        }
+
+        // NOTE this must be called after WaitAvailable() returns true
         auto GetLanguageQueryInfo() -> const LanguageQueryInfo&
         {
-            GLSLD_ASSERT(available);
+            GLSLD_ASSERT(isAvailable);
             return *info;
         }
     };
