@@ -28,6 +28,20 @@ namespace glsld
         return static_cast<int>(version);
     }
 
+    static auto GetGlslangProfile(GlslProfile profile) -> EProfile
+    {
+        switch (profile) {
+        case GlslProfile::Core:
+            return ECoreProfile;
+        case GlslProfile::Compatibility:
+            return ECompatibilityProfile;
+        case GlslProfile::Es:
+            return EEsProfile;
+        default:
+            return ENoProfile;
+        }
+    }
+
     static auto GetGlslangShaderStage(GlslShaderStage stage) -> std::optional<EShLanguage>
     {
         switch (stage) {
@@ -101,6 +115,7 @@ namespace glsld
 
         // Configure glslang parser
         const int defaultVersion               = GetGlslangVersion(languageConfig.version);
+        const EProfile defaultProfile          = GetGlslangProfile(languageConfig.profile);
         const std::optional<EShLanguage> stage = GetGlslangShaderStage(languageConfig.stage);
         const TBuiltInResource* resources      = GetDefaultResources();
 
@@ -114,10 +129,11 @@ namespace glsld
         const char* sourceDataPtr = sourceBuffer.data();
         int sourceLen             = static_cast<int>(sourceBuffer.Size());
         shader.setStringsWithLengths(&sourceDataPtr, &sourceLen, 1);
+        shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_4);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
         shader.setAutoMapBindings(true);
         shader.setAutoMapLocations(true);
-        shader.parse(resources, defaultVersion, false, EShMsgDefault);
+        shader.parse(resources, defaultVersion, defaultProfile, false, false, EShMsgDefault);
 
         return lsp::PublishDiagnosticParams{
             .uri         = uri.Str(),

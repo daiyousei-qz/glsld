@@ -52,7 +52,8 @@ namespace glsld
                         },
                     .diagnostic =
                         DiagnosticConfig{
-                            .enable = true,
+                            // This is still experimental, disable by default for now.
+                            .enable = false,
                         },
                     .signatureHelp =
                         SignatureHelpConfig{
