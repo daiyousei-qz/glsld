@@ -65,40 +65,40 @@ include(cmake/CPM.cmake)
 
 CPMAddPackage(
     NAME fmt
-    GIT_TAG 12.1.0
     GITHUB_REPOSITORY fmtlib/fmt
+    GIT_TAG 407c905e45ad75fc29bf0f9bb7c5c2fd3475976f # 12.1.0
 )
 
 CPMAddPackage(
     NAME spdlog
-    GIT_TAG v1.17.0
     GITHUB_REPOSITORY gabime/spdlog
+    GIT_TAG 79524ddd08a4ec981b7fea76afd08ee05f83755d # v1.17.0
     OPTIONS "SPDLOG_FMT_EXTERNAL ON"
 )
 
 CPMAddPackage(
     NAME argparse
-    GIT_TAG v3.2
     GITHUB_REPOSITORY p-ranav/argparse
+    GIT_TAG 3eda91b2e1ce7d569f84ba295507c4cd8fd96910 # v3.2
 )
 
 CPMAddPackage(
     NAME nlohmann_json
-    GIT_TAG v3.12.0
     GITHUB_REPOSITORY nlohmann/json
+    GIT_TAG 55f93686c01528224f448c19128836e7df245f72 # v3.12.0
 )
 
 CPMAddPackage(
     NAME boost_pfr
     GITHUB_REPOSITORY boostorg/pfr
-    GIT_TAG boost-1.90.0
+    GIT_TAG 7aa41ed4f5aaa7e52570030e7b28f28cede4f9c1 # boost-1.90.0
     OPTIONS "BUILD_TESTING OFF"
 )
 
 CPMAddPackage(
     NAME magic_enum
     GITHUB_REPOSITORY Neargye/magic_enum
-    GIT_TAG v0.9.7
+    GIT_TAG e046b69a3736d314fad813e159b1c192eaef92cd # v0.9.7
 )
 
 CPMAddPackage(
@@ -112,7 +112,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME glslang
     GITHUB_REPOSITORY KhronosGroup/glslang
-    GIT_TAG 16.1.0
+    GIT_TAG b5782e52ee2f7b3e40bb9c80d15b47016e008bc9 # 16.1.0
     OPTIONS "BUILD_EXTERNAL OFF"
             "ENABLE_SPIRV OFF"
             "ENABLE_HLSL OFF"
@@ -122,7 +122,7 @@ if(GLSLD_BUILD_UNIT_TEST)
     CPMAddPackage(
         NAME catch2
         GITHUB_REPOSITORY catchorg/Catch2
-        GIT_TAG v3.12.0
+        GIT_TAG 88abf9bf325c798c33f54f6b9220ef885b267f4f # v3.12.0
         OPTIONS "CATCH_BUILD_STATIC_LIBRARY ON"
     )
 
@@ -186,7 +186,7 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
     target_link_libraries(glsld-server PUBLIC spdlog::spdlog)
     target_link_libraries(glsld-server PUBLIC nlohmann_json::nlohmann_json)
     target_link_libraries(glsld-server PUBLIC Boost::pfr)
-    target_link_libraries(glsld-server PUBLIC glslang::glslang glslang::glslang-default-resource-limits)
+    target_link_libraries(glsld-server PRIVATE glslang::glslang glslang::glslang-default-resource-limits)
 
     target_compile_definitions(glsld-server PUBLIC BS_THREAD_POOL_NATIVE_EXTENSIONS)
     target_include_directories(glsld-server PUBLIC ${BS_thread_pool_SOURCE_DIR}/include)
@@ -208,6 +208,9 @@ endif()
 
 # GLSLD Unit Test
 if(GLSLD_BUILD_UNIT_TEST)
+    include(CTest)
+    include(Catch)
+
     file(GLOB_RECURSE GLSLD_TEST_HEADER_FILE glsld-test/include/*.h)
     file(GLOB_RECURSE GLSLD_TEST_SOURCE_FILE glsld-test/src/*.cpp)
 
@@ -218,8 +221,6 @@ if(GLSLD_BUILD_UNIT_TEST)
 
     target_link_libraries(glsld-test PRIVATE Catch2::Catch2WithMain)
 
-    include(CTest)
-    include(Catch)
     catch_discover_tests(glsld-test)
 
     if(GLSLD_ENABLE_TEST_COVERAGE AND GLSLD_COMPILER_CLANG)
