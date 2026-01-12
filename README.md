@@ -29,25 +29,21 @@ The following features are planned:
 ### Dependencies
 
 Before we start, make sure you have the following dependencies installed:
-- A C++23 compiler.
+- A C++2c compiler.
     - CLANG 19 or later
 - CMake
     - 3.30 or later
 - Ninja
 
-### Package Manager
-GLSLD uses vcpkg to manage its dependencies. It is recommended that you use the vcpkg from git submodule of this repository.
-
 ### Steps
 
-First, let's pull the repository and fetch the submodules:
+First, let's pull the repository:
 ```
 git clone https://github.com/daiyousei-qz/glsld
 cd glsld
-git submodule update --init
 ```
 
-Now that the repository and vcpkg are ready, you can build the project with the following command:
+Now that the repository is ready, you can build the project with the following command:
 ```
 cmake --preset Debug
 cmake --build build --parallel
