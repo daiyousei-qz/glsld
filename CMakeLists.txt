@@ -5,24 +5,8 @@ option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
 option(GLSLD_BUILD_UNIT_TEST "Build glsld unit test" ON)
 option(GLSLD_ENABLE_TEST_COVERAGE "Enable coverage test for unit test" OFF)
 
-# Load vcpkg
-if(NOT CMAKE_TOOLCHAIN_FILE)
-    if(NOT ENV{VCPKG_ROOT})
-        message(FATAL_ERROR "Couldn't find vcpkg. Please set VCPKG_ROOT environment variable or pass CMAKE_TOOLCHAIN_FILE")
-    endif()
-
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-endif()
-
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(VCPKG_TARGET_TRIPLET "x64-windows-static")
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(VCPKG_TARGET_TRIPLET "x64-linux")
-elseif(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(VCPKG_TARGET_TRIPLET "arm64-osx")
-else()
-    message(FATAL_ERROR "Failed to infer vcpkg triplet")
 endif()
 
 # NOTE it is important to have project declaration to come after vcpkg config
@@ -66,7 +50,7 @@ else()
 endif()
 
 # TODO: transition to C++20 modules
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 if(GLSLD_OS_WIN)
@@ -77,17 +61,73 @@ if(GLSLD_OS_WIN)
     endif()
 endif()
 
-find_package(fmt CONFIG REQUIRED)
-find_package(spdlog CONFIG REQUIRED)
-find_package(argparse CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_path(BSHOSHANY_THREAD_POOL_INCLUDE_DIRS "BS_thread_pool.hpp")
-find_package(boost_pfr CONFIG REQUIRED)
-find_package(magic_enum CONFIG REQUIRED)
-find_package(glslang CONFIG REQUIRED)
+include(cmake/CPM.cmake)
+
+CPMAddPackage(
+    NAME fmt
+    GITHUB_REPOSITORY fmtlib/fmt
+    GIT_TAG 407c905e45ad75fc29bf0f9bb7c5c2fd3475976f # 12.1.0
+)
+
+CPMAddPackage(
+    NAME spdlog
+    GITHUB_REPOSITORY gabime/spdlog
+    GIT_TAG 79524ddd08a4ec981b7fea76afd08ee05f83755d # v1.17.0
+    OPTIONS "SPDLOG_FMT_EXTERNAL ON"
+)
+
+CPMAddPackage(
+    NAME argparse
+    GITHUB_REPOSITORY p-ranav/argparse
+    GIT_TAG 3eda91b2e1ce7d569f84ba295507c4cd8fd96910 # v3.2
+)
+
+CPMAddPackage(
+    NAME nlohmann_json
+    GITHUB_REPOSITORY nlohmann/json
+    GIT_TAG 55f93686c01528224f448c19128836e7df245f72 # v3.12.0
+)
+
+CPMAddPackage(
+    NAME boost_pfr
+    GITHUB_REPOSITORY boostorg/pfr
+    GIT_TAG 7aa41ed4f5aaa7e52570030e7b28f28cede4f9c1 # boost-1.90.0
+    OPTIONS "BUILD_TESTING OFF"
+)
+
+CPMAddPackage(
+    NAME magic_enum
+    GITHUB_REPOSITORY Neargye/magic_enum
+    GIT_TAG e046b69a3736d314fad813e159b1c192eaef92cd # v0.9.7
+)
+
+CPMAddPackage(
+    NAME BS_thread_pool
+    GITHUB_REPOSITORY bshoshany/thread-pool
+    VERSION 5.1.0
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+
+CPMAddPackage(
+    NAME glslang
+    GITHUB_REPOSITORY KhronosGroup/glslang
+    GIT_TAG b5782e52ee2f7b3e40bb9c80d15b47016e008bc9 # 16.1.0
+    OPTIONS "BUILD_EXTERNAL OFF"
+            "ENABLE_SPIRV OFF"
+            "ENABLE_HLSL OFF"
+)
 
 if(GLSLD_BUILD_UNIT_TEST)
-    find_package(Catch2 CONFIG REQUIRED)
+    CPMAddPackage(
+        NAME catch2
+        GITHUB_REPOSITORY catchorg/Catch2
+        GIT_TAG 88abf9bf325c798c33f54f6b9220ef885b267f4f # v3.12.0
+        OPTIONS "CATCH_BUILD_STATIC_LIBRARY ON"
+    )
+
+    # Make Catch2 cmake-integration modules available
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 endif()
 
 # GLSLD Lexer Generator
@@ -99,6 +139,7 @@ target_include_directories(glsld-lexgen PUBLIC glsld-core/include)
 target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
 
 target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
+target_link_libraries(glsld-lexgen PRIVATE magic_enum::magic_enum)
 
 add_custom_command(
     OUTPUT Tokenize.generated.cpp
@@ -115,6 +156,22 @@ add_library(glsld-core STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_
 target_include_directories(glsld-core PUBLIC glsld-core/include)
 
 target_link_libraries(glsld-core PUBLIC fmt::fmt)
+target_link_libraries(glsld-core PUBLIC magic_enum::magic_enum)
+
+# GLSLD Wrapper
+if(GLSLD_BUILD_WRAPPER)
+    file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
+    file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
+
+    add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
+    target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
+    target_include_directories(glsld-wrapper PRIVATE share)
+
+    target_link_libraries(glsld-wrapper PRIVATE glsld-core)
+
+    target_link_libraries(glsld-wrapper PRIVATE argparse::argparse)
+    target_link_libraries(glsld-wrapper PRIVATE nlohmann_json::nlohmann_json)
+endif()
 
 # GLSLD Language Server
 if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
@@ -126,14 +183,13 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
 
     target_link_libraries(glsld-server PUBLIC glsld-core)
 
-    target_link_libraries(glsld-server PRIVATE spdlog::spdlog)
-    target_link_libraries(glsld-server PRIVATE nlohmann_json::nlohmann_json)
-    target_link_libraries(glsld-server PRIVATE Boost::pfr)
-    target_link_libraries(glsld-server PRIVATE magic_enum::magic_enum)
+    target_link_libraries(glsld-server PUBLIC spdlog::spdlog)
+    target_link_libraries(glsld-server PUBLIC nlohmann_json::nlohmann_json)
+    target_link_libraries(glsld-server PUBLIC Boost::pfr)
     target_link_libraries(glsld-server PRIVATE glslang::glslang glslang::glslang-default-resource-limits)
 
     target_compile_definitions(glsld-server PUBLIC BS_THREAD_POOL_NATIVE_EXTENSIONS)
-    target_include_directories(glsld-server PRIVATE ${BSHOSHANY_THREAD_POOL_INCLUDE_DIRS})
+    target_include_directories(glsld-server PUBLIC ${BS_thread_pool_SOURCE_DIR}/include)
 endif()
 
 # GLSLD
@@ -150,23 +206,10 @@ if(GLSLD_BUILD_LANGUAGE_SERVER)
     target_link_libraries(glsld PRIVATE argparse::argparse)
 endif()
 
-# GLSLD Wrapper
-if(GLSLD_BUILD_WRAPPER)
-    file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
-    file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
-
-    add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
-    target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
-    target_include_directories(glsld-wrapper PRIVATE share)
-
-    target_link_libraries(glsld-wrapper PRIVATE glsld-core)
-
-    target_link_libraries(glsld-wrapper PRIVATE argparse::argparse)
-endif()
-
 # GLSLD Unit Test
 if(GLSLD_BUILD_UNIT_TEST)
     include(CTest)
+    include(Catch)
 
     file(GLOB_RECURSE GLSLD_TEST_HEADER_FILE glsld-test/include/*.h)
     file(GLOB_RECURSE GLSLD_TEST_SOURCE_FILE glsld-test/src/*.cpp)
@@ -178,7 +221,6 @@ if(GLSLD_BUILD_UNIT_TEST)
 
     target_link_libraries(glsld-test PRIVATE Catch2::Catch2WithMain)
 
-    include(Catch)
     catch_discover_tests(glsld-test)
 
     if(GLSLD_ENABLE_TEST_COVERAGE AND GLSLD_COMPILER_CLANG)
