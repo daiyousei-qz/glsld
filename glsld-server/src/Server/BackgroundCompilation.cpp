@@ -32,7 +32,7 @@ namespace glsld
         }
     };
 
-    auto BackgroundCompilation::Setup() -> void
+    auto BackgroundCompilation::Run() -> void
     {
         auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
         auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
@@ -48,21 +48,8 @@ namespace glsld
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);
 
-        info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
-
-        std::unique_lock<std::mutex> lock{mu};
+        info        = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
         isAvailable = true;
-        cv.notify_all();
     }
 
-    auto BackgroundCompilation::WaitAvailable() -> bool
-    {
-        using namespace std::literals;
-        std::unique_lock<std::mutex> lock{mu};
-        if (isAvailable || cv.wait_for(lock, 1s) == std::cv_status::no_timeout) {
-            return isAvailable;
-        }
-
-        return false;
-    }
 } // namespace glsld

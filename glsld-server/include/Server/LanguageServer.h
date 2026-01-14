@@ -7,13 +7,13 @@
 #include "Server/Config.h"
 #include "Server/TextTransport.h"
 
-#include <BS_thread_pool.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/logger.h>
 
 #include <cstdio>
 #include <memory>
 #include <functional>
+#include <stop_token>
 
 namespace glsld
 {
@@ -24,9 +24,6 @@ namespace glsld
     {
     private:
         LanguageServerConfig config;
-
-        BS::light_thread_pool threadPool = {
-            0, [](std::size_t index) { BS::this_thread::set_os_thread_name("glsld_worker_" + std::to_string(index)); }};
 
         std::shared_ptr<spdlog::logger> logger = nullptr;
 
@@ -39,20 +36,19 @@ namespace glsld
             std::function<auto(LanguageServer& server, const nlohmann::json& rpcBlob)->void>;
         UnorderedStringMap<ClientMessageHandlerType> handlerDispatchMap;
 
-        bool running = false;
         std::unique_ptr<LanguageService> language;
         std::unique_ptr<TextTransport> transport;
 
+        // This controls the server listening loop.
+        std::stop_source serverStopSource;
+
+        // While server is always listening in the main thread, outgoing messages may be sent from different threads.
+        // This mutex protects the output to be thread-safe.
         std::mutex serverOutputMutex;
 
     public:
         LanguageServer(const LanguageServerConfig& config);
         ~LanguageServer();
-
-        auto IsRunning() const noexcept -> bool
-        {
-            return running;
-        }
 
         auto InitializeReplayDumpFile(UniqueFile dumpFile) -> void;
 
@@ -62,7 +58,7 @@ namespace glsld
 
         auto Shutdown() -> void
         {
-            running = false;
+            serverStopSource.request_stop();
         }
 
         auto GetConfig() const -> const LanguageServerConfig&
@@ -73,23 +69,17 @@ namespace glsld
         // Dispatch a response from the language server to the client.
         // This function is thread-safe.
         template <typename T>
-        auto HandleServerResponse(int requestId, const T& result, bool isError) -> void
+        auto SendServerResponse(int requestId, const T& result, bool isError) -> void
         {
-            DoHandleServerResponse(requestId, JsonSerializer<T>::Serialize(result), isError);
+            SendTypeErasedServerResponse(requestId, JsonSerializer<T>::Serialize(result), isError);
         }
 
         // Dispatch a notification from the language server to the client.
         // This function is thread-safe.
         template <typename T>
-        auto HandleServerNotification(const char* method, const T& params) -> void
+        auto SendServerNotification(const char* method, const T& params) -> void
         {
-            DoHandleServerNotification(method, JsonSerializer<T>::Serialize(params));
-        }
-
-        template <typename F, typename... Args>
-        auto ScheduleBackgroundTask(F&& f, Args&&... args) -> void
-        {
-            threadPool.detach_task(std::forward<F>(f), std::forward<Args>(args)...);
+            SendTypeErasedServerNotification(method, JsonSerializer<T>::Serialize(params));
         }
 
         auto ShouldLog(LoggingLevel requiredLevel) const -> bool
@@ -151,16 +141,18 @@ namespace glsld
 
     private:
         // Synchronously pull a client message from the input transport and forward it to the server.
+        // This should be called in the main thread within our listening loop.
         // Returns true if a message is successfully pulled.
         auto PullMessage() -> bool;
 
         // Synchronously push a server message to the output transport.
+        // Because this may be called from different worker threads, this function locks the output mutex.
         // Returns true if a message is successfully pushed.
         auto PushMessage(StringView payload) -> bool;
 
-        auto DoHandleClientMessage(StringView messagePayload) -> void;
-        auto DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
-        auto DoHandleServerNotification(const char* method, nlohmann::json params) -> void;
+        auto HandleClientMessage(StringView messagePayload) -> void;
+        auto SendTypeErasedServerResponse(int requestId, nlohmann::json result, bool isError) -> void;
+        auto SendTypeErasedServerNotification(const char* method, nlohmann::json params) -> void;
 
         auto InitializeClientMessageHandlers() -> void;
     };

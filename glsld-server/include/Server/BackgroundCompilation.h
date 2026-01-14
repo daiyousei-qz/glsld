@@ -3,10 +3,11 @@
 #include "Compiler/CompilerResult.h"
 #include "Server/LanguageQueryInfo.h"
 
+#include "exec/async_scope.hpp"
+#include "stdexec/execution.hpp"
+
 #include <atomic>
 #include <memory>
-#include <mutex>
-#include <condition_variable>
 
 namespace glsld
 {
@@ -42,7 +43,7 @@ namespace glsld
         }
     };
 
-    class BackgroundCompilation
+    class BackgroundCompilation : std::enable_shared_from_this<BackgroundCompilation>
     {
     private:
         // Document version
@@ -51,15 +52,21 @@ namespace glsld
         std::string sourceString;
         std::shared_ptr<LanguagePreambleInfo> preambleInfo;
 
+        // Protects background compilation
+        exec::async_scope scope;
+
         LanguageConfig nextConfig;
         std::unique_ptr<LanguageQueryInfo> info = nullptr;
 
-        // Set if the compilation is finished and info is available
+        // Set when the compilation result is available
         std::atomic<bool> isAvailable = false;
+
         // Set if the compilation is expired by a newer version
         std::atomic<bool> isExpired = false;
-        std::mutex mu;
-        std::condition_variable cv;
+
+        // Performs the core background compilation work for this document.
+        // This is to be scheduled on a background thread and tracked by the async_scope.
+        auto Run() -> void;
 
     public:
         BackgroundCompilation(int version, std::string uri, std::string sourceString,
@@ -69,9 +76,24 @@ namespace glsld
         {
         }
 
-        auto Setup() -> void;
+        BackgroundCompilation(const BackgroundCompilation&)            = delete;
+        BackgroundCompilation(BackgroundCompilation&&)                 = delete;
+        BackgroundCompilation& operator=(const BackgroundCompilation&) = delete;
+        BackgroundCompilation& operator=(BackgroundCompilation&&)      = delete;
 
-        auto WaitAvailable() -> bool;
+        template <stdexec::scheduler Scheduler>
+        auto Setup(Scheduler&& schd) -> void
+        {
+            // Because compilation may take longer than the lifetime of the document being valid,
+            // we capture shared_from_this() here to keep the instance alive until the compilation is done.
+            scope.spawn(stdexec::schedule(std::forward<Scheduler>(schd)) |
+                        stdexec::then([self = shared_from_this()]() { self->Run(); }));
+        }
+
+        auto OnAvailable()
+        {
+            return scope.on_empty();
+        }
 
         auto MarkExpired() -> void
         {

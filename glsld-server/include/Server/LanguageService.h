@@ -4,11 +4,13 @@
 #include "Server/Protocol.h"
 #include "Server/LanguageServer.h"
 #include "Server/LanguageQueryInfo.h"
-#include "Support/SimpleTimer.h"
 #include "Support/StringView.h"
-#include <memory>
-#include <thread>
 
+#include <exec/async_scope.hpp>
+#include <exec/static_thread_pool.hpp>
+#include <exec/timed_thread_scheduler.hpp>
+
+#include <memory>
 #include <cstddef>
 
 namespace glsld
@@ -18,34 +20,20 @@ namespace glsld
     private:
         LanguageServer& server;
 
+        exec::timed_thread_context timedSchedulerCtx{};
+        exec::static_thread_pool backgroundWorkerCtx{};
+
         // uri -> provider
         std::map<std::string, std::shared_ptr<BackgroundCompilation>> providerLookup;
 
         // FIXME: we should allow a preamble to expire if no one is using it
         std::unordered_map<LanguageConfig, std::shared_ptr<LanguagePreambleInfo>> preambleInfoCache;
 
-        struct PendingDiagnostic
-        {
-            SimpleTimer triggerTimer;
-            std::shared_ptr<BackgroundCompilation> backgroundCompilation;
-        };
-
-        // This queue tracks diagnostics that are to be computed in the background.
-        // An edit of a document will enqueue a diagnostic request. It will be processed
-        // after a delay if no further edits happen to the document, or discarded otherwise.
-        std::deque<PendingDiagnostic> pendingDiagnostics;
-        std::mutex pendingDiagnosticsMutex;
-        std::condition_variable pendingDiagnosticsCv;
-        std::jthread diagnosticConsumerThread;
-
         // Schedule a background compilation for the given BackgroundCompilation instance.
         auto ScheduleBackgroundCompilation(std::shared_ptr<BackgroundCompilation> backgroundCompilation) -> void;
 
         // Schedule a background diagnostic for the given BackgroundCompilation instance.
         auto ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation) -> void;
-
-        // Starts a thread to consume pending diagnostics. It should keep running until the LanguageServer is shut down.
-        auto SetupDiagnosticConsumerThread() -> void;
 
         // Schedule a language query for the given uri in a background thread, which waits for the compilation and then
         // runs the callback.
@@ -62,10 +50,6 @@ namespace glsld
         LanguageService(LanguageServer& server) : server(server)
         {
         }
-
-        auto Initialize() -> void;
-
-        auto Finalize() -> void;
 
 #pragma region Lifecycle
 
@@ -110,12 +94,6 @@ namespace glsld
         auto OnInlayHint(int requestId, lsp::InlayHintParams params) -> void;
 
         auto OnFoldingRange(int requestId, lsp::FoldingRangeParams params) -> void;
-
-#pragma endregion
-
-#pragma region Window Features
-
-        auto OnShowMessage(lsp::ShowMessageParams params) -> void;
 
 #pragma endregion
     };

@@ -5,11 +5,6 @@ option(GLSLD_BUILD_LANGUAGE_SERVER "Build glsld language server" ON)
 option(GLSLD_BUILD_UNIT_TEST "Build glsld unit test" ON)
 option(GLSLD_ENABLE_TEST_COVERAGE "Enable coverage test for unit test" OFF)
 
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
-# NOTE it is important to have project declaration to come after vcpkg config
 project(glsld CXX)
 
 # OS and Compiler Config
@@ -54,6 +49,7 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 if(GLSLD_OS_WIN)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
     if(GLSLD_COMPILER_MSVC)
@@ -70,13 +66,6 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
-    NAME spdlog
-    GITHUB_REPOSITORY gabime/spdlog
-    GIT_TAG 79524ddd08a4ec981b7fea76afd08ee05f83755d # v1.17.0
-    OPTIONS "SPDLOG_FMT_EXTERNAL ON"
-)
-
-CPMAddPackage(
     NAME argparse
     GITHUB_REPOSITORY p-ranav/argparse
     GIT_TAG 3eda91b2e1ce7d569f84ba295507c4cd8fd96910 # v3.2
@@ -88,35 +77,48 @@ CPMAddPackage(
     GIT_TAG 55f93686c01528224f448c19128836e7df245f72 # v3.12.0
 )
 
-CPMAddPackage(
-    NAME boost_pfr
-    GITHUB_REPOSITORY boostorg/pfr
-    GIT_TAG 7aa41ed4f5aaa7e52570030e7b28f28cede4f9c1 # boost-1.90.0
-    OPTIONS "BUILD_TESTING OFF"
-)
+if (GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
+    CPMAddPackage(
+        NAME spdlog
+        GITHUB_REPOSITORY gabime/spdlog
+        GIT_TAG 79524ddd08a4ec981b7fea76afd08ee05f83755d # v1.17.0
+        OPTIONS "SPDLOG_FMT_EXTERNAL ON"
+    )
 
-CPMAddPackage(
-    NAME magic_enum
-    GITHUB_REPOSITORY Neargye/magic_enum
-    GIT_TAG e046b69a3736d314fad813e159b1c192eaef92cd # v0.9.7
-)
+    CPMAddPackage(
+        NAME boost_pfr
+        GITHUB_REPOSITORY boostorg/pfr
+        GIT_TAG 7aa41ed4f5aaa7e52570030e7b28f28cede4f9c1 # boost-1.90.0
+        OPTIONS "BUILD_TESTING OFF"
+    )
 
-CPMAddPackage(
-    NAME BS_thread_pool
-    GITHUB_REPOSITORY bshoshany/thread-pool
-    VERSION 5.1.0
-    EXCLUDE_FROM_ALL
-    SYSTEM
-)
+    CPMAddPackage(
+        NAME magic_enum
+        GITHUB_REPOSITORY Neargye/magic_enum
+        GIT_TAG e046b69a3736d314fad813e159b1c192eaef92cd # v0.9.7
+    )
 
-CPMAddPackage(
-    NAME glslang
-    GITHUB_REPOSITORY KhronosGroup/glslang
-    GIT_TAG b5782e52ee2f7b3e40bb9c80d15b47016e008bc9 # 16.1.0
-    OPTIONS "BUILD_EXTERNAL OFF"
-            "ENABLE_SPIRV OFF"
-            "ENABLE_HLSL OFF"
-)
+    CPMAddPackage(
+        NAME stdexec
+        GITHUB_REPOSITORY NVIDIA/stdexec
+        GIT_TAG 970dbace4ad52a38c9b18665d077f14159792b23 # main as of 2026-01-12
+        OPTIONS "STDEXEC_BUILD_TESTS OFF"
+                "STDEXEC_BUILD_EXAMPLES OFF"
+    )
+    if (GLSLD_COMPILER_CLANG)
+        # FIXME: Remove when stdexec is fixed
+        target_compile_options(stdexec INTERFACE -Wno-deprecated-missing-comma-variadic-parameter)
+    endif()
+
+    CPMAddPackage(
+        NAME glslang
+        GITHUB_REPOSITORY KhronosGroup/glslang
+        GIT_TAG b5782e52ee2f7b3e40bb9c80d15b47016e008bc9 # 16.1.0
+        OPTIONS "BUILD_EXTERNAL OFF"
+                "ENABLE_SPIRV OFF"
+                "ENABLE_HLSL OFF"
+    )
+endif()
 
 if(GLSLD_BUILD_UNIT_TEST)
     CPMAddPackage(
@@ -187,9 +189,7 @@ if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
     target_link_libraries(glsld-server PUBLIC nlohmann_json::nlohmann_json)
     target_link_libraries(glsld-server PUBLIC Boost::pfr)
     target_link_libraries(glsld-server PRIVATE glslang::glslang glslang::glslang-default-resource-limits)
-
-    target_compile_definitions(glsld-server PUBLIC BS_THREAD_POOL_NATIVE_EXTENSIONS)
-    target_include_directories(glsld-server PUBLIC ${BS_thread_pool_SOURCE_DIR}/include)
+    target_link_libraries(glsld-server PUBLIC STDEXEC::stdexec)
 endif()
 
 # GLSLD

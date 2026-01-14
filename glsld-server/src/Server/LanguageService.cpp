@@ -36,13 +36,14 @@ namespace glsld
     auto LanguageService::ScheduleBackgroundCompilation(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
         -> void
     {
-        server.ScheduleBackgroundTask(
-            [&server = this->server, backgroundCompilation = std::move(backgroundCompilation)] {
-                SimpleTimer timer;
-                backgroundCompilation->Setup();
-                server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
-                               backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
-            });
+        auto schd = backgroundWorkerCtx.get_scheduler();
+        backgroundCompilation->Setup(schd);
+        stdexec::start_detached(backgroundCompilation->OnAvailable() |
+                                stdexec::then([this, uri = backgroundCompilation->GetUri().Str(),
+                                               version = backgroundCompilation->GetVersion(), timer = SimpleTimer{}]() {
+                                    server.LogInfo("Background compilation of ({} version {}) took {} ms", uri, version,
+                                                   timer.GetElapsedMilliseconds());
+                                }));
     }
 
     auto LanguageService::ScheduleBackgroundDiagnostic(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
@@ -52,68 +53,33 @@ namespace glsld
             return;
         }
 
-        std::lock_guard _{pendingDiagnosticsMutex};
-        pendingDiagnostics.push_back(PendingDiagnostic{
-            .triggerTimer          = SimpleTimer{},
-            .backgroundCompilation = std::move(backgroundCompilation),
-        });
-        pendingDiagnosticsCv.notify_all();
-    }
-
-    auto LanguageService::SetupDiagnosticConsumerThread() -> void
-    {
-        diagnosticConsumerThread = std::jthread{[this]() {
-            while (server.IsRunning()) {
-                std::unique_lock lock{pendingDiagnosticsMutex};
-                if (pendingDiagnostics.empty()) {
-                    // Wait until new diagnostics are scheduled or the server is shutting down
-                    pendingDiagnosticsCv.wait(lock,
-                                              [this]() { return !pendingDiagnostics.empty() || !server.IsRunning(); });
-                    if (!server.IsRunning()) {
-                        break;
-                    }
+        stdexec::start_detached(
+            exec::schedule_after(timedSchedulerCtx.get_scheduler(), std::chrono::seconds(1)) |
+            stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
+            stdexec::then([&server = server, backgroundCompilation = std::move(backgroundCompilation)] {
+                if (backgroundCompilation->TestExpired()) {
+                    server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
+                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
                 }
+                else {
+                    SimpleTimer timer;
+                    auto diagnostics = HandleDiagnostic(
+                        server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
+                        backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
+                        backgroundCompilation->GetBuffer());
 
-                while (!pendingDiagnostics.empty()) {
-                    // Consume diagnostics that have been pending for long enough
-                    const auto& pendingDiagnostic = pendingDiagnostics.front();
-                    if (pendingDiagnostic.triggerTimer.GetElapsedMilliseconds() < 1000) {
-                        break;
-                    }
-
-                    if (pendingDiagnostic.backgroundCompilation->TestExpired()) {
-                        server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
-                                       pendingDiagnostic.backgroundCompilation->GetUri(),
-                                       pendingDiagnostic.backgroundCompilation->GetVersion());
+                    if (!backgroundCompilation->TestExpired()) {
+                        server.SendServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
                     }
                     else {
-                        server.ScheduleBackgroundTask(
-                            [&server               = this->server,
-                             backgroundCompilation = std::move(pendingDiagnostic.backgroundCompilation)] {
-                                SimpleTimer timer;
-                                auto diagnostics = HandleDiagnostic(
-                                    server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
-                                    backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
-                                    backgroundCompilation->GetBuffer());
-
-                                if (!backgroundCompilation->TestExpired()) {
-                                    server.HandleServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
-                                }
-                                server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms",
-                                               backgroundCompilation->GetUri(), backgroundCompilation->GetVersion(),
-                                               timer.GetElapsedMilliseconds());
-                            });
+                        server.LogInfo("Diagnostic compilation of ({} version {}) is discarded",
+                                       backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
                     }
-
-                    pendingDiagnostics.pop_front();
+                    server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms",
+                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion(),
+                                   timer.GetElapsedMilliseconds());
                 }
-
-                if (!pendingDiagnostics.empty()) {
-                    // Wait a bit for the remaining diagnostics to be ready
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                }
-            }
-        }};
+            }));
     }
 
     auto LanguageService::ScheduleLanguageQuery(
@@ -123,12 +89,12 @@ namespace glsld
         // NOTE we need to make a copy of the provider here so it doesn't get released while in analysis
         auto backgroundCompilation = providerLookup[uri];
         if (backgroundCompilation != nullptr) {
-            server.ScheduleBackgroundTask([backgroundCompilation = std::move(backgroundCompilation),
-                                           callback              = std::move(callback)] {
-                if (backgroundCompilation->WaitAvailable()) {
+            stdexec::start_detached(
+                backgroundCompilation->OnAvailable() | stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
+                stdexec::then([backgroundCompilation = std::move(backgroundCompilation),
+                               callback              = std::move(callback)] {
                     callback(backgroundCompilation->GetPreambleInfo(), backgroundCompilation->GetLanguageQueryInfo());
-                }
-            });
+                }));
         }
     }
 
@@ -179,17 +145,6 @@ namespace glsld
         return preambleInfo;
     }
 
-    auto LanguageService::Initialize() -> void
-    {
-        SetupDiagnosticConsumerThread();
-    }
-
-    auto LanguageService::Finalize() -> void
-    {
-        // Notify the diagnostic consumer thread to exit
-        pendingDiagnosticsCv.notify_all();
-    }
-
     auto LanguageService::OnInitialize(int requestId, lsp::InitializeParams params) -> void
     {
         auto result = lsp::InitializeResult{
@@ -219,7 +174,7 @@ namespace glsld
                     .name = "glsld",
                 },
         };
-        server.HandleServerResponse(requestId, result, false);
+        server.SendServerResponse(requestId, result, false);
         server.LogInfo("GLSLD initialized");
     }
 
@@ -236,7 +191,7 @@ namespace glsld
     auto LanguageService::OnShutdown(int requestId, std::nullptr_t) -> void
     {
         // We do nothing on shutdown request but an acknowledgement
-        server.HandleServerResponse(requestId, nullptr, false);
+        server.SendServerResponse(requestId, nullptr, false);
         server.LogInfo("GLSLD shutting down");
     }
 
@@ -265,6 +220,7 @@ namespace glsld
         server.LogInfo("Opened document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
+
     auto LanguageService::OnDidChangeTextDocument(lsp::DidChangeTextDocumentParams params) -> void
     {
         auto& backgroundCompilation = providerLookup[params.textDocument.uri];
@@ -298,6 +254,7 @@ namespace glsld
         server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
     }
+
     auto LanguageService::OnDidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
     {
         providerLookup.erase(params.textDocument.uri);
@@ -316,7 +273,7 @@ namespace glsld
                                        const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
             SimpleTimer timer;
             auto result = HandleDocumentSymbol(server.GetConfig().languageService.documentSymbol, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "documentSymbol",
                            timer.GetElapsedMilliseconds());
         });
@@ -331,7 +288,7 @@ namespace glsld
             SimpleTimer timer;
             lsp::SemanticTokens result =
                 HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
                            timer.GetElapsedMilliseconds());
         });
@@ -346,7 +303,7 @@ namespace glsld
             SimpleTimer timer;
             std::vector<lsp::CompletionItem> result = HandleCompletion(
                 server.GetConfig().languageService.completion, preambleInfo.GetCompletionInfo(), queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "completion",
                            timer.GetElapsedMilliseconds());
         });
@@ -362,7 +319,7 @@ namespace glsld
             std::optional<lsp::SignatureHelp> result =
                 HandleSignatureHelp(server.GetConfig().languageService.signatureHelp,
                                     preambleInfo.GetSignatureHelpInfo(), queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "signatureHelp",
                            timer.GetElapsedMilliseconds());
         });
@@ -376,7 +333,7 @@ namespace glsld
                                        const LanguagePreambleInfo& preambleInfo, const LanguageQueryInfo& queryInfo) {
             SimpleTimer timer;
             std::optional<lsp::Hover> result = HandleHover(server.GetConfig().languageService.hover, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "hover",
                            timer.GetElapsedMilliseconds());
         });
@@ -391,7 +348,7 @@ namespace glsld
             SimpleTimer timer;
             std::vector<lsp::Location> result =
                 HandleDefinition(server.GetConfig().languageService.definition, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "definition",
                            timer.GetElapsedMilliseconds());
         });
@@ -406,7 +363,7 @@ namespace glsld
             SimpleTimer timer;
             std::vector<lsp::Location> result =
                 HandleReferences(server.GetConfig().languageService.reference, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "references",
                            timer.GetElapsedMilliseconds());
         });
@@ -421,7 +378,7 @@ namespace glsld
             SimpleTimer timer;
             std::vector<lsp::InlayHint> result =
                 HandleInlayHints(server.GetConfig().languageService.inlayHint, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "inlayHint",
                            timer.GetElapsedMilliseconds());
         });
@@ -436,7 +393,7 @@ namespace glsld
             SimpleTimer timer;
             std::vector<lsp::FoldingRange> result =
                 HandleFoldingRange(server.GetConfig().languageService.foldingRange, queryInfo, params);
-            server.HandleServerResponse(requestId, result, false);
+            server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "foldingRange",
                            timer.GetElapsedMilliseconds());
         });
@@ -444,12 +401,4 @@ namespace glsld
 
 #pragma endregion
 
-#pragma region Window Features
-
-    auto LanguageService::OnShowMessage(lsp::ShowMessageParams params) -> void
-    {
-        server.HandleServerNotification(lsp::LSPMethod_ShowMessage, params);
-    }
-
-#pragma endregion
 } // namespace glsld

@@ -54,14 +54,11 @@ namespace glsld
 
     auto LanguageServer::Run() -> void
     {
-        running = true;
-        language->Initialize();
-        ScopeExit _{[this]() { language->Finalize(); }};
-        while (running && PullMessage()) {
+        while (!serverStopSource.stop_requested()) {
+            if (!PullMessage()) {
+                break;
+            }
         }
-
-        threadPool.wait();
-        running = false;
     }
 
     auto LanguageServer::Replay(std::string replayCommands) -> void
@@ -85,10 +82,8 @@ namespace glsld
                 return;
             }
 
-            DoHandleClientMessage(item.dump());
+            HandleClientMessage(item.dump());
         }
-
-        threadPool.wait();
     }
 
     auto LanguageServer::PullMessage() -> bool
@@ -141,7 +136,7 @@ namespace glsld
         }
 
         LogDebug("Received LSP message payload:\n```\n{}\n```", *payload);
-        DoHandleClientMessage(*payload);
+        HandleClientMessage(*payload);
         return true;
     }
 
@@ -170,7 +165,7 @@ namespace glsld
         return true;
     }
 
-    auto LanguageServer::DoHandleClientMessage(StringView messagePayload) -> void
+    auto LanguageServer::HandleClientMessage(StringView messagePayload) -> void
     {
         LogClientMessage(messagePayload);
 
@@ -198,7 +193,7 @@ namespace glsld
         }
     }
 
-    auto LanguageServer::DoHandleServerResponse(int requestId, nlohmann::json result, bool isError) -> void
+    auto LanguageServer::SendTypeErasedServerResponse(int requestId, nlohmann::json result, bool isError) -> void
     {
         nlohmann::json rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";
@@ -218,7 +213,7 @@ namespace glsld
         }
     }
 
-    auto LanguageServer::DoHandleServerNotification(const char* method, nlohmann::json params) -> void
+    auto LanguageServer::SendTypeErasedServerNotification(const char* method, nlohmann::json params) -> void
     {
         nlohmann::json rpcBlob;
         rpcBlob["jsonrpc"] = "2.0";
