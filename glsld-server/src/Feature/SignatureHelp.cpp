@@ -83,6 +83,7 @@ namespace glsld
 
             if (compilerResult.GetPreamble() != state.preamble) {
                 // If the preamble has changed, recompute the preamble info
+                state.preamble                = compilerResult.GetPreamble();
                 state.preambleFunctionDeclMap = ComputeSignatureHelpPreambleInfo(*compilerResult.GetPreamble());
             }
 
