@@ -5,14 +5,15 @@
 
 namespace glsld
 {
-    struct CompletionPreambleInfo
-    {
-        std::vector<lsp::CompletionItem> builtinCompletionItems;
-    };
-    auto ComputeCompletionPreambleInfo(const PrecompiledPreamble& preamble) -> std::unique_ptr<CompletionPreambleInfo>;
-
     auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>;
-    auto HandleCompletion(const CompletionConfig& config, const CompletionPreambleInfo& preambleInfo,
-                          const LanguageQueryInfo& queryInfo, const lsp::CompletionParams& params)
-        -> std::vector<lsp::CompletionItem>;
+
+    struct CompletionState
+    {
+        std::shared_ptr<PrecompiledPreamble> preamble            = nullptr;
+        std::vector<lsp::CompletionItem> preambleCompletionItems = {};
+    };
+
+    auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& queryInfo, CompletionState& state,
+                          const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>;
+
 } // namespace glsld

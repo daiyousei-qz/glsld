@@ -50,7 +50,7 @@ namespace glsld
     }
 
     auto ComputeSignatureHelpPreambleInfo(const PrecompiledPreamble& preamble)
-        -> std::unique_ptr<SignatureHelpPreambleInfo>
+        -> std::unordered_multimap<AtomString, const AstFunctionDecl*>
     {
         std::unordered_multimap<AtomString, const AstFunctionDecl*> builtinFunctionDeclMap;
         for (auto decl : preamble.GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
@@ -59,16 +59,21 @@ namespace glsld
             }
         }
 
-        return std::make_unique<SignatureHelpPreambleInfo>(std::move(builtinFunctionDeclMap));
+        return builtinFunctionDeclMap;
     }
 
     // FIXME: implement correctly. Currently this is a placeholder implementation.
-    auto HandleSignatureHelp(const SignatureHelpConfig& config, const SignatureHelpPreambleInfo& preambleInfo,
-                             const LanguageQueryInfo& queryInfo, const lsp::SignatureHelpParams& params)
+    auto HandleSignatureHelp(const SignatureHelpConfig& config, const LanguageQueryInfo& queryInfo,
+                             SignatureHelpState& state, const lsp::SignatureHelpParams& params)
         -> std::optional<lsp::SignatureHelp>
     {
         if (!config.enable) {
             return std::nullopt;
+        }
+
+        if (state.builtinFunctionDeclMap.empty()) {
+            state.builtinFunctionDeclMap =
+                ComputeSignatureHelpPreambleInfo(*queryInfo.GetCompilerResult().GetPreamble());
         }
 
         auto expr = TraverseAst(SignatureHelpLocatingVisitor{queryInfo, FromLspPosition(params.position)},
@@ -82,7 +87,7 @@ namespace glsld
 
             // For function in the default library
             // FIXME: handle user preamble
-            auto [it, end] = preambleInfo.builtinFunctionDeclMap.equal_range(funcName);
+            auto [it, end] = state.builtinFunctionDeclMap.equal_range(funcName);
             for (auto [_, funcDecl] : std::ranges::subrange(it, end)) {
                 std::string label         = srcBuilder.Print(*funcDecl);
                 std::string documentation = queryInfo.QueryCommentDescription(*funcDecl);

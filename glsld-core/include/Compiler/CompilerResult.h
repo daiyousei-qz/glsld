@@ -1,7 +1,5 @@
 #pragma once
-#include "Ast/Misc.h"
 #include "Basic/AtomTable.h"
-#include "Basic/Common.h"
 #include "Basic/SourceInfo.h"
 #include "Support/StringView.h"
 #include "Compiler/AstContext.h"
@@ -9,7 +7,6 @@
 #include "Compiler/CompilerConfig.h"
 #include "Compiler/MacroTable.h"
 #include "Compiler/SymbolTable.h"
-#include "Compiler/SyntaxToken.h"
 
 #include <memory>
 
@@ -107,14 +104,20 @@ namespace glsld
         std::unique_ptr<const CompilerArtifact> userFileArtifacts       = nullptr;
 
     public:
-        CompilerResult(std::unique_ptr<const AtomTable> atomTable, std::unique_ptr<const AstContext> astContext,
+        CompilerResult(std::shared_ptr<PrecompiledPreamble> preamble, std::unique_ptr<const AtomTable> atomTable,
+                       std::unique_ptr<const AstContext> astContext,
                        std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts,
                        std::unique_ptr<const CompilerArtifact> userPreambleArtifacts,
                        std::unique_ptr<const CompilerArtifact> userFileArtifacts)
-            : atomTable(std::move(atomTable)), astContext(std::move(astContext)),
+            : preamble(std::move(preamble)), atomTable(std::move(atomTable)), astContext(std::move(astContext)),
               systemPreambleArtifacts(std::move(systemPreambleArtifacts)),
               userPreambleArtifacts(std::move(userPreambleArtifacts)), userFileArtifacts(std::move(userFileArtifacts))
         {
+        }
+
+        auto GetPreamble() const noexcept -> const std::shared_ptr<PrecompiledPreamble>&
+        {
+            return preamble;
         }
 
         auto GetSystemPreambleArtifacts() const noexcept -> const CompilerArtifact&
