@@ -255,7 +255,7 @@ namespace glsld
 
     static auto NextSemanticTokensResultId(SemanticTokensState& state) -> std::string
     {
-        return std::to_string(++state.nextResultId);
+        return std::to_string(state.nextResultId.fetch_add(1, std::memory_order_relaxed) + 1);
     }
 
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)
@@ -335,15 +335,27 @@ namespace glsld
         std::size_t oldEnd = state.data.size();
         std::size_t newEnd = tokens.data.size();
 
-        if (params.previousResultId == state.resultId) {
-            while (start < oldEnd && start < newEnd && state.data[start] == tokens.data[start]) {
-                ++start;
+        if (params.previousResultId != state.resultId) {
+            if (!state.data.empty() || !tokens.data.empty()) {
+                result.edits.push_back(lsp::SemanticTokensEdit{
+                    .start       = 0,
+                    .deleteCount = static_cast<lsp::uinteger>(state.data.size()),
+                    .data        = tokens.data,
+                });
             }
 
-            while (oldEnd > start && newEnd > start && state.data[oldEnd - 1] == tokens.data[newEnd - 1]) {
-                --oldEnd;
-                --newEnd;
-            }
+            state.resultId = result.resultId;
+            state.data     = std::move(tokens.data);
+            return result;
+        }
+
+        while (start < oldEnd && start < newEnd && state.data[start] == tokens.data[start]) {
+            ++start;
+        }
+
+        while (oldEnd > start && newEnd > start && state.data[oldEnd - 1] == tokens.data[newEnd - 1]) {
+            --oldEnd;
+            --newEnd;
         }
 
         if (start != oldEnd || start != newEnd) {

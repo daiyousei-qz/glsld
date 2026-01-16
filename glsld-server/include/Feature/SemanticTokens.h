@@ -4,6 +4,7 @@
 #include "Server/Protocol.h"
 #include "Support/EnumReflection.h"
 
+#include <atomic>
 #include <cstdint>
 
 namespace glsld::lsp
@@ -51,7 +52,7 @@ namespace glsld
 
     struct SemanticTokensState
     {
-        std::uint64_t nextResultId = 0;
+        std::atomic<std::uint64_t> nextResultId{0};
         std::string resultId;
         std::vector<lsp::uinteger> data;
     };

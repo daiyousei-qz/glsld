@@ -2,6 +2,8 @@
 
 #include "Feature/SemanticTokens.h"
 
+#include <algorithm>
+
 using namespace glsld;
 
 static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticTokenConfig& config = {.enable = true})
@@ -14,7 +16,12 @@ static auto ApplySemanticTokenEdits(std::vector<lsp::uinteger> data,
                                     const std::vector<lsp::SemanticTokensEdit>& edits)
     -> std::vector<lsp::uinteger>
 {
-    for (const auto& edit : edits) {
+    std::vector<lsp::SemanticTokensEdit> sortedEdits(edits.begin(), edits.end());
+    std::ranges::sort(sortedEdits, [](const auto& lhs, const auto& rhs) {
+        return lhs.start > rhs.start;
+    });
+
+    for (const auto& edit : sortedEdits) {
         auto start = static_cast<std::size_t>(edit.start);
         auto end   = start + static_cast<std::size_t>(edit.deleteCount);
         auto startIt = data.begin() + static_cast<std::vector<lsp::uinteger>::difference_type>(start);
