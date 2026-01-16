@@ -11,7 +11,6 @@
 #include "Compiler/MacroTable.h"
 #include "Compiler/SourceManager.h"
 #include "Compiler/SymbolTable.h"
-#include "Support/EnumReflection.h"
 
 #include <memory>
 
@@ -150,7 +149,7 @@ namespace glsld
         }
         auto CreateCompileResult() noexcept -> std::unique_ptr<CompilerResult>
         {
-            return std::make_unique<CompilerResult>(std::move(atomTable), std::move(astContext),
+            return std::make_unique<CompilerResult>(std::move(preamble), std::move(atomTable), std::move(astContext),
                                                     std::move(systemPreambleArtifacts),
                                                     std::move(userPreambleArtifacts), std::move(userFileArtifacts));
         }

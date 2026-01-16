@@ -8,8 +8,8 @@ using namespace glsld;
 static auto MockSignatureHelp(const ServerTestFixture& fixture, TextPosition pos,
                               const SignatureHelpConfig& config = {.enable = true}) -> std::optional<lsp::SignatureHelp>
 {
-    SignatureHelpPreambleInfo preambleInfo;
-    return HandleSignatureHelp(config, preambleInfo, fixture.GetLanguageQueryInfo(),
+    SignatureHelpState state;
+    return HandleSignatureHelp(config, fixture.GetLanguageQueryInfo(), state,
                                lsp::SignatureHelpParams{
                                    .textDocument = {"MockDocument"},
                                    .position     = ToLspPosition(pos),

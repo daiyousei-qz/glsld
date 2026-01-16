@@ -278,7 +278,7 @@ namespace glsld
         }
     };
 
-    auto ComputeCompletionPreambleInfo(const PrecompiledPreamble& preamble) -> std::unique_ptr<CompletionPreambleInfo>
+    auto ComputePreambleCompletionItems(const PrecompiledPreamble& preamble) -> std::vector<lsp::CompletionItem>
     {
         std::vector<lsp::CompletionItem> builtinCompletionItems;
 
@@ -306,7 +306,7 @@ namespace glsld
             });
         }
 
-        return std::make_unique<CompletionPreambleInfo>(std::move(builtinCompletionItems));
+        return builtinCompletionItems;
     }
 
     auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>
@@ -320,9 +320,8 @@ namespace glsld
         };
     }
 
-    auto HandleCompletion(const CompletionConfig& config, const CompletionPreambleInfo& preambleInfo,
-                          const LanguageQueryInfo& queryInfo, const lsp::CompletionParams& params)
-        -> std::vector<lsp::CompletionItem>
+    auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& queryInfo, CompletionState& state,
+                          const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>
     {
         if (!config.enable) {
             return {};
@@ -355,8 +354,14 @@ namespace glsld
             // FIXME: handle other type
         }
         else {
+            if (compilerResult.GetPreamble() != state.preamble) {
+                // Recompute the cached completion items if the preamble has changed
+                state.preamble                = compilerResult.GetPreamble();
+                state.preambleCompletionItems = ComputePreambleCompletionItems(*state.preamble);
+            }
+
             // Copy the completion items from the language and standard library
-            std::ranges::copy_if(preambleInfo.builtinCompletionItems, std::back_inserter(result),
+            std::ranges::copy_if(state.preambleCompletionItems, std::back_inserter(result),
                                  [&](const lsp::CompletionItem& item) -> bool {
                                      switch (item.kind) {
                                      case lsp::CompletionItemKind::Struct:

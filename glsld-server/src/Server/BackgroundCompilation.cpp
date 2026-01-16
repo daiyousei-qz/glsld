@@ -37,10 +37,10 @@ namespace glsld
         auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
         auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
 
-        nextConfig                   = preambleInfo->GetPreamble()->GetLanguageConfig();
+        nextConfig                   = preamble->GetLanguageConfig();
         auto configCollectorCallback = LanguageConfigCollector{nextConfig};
 
-        auto compiler = std::make_unique<CompilerInvocation>(preambleInfo->GetPreamble());
+        auto compiler = std::make_unique<CompilerInvocation>(preamble);
         compiler->SetCountUtf16Characters(true);
         compiler->AddIncludePath(std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
         compiler->SetMainFileFromBuffer(sourceString);
@@ -48,7 +48,8 @@ namespace glsld
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);
 
-        info        = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
+        info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
+        latchCompilation.CountDown();
         isAvailable = true;
     }
 
