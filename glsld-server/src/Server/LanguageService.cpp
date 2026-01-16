@@ -24,7 +24,7 @@ namespace glsld
             // Switch to background worker thread
             stdexec::schedule(backgroundWorkerCtx.get_scheduler()) |
             // Do the background compilation work
-            stdexec::then([this, backgroundCompilation = ctx.GetBackgroundCompilation()]() {
+            stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()]() {
                 SimpleTimer timer;
                 backgroundCompilation->Run();
                 server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
@@ -234,6 +234,7 @@ namespace glsld
             auto ctx = std::move(itCtx->second);
             documentContexts.Erase(itCtx);
 
+            // FIXME: stop operations that are still running on this context
             stdexec::start_detached(
                 stdexec::starts_on(backgroundWorkerCtx.get_scheduler(), ctx->GetAsyncScope().on_empty()) |
                 stdexec::then([ctx = std::move(ctx)]() {

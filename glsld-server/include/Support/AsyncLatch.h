@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Basic/Common.h"
+#include "Support/IntrusiveQueue.h"
+
 #include <stdexec/execution.hpp>
 #include <mutex>
 
@@ -20,39 +22,10 @@ namespace glsld
         };
 
         // Queue of operation states that are waiting for the latch to reach zero.
-        WaiterBase* signalResumeHead = nullptr;
-        WaiterBase* signalResumeTail = nullptr;
+        IntrusiveQueue<WaiterBase> signalResumeQueue;
 
         // The latch count.
         uint64_t counter;
-
-        auto PushResumeWaiter(WaiterBase& waiter) noexcept -> void
-        {
-            if (signalResumeTail) {
-                assert(signalResumeHead);
-                signalResumeTail->next = &waiter;
-                signalResumeTail       = &waiter;
-            }
-            else {
-                signalResumeHead = &waiter;
-                signalResumeTail = &waiter;
-            }
-        }
-
-        auto PopResumeWaiter() noexcept -> WaiterBase*
-        {
-            if (!signalResumeHead) {
-                assert(!signalResumeTail);
-                return nullptr;
-            }
-            auto* waiter     = signalResumeHead;
-            signalResumeHead = signalResumeHead->next;
-            if (!signalResumeHead) {
-                signalResumeTail = nullptr;
-            }
-            waiter->next = nullptr;
-            return waiter;
-        }
 
         class AsyncLatchWaitSender : public stdexec::sender_t
         {
@@ -83,13 +56,14 @@ namespace glsld
 
                 auto start() noexcept -> void
                 {
-                    std::lock_guard _{latch->internalMutex};
+                    std::unique_lock lock{latch->internalMutex};
                     if (latch->counter == 0) {
                         // Latch already reached zero, resume immediately
+                        lock.unlock();
                         resume(*this, false);
                     }
                     else {
-                        latch->PushResumeWaiter(*this);
+                        latch->signalResumeQueue.push(this);
                     }
                 }
             };
@@ -123,21 +97,24 @@ namespace glsld
         {
 #if defined(GLSLD_DEBUG)
             std::lock_guard _{internalMutex};
-            GLSLD_ASSERT(signalResumeHead == nullptr && signalResumeTail == nullptr);
+            GLSLD_ASSERT(signalResumeQueue.empty() && "Destroying an AsyncLatch with waiters");
 #endif
         }
 
         auto CountDown() noexcept -> void
         {
-            std::lock_guard _{internalMutex};
+            std::unique_lock lock{internalMutex};
             if (counter > 0) {
                 --counter;
             }
 
             if (counter == 0) {
-                while (auto resumeWaiter = PopResumeWaiter()) {
+                auto waiters = std::move(signalResumeQueue);
+                lock.unlock();
+
+                for (WaiterBase& waiter : waiters) {
                     // Resume all waiters
-                    resumeWaiter->resume(*resumeWaiter, false);
+                    waiter.resume(waiter, false);
                 }
             }
         }
@@ -161,10 +138,13 @@ namespace glsld
         // Cancel all waiters and resume them with stopped signal
         auto Clear() noexcept -> void
         {
-            std::lock_guard _{internalMutex};
-            while (auto resumeWaiter = PopResumeWaiter()) {
+            std::unique_lock lock{internalMutex};
+            auto waiters = std::move(signalResumeQueue);
+            lock.unlock();
+
+            for (WaiterBase& waiter : waiters) {
                 // Resume all waiters with stopped signal
-                resumeWaiter->resume(*resumeWaiter, true);
+                waiter.resume(waiter, true);
             }
         }
     };
