@@ -183,6 +183,8 @@ namespace glsld
 
         auto OnSemanticTokensFull(int requestId, lsp::SemanticTokensParams params) -> void;
 
+        auto OnSemanticTokensDelta(int requestId, lsp::SemanticTokensDeltaParams params) -> void;
+
         auto OnCompletion(int requestId, lsp::CompletionParams params) -> void;
 
         auto OnSignatureHelp(int requestId, lsp::SignatureHelpParams params) -> void;

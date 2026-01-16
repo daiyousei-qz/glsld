@@ -4,6 +4,8 @@
 #include "Server/Protocol.h"
 #include "Support/EnumReflection.h"
 
+#include <cstdint>
+
 namespace glsld::lsp
 {
 
@@ -47,14 +49,23 @@ namespace glsld
         SemanticTokenModifierBits modifiers;
     };
 
+    struct SemanticTokensState
+    {
+        std::uint64_t nextResultId = 0;
+        std::string resultId;
+        std::vector<lsp::uinteger> data;
+    };
+
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)
         -> std::vector<SemanticTokenInfo>;
 
     auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> std::optional<lsp::SemanticTokensOptions>;
 
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                              const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens;
+                              SemanticTokensState& state, const lsp::SemanticTokensParams& params)
+        -> lsp::SemanticTokens;
     auto HandleSemanticTokensDelta(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                                   const lsp::SemanticTokensDeltaParams& params) -> lsp::SemanticTokensDelta;
+                                   SemanticTokensState& state, const lsp::SemanticTokensDeltaParams& params)
+        -> lsp::SemanticTokensDelta;
 
 } // namespace glsld

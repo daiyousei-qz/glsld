@@ -10,6 +10,21 @@ static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticT
     return CollectSemanticTokens(config, fixture.GetLanguageQueryInfo());
 }
 
+static auto ApplySemanticTokenEdits(std::vector<lsp::uinteger> data,
+                                    const std::vector<lsp::SemanticTokensEdit>& edits)
+    -> std::vector<lsp::uinteger>
+{
+    for (const auto& edit : edits) {
+        auto start = static_cast<std::size_t>(edit.start);
+        auto end   = start + static_cast<std::size_t>(edit.deleteCount);
+        auto startIt = data.begin() + static_cast<std::vector<lsp::uinteger>::difference_type>(start);
+        auto endIt   = data.begin() + static_cast<std::vector<lsp::uinteger>::difference_type>(end);
+        auto insertPos = data.erase(startIt, endIt);
+        data.insert(insertPos, edit.data.begin(), edit.data.end());
+    }
+    return data;
+}
+
 TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 {
     auto checkSemanticToken = [&](ArrayView<SemanticTokenInfo> tokens, StringView labelBegin, StringView labelEnd,
@@ -158,5 +173,30 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         checkSemanticToken(semanticTokens, "param.access.begin", "param.access.end", SemanticTokenType::Parameter);
         checkSemanticToken(semanticTokens, "global.access.begin", "global.access.end", SemanticTokenType::Variable);
         checkSemanticToken(semanticTokens, "unknown.access.begin", "unknown.access.end", SemanticTokenType::Variable);
+    }
+
+    SECTION("DeltaEdits")
+    {
+        SemanticTokensState state;
+        lsp::SemanticTokensParams fullParams = {};
+        CompileLabelledSource(R"(
+            int ^[value.begin]value^[value.end] = 1;
+        )");
+        auto fullTokens = HandleSemanticTokens({.enable = true}, GetLanguageQueryInfo(), state, fullParams);
+        REQUIRE(!fullTokens.resultId.empty());
+
+        CompileLabelledSource(R"(
+            int ^[value.begin]value^[value.end] = 2;
+            int ^[other.begin]other^[other.end] = value;
+        )");
+        lsp::SemanticTokensDeltaParams deltaParams = {.previousResultId = fullTokens.resultId};
+        auto deltaTokens = HandleSemanticTokensDelta({.enable = true}, GetLanguageQueryInfo(), state, deltaParams);
+        REQUIRE(!deltaTokens.resultId.empty());
+        REQUIRE(!deltaTokens.edits.empty());
+
+        auto mergedData = ApplySemanticTokenEdits(fullTokens.data, deltaTokens.edits);
+        SemanticTokensState expectedState;
+        auto expectedTokens = HandleSemanticTokens({.enable = true}, GetLanguageQueryInfo(), expectedState, fullParams);
+        REQUIRE(mergedData == expectedTokens.data);
     }
 }

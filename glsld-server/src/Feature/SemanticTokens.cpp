@@ -3,6 +3,8 @@
 #include "Server/LanguageQueryVisitor.h"
 #include "Support/EnumReflection.h"
 
+#include <string>
+
 namespace glsld
 {
     auto CreateSemanticTokenInfo(std::vector<SemanticTokenInfo>& tokenBuffer, const LanguageQueryInfo& info,
@@ -251,6 +253,11 @@ namespace glsld
         return result;
     }
 
+    static auto NextSemanticTokensResultId(SemanticTokensState& state) -> std::string
+    {
+        return std::to_string(++state.nextResultId);
+    }
+
     auto CollectSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info)
         -> std::vector<SemanticTokenInfo>
     {
@@ -299,20 +306,59 @@ namespace glsld
                 },
             .full =
                 lsp::SemanticTokensOptions::FullOptions{
-                    .delta = false,
+                    .delta = true,
                 },
         };
     }
 
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                              const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens
+                              SemanticTokensState& state, const lsp::SemanticTokensParams& params)
+        -> lsp::SemanticTokens
     {
-        return ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        auto result    = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        result.resultId = NextSemanticTokensResultId(state);
+        state.resultId  = result.resultId;
+        state.data      = result.data;
+        return result;
     }
 
     auto HandleSemanticTokensDelta(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                                   const lsp::SemanticTokensDeltaParams& params) -> lsp::SemanticTokensDelta
+                                   SemanticTokensState& state, const lsp::SemanticTokensDeltaParams& params)
+        -> lsp::SemanticTokensDelta
     {
-        GLSLD_NO_IMPL();
+        auto tokens = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+
+        lsp::SemanticTokensDelta result;
+        result.resultId = NextSemanticTokensResultId(state);
+
+        std::size_t start  = 0;
+        std::size_t oldEnd = state.data.size();
+        std::size_t newEnd = tokens.data.size();
+
+        if (params.previousResultId == state.resultId) {
+            while (start < oldEnd && start < newEnd && state.data[start] == tokens.data[start]) {
+                ++start;
+            }
+
+            while (oldEnd > start && newEnd > start && state.data[oldEnd - 1] == tokens.data[newEnd - 1]) {
+                --oldEnd;
+                --newEnd;
+            }
+        }
+
+        if (start != oldEnd || start != newEnd) {
+            auto startIt = tokens.data.begin() + static_cast<std::vector<lsp::uinteger>::difference_type>(start);
+            auto endIt   = tokens.data.begin() + static_cast<std::vector<lsp::uinteger>::difference_type>(newEnd);
+            result.edits.push_back(lsp::SemanticTokensEdit{
+                .start       = static_cast<lsp::uinteger>(start),
+                .deleteCount = static_cast<lsp::uinteger>(oldEnd - start),
+                .data        = std::vector<lsp::uinteger>(startIt, endIt),
+            });
+        }
+
+        state.resultId = result.resultId;
+        state.data     = std::move(tokens.data);
+
+        return result;
     }
 } // namespace glsld
