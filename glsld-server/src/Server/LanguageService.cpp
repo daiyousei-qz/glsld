@@ -21,7 +21,9 @@ namespace glsld
     auto LanguageService::ScheduleBackgroundCompilation(TextDocumentContext& ctx) -> void
     {
         ctx.GetAsyncScope().spawn(
+            // Switch to background worker thread
             stdexec::schedule(backgroundWorkerCtx.get_scheduler()) |
+            // Do the background compilation work
             stdexec::then([this, backgroundCompilation = ctx.GetBackgroundCompilation()]() {
                 SimpleTimer timer;
                 backgroundCompilation->Run();
@@ -37,8 +39,11 @@ namespace glsld
         }
 
         ctx.GetAsyncScope().spawn(
+            // Wait for long enough to debounce rapid changes
             exec::schedule_after(timedSchedulerCtx.get_scheduler(), std::chrono::seconds(1)) |
+            // Switch to background worker thread
             stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
+            // Do the background diagnostic work
             stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()] {
                 if (backgroundCompilation->TestExpired()) {
                     server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",

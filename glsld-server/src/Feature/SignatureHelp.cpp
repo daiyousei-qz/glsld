@@ -71,23 +71,24 @@ namespace glsld
             return std::nullopt;
         }
 
-        if (state.builtinFunctionDeclMap.empty()) {
-            state.builtinFunctionDeclMap =
-                ComputeSignatureHelpPreambleInfo(*queryInfo.GetCompilerResult().GetPreamble());
-        }
+        const auto& compilerResult = queryInfo.GetCompilerResult();
 
         auto expr = TraverseAst(SignatureHelpLocatingVisitor{queryInfo, FromLspPosition(params.position)},
                                 queryInfo.GetUserFileAst());
-
         if (expr) {
             auto funcName = expr->GetNameToken().text;
 
             std::vector<lsp::SignatureInformation> result;
             SourceReconstructionBuilder srcBuilder;
 
+            if (compilerResult.GetPreamble() != state.preamble) {
+                // If the preamble has changed, recompute the preamble info
+                state.preambleFunctionDeclMap = ComputeSignatureHelpPreambleInfo(*compilerResult.GetPreamble());
+            }
+
             // For function in the default library
             // FIXME: handle user preamble
-            auto [it, end] = state.builtinFunctionDeclMap.equal_range(funcName);
+            auto [it, end] = state.preambleFunctionDeclMap.equal_range(funcName);
             for (auto [_, funcDecl] : std::ranges::subrange(it, end)) {
                 std::string label         = srcBuilder.Print(*funcDecl);
                 std::string documentation = queryInfo.QueryCommentDescription(*funcDecl);

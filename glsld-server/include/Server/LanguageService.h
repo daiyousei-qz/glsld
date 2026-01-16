@@ -122,21 +122,26 @@ namespace glsld
 
             FeatureStateObject& stateObject = ctx->GetLanguageFeatureState<StateType>();
             ctx->GetAsyncScope().spawn(
-                ctx->GetBackgroundCompilation()->AsyncWaitAvailable() | stdexec::let_value([&stateObject] {
-                    if constexpr (std::is_const_v<StateType> || std::is_same_v<StateType, std::monostate>) {
-                        // If the state is const or monostate, we don't need to lock it.
-                        return stdexec::just(std::unique_lock<AsyncMutex>{stateObject.mutex, std::defer_lock});
-                    }
-                    else {
-                        return stateObject.mutex.AsyncLetLock();
-                    }
-                }) |
-                stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
-                stdexec::then([backgroundCompilation = ctx->GetBackgroundCompilation(), &stateObject,
-                               callback = std::move(callback)](std::unique_lock<AsyncMutex> /*lock*/) mutable {
-                    callback(backgroundCompilation->GetLanguageQueryInfo(),
-                             std::any_cast<StateType&>(stateObject.state));
-                }));
+                // Wait for the background compilation to finish
+                ctx->GetBackgroundCompilation()->AsyncWaitAvailable()
+                // Acquire the state lock if necessary
+                | stdexec::let_value([&stateObject] {
+                      if constexpr (std::is_const_v<StateType> || std::is_same_v<StateType, std::monostate>) {
+                          // If the state is const or monostate, we don't need to lock it.
+                          return stdexec::just(std::unique_lock<AsyncMutex>{stateObject.mutex, std::defer_lock});
+                      }
+                      else {
+                          return stateObject.mutex.AsyncLetLock();
+                      }
+                  })
+                // Continue on the background worker thread
+                | stdexec::continues_on(backgroundWorkerCtx.get_scheduler())
+                // Finally handle the query
+                | stdexec::then([backgroundCompilation = ctx->GetBackgroundCompilation(), &stateObject,
+                                 callback = std::move(callback)](std::unique_lock<AsyncMutex> /*lock*/) mutable {
+                      callback(backgroundCompilation->GetLanguageQueryInfo(),
+                               std::any_cast<StateType&>(stateObject.state));
+                  }));
         }
 
         auto InferShaderStageFromUri(StringView uri) -> GlslShaderStage;

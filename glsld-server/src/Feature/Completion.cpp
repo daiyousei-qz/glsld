@@ -355,7 +355,7 @@ namespace glsld
         }
         else {
             if (compilerResult.GetPreamble() != state.preamble) {
-                // Recompute the preamble info
+                // Recompute the cached completion items if the preamble has changed
                 state.preamble                = compilerResult.GetPreamble();
                 state.preambleCompletionItems = ComputePreambleCompletionItems(*state.preamble);
             }

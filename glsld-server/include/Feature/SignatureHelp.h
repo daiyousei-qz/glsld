@@ -9,7 +9,8 @@ namespace glsld
 
     struct SignatureHelpState
     {
-        std::unordered_multimap<AtomString, const AstFunctionDecl*> builtinFunctionDeclMap;
+        std::shared_ptr<PrecompiledPreamble> preamble                                       = nullptr;
+        std::unordered_multimap<AtomString, const AstFunctionDecl*> preambleFunctionDeclMap = {};
     };
 
     auto HandleSignatureHelp(const SignatureHelpConfig& config, const LanguageQueryInfo& queryInfo,
