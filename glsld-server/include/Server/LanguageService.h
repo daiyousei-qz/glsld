@@ -42,10 +42,10 @@ namespace glsld
             exec::async_scope scope;
 
             // The latest background compilation for this document.
-            std::shared_ptr<BackgroundCompilation> backgroundCompilation;
+            std::shared_ptr<BackgroundCompilation> backgroundCompilation = nullptr;
 
             // This map holds the state objects for different language features.
-            std::map<void*, FeatureStateObject> stateLookup;
+            std::map<void*, FeatureStateObject> stateLookup = {};
 
             template <typename T>
             static auto GetTypeId() noexcept -> void*
@@ -54,10 +54,14 @@ namespace glsld
                 return static_cast<void*>(&dummy);
             }
 
+            auto InferShaderStageFromUri(StringView uri) -> GlslShaderStage;
+
+            auto InitializeTextDocument(const lsp::DidOpenTextDocumentParams& params) -> void;
+
         public:
-            TextDocumentContext(std::shared_ptr<BackgroundCompilation> backgroundCompilation)
-                : backgroundCompilation(std::move(backgroundCompilation))
+            TextDocumentContext(const lsp::DidOpenTextDocumentParams& params)
             {
+                InitializeTextDocument(params);
             }
 
             auto GetAsyncScope() -> exec::async_scope&
@@ -70,10 +74,7 @@ namespace glsld
                 return backgroundCompilation;
             }
 
-            auto SetBackgroundCompilation(std::shared_ptr<BackgroundCompilation> newCompilation) -> void
-            {
-                backgroundCompilation = std::move(newCompilation);
-            }
+            auto UpdateTextDocument(const lsp::DidChangeTextDocumentParams& params) -> void;
 
             template <typename StateType>
             auto GetLanguageFeatureState() -> FeatureStateObject&
@@ -91,32 +92,30 @@ namespace glsld
         // uri -> document context
         StringMap<std::unique_ptr<TextDocumentContext>> documentContexts;
 
-        // FIXME: move this to TextDocumentContext?
-        std::unordered_map<LanguageConfig, std::shared_ptr<PrecompiledPreamble>> preambleCache;
-
-        // Schedule a background compilation for the given BackgroundCompilation instance.
+        // Schedule a background compilation for the given TextDocumentContext instance.
         auto ScheduleBackgroundCompilation(TextDocumentContext& ctx) -> void;
 
-        // Schedule a background diagnostic for the given BackgroundCompilation instance.
+        // Schedule a background diagnostic for the given TextDocumentContext instance.
         auto ScheduleBackgroundDiagnostic(TextDocumentContext& ctx) -> void;
+
+        // Schedule a background destruction for the given TextDocumentContext instance.
+        auto ScheduleBackgroundClosingDocument(std::unique_ptr<TextDocumentContext> ctx) -> void;
 
         // Schedule a language query for the given uri in a background thread, which waits for the compilation and then
         // runs the callback.
-        // TODO: could we use std::move_only_function here?
         template <typename StateType>
         auto ScheduleLanguageQuery(StringView uri,
                                    std::move_only_function<auto(const LanguageQueryInfo&, StateType&)->void> callback)
             -> void
         {
-            auto itCtx = documentContexts.Find(uri);
-            if (itCtx == documentContexts.end()) {
+            auto& ctx = documentContexts[uri];
+            if (!ctx) {
                 // Bad request. Document is not open.
                 server.LogInfo("Received language query for a document that is not open: {}", uri);
                 return;
             }
 
             // NOTE we need to make a copy of the provider here so it doesn't get released while in analysis
-            auto& ctx = itCtx->second;
             GLSLD_ASSERT(ctx->GetBackgroundCompilation() &&
                          "Background compilation must be present in the document context");
 
@@ -143,10 +142,6 @@ namespace glsld
                                std::any_cast<StateType&>(stateObject.state));
                   }));
         }
-
-        auto InferShaderStageFromUri(StringView uri) -> GlslShaderStage;
-
-        auto GetLanguageQueryPreamble(const LanguageConfig& config) -> std::shared_ptr<PrecompiledPreamble>;
 
     public:
         LanguageService(LanguageServer& server) : server(server)

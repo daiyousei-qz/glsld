@@ -34,13 +34,25 @@ namespace glsld
 
     auto BackgroundCompilation::Run() -> void
     {
+        // First pass:
+        std::shared_ptr<PrecompiledPreamble> localPreamble = preamble;
+        if (localPreamble == nullptr) {
+            CompilerInvocation invocation;
+            invocation.ApplyLanguageConfig(languageConfig);
+            localPreamble = invocation.CompilePreamble(nullptr);
+        }
+
+        nextPreamble        = localPreamble;
+        isPreambleAvailable = true;
+
+        // Second pass:
         auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
         auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
 
-        nextConfig                   = preamble->GetLanguageConfig();
+        nextConfig                   = localPreamble->GetLanguageConfig();
         auto configCollectorCallback = LanguageConfigCollector{nextConfig};
 
-        auto compiler = std::make_unique<CompilerInvocation>(preamble);
+        auto compiler = std::make_unique<CompilerInvocation>(std::move(localPreamble));
         compiler->SetCountUtf16Characters(true);
         compiler->AddIncludePath(std::filesystem::path(Uri::FromString(uri)->GetPath().StdStrView()).parent_path());
         compiler->SetMainFileFromBuffer(sourceString);
@@ -48,9 +60,11 @@ namespace glsld
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);
 
-        info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
-        latchCompilation.CountDown();
+        info        = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
         isAvailable = true;
+
+        // Signal availability
+        latchCompilation.CountDown();
     }
 
 } // namespace glsld

@@ -9,20 +9,32 @@
 
 namespace glsld
 {
-    class BackgroundCompilation : std::enable_shared_from_this<BackgroundCompilation>
+    class BackgroundCompilation
     {
     private:
         // Document version
-        int version;
-        std::string uri;
-        std::string sourceString;
-        std::shared_ptr<PrecompiledPreamble> preamble;
+        const int version;
+        const std::string uri;
+        const std::string sourceString;
+        const LanguageConfig languageConfig;
+        const std::shared_ptr<PrecompiledPreamble> preamble = nullptr;
 
-        // Gates background compilation, including next language config and query info
+        // Gates background compilation. This releases waiters when compilation is done.
         AsyncLatch latchCompilation;
 
+        // Preamble that is used in this compilation, which may be shared later. This is available and unmutable after
+        // `isPreambleAvailable` is set.
+        std::shared_ptr<PrecompiledPreamble> nextPreamble;
+
+        // Language config collected during this compilation. This is available and unmutable after `isAvailable` is
+        // set.
         LanguageConfig nextConfig;
+
+        // Compilation result. This is available and unmutable after `isAvailable` is set.
         std::unique_ptr<LanguageQueryInfo> info = nullptr;
+
+        // Set when the preamble is available
+        std::atomic<bool> isPreambleAvailable = false;
 
         // Set when the compilation result is available
         std::atomic<bool> isAvailable = false;
@@ -31,13 +43,15 @@ namespace glsld
         std::atomic<bool> isExpired = false;
 
     public:
-        BackgroundCompilation(int version, std::string uri, std::string sourceString,
+        BackgroundCompilation(int version, std::string uri, std::string sourceString, LanguageConfig languageConfig,
                               std::shared_ptr<PrecompiledPreamble> preamble)
             : version(version), uri(std::move(uri)), sourceString(std::move(sourceString)),
-              preamble(std::move(preamble))
+              languageConfig(languageConfig), preamble(std::move(preamble))
         {
+            GLSLD_ASSERT(this->preamble == nullptr || languageConfig == this->preamble->GetLanguageConfig());
         }
 
+        // This class is always pinned in heap after creation
         BackgroundCompilation(const BackgroundCompilation&)            = delete;
         BackgroundCompilation(BackgroundCompilation&&)                 = delete;
         BackgroundCompilation& operator=(const BackgroundCompilation&) = delete;
@@ -52,12 +66,17 @@ namespace glsld
             return latchCompilation.AsyncWait();
         }
 
-        auto MarkExpired() -> void
+        auto IsAvailable() const -> bool
+        {
+            return isAvailable;
+        }
+
+        auto SetExpired() -> void
         {
             isExpired = true;
         }
 
-        auto TestExpired() -> bool
+        auto IsExpired() const -> bool
         {
             return isExpired;
         }
@@ -79,7 +98,19 @@ namespace glsld
 
         auto GetLanguageConfig() const -> const LanguageConfig&
         {
-            return preamble->GetLanguageConfig();
+            return languageConfig;
+        }
+
+        auto GetNextPreamble() const -> std::shared_ptr<PrecompiledPreamble>
+        {
+            if (isPreambleAvailable) {
+                return nextPreamble;
+            }
+            else {
+                // If the compilation of the preamble has not yet finished, return the current preamble (could be
+                // nullptr) as a fallback as we need start a new compilation now.
+                return preamble;
+            }
         }
 
         auto GetNextLanguageConfig() const -> const LanguageConfig&

@@ -18,59 +18,7 @@
 
 namespace glsld
 {
-    auto LanguageService::ScheduleBackgroundCompilation(TextDocumentContext& ctx) -> void
-    {
-        ctx.GetAsyncScope().spawn(
-            // Switch to background worker thread
-            stdexec::schedule(backgroundWorkerCtx.get_scheduler()) |
-            // Do the background compilation work
-            stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()]() {
-                SimpleTimer timer;
-                backgroundCompilation->Run();
-                server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
-                               backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
-            }));
-    }
-
-    auto LanguageService::ScheduleBackgroundDiagnostic(TextDocumentContext& ctx) -> void
-    {
-        if (ctx.GetBackgroundCompilation()->GetLanguageConfig().stage == GlslShaderStage::Unknown) {
-            return;
-        }
-
-        ctx.GetAsyncScope().spawn(
-            // Wait for long enough to debounce rapid changes
-            exec::schedule_after(timedSchedulerCtx.get_scheduler(), std::chrono::seconds(1)) |
-            // Switch to background worker thread
-            stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
-            // Do the background diagnostic work
-            stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()] {
-                if (backgroundCompilation->TestExpired()) {
-                    server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
-                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
-                }
-                else {
-                    SimpleTimer timer;
-                    auto diagnostics = HandleDiagnostic(
-                        server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
-                        backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
-                        backgroundCompilation->GetBuffer());
-
-                    if (!backgroundCompilation->TestExpired()) {
-                        server.SendServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
-                    }
-                    else {
-                        server.LogInfo("Diagnostic compilation of ({} version {}) is discarded",
-                                       backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
-                    }
-                    server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms",
-                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion(),
-                                   timer.GetElapsedMilliseconds());
-                }
-            }));
-    }
-
-    auto LanguageService::InferShaderStageFromUri(StringView uri) -> GlslShaderStage
+    auto LanguageService::TextDocumentContext::InferShaderStageFromUri(StringView uri) -> GlslShaderStage
     {
         constexpr auto cases = std::to_array<std::pair<StringView, GlslShaderStage>>({
             {".vert", GlslShaderStage::Vertex},
@@ -102,16 +50,104 @@ namespace glsld
         return GlslShaderStage::Unknown;
     }
 
-    auto LanguageService::GetLanguageQueryPreamble(const LanguageConfig& config) -> std::shared_ptr<PrecompiledPreamble>
+    auto LanguageService::TextDocumentContext::InitializeTextDocument(const lsp::DidOpenTextDocumentParams& params)
+        -> void
     {
-        if (auto it = preambleCache.find(config); it != preambleCache.end()) {
-            return it->second;
+        backgroundCompilation = std::make_shared<BackgroundCompilation>(
+            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text),
+            LanguageConfig{.stage = InferShaderStageFromUri(params.textDocument.uri)}, nullptr);
+    }
+
+    auto LanguageService::TextDocumentContext::UpdateTextDocument(const lsp::DidChangeTextDocumentParams& params)
+        -> void
+    {
+        backgroundCompilation->SetExpired();
+
+        // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
+        // compilation
+        // TODO: Research if add a line-offset hints vector speedup the editing
+        auto sourceBuffer = backgroundCompilation->GetBuffer().Str();
+        for (const auto& change : params.contentChanges) {
+            if (change.range) {
+                ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
+            }
+            else {
+                sourceBuffer = std::move(change.text);
+            }
         }
 
-        // FIXME: this compilation could happen in a background thread
-        CompilerInvocation invocation;
-        invocation.ApplyLanguageConfig(config);
-        return preambleCache[config] = invocation.CompilePreamble(nullptr);
+        auto nextConfig   = backgroundCompilation->GetNextLanguageConfig();
+        auto nextPreamble = backgroundCompilation->GetNextPreamble();
+        if (nextPreamble->GetLanguageConfig() != nextConfig) {
+            // Preamble is outdated, discard it
+            nextPreamble = nullptr;
+        }
+        backgroundCompilation =
+            std::make_shared<BackgroundCompilation>(params.textDocument.version, UnescapeHttp(params.textDocument.uri),
+                                                    std::move(sourceBuffer), nextConfig, nextPreamble);
+    }
+
+    auto LanguageService::ScheduleBackgroundCompilation(TextDocumentContext& ctx) -> void
+    {
+        ctx.GetAsyncScope().spawn(
+            // Switch to background worker thread
+            stdexec::schedule(backgroundWorkerCtx.get_scheduler()) |
+            // Do the background compilation work
+            stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()]() {
+                SimpleTimer timer;
+                backgroundCompilation->Run();
+                server.LogInfo("Background compilation of ({} version {}) took {} ms", backgroundCompilation->GetUri(),
+                               backgroundCompilation->GetVersion(), timer.GetElapsedMilliseconds());
+            }));
+    }
+
+    auto LanguageService::ScheduleBackgroundDiagnostic(TextDocumentContext& ctx) -> void
+    {
+        if (ctx.GetBackgroundCompilation()->GetLanguageConfig().stage == GlslShaderStage::Unknown) {
+            return;
+        }
+
+        ctx.GetAsyncScope().spawn(
+            // Wait for long enough to debounce rapid changes
+            exec::schedule_after(timedSchedulerCtx.get_scheduler(), std::chrono::seconds(1)) |
+            // Switch to background worker thread
+            stdexec::continues_on(backgroundWorkerCtx.get_scheduler()) |
+            // Do the background diagnostic work
+            stdexec::then([&server = server, backgroundCompilation = ctx.GetBackgroundCompilation()] {
+                if (backgroundCompilation->IsExpired()) {
+                    server.LogInfo("Diagnostic compilation of ({} version {}) is skipped because of expiration",
+                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
+                }
+                else {
+                    SimpleTimer timer;
+                    auto diagnostics = HandleDiagnostic(
+                        server.GetConfig().languageService.diagnostic, backgroundCompilation->GetUri(),
+                        backgroundCompilation->GetVersion(), backgroundCompilation->GetNextLanguageConfig(),
+                        backgroundCompilation->GetBuffer());
+
+                    if (!backgroundCompilation->IsExpired()) {
+                        // Computing diagnostics may consume some time, so we check expiration again before sending
+                        server.SendServerNotification(lsp::LSPMethod_PublishDiagnostic, diagnostics);
+                    }
+                    else {
+                        server.LogInfo("Diagnostic compilation of ({} version {}) is discarded",
+                                       backgroundCompilation->GetUri(), backgroundCompilation->GetVersion());
+                    }
+                    server.LogInfo("Diagnostic compilation of ({} version {}) took {} ms",
+                                   backgroundCompilation->GetUri(), backgroundCompilation->GetVersion(),
+                                   timer.GetElapsedMilliseconds());
+                }
+            }));
+    }
+
+    auto LanguageService::ScheduleBackgroundClosingDocument(std::unique_ptr<TextDocumentContext> ctx) -> void
+    {
+        // FIXME: stop operations that are still running on this context
+        stdexec::start_detached(
+            stdexec::starts_on(backgroundWorkerCtx.get_scheduler(), ctx->GetAsyncScope().on_empty()) |
+            stdexec::then([ctx = std::move(ctx)]() {
+                // Do nothing. Just wait for async scope to be empty before destroying the context.
+            }));
     }
 
     auto LanguageService::OnInitialize(int requestId, lsp::InitializeParams params) -> void
@@ -175,15 +211,12 @@ namespace glsld
     {
         auto& ctx = documentContexts[params.textDocument.uri];
         if (ctx) {
-            // Bad request. Document is already open.
+            // Bad notification. Document is already open.
+            server.LogInfo("Attempted to open a document that is already open: {}", params.textDocument.uri);
             return;
         }
 
-        auto backgroundCompilation = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text),
-            GetLanguageQueryPreamble({.stage = InferShaderStageFromUri(params.textDocument.uri)}));
-        ctx = std::make_unique<TextDocumentContext>(std::move(backgroundCompilation));
-
+        ctx = std::make_unique<TextDocumentContext>(params);
         ScheduleBackgroundCompilation(*ctx);
         ScheduleBackgroundDiagnostic(*ctx);
 
@@ -196,55 +229,32 @@ namespace glsld
     {
         auto& ctx = documentContexts[params.textDocument.uri];
         if (!ctx) {
-            // Bad request. Document is not open.
+            // Bad notification. Document is not open.
             return;
         }
 
-        // Since the text document is changed, we mark the previous compilation as expired.
-        ctx->GetBackgroundCompilation()->MarkExpired();
-
-        // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
-        // compilation
-        // TODO: Research if add a line-offset hints vector speedup the editing
-        auto sourceBuffer = ctx->GetBackgroundCompilation()->GetBuffer().Str();
-        for (const auto& change : params.contentChanges) {
-            if (change.range) {
-                ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
-            }
-            else {
-                sourceBuffer = std::move(change.text);
-            }
-        }
-        auto backgroundCompilation = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(sourceBuffer),
-            GetLanguageQueryPreamble(ctx->GetBackgroundCompilation()->GetNextLanguageConfig()));
-        ctx->SetBackgroundCompilation(backgroundCompilation);
-
+        ctx->UpdateTextDocument(params);
         ScheduleBackgroundCompilation(*ctx);
         ScheduleBackgroundDiagnostic(*ctx);
 
         server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
-        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri, backgroundCompilation->GetBuffer());
+        server.LogDebug("Document updated: {}\n{}", params.textDocument.uri,
+                        ctx->GetBackgroundCompilation()->GetBuffer());
     }
 
     auto LanguageService::OnDidCloseTextDocument(lsp::DidCloseTextDocumentParams params) -> void
     {
         auto itCtx = documentContexts.Find(params.textDocument.uri);
-        if (itCtx != documentContexts.end()) {
-            auto ctx = std::move(itCtx->second);
-            documentContexts.Erase(itCtx);
-
-            // FIXME: stop operations that are still running on this context
-            stdexec::start_detached(
-                stdexec::starts_on(backgroundWorkerCtx.get_scheduler(), ctx->GetAsyncScope().on_empty()) |
-                stdexec::then([ctx = std::move(ctx)]() {
-                    // Do nothing. Just wait for async scope to be empty before destroying the context.
-                }));
-            server.LogInfo("Closing document: {}", params.textDocument.uri);
-        }
-        else {
+        if (itCtx == documentContexts.end()) {
+            // Bad notification. Document is not open.
             server.LogInfo("Attempted to close a document that was not open: {}", params.textDocument.uri);
+            return;
         }
+
+        ScheduleBackgroundClosingDocument(std::move(itCtx->second));
+        documentContexts.Erase(itCtx);
+
+        server.LogInfo("Closing document: {}", params.textDocument.uri);
     }
 
 #pragma endregion
