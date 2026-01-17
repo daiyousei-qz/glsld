@@ -52,9 +52,17 @@ namespace glsld
 
     auto GetSemanticTokensOptions(const SemanticTokenConfig& config) -> std::optional<lsp::SemanticTokensOptions>;
 
+    struct SemanticTokenState
+    {
+        int resultId = 0;
+        std::vector<lsp::uinteger> cachedTokens;
+    };
+
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                              const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens;
+                              SemanticTokenState& state, const lsp::SemanticTokensParams& params)
+        -> lsp::SemanticTokens;
     auto HandleSemanticTokensDelta(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                                   const lsp::SemanticTokensDeltaParams& params) -> lsp::SemanticTokensDelta;
+                                   SemanticTokenState& state, const lsp::SemanticTokensDeltaParams& params)
+        -> std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta>;
 
 } // namespace glsld

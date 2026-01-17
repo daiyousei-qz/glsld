@@ -219,30 +219,32 @@ namespace glsld
         TraverseAst(AstSemanticTokenCollector{info, tokenBuffer}, info.GetUserFileAst());
     }
 
-    auto ToLspSemanticTokens(ArrayView<SemanticTokenInfo> tokenBuffer) -> lsp::SemanticTokens
+    auto ToLspSemanticTokens(ArrayView<SemanticTokenInfo> tokenBuffer) -> std::vector<lsp::uinteger>
     {
-        lsp::SemanticTokens result;
+        std::vector<lsp::uinteger> result;
+        result.reserve(5 * tokenBuffer.size());
+
         int lastTokLine   = -1;
         int lastTokColumn = -1;
         for (const auto& tokInfo : tokenBuffer) {
             if (lastTokLine == -1) {
-                result.data.push_back(tokInfo.line);
-                result.data.push_back(tokInfo.character);
+                result.push_back(tokInfo.line);
+                result.push_back(tokInfo.character);
             }
             else {
                 if (lastTokLine == tokInfo.line) {
-                    result.data.push_back(0);
-                    result.data.push_back(tokInfo.character - lastTokColumn);
+                    result.push_back(0);
+                    result.push_back(tokInfo.character - lastTokColumn);
                 }
                 else {
-                    result.data.push_back(tokInfo.line - lastTokLine);
-                    result.data.push_back(tokInfo.character);
+                    result.push_back(tokInfo.line - lastTokLine);
+                    result.push_back(tokInfo.character);
                 }
             }
 
-            result.data.push_back(tokInfo.length);
-            result.data.push_back(GetTokenTypeIndex(tokInfo.type));
-            result.data.push_back(tokInfo.modifiers.GetBits());
+            result.push_back(tokInfo.length);
+            result.push_back(GetTokenTypeIndex(tokInfo.type));
+            result.push_back(tokInfo.modifiers.GetBits());
 
             lastTokLine   = tokInfo.line;
             lastTokColumn = tokInfo.character;
@@ -299,20 +301,61 @@ namespace glsld
                 },
             .full =
                 lsp::SemanticTokensOptions::FullOptions{
-                    .delta = false,
+                    .delta = true,
                 },
         };
     }
 
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                              const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens
+                              SemanticTokenState& state, const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens
     {
-        return ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        state.resultId += 1;
+        state.cachedTokens = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        return lsp::SemanticTokens{
+            .resultId = std::to_string(state.resultId),
+            .data     = state.cachedTokens,
+        };
     }
 
     auto HandleSemanticTokensDelta(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
-                                   const lsp::SemanticTokensDeltaParams& params) -> lsp::SemanticTokensDelta
+                                   SemanticTokenState& state, const lsp::SemanticTokensDeltaParams& params)
+        -> std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta>
     {
-        GLSLD_NO_IMPL();
+        auto tokens = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        if (params.previousResultId == std::to_string(state.resultId)) {
+            // We can compute delta
+            size_t numCommonPrefix =
+                std::distance(state.cachedTokens.begin(), std::ranges::mismatch(state.cachedTokens, tokens).in1);
+            size_t numCommonSuffix = std::distance(
+                state.cachedTokens.rbegin(),
+                std::ranges::mismatch(state.cachedTokens.rbegin(), state.cachedTokens.rend() - numCommonPrefix,
+                                      tokens.rbegin(), tokens.rend() - numCommonPrefix)
+                    .in1);
+            size_t deleteCount = state.cachedTokens.size() - numCommonPrefix - numCommonSuffix;
+
+            state.resultId += 1;
+            state.cachedTokens = std::move(tokens);
+            return lsp::SemanticTokensDelta{
+                .resultId = std::to_string(state.resultId),
+                .edits =
+                    {
+                        lsp::SemanticTokensEdit{
+                            .start       = static_cast<lsp::uinteger>(numCommonPrefix),
+                            .deleteCount = static_cast<lsp::uinteger>(deleteCount),
+                            .data        = std::vector<lsp::uinteger>(state.cachedTokens.begin() + numCommonPrefix,
+                                                                      state.cachedTokens.end() - numCommonSuffix),
+                        },
+                    },
+            };
+        }
+        else {
+            // The cache is invalid, return full replace
+            state.resultId     = 0;
+            state.cachedTokens = std::move(tokens);
+            return lsp::SemanticTokens{
+                .resultId = std::to_string(state.resultId),
+                .data     = state.cachedTokens,
+            };
+        }
     }
 } // namespace glsld

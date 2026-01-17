@@ -159,4 +159,6 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         checkSemanticToken(semanticTokens, "global.access.begin", "global.access.end", SemanticTokenType::Variable);
         checkSemanticToken(semanticTokens, "unknown.access.begin", "unknown.access.end", SemanticTokenType::Variable);
     }
+
+    // FIXME: Add tests for semantic tokens delta
 }
