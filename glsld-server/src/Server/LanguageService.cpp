@@ -279,15 +279,33 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
-        ScheduleLanguageQuery<std::monostate>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo, std::monostate&) {
+        ScheduleLanguageQuery<SemanticTokenState>(
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo,
+                                                               SemanticTokenState& state) {
                 SimpleTimer timer;
                 lsp::SemanticTokens result =
-                    HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, queryInfo, params);
+                    HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, queryInfo, state, params);
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
                                timer.GetElapsedMilliseconds());
             });
+    }
+
+    auto LanguageService::OnSemanticTokensDelta(int requestId, lsp::SemanticTokensDeltaParams params) -> void
+    {
+        auto uri = params.textDocument.uri;
+        server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensDelta", uri);
+        ScheduleLanguageQuery<SemanticTokenState>(uri, [this, requestId,
+                                                        params = std::move(params)](const LanguageQueryInfo& queryInfo,
+                                                                                    SemanticTokenState& state) {
+            SimpleTimer timer;
+            std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta> result =
+                HandleSemanticTokensDelta(server.GetConfig().languageService.semanticTokens, queryInfo, state, params);
+            std::visit([&](auto&& arg) { server.SendServerResponse(requestId, arg, false); }, result);
+
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensDelta",
+                           timer.GetElapsedMilliseconds());
+        });
     }
 
     auto LanguageService::OnCompletion(int requestId, lsp::CompletionParams params) -> void

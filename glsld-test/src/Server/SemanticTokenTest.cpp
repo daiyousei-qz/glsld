@@ -160,3 +160,100 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
         checkSemanticToken(semanticTokens, "unknown.access.begin", "unknown.access.end", SemanticTokenType::Variable);
     }
 }
+
+TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
+{
+    // TODO: Have a more comprehensive/expressive set of delta tests
+    auto checkSemanticTokensDelta = [this](StringView source, StringView modifiedSource) {
+        SemanticTokenState state;
+        SemanticTokenConfig config{.enable = true};
+
+        // Compute previous tokens
+        CompileLabelledSource(source);
+        auto previousTokens = HandleSemanticTokens(config, GetLanguageQueryInfo(), state, lsp::SemanticTokensParams{});
+        std::string previousResultId = previousTokens.resultId;
+        REQUIRE(!previousTokens.data.empty());
+
+        // Compute new tokens full/delta
+        CompileLabelledSource(modifiedSource);
+        auto deltaTokens = HandleSemanticTokensDelta(config, GetLanguageQueryInfo(), state,
+                                                     lsp::SemanticTokensDeltaParams{
+                                                         .previousResultId = previousResultId,
+                                                     });
+
+        // In this setup, we always expect delta result since we are sure the previous ID is valid
+        REQUIRE(std::holds_alternative<lsp::SemanticTokensDelta>(deltaTokens));
+        const auto& edits = std::get<lsp::SemanticTokensDelta>(deltaTokens).edits;
+
+        std::vector<lsp::uinteger> reconstructedTokens;
+        if (edits.empty()) {
+            // No change
+            reconstructedTokens = previousTokens.data;
+        }
+        else {
+            // We only do at most one edit for now
+            REQUIRE(edits.size() == 1);
+            reconstructedTokens.insert(reconstructedTokens.end(), previousTokens.data.begin(),
+                                       previousTokens.data.begin() + edits[0].start);
+            reconstructedTokens.insert(reconstructedTokens.end(), edits[0].data.begin(), edits[0].data.end());
+            reconstructedTokens.insert(reconstructedTokens.end(),
+                                       previousTokens.data.begin() + edits[0].start + edits[0].deleteCount,
+                                       previousTokens.data.end());
+        }
+
+        // Verify reconstructed tokens match full tokens
+        auto fullTokens = HandleSemanticTokens(config, GetLanguageQueryInfo(), state, lsp::SemanticTokensParams{});
+        REQUIRE(reconstructedTokens == fullTokens.data);
+    };
+
+    SECTION("Delta")
+    {
+        const std::string source1 = R"(
+            void main() { }
+        )";
+
+        SECTION("Invalid ID")
+        {
+            SemanticTokenState state;
+            CompileLabelledSource(source1);
+            auto result = HandleSemanticTokensDelta(SemanticTokenConfig{.enable = true}, GetLanguageQueryInfo(), state,
+                                                    lsp::SemanticTokensDeltaParams{
+                                                        .previousResultId = "bad_id",
+                                                    });
+
+            REQUIRE(std::holds_alternative<lsp::SemanticTokens>(result));
+        }
+
+        SECTION("No Change")
+        {
+            checkSemanticTokensDelta(source1, source1);
+        }
+
+        SECTION("Append")
+        {
+            auto source2 = source1 + R"(
+                void foo() { }
+            )";
+            checkSemanticTokensDelta(source1, source2);
+        }
+
+        SECTION("Modify One")
+        {
+            std::string source3 = source1;
+            source3.replace(source3.find("main"), 4, "foo");
+            checkSemanticTokensDelta(source1, source3);
+        }
+
+        SECTION("Modify Many")
+        {
+            auto source4 = R"(
+                struct S { };
+
+                void foo(S s) {
+                    S local;
+                }
+            )";
+            checkSemanticTokensDelta(source1, source4);
+        }
+    }
+}
