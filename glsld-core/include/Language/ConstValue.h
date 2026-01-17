@@ -379,7 +379,7 @@ namespace glsld
                 return ScalarKind::Uint64;
             }
             else {
-                static_assert(AlwaysFalse<T>);
+                static_assert(false, "Unsupported C++ type for scalar kind");
             }
         }
 

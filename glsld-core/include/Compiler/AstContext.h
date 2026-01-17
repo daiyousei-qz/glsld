@@ -1,6 +1,6 @@
 #pragma once
 #include "Ast/Misc.h"
-#include "Basic/MemoryArena.h"
+#include "Support/MemoryArena.h"
 #include "Ast/Base.h"
 
 #include <map>

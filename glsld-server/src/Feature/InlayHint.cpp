@@ -7,6 +7,7 @@
 #include "Server/LanguageQueryVisitor.h"
 #include "Support/SourceText.h"
 #include "Support/StringView.h"
+
 #include <ranges>
 
 namespace glsld

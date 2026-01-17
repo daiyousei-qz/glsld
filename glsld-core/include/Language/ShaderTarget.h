@@ -1,6 +1,4 @@
 #pragma once
-#include "Basic/Common.h"
-#include "Support/StringView.h"
 
 namespace glsld
 {

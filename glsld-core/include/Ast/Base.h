@@ -147,7 +147,7 @@ namespace glsld
     template <typename AstType>
     struct AstNodeTrait
     {
-        static_assert(AlwaysFalse<AstType> && "This is not a AST type in GlslAst.inc");
+        static_assert(false, "This is not a AST type in GlslAst.inc");
 
         // If AstType is a type for a leaf node
         static constexpr bool isLeafNode = false;

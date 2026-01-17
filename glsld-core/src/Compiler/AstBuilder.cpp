@@ -4,6 +4,7 @@
 #include "Ast/Type.h"
 #include "Basic/Common.h"
 #include "Language/Typing.h"
+
 #include <algorithm>
 #include <cstddef>
 

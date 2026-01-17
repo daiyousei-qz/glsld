@@ -1,13 +1,13 @@
 #include "Server/LanguageServer.h"
 #include "Server/LanguageService.h"
 #include "Server/Protocol.h"
-#include "Support/ScopeExit.h"
 #include "Support/StringView.h"
 
-#include <cctype>
 #include <spdlog/common.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
+
+#include <cctype>
 
 namespace glsld
 {

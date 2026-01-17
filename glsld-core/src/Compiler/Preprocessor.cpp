@@ -3,7 +3,6 @@
 #include "Compiler/Tokenizer.h"
 #include "Compiler/SyntaxToken.h"
 #include "Language/ShaderTarget.h"
-#include "Language/ConstValue.h"
 #include "Support/ScopeExit.h"
 
 #include <string>

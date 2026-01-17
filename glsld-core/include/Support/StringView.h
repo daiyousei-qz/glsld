@@ -1,9 +1,9 @@
 #pragma once
+#include <fmt/format.h>
+
 #include <concepts>
 #include <ranges>
 #include <string_view>
-
-#include "fmt/format.h"
 
 namespace glsld
 {

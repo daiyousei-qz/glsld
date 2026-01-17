@@ -1,6 +1,5 @@
 #pragma once
 #include <cassert>
-#include <cstdint>
 #include <functional>
 #include <span>
 
@@ -15,9 +14,6 @@
 
 namespace glsld
 {
-    template <typename T>
-    inline constexpr bool AlwaysFalse = false;
-
     template <typename T>
     concept Hashable = requires(T value) {
         { value.GetHashCode() } -> std::convertible_to<size_t>;
