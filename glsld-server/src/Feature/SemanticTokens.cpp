@@ -309,10 +309,10 @@ namespace glsld
     auto HandleSemanticTokens(const SemanticTokenConfig& config, const LanguageQueryInfo& info,
                               SemanticTokenState& state, const lsp::SemanticTokensParams& params) -> lsp::SemanticTokens
     {
-        state.resultId += 1;
-        state.cachedTokens = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        state.cachedResultId = state.nextResultId++;
+        state.cachedTokens   = ToLspSemanticTokens(CollectSemanticTokens(config, info));
         return lsp::SemanticTokens{
-            .resultId = std::to_string(state.resultId),
+            .resultId = std::to_string(state.cachedResultId),
             .data     = state.cachedTokens,
         };
     }
@@ -321,22 +321,23 @@ namespace glsld
                                    SemanticTokenState& state, const lsp::SemanticTokensDeltaParams& params)
         -> std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta>
     {
-        auto tokens = ToLspSemanticTokens(CollectSemanticTokens(config, info));
-        if (params.previousResultId == std::to_string(state.resultId)) {
+        auto newResultId = state.nextResultId++;
+        auto newTokens   = ToLspSemanticTokens(CollectSemanticTokens(config, info));
+        if (params.previousResultId == std::to_string(state.cachedResultId)) {
             // We can compute delta
             size_t numCommonPrefix =
-                std::distance(state.cachedTokens.begin(), std::ranges::mismatch(state.cachedTokens, tokens).in1);
+                std::distance(state.cachedTokens.begin(), std::ranges::mismatch(state.cachedTokens, newTokens).in1);
             size_t numCommonSuffix = std::distance(
                 state.cachedTokens.rbegin(),
                 std::ranges::mismatch(state.cachedTokens.rbegin(), state.cachedTokens.rend() - numCommonPrefix,
-                                      tokens.rbegin(), tokens.rend() - numCommonPrefix)
+                                      newTokens.rbegin(), newTokens.rend() - numCommonPrefix)
                     .in1);
             size_t deleteCount = state.cachedTokens.size() - numCommonPrefix - numCommonSuffix;
 
-            state.resultId += 1;
-            state.cachedTokens = std::move(tokens);
+            state.cachedResultId += newResultId;
+            state.cachedTokens = std::move(newTokens);
             return lsp::SemanticTokensDelta{
-                .resultId = std::to_string(state.resultId),
+                .resultId = std::to_string(state.cachedResultId),
                 .edits =
                     {
                         lsp::SemanticTokensEdit{
@@ -350,10 +351,10 @@ namespace glsld
         }
         else {
             // The cache is invalid, return full replace
-            state.resultId     = 0;
-            state.cachedTokens = std::move(tokens);
+            state.cachedResultId = newResultId;
+            state.cachedTokens   = std::move(newTokens);
             return lsp::SemanticTokens{
-                .resultId = std::to_string(state.resultId),
+                .resultId = std::to_string(state.cachedResultId),
                 .data     = state.cachedTokens,
             };
         }

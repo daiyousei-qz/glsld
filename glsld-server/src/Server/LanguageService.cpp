@@ -301,13 +301,8 @@ namespace glsld
             SimpleTimer timer;
             std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta> result =
                 HandleSemanticTokensDelta(server.GetConfig().languageService.semanticTokens, queryInfo, state, params);
-            if (std::holds_alternative<lsp::SemanticTokens>(result)) {
-                server.SendServerResponse(requestId, std::get<lsp::SemanticTokens>(result), false);
-            }
-            else {
-                GLSLD_ASSERT(std::holds_alternative<lsp::SemanticTokensDelta>(result));
-                server.SendServerResponse(requestId, std::get<lsp::SemanticTokensDelta>(result), false);
-            }
+            std::visit([&](auto&& arg) { server.SendServerResponse(requestId, arg, false); }, result);
+
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensDelta",
                            timer.GetElapsedMilliseconds());
         });

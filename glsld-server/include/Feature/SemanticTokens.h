@@ -54,7 +54,8 @@ namespace glsld
 
     struct SemanticTokenState
     {
-        int resultId = 0;
+        unsigned nextResultId   = 0;
+        unsigned cachedResultId = 0;
         std::vector<lsp::uinteger> cachedTokens;
     };
 
