@@ -54,7 +54,7 @@ namespace glsld
         -> void
     {
         backgroundCompilation = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), std::move(params.textDocument.text),
+            params.textDocument.version, UnescapeHttp(params.textDocument.uri), params.textDocument.text,
             LanguageConfig{.stage = InferShaderStageFromUri(params.textDocument.uri)}, nullptr);
     }
 
@@ -65,7 +65,7 @@ namespace glsld
 
         // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
         // compilation
-        // TODO: Research if add a line-offset hints vector speedup the editing
+        // TODO: Research whether adding a line-offset hints vector speeds up editing
         auto sourceBuffer = backgroundCompilation->GetBuffer().Str();
         for (const auto& change : params.contentChanges) {
             if (change.range) {
@@ -78,7 +78,7 @@ namespace glsld
 
         auto nextConfig   = backgroundCompilation->GetNextLanguageConfig();
         auto nextPreamble = backgroundCompilation->GetNextPreamble();
-        if (nextPreamble->GetLanguageConfig() != nextConfig) {
+        if (nextPreamble && nextPreamble->GetLanguageConfig() != nextConfig) {
             // Preamble is outdated, discard it
             nextPreamble = nullptr;
         }

@@ -42,8 +42,8 @@ namespace glsld
             localPreamble = invocation.CompilePreamble(nullptr);
         }
 
-        nextPreamble        = localPreamble;
-        isPreambleAvailable = true;
+        nextPreamble = localPreamble;
+        isPreambleAvailable.store(true, std::memory_order_release);
 
         // Second pass:
         auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
@@ -60,8 +60,8 @@ namespace glsld
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);
 
-        info        = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
-        isAvailable = true;
+        info = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));
+        isAvailable.store(true, std::memory_order_release);
 
         // Signal availability
         latchCompilation.CountDown();

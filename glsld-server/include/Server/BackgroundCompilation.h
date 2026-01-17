@@ -22,15 +22,15 @@ namespace glsld
         // Gates background compilation. This releases waiters when compilation is done.
         AsyncLatch latchCompilation;
 
-        // Preamble that is used in this compilation, which may be shared later. This is available and unmutable after
+        // Preamble that is used in this compilation, which may be shared later. This is available and immutable after
         // `isPreambleAvailable` is set.
         std::shared_ptr<PrecompiledPreamble> nextPreamble;
 
-        // Language config collected during this compilation. This is available and unmutable after `isAvailable` is
+        // Language config collected during this compilation. This is available and immutable after `isAvailable` is
         // set.
         LanguageConfig nextConfig;
 
-        // Compilation result. This is available and unmutable after `isAvailable` is set.
+        // Compilation result. This is available and immutable after `isAvailable` is set.
         std::unique_ptr<LanguageQueryInfo> info = nullptr;
 
         // Set when the preamble is available
@@ -66,19 +66,24 @@ namespace glsld
             return latchCompilation.AsyncWait();
         }
 
+        auto IsPreambleAvailable() const -> bool
+        {
+            return isPreambleAvailable.load(std::memory_order_acquire);
+        }
+
         auto IsAvailable() const -> bool
         {
-            return isAvailable;
+            return isAvailable.load(std::memory_order_acquire);
         }
 
         auto SetExpired() -> void
         {
-            isExpired = true;
+            isExpired.store(true, std::memory_order_relaxed);
         }
 
         auto IsExpired() const -> bool
         {
-            return isExpired;
+            return isExpired.load(std::memory_order_relaxed);
         }
 
         auto GetVersion() const -> int
@@ -103,32 +108,32 @@ namespace glsld
 
         auto GetNextPreamble() const -> std::shared_ptr<PrecompiledPreamble>
         {
-            if (isPreambleAvailable) {
+            if (IsPreambleAvailable()) {
                 return nextPreamble;
             }
             else {
                 // If the compilation of the preamble has not yet finished, return the current preamble (could be
-                // nullptr) as a fallback as we need start a new compilation now.
+                // nullptr) as a fallback as we need to start a new compilation now.
                 return preamble;
             }
         }
 
         auto GetNextLanguageConfig() const -> const LanguageConfig&
         {
-            if (isAvailable) {
+            if (IsAvailable()) {
                 return nextConfig;
             }
             else {
                 // If the compilation has not yet finished, return the current config as a fallback as
-                // we need start a new compilation now.
-                return preamble->GetLanguageConfig();
+                // we need to start a new compilation now.
+                return languageConfig;
             }
         }
 
         // NOTE this must be called after availability is signaled
         auto GetLanguageQueryInfo() -> const LanguageQueryInfo&
         {
-            if (isAvailable) {
+            if (IsAvailable()) {
                 return *info;
             }
             else {
