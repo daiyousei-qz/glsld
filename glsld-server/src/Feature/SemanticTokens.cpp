@@ -336,18 +336,27 @@ namespace glsld
 
             state.cachedResultId += newResultId;
             state.cachedTokens = std::move(newTokens);
-            return lsp::SemanticTokensDelta{
-                .resultId = std::to_string(state.cachedResultId),
-                .edits =
-                    {
-                        lsp::SemanticTokensEdit{
-                            .start       = static_cast<lsp::uinteger>(numCommonPrefix),
-                            .deleteCount = static_cast<lsp::uinteger>(deleteCount),
-                            .data        = std::vector<lsp::uinteger>(state.cachedTokens.begin() + numCommonPrefix,
-                                                                      state.cachedTokens.end() - numCommonSuffix),
+
+            if (numCommonPrefix == state.cachedTokens.size()) {
+                return lsp::SemanticTokensDelta{
+                    .resultId = std::to_string(state.cachedResultId),
+                    .edits    = {},
+                };
+            }
+            else {
+                return lsp::SemanticTokensDelta{
+                    .resultId = std::to_string(state.cachedResultId),
+                    .edits =
+                        {
+                            lsp::SemanticTokensEdit{
+                                .start       = static_cast<lsp::uinteger>(numCommonPrefix),
+                                .deleteCount = static_cast<lsp::uinteger>(deleteCount),
+                                .data        = std::vector<lsp::uinteger>(state.cachedTokens.begin() + numCommonPrefix,
+                                                                          state.cachedTokens.end() - numCommonSuffix),
+                            },
                         },
-                    },
-            };
+                };
+            }
         }
         else {
             // The cache is invalid, return full replace
