@@ -315,7 +315,7 @@ namespace glsld
         ScheduleLanguageQuery<CompletionState>(uri, [this, requestId, params = std::move(params)](
                                                         const LanguageQueryInfo& queryInfo, CompletionState& state) {
             SimpleTimer timer;
-            std::vector<lsp::CompletionItem> result =
+            lsp::CompletionList result =
                 HandleCompletion(server.GetConfig().languageService.completion, queryInfo, state, params);
             server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "completion",

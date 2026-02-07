@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Support/StringView.h"
 
 #include <algorithm>
 #include <array>
@@ -102,19 +103,29 @@ namespace glsld
         Swizzle,
     };
 
+    enum class SwizzleCharSet
+    {
+        XYZW,
+        RGBA,
+        STPQ,
+    };
+
     class SwizzleDesc
     {
     private:
-        std::array<uint8_t, 4> data = {255, 255, 255, 255};
+        static constexpr size_t MaxSwizzleDimension = 4;
+
+        std::array<uint8_t, MaxSwizzleDimension> data = {0xff, 0xff, 0xff, 0xff};
+        SwizzleCharSet charSet                        = SwizzleCharSet::XYZW;
 
     public:
         SwizzleDesc() = default;
-        SwizzleDesc(uint8_t x)
+        SwizzleDesc(uint8_t x, SwizzleCharSet charSet) : charSet(charSet)
         {
             GLSLD_ASSERT(x <= 3);
             data[0] = x;
         }
-        SwizzleDesc(ArrayView<uint8_t> xs)
+        SwizzleDesc(ArrayView<uint8_t> xs, SwizzleCharSet charSet) : charSet(charSet)
         {
             GLSLD_ASSERT(xs.size() <= 4 && std::ranges::all_of(xs, [](uint8_t x) { return x <= 3; }));
             std::ranges::copy(xs, data.begin());
@@ -135,17 +146,101 @@ namespace glsld
             return {data.data(), GetDimension()};
         }
 
+        auto GetCharSetSeq() const noexcept -> StringView
+        {
+            switch (charSet) {
+            case SwizzleCharSet::XYZW:
+                return "xyzw";
+            case SwizzleCharSet::RGBA:
+                return "rgba";
+            case SwizzleCharSet::STPQ:
+                return "stpq";
+            default:
+                GLSLD_UNREACHABLE();
+            }
+        }
+
         auto ToString() const -> std::string
         {
+            StringView charSetSeq = GetCharSetSeq();
+
             std::string buffer;
             for (auto i : data) {
                 if (i > 3) {
                     break;
                 }
-                buffer += "xyzw"[i];
+                buffer += charSetSeq[i];
             }
 
             return buffer.empty() ? "__InvalidSwizzle" : buffer;
+        }
+
+        static auto Parse(StringView swizzleName) -> SwizzleDesc
+        {
+            GLSLD_ASSERT(!swizzleName.Empty());
+            if (swizzleName.Size() > MaxSwizzleDimension) {
+                // Swizzle name too long
+                return {};
+            }
+
+            struct SwizzleCharDesc
+            {
+                // The set of swizzle characters (e.g., xyzw, rgba, stpq)
+                // Swizzle characters from different sets cannot be mixed.
+                std::optional<SwizzleCharSet> set;
+                // The index of the swizzle accessed component
+                int index;
+            };
+
+            auto parseSwizzleComponent = [](char ch) -> SwizzleCharDesc {
+                switch (ch) {
+                case 'x':
+                    return {SwizzleCharSet::XYZW, 0};
+                case 'y':
+                    return {SwizzleCharSet::XYZW, 1};
+                case 'z':
+                    return {SwizzleCharSet::XYZW, 2};
+                case 'w':
+                    return {SwizzleCharSet::XYZW, 3};
+                case 'r':
+                    return {SwizzleCharSet::RGBA, 0};
+                case 'g':
+                    return {SwizzleCharSet::RGBA, 1};
+                case 'b':
+                    return {SwizzleCharSet::RGBA, 2};
+                case 'a':
+                    return {SwizzleCharSet::RGBA, 3};
+                case 's':
+                    return {SwizzleCharSet::STPQ, 0};
+                case 't':
+                    return {SwizzleCharSet::STPQ, 1};
+                case 'p':
+                    return {SwizzleCharSet::STPQ, 2};
+                case 'q':
+                    return {SwizzleCharSet::STPQ, 3};
+                default:
+                    return {std::nullopt, 0};
+                }
+            };
+
+            std::optional<SwizzleCharSet> lastCharSet = std::nullopt;
+            uint8_t swizzleBuffer[MaxSwizzleDimension];
+            for (int i = 0; i < swizzleName.Size(); ++i) {
+                const auto [charSet, index] = parseSwizzleComponent(swizzleName[i]);
+                if (!charSet) {
+                    // Bad swizzle char
+                    return {};
+                }
+                else if (lastCharSet && charSet != lastCharSet) {
+                    // Swizzle set mismatch
+                    return {};
+                }
+
+                lastCharSet      = charSet;
+                swizzleBuffer[i] = static_cast<uint8_t>(index);
+            }
+
+            return SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.Size()}, *lastCharSet};
         }
     };
 

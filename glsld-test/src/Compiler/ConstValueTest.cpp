@@ -202,32 +202,10 @@ TEST_CASE("ConstValue")
     {
         ConstValue uvec4 = ConstValue::CreateVector<uint32_t>({0, 1, 2, 3});
 
-        auto createSwizzle = [](StringView swizzleStr) {
-            std::vector<uint8_t> data;
-            for (char ch : swizzleStr) {
-                switch (ch) {
-                case 'x':
-                    data.push_back(0);
-                    break;
-                case 'y':
-                    data.push_back(1);
-                    break;
-                case 'z':
-                    data.push_back(2);
-                    break;
-                case 'w':
-                    data.push_back(3);
-                    break;
-                }
-            }
-
-            return SwizzleDesc{ArrayView<uint8_t>{data.data(), data.size()}};
-        };
-
-        REQUIRE(uvec4.GetSwizzle(createSwizzle("xyzw")) == ConstValue::CreateVector<uint32_t>({0, 1, 2, 3}));
-        REQUIRE(uvec4.GetSwizzle(createSwizzle("wzyx")) == ConstValue::CreateVector<uint32_t>({3, 2, 1, 0}));
-        REQUIRE(uvec4.GetSwizzle(createSwizzle("xxzz")) == ConstValue::CreateVector<uint32_t>({0, 0, 2, 2}));
-        REQUIRE(uvec4.GetSwizzle(createSwizzle("yy")) == ConstValue::CreateVector<uint32_t>({1, 1}));
+        REQUIRE(uvec4.GetSwizzle(SwizzleDesc::Parse("xyzw")) == ConstValue::CreateVector<uint32_t>({0, 1, 2, 3}));
+        REQUIRE(uvec4.GetSwizzle(SwizzleDesc::Parse("wzyx")) == ConstValue::CreateVector<uint32_t>({3, 2, 1, 0}));
+        REQUIRE(uvec4.GetSwizzle(SwizzleDesc::Parse("xxzz")) == ConstValue::CreateVector<uint32_t>({0, 0, 2, 2}));
+        REQUIRE(uvec4.GetSwizzle(SwizzleDesc::Parse("yy")) == ConstValue::CreateVector<uint32_t>({1, 1}));
     }
 
     // FIXME: add more tests

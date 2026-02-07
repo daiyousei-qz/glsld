@@ -24,6 +24,7 @@ namespace glsld
     protected:
         auto TraverseNodeContains(const AstNode& node, TextPosition position) const -> AstVisitPolicy
         {
+            // TODO: pre-convert position to a token index for performance
             if (info.ContainsPositionExtended(node, position)) {
                 return AstVisitPolicy::Traverse;
             }
@@ -37,6 +38,7 @@ namespace glsld
 
         auto TraverseNodeUntil(const AstNode& node, TextPosition position) const -> AstVisitPolicy
         {
+            // TODO: pre-convert position to a token index for performance
             if (info.SucceedsPosition(node, position)) {
                 return AstVisitPolicy::Halt;
             }
