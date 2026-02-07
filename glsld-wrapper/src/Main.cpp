@@ -87,12 +87,12 @@ namespace glsld
         {
         }
 
-        auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void override
+        auto OnVersionDirective(ArrayView<PPToken> tokens, GlslVersion version, GlslProfile profile) -> void override
         {
             compiler.SetGlslVersion(version, profile);
         }
 
-        auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension, ExtensionBehavior behavior)
+        auto OnExtensionDirective(ArrayView<PPToken> tokens, ExtensionId extension, ExtensionBehavior behavior)
             -> void override
         {
             if (behavior == ExtensionBehavior::Enable || behavior == ExtensionBehavior::Require) {

@@ -45,24 +45,25 @@ namespace glsld
             {
             }
 
-            auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
+            auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+                -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{headerName.spelledRange,
                                                                    PPHeaderNameSymbol{headerName, resolvedPath.Str()}});
                 }
             }
-            auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
-                                   bool isFunctionLike) -> void override
+            auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName, ArrayView<PPToken> paramTokens,
+                                   ArrayView<PPToken> replacementTokens, bool isFunctionLike) -> void override
             {
                 if (includeDepth == 0) {
-                    auto macroDefinition = DefineMacro(macroName, params, tokens, isFunctionLike);
+                    auto macroDefinition = DefineMacro(macroName, paramTokens, replacementTokens, isFunctionLike);
                     store.occurrences.push_back(PPSymbolOccurrence{
                         macroName.spelledRange,
                         PPMacroSymbol{macroName, {}, macroDefinition, PPMacroOccurrenceType::Define}});
                 }
             }
-            auto OnUndefDirective(const PPToken& macroName) -> void override
+            auto OnUndefDirective(ArrayView<PPToken> tokens, const PPToken& macroName) -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{
@@ -72,7 +73,8 @@ namespace glsld
                     UndefMacro(macroName);
                 }
             }
-            auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
+            auto OnIfDefDirective(ArrayView<PPToken> tokens, const PPToken& macroName, bool isNDef, bool isActive)
+                -> void override
             {
                 if (includeDepth == 0) {
                     store.occurrences.push_back(PPSymbolOccurrence{

@@ -32,6 +32,11 @@ namespace glsld
             return tokCursor == tokEnd;
         }
 
+        auto AllTokens() const noexcept -> ArrayView<const PPToken>
+        {
+            return {tokBegin, tokEnd};
+        }
+
         auto RemainingTokenCount() const noexcept -> size_t
         {
             return tokEnd - tokCursor;

@@ -12,67 +12,75 @@ namespace glsld
         PPCallback()          = default;
         virtual ~PPCallback() = default;
 
+        // Called when a bad preprocessor directive is encountered
+        virtual auto OnBadDirective(ArrayView<PPToken> tokens) -> void
+        {
+        }
+
         // Called when a `#version XXX` directive is encountered
-        virtual auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void
+        virtual auto OnVersionDirective(ArrayView<PPToken> tokens, GlslVersion version, GlslProfile profile) -> void
         {
         }
 
         // Called when a `#extension EXTENSION : behavior` directive is encountered
-        virtual auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
-                                          ExtensionBehavior behavior) -> void
+        virtual auto OnExtensionDirective(ArrayView<PPToken> tokens, ExtensionId extension, ExtensionBehavior behavior)
+            -> void
         {
         }
 
         // Called when an unknown `#pragma XXX` directive is encountered
-        virtual auto OnUnknownPragmaDirective(ArrayView<PPToken> argTokens) -> void
+        virtual auto OnUnknownPragmaDirective(ArrayView<PPToken> tokens) -> void
         {
         }
 
         // Called when a `#include "header.h"` directive is encountered
-        // - headerName is the name token of the header file
+        // - headerName is the name token of the header file, including quotes or angle brackets
         // - resolvedPath is the resolved absolute path of the header file, or "" if not found
-        virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void
+        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+            -> void
         {
         }
 
         // Called when a `#define MACRO XXX` directive is encountered
         // - macroName is the name token of the macro
-        // - params is the list of parameters if the macro is a function-like macro
-        // - tokens is the list of tokens that make up the macro replacement list
+        // - paramTokens is the list of parameters if the macro is a function-like macro
+        // - replacementTokens is the list of tokens that make up the macro replacement list
         // - isFunctionLike is true if the macro is a function-like macro
-        virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
+        virtual auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName,
+                                       ArrayView<PPToken> paramTokens, ArrayView<PPToken> replacementTokens,
                                        bool isFunctionLike) -> void
         {
         }
 
         // Called when a `#undef MACRO` directive is encountered
         // - macroName is the name token of the macro
-        virtual auto OnUndefDirective(const PPToken& macroName) -> void
+        virtual auto OnUndefDirective(ArrayView<PPToken> tokens, const PPToken& macroName) -> void
         {
         }
 
         // Called when a `#if XXX` directive is encountered
-        virtual auto OnIfDirective(bool evalToTrue) -> void
+        virtual auto OnIfDirective(ArrayView<PPToken> tokens, bool isActive) -> void
         {
         }
 
         // Called when a `#elif XXX` directive is encountered
-        virtual auto OnElifDirective(bool evalToTrue) -> void
+        virtual auto OnElifDirective(ArrayView<PPToken> tokens, bool isActive) -> void
         {
         }
 
         // Called when a `#ifdef MACRO` or `#ifndef MACRO` directive is encountered
-        virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void
+        virtual auto OnIfDefDirective(ArrayView<PPToken> tokens, const PPToken& macroName, bool isNDef, bool isActive)
+            -> void
         {
         }
 
         // Called when a `#else` directive is encountered
-        virtual auto OnElseDirective() -> void
+        virtual auto OnElseDirective(ArrayView<PPToken> tokens) -> void
         {
         }
 
         // Called when a `#endif` directive is encountered
-        virtual auto OnEndifDirective() -> void
+        virtual auto OnEndifDirective(ArrayView<PPToken> tokens) -> void
         {
         }
 
@@ -105,73 +113,82 @@ namespace glsld
         {
         }
 
-        virtual auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile)
+        virtual auto OnBadDirective(ArrayView<PPToken> tokens) -> void override
+        {
+            first->OnBadDirective(tokens);
+            second->OnBadDirective(tokens);
+        }
+
+        virtual auto OnVersionDirective(ArrayView<PPToken> tokens, GlslVersion version, GlslProfile profile)
             -> void override
         {
-            first->OnVersionDirective(file, range, version, profile);
-            second->OnVersionDirective(file, range, version, profile);
+            first->OnVersionDirective(tokens, version, profile);
+            second->OnVersionDirective(tokens, version, profile);
         }
 
-        virtual auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension,
-                                          ExtensionBehavior behavior) -> void override
+        virtual auto OnExtensionDirective(ArrayView<PPToken> tokens, ExtensionId extension, ExtensionBehavior behavior)
+            -> void override
         {
-            first->OnExtensionDirective(file, range, extension, behavior);
-            second->OnExtensionDirective(file, range, extension, behavior);
+            first->OnExtensionDirective(tokens, extension, behavior);
+            second->OnExtensionDirective(tokens, extension, behavior);
         }
 
-        virtual auto OnUnknownPragmaDirective(ArrayView<PPToken> argTokens) -> void override
+        virtual auto OnUnknownPragmaDirective(ArrayView<PPToken> tokens) -> void override
         {
-            first->OnUnknownPragmaDirective(argTokens);
-            second->OnUnknownPragmaDirective(argTokens);
+            first->OnUnknownPragmaDirective(tokens);
+            second->OnUnknownPragmaDirective(tokens);
         }
 
-        virtual auto OnIncludeDirective(const PPToken& headerName, StringView resolvedPath) -> void override
+        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+            -> void override
         {
-            first->OnIncludeDirective(headerName, resolvedPath);
-            second->OnIncludeDirective(headerName, resolvedPath);
+            first->OnIncludeDirective(tokens, headerName, resolvedPath);
+            second->OnIncludeDirective(tokens, headerName, resolvedPath);
         }
 
-        virtual auto OnDefineDirective(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
+        virtual auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName,
+                                       ArrayView<PPToken> paramTokens, ArrayView<PPToken> replacementTokens,
                                        bool isFunctionLike) -> void override
         {
-            first->OnDefineDirective(macroName, params, tokens, isFunctionLike);
-            second->OnDefineDirective(macroName, params, tokens, isFunctionLike);
+            first->OnDefineDirective(tokens, macroName, paramTokens, replacementTokens, isFunctionLike);
+            second->OnDefineDirective(tokens, macroName, paramTokens, replacementTokens, isFunctionLike);
         }
 
-        virtual auto OnUndefDirective(const PPToken& macroName) -> void override
+        virtual auto OnUndefDirective(ArrayView<PPToken> tokens, const PPToken& macroName) -> void override
         {
-            first->OnUndefDirective(macroName);
-            second->OnUndefDirective(macroName);
+            first->OnUndefDirective(tokens, macroName);
+            second->OnUndefDirective(tokens, macroName);
         }
 
-        virtual auto OnIfDirective(bool evalToTrue) -> void override
+        virtual auto OnIfDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
         {
-            first->OnIfDirective(evalToTrue);
-            second->OnIfDirective(evalToTrue);
+            first->OnIfDirective(tokens, isActive);
+            second->OnIfDirective(tokens, isActive);
         }
 
-        virtual auto OnElifDirective(bool evalToTrue) -> void override
+        virtual auto OnElifDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
         {
-            first->OnElifDirective(evalToTrue);
-            second->OnElifDirective(evalToTrue);
+            first->OnElifDirective(tokens, isActive);
+            second->OnElifDirective(tokens, isActive);
         }
 
-        virtual auto OnIfDefDirective(const PPToken& macroName, bool isNDef) -> void override
+        virtual auto OnIfDefDirective(ArrayView<PPToken> tokens, const PPToken& macroName, bool isNDef, bool isActive)
+            -> void override
         {
-            first->OnIfDefDirective(macroName, isNDef);
-            second->OnIfDefDirective(macroName, isNDef);
+            first->OnIfDefDirective(tokens, macroName, isNDef, isActive);
+            second->OnIfDefDirective(tokens, macroName, isNDef, isActive);
         }
 
-        virtual auto OnElseDirective() -> void override
+        virtual auto OnElseDirective(ArrayView<PPToken> tokens) -> void override
         {
-            first->OnElseDirective();
-            second->OnElseDirective();
+            first->OnElseDirective(tokens);
+            second->OnElseDirective(tokens);
         }
 
-        virtual auto OnEndifDirective() -> void override
+        virtual auto OnEndifDirective(ArrayView<PPToken> tokens) -> void override
         {
-            first->OnEndifDirective();
-            second->OnEndifDirective();
+            first->OnEndifDirective(tokens);
+            second->OnEndifDirective(tokens);
         }
 
         virtual auto OnEnterIncludedFile() -> void override

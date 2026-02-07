@@ -15,7 +15,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
         struct TestPPCallback : public PPCallback
         {
-            auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile)
+            auto OnVersionDirective(ArrayView<PPToken> tokens, GlslVersion version, GlslProfile profile)
                 -> void override
             {
                 CHECK(version == GlslVersion::Ver450);
@@ -35,7 +35,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
         struct TestPPCallback : public PPCallback
         {
-            auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension, ExtensionBehavior behavior)
+            auto OnExtensionDirective(ArrayView<PPToken> tokens, ExtensionId extension, ExtensionBehavior behavior)
                 -> void override
             {
                 CHECK(extension == ExtensionId::GL_EXT_ray_tracing);

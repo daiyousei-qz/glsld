@@ -225,11 +225,8 @@ namespace glsld
         // In this mode, the preprocessor will halt the lexing when it sees the first non-comment/preprocessor token.
         bool versionScanningMode = false;
 
-        // The current PP directive token being processed.
-        std::optional<PPToken> directiveToken = std::nullopt;
-
-        // This buffer stores the tokens following the PP directive.
-        std::vector<PPToken> directiveArgBuffer = {};
+        // This buffer stores the tokens that form a PP directive. The first token is always '#'.
+        std::vector<PPToken> directiveTokBuffer = {};
 
         // This stack stores all information about the effective conditional directives.
         std::vector<PPConditionalInfo> conditionalStack = {};
@@ -518,7 +515,8 @@ namespace glsld
         auto ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>;
         auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>;
 
-        auto HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void;
+        auto ParsePPDirective() -> void;
+        auto HandleBadDirective(PPTokenScanner& scanner) -> void;
         auto HandleIncludeDirective(PPTokenScanner& scanner) -> void;
         auto HandleDefineDirective(PPTokenScanner& scanner) -> void;
         auto HandleUndefDirective(PPTokenScanner& scanner) -> void;
