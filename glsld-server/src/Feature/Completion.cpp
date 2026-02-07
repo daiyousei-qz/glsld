@@ -135,7 +135,6 @@ namespace glsld
             }
             else if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
                 // Case 2: cursor is after the dot for insertion, e.g. "a.^" or "a. ^ whatever"
-                auto dotToken = GetInfo().LookupToken(*dotTokIndex);
                 if (!GetInfo().ContainsPosition(AstSyntaxRange{*dotTokIndex}, cursorPosition) &&
                     GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex}, cursorPosition)) {
                     accessChainBaseExpr = expr.GetBaseExpr();
@@ -155,7 +154,6 @@ namespace glsld
             }
             else if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
                 // Case 2: cursor is after the dot for insertion, e.g. "a.^" or "a. ^ whatever"
-                auto dotToken = GetInfo().LookupToken(*dotTokIndex);
                 if (!GetInfo().ContainsPosition(AstSyntaxRange{*dotTokIndex}, cursorPosition) &&
                     GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex}, cursorPosition)) {
                     accessChainBaseExpr = expr.GetBaseExpr();
@@ -437,11 +435,13 @@ namespace glsld
                     auto pendingReplacementText = completionType.pendingReplacementToken.text.StrView();
                     if (pendingReplacementText.Empty()) {
                         // No pending text, suggest all possible swizzle components
-                        for (char ch : StringView{"xyzwrgbastpq"}) {
-                            result.push_back({lsp::CompletionItem{
-                                .label = std::string{ch},
-                                .kind  = lsp::CompletionItemKind::Field,
-                            }});
+                        for (StringView charSetSeq : {"xyzw", "rgba", "stpq"}) {
+                            for (char ch : charSetSeq.Take(vectorDesc->vectorSize)) {
+                                result.push_back({lsp::CompletionItem{
+                                    .label = std::string{ch},
+                                    .kind  = lsp::CompletionItemKind::Field,
+                                }});
+                            }
                         }
                     }
                     else if (auto swizzleDesc = SwizzleDesc::Parse(pendingReplacementText); swizzleDesc.IsValid()) {

@@ -177,9 +177,8 @@ namespace glsld
 
         static auto Parse(StringView swizzleName) -> SwizzleDesc
         {
-            GLSLD_ASSERT(!swizzleName.Empty());
-            if (swizzleName.Size() > MaxSwizzleDimension) {
-                // Swizzle name too long
+            if (swizzleName.Empty() || swizzleName.Size() > MaxSwizzleDimension) {
+                // Swizzle name is empty or too long
                 return {};
             }
 
