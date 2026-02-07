@@ -201,6 +201,11 @@ namespace glsld
             return LookupExpandedTextRange(node).start > position;
         }
 
+        auto ContainsPosition(const AstSyntaxRange& range, TextPosition position) const -> bool
+        {
+            return LookupExpandedTextRange(range).Contains(position);
+        }
+
         // True if the expanded range of an AST node contains the specified position in the main file.
         auto ContainsPosition(const AstNode& node, TextPosition position) const -> bool
         {

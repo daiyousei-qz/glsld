@@ -167,71 +167,6 @@ namespace glsld
         return result;
     }
 
-    static auto ParseSwizzle(StringView swizzleName) -> SwizzleDesc
-    {
-        GLSLD_ASSERT(!swizzleName.Empty());
-        if (swizzleName.Size() > 4) {
-            // Swizzle name too long
-            return {};
-        }
-
-        struct SwizzleCharDesc
-        {
-            int set;
-            int index;
-        };
-        auto translateSwizzleChar = [](char ch) -> SwizzleCharDesc {
-            switch (ch) {
-            case 'x':
-                return {0, 0};
-            case 'y':
-                return {0, 1};
-            case 'z':
-                return {0, 2};
-            case 'w':
-                return {0, 3};
-            case 'r':
-                return {1, 0};
-            case 'g':
-                return {1, 1};
-            case 'b':
-                return {1, 2};
-            case 'a':
-                return {1, 3};
-            case 's':
-                return {2, 0};
-            case 't':
-                return {2, 1};
-            case 'p':
-                return {2, 2};
-            case 'q':
-                return {2, 3};
-            default:
-                return {-1, 0};
-            }
-        };
-
-        int lastSwizzleSet = -1;
-        uint8_t swizzleBuffer[4];
-
-        for (int i = 0; i < swizzleName.Size(); ++i) {
-            const auto [set, index] = translateSwizzleChar(swizzleName[i]);
-            if (set == -1) {
-                // Bad swizzle char
-                return {};
-            }
-            else if (lastSwizzleSet != -1 && set != lastSwizzleSet) {
-                // Swizzle set mismatch
-                return {};
-            }
-
-            lastSwizzleSet   = set;
-            swizzleBuffer[i] = static_cast<uint8_t>(index);
-        }
-
-        return SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.Size()}};
-    }
-
     auto DeduceSwizzleType(const Type* baseType, SwizzleDesc swizzleDesc) -> const Type*
     {
         GLSLD_ASSERT(baseType->IsScalar() || baseType->IsVector());
@@ -263,7 +198,7 @@ namespace glsld
 
             auto swizzleDesc = SwizzleDesc{};
             if (idToken.IsIdentifier()) {
-                swizzleDesc = ParseSwizzle(idToken.text.StrView());
+                swizzleDesc = SwizzleDesc::Parse(idToken.text.StrView());
             }
 
             result->SetConst(lhsExpr->IsConst());

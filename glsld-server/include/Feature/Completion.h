@@ -14,6 +14,6 @@ namespace glsld
     };
 
     auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& queryInfo, CompletionState& state,
-                          const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>;
+                          const lsp::CompletionParams& params) -> lsp::CompletionList;
 
 } // namespace glsld

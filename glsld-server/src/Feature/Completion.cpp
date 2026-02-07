@@ -14,28 +14,63 @@ namespace glsld
 {
     struct CompletionTypeResult
     {
-        // If the completion expects an expression
-        bool allowExpr = false;
+        // If we may complete with a type name
+        bool allowTypeName = false;
 
-        // If the completion expects a type
-        bool allowType = false;
+        // If we may complete with a function name
+        bool allowFunctionName = false;
 
-        const AstExpr* accessChainExpr = nullptr;
+        // If we may complete with a variable name
+        bool allowVariableName = false;
+
+        // Access chain that triggers the completion, if any
+        // For example, if a completion is triggered by "expr.^", this field holds the AST node for "expr".
+        const AstExpr* accessChainBaseExpr = nullptr;
+
+        // The token that is being replaced by the completion
+        // If completion is an insertion, this token is invalid.
+        AstSyntaxToken pendingReplacementToken;
     };
 
     class CompletionTypeDecider : public LanguageQueryVisitor<CompletionTypeDecider, CompletionTypeResult>
     {
     private:
-        // True if the cursor is in a declarator
-        bool inDeclarator = false;
+        // True if we should disable all completions at the location
+        bool disableAllCompletion = false;
         // True if the cursor is in a function definition
         bool inFunctionDefinition = false;
         // True if the cursor is in a struct definition
         bool inStructDefinition = false;
-        //
-        const AstExpr* accessChainExpr = nullptr;
+        // True if the cursor is in a function call
+        bool inFunctionCall = false;
 
+        const AstExpr* accessChainBaseExpr = nullptr;
+
+        AstSyntaxToken pendingReplacementToken;
+
+        // The cursor position where completion is requested
         TextPosition cursorPosition;
+
+        auto CheckTokenForReplacement(const AstSyntaxToken& token) -> bool
+        {
+            if (!token.IsValid()) {
+                return false;
+            }
+
+            // A token "tok" contains three text positions: "^t^o^k"
+            // However, we want to provide a replacement completion at "t^o^k^". Thus, we need to apply an offset.
+            auto range = GetInfo().LookupExpandedTextRange(token);
+            range.start.character += 1;
+            range.end.character += 1;
+            return range.Contains(cursorPosition);
+        }
+
+        auto TestDeclaratorNameToken(const AstSyntaxToken& nameToken) -> void
+        {
+            if (GetInfo().ContainsPositionExtended(nameToken, cursorPosition)) {
+                disableAllCompletion = true;
+            }
+        }
 
     public:
         CompletionTypeDecider(const LanguageQueryInfo& info, TextPosition cursorPosition)
@@ -46,24 +81,29 @@ namespace glsld
         auto Finish() -> CompletionTypeResult GLSLD_AST_VISITOR_OVERRIDE
         {
             CompletionTypeResult result;
-            if (inDeclarator) {
-                result.allowExpr = false;
-                result.allowType = false;
+            if (disableAllCompletion) {
+                result.allowTypeName     = false;
+                result.allowFunctionName = false;
+                result.allowVariableName = false;
             }
-            else if (accessChainExpr) {
-                result.allowExpr       = false;
-                result.allowType       = false;
-                result.accessChainExpr = accessChainExpr;
+            else if (accessChainBaseExpr) {
+                result.allowTypeName       = false;
+                result.allowFunctionName   = false;
+                result.allowVariableName   = false;
+                result.accessChainBaseExpr = accessChainBaseExpr;
             }
             else if (inFunctionDefinition) {
-                result.allowExpr = true;
-                result.allowType = true;
+                result.allowTypeName     = true;
+                result.allowFunctionName = true;
+                result.allowVariableName = true;
             }
             else if (inStructDefinition) {
-                result.allowExpr = false;
-                result.allowType = true;
+                result.allowTypeName     = true;
+                result.allowFunctionName = false;
+                result.allowVariableName = false;
             }
 
+            result.pendingReplacementToken = pendingReplacementToken;
             return result;
         }
 
@@ -72,27 +112,68 @@ namespace glsld
             return TraverseNodeContains(node, cursorPosition);
         }
 
+        auto VisitAstLiteralExpr(const AstLiteralExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
+        {
+            disableAllCompletion = true;
+        }
+
         auto VisitAstNameAccessExpr(const AstNameAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
-        }
-        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
-        {
-            if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
-                if (GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()},
-                                                       cursorPosition)) {
-                    // FIXME: this also includes "^.xxx", which is not a valid position.
-                    accessChainExpr = expr.GetBaseExpr();
-                }
+            if (CheckTokenForReplacement(expr.GetNameToken())) {
+                // For name access, we only consider the replacement case, e.g. "fo^o"
+                // Insertion case doesn't make sense because the AST node would not be available without the identifier.
+                pendingReplacementToken = expr.GetNameToken();
             }
         }
+
+        auto VisitAstFieldAccessExpr(const AstFieldAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
+        {
+            if (CheckTokenForReplacement(expr.GetNameToken())) {
+                // Case 1: cursor is on the field name for replacement, e.g. "a.he^llo"
+                accessChainBaseExpr     = expr.GetBaseExpr();
+                pendingReplacementToken = expr.GetNameToken();
+            }
+            else if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
+                // Case 2: cursor is after the dot for insertion, e.g. "a.^" or "a. ^ whatever"
+                if (!GetInfo().ContainsPosition(AstSyntaxRange{*dotTokIndex}, cursorPosition) &&
+                    GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex}, cursorPosition)) {
+                    accessChainBaseExpr = expr.GetBaseExpr();
+                }
+            }
+
+            // Case 3: cursor is on the base expression, e.g. "a^.hello"
+            // We do not handle this case here because it should be handled while visiting the base expression itself.
+        }
+
         auto VisitAstSwizzleAccessExpr(const AstSwizzleAccessExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
-            if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
-                if (GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex, expr.GetSyntaxRange().GetEndID()},
-                                                       cursorPosition)) {
-                    // FIXME: this also includes "^.xxx", which is not a valid position.
-                    accessChainExpr = expr.GetBaseExpr();
+            if (CheckTokenForReplacement(expr.GetNameToken())) {
+                // Case 1: cursor is on the field name for replacement, e.g. "a.xy^z"
+                accessChainBaseExpr     = expr.GetBaseExpr();
+                pendingReplacementToken = expr.GetNameToken();
+            }
+            else if (auto dotTokIndex = GetInfo().LookupDotTokenIndex(expr)) {
+                // Case 2: cursor is after the dot for insertion, e.g. "a.^" or "a. ^ whatever"
+                if (!GetInfo().ContainsPosition(AstSyntaxRange{*dotTokIndex}, cursorPosition) &&
+                    GetInfo().ContainsPositionExtended(AstSyntaxRange{*dotTokIndex}, cursorPosition)) {
+                    accessChainBaseExpr = expr.GetBaseExpr();
                 }
+            }
+
+            // Case 3: cursor is on the base expression, e.g. "a^.xyz"
+            // We do not handle this case here because it should be handled while visiting the base expression itself.
+        }
+
+        auto VisitAstFunctionCallExpr(const AstFunctionCallExpr& expr) -> void GLSLD_AST_VISITOR_OVERRIDE
+        {
+            if (CheckTokenForReplacement(expr.GetNameToken())) {
+                // Case 1: cursor is on the function name for replacement, e.g. "fo^o()"
+                pendingReplacementToken = expr.GetNameToken();
+            }
+            else if (!GetInfo().ContainsPosition(expr.GetNameToken(), cursorPosition) &&
+                     GetInfo().ContainsPositionExtended(expr.GetNameToken(), cursorPosition)) {
+                // Case 2: `foo  ^()` should not result in completion
+                disableAllCompletion = true;
             }
         }
 
@@ -105,16 +186,17 @@ namespace glsld
 
         auto VisitAstParamDecl(const AstParamDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
+            // TODO: allow user type name while completing parameter.
             // FIXME: what about cursor?
             if (GetInfo().ContainsPositionExtended(decl, cursorPosition)) {
-                inDeclarator = true;
+                disableAllCompletion = true;
             }
         }
 
         auto VisitAstStructDecl(const AstStructDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
-            if (decl.GetNameToken() && GetInfo().ContainsPositionExtended(*decl.GetNameToken(), cursorPosition)) {
-                inDeclarator = true;
+            if (decl.GetNameToken()) {
+                TestDeclaratorNameToken(*decl.GetNameToken());
             }
 
             // FIXME: if cursor is outside the braces
@@ -131,20 +213,12 @@ namespace glsld
             -> void GLSLD_AST_VISITOR_OVERRIDE
         {
             // FIXME: layout?
-            TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
+            TestDeclaratorNameToken(decl.GetNameToken());
         }
 
         auto VisitAstVariableDeclaratorDecl(const AstVariableDeclaratorDecl& decl) -> void GLSLD_AST_VISITOR_OVERRIDE
         {
-            TestDeclarator(Declarator{decl.GetNameToken(), decl.GetArraySpec(), decl.GetInitializer()});
-        }
-
-    private:
-        auto TestDeclarator(const Declarator& declarator) -> void
-        {
-            if (GetInfo().ContainsPositionExtended(declarator.nameToken, cursorPosition)) {
-                inDeclarator = true;
-            }
+            TestDeclaratorNameToken(decl.GetNameToken());
         }
     };
 
@@ -245,15 +319,21 @@ namespace glsld
             switch (kind) {
             // We only populate completion items of these kinds
             case lsp::CompletionItemKind::Function:
+                if (!completionType.allowFunctionName) {
+                    return;
+                }
+                else {
+                    break;
+                }
             case lsp::CompletionItemKind::Variable:
-                if (!completionType.allowExpr) {
+                if (!completionType.allowVariableName) {
                     return;
                 }
                 else {
                     break;
                 }
             case lsp::CompletionItemKind::Struct:
-                if (!completionType.allowType) {
+                if (!completionType.allowTypeName) {
                     return;
                 }
                 else {
@@ -278,18 +358,30 @@ namespace glsld
         }
     };
 
+    auto ComputeKeywordCompletionItems() -> std::vector<lsp::CompletionItem>
+    {
+        std::vector<lsp::CompletionItem> result;
+        result.reserve(GetAllKeywords().size());
+        for (auto [_, keywordText] : GetAllKeywords()) {
+            result.push_back(lsp::CompletionItem{
+                .label = std::string{keywordText},
+                .kind  = lsp::CompletionItemKind::Keyword,
+            });
+        }
+
+        return result;
+    }
+
     auto ComputePreambleCompletionItems(const PrecompiledPreamble& preamble) -> std::vector<lsp::CompletionItem>
     {
-        std::vector<lsp::CompletionItem> builtinCompletionItems;
-
-        // Builtins
+        std::vector<lsp::CompletionItem> result;
         std::unordered_set<AtomString> seenIds;
         for (const AstDecl* decl : preamble.GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
             CollectCompletionFromDecl(
                 [&](const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) {
                     if (seenIds.find(declTok.text) == seenIds.end()) {
                         seenIds.insert(declTok.text);
-                        builtinCompletionItems.push_back(lsp::CompletionItem{
+                        result.push_back(lsp::CompletionItem{
                             .label = declTok.text.Str(),
                             .kind  = kind,
                         });
@@ -298,15 +390,7 @@ namespace glsld
                 *decl);
         }
 
-        // Keywords
-        for (auto [keywordKlass, keywordText] : GetAllKeywords()) {
-            builtinCompletionItems.push_back(lsp::CompletionItem{
-                .label = std::string{keywordText},
-                .kind  = lsp::CompletionItemKind::Keyword,
-            });
-        }
-
-        return builtinCompletionItems;
+        return result;
     }
 
     auto GetCompletionOptions(const CompletionConfig& config) -> std::optional<lsp::CompletionOptions>
@@ -321,7 +405,7 @@ namespace glsld
     }
 
     auto HandleCompletion(const CompletionConfig& config, const LanguageQueryInfo& queryInfo, CompletionState& state,
-                          const lsp::CompletionParams& params) -> std::vector<lsp::CompletionItem>
+                          const lsp::CompletionParams& params) -> lsp::CompletionList
     {
         if (!config.enable) {
             return {};
@@ -331,18 +415,57 @@ namespace glsld
 
         auto cursorPosition = FromLspPosition(params.position);
 
+        bool isIncomplete = false;
         std::vector<lsp::CompletionItem> result;
         auto completionType = TraverseAst(CompletionTypeDecider{queryInfo, cursorPosition}, queryInfo.GetUserFileAst());
-        if (completionType.accessChainExpr) {
-            auto type = completionType.accessChainExpr->GetDeducedType();
-            if (type->IsArray() || type->IsVector()) {
+        if (completionType.accessChainBaseExpr) {
+            // We are completing `expr.^`
+            auto baseType = completionType.accessChainBaseExpr->GetDeducedType();
+            if (baseType->IsArray() || baseType->IsVector() || baseType->IsMatrix()) {
                 // .length operator
+                // FIXME: we should insert `length()` instead of `length` here
                 result.push_back({lsp::CompletionItem{
                     .label = "length",
                     .kind  = lsp::CompletionItemKind::Method,
                 }});
+
+                if (auto vectorDesc = baseType->GetVectorDesc(); vectorDesc) {
+                    // swizzle operators
+                    // TODO: we should support swizzle on scalar as well?
+                    auto pendingReplacementText = completionType.pendingReplacementToken.text.StrView();
+                    if (pendingReplacementText.Empty()) {
+                        // No pending text, suggest all possible swizzle components
+                        for (StringView charSetSeq : {"xyzw", "rgba", "stpq"}) {
+                            for (char ch : charSetSeq.Take(vectorDesc->vectorSize)) {
+                                result.push_back({lsp::CompletionItem{
+                                    .label = std::string{ch},
+                                    .kind  = lsp::CompletionItemKind::Field,
+                                }});
+                            }
+                        }
+                    }
+                    else if (auto swizzleDesc = SwizzleDesc::Parse(pendingReplacementText); swizzleDesc.IsValid()) {
+                        // As what's already there is a valid swizzle, we either accept it as is, or extend it.
+                        result.push_back({lsp::CompletionItem{
+                            .label = pendingReplacementText.Str(),
+                            .kind  = lsp::CompletionItemKind::Field,
+                        }});
+
+                        if (pendingReplacementText.Size() < 4) {
+                            for (char newChar : swizzleDesc.GetCharSetSeq().Take(vectorDesc->vectorSize)) {
+                                result.push_back({lsp::CompletionItem{
+                                    .label = pendingReplacementText.Str() + newChar,
+                                    .kind  = lsp::CompletionItemKind::Field,
+                                }});
+                            }
+                        }
+                    }
+
+                    // Mark as incomplete to avoid flooding the list
+                    isIncomplete = true;
+                }
             }
-            else if (auto structDesc = type->GetStructDesc()) {
+            else if (auto structDesc = baseType->GetStructDesc(); structDesc) {
                 for (const auto& memberDesc : structDesc->members) {
                     result.push_back({lsp::CompletionItem{
                         .label = memberDesc.name,
@@ -350,8 +473,6 @@ namespace glsld
                     }});
                 }
             }
-
-            // FIXME: handle other type
         }
         else {
             if (compilerResult.GetPreamble() != state.preamble) {
@@ -360,24 +481,24 @@ namespace glsld
                 state.preambleCompletionItems = ComputePreambleCompletionItems(*state.preamble);
             }
 
-            // Copy the completion items from the language and standard library
-            std::ranges::copy_if(state.preambleCompletionItems, std::back_inserter(result),
-                                 [&](const lsp::CompletionItem& item) -> bool {
-                                     switch (item.kind) {
-                                     case lsp::CompletionItemKind::Struct:
-                                         return completionType.allowType;
-                                     case lsp::CompletionItemKind::Function:
-                                     case lsp::CompletionItemKind::Variable:
-                                         return completionType.allowExpr;
-                                     case lsp::CompletionItemKind::Keyword:
-                                         return true;
-                                     default:
-                                         return false;
-                                     }
-                                 });
+            result = ComputeKeywordCompletionItems();
+            if (completionType.allowTypeName || completionType.allowFunctionName || completionType.allowVariableName) {
+                // Copy the completion items from the language and standard library
+                std::ranges::copy_if(state.preambleCompletionItems, std::back_inserter(result),
+                                     [&](const lsp::CompletionItem& item) -> bool {
+                                         switch (item.kind) {
+                                         case lsp::CompletionItemKind::Struct:
+                                             return completionType.allowTypeName;
+                                         case lsp::CompletionItemKind::Function:
+                                             return completionType.allowFunctionName;
+                                         case lsp::CompletionItemKind::Variable:
+                                             return completionType.allowVariableName;
+                                         default:
+                                             return false;
+                                         }
+                                     });
 
-            // Add the completion items from the AST
-            if (completionType.allowExpr || completionType.allowType) {
+                // Add the completion items from the AST
                 TraverseAst(CompletionCollector{result, queryInfo, completionType, cursorPosition},
                             queryInfo.GetUserFileAst());
             }
@@ -385,6 +506,9 @@ namespace glsld
             // FIXME: add the completion items from the preprocessor, aka. macros
         }
 
-        return result;
+        return lsp::CompletionList{
+            .isIncomplete = isIncomplete,
+            .items        = std::move(result),
+        };
     }
 } // namespace glsld
