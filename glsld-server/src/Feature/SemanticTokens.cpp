@@ -48,7 +48,7 @@ namespace glsld
         }
     }
 
-    auto CollectPreprocessSemanticTokens(const PreprocessSymbolStore& ppInfoStore,
+    auto CollectPreprocessSemanticTokens(const PreprocessInfoStore& ppInfoStore,
                                          std::vector<SemanticTokenInfo>& tokenBuffer) -> void
     {
         for (const auto& ppSymbol : ppInfoStore.GetAllOccurrences()) {

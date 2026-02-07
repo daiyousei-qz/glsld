@@ -1831,6 +1831,20 @@ namespace glsld::lsp
     };
 #pragma endregion
 
+#pragma region Inactive Region Extension
+    inline constexpr const char* LSPMethod_PublishInactiveRegion = "glsld/textDocument/publishInactiveRegion";
+
+    struct PublishInactiveRegionParams
+    {
+        // The URI for which inactive region information is reported.
+        DocumentUri uri;
+
+        // The text ranges of inactive regions.
+        std::vector<Range> regions;
+    };
+
+#pragma endregion
+
 #pragma region Lifecycle
     inline constexpr const char* LSPMethod_Initialize  = "initialize";
     inline constexpr const char* LSPMethod_Initialized = "initialized";
@@ -1838,6 +1852,11 @@ namespace glsld::lsp
     inline constexpr const char* LSPMethod_LogTrace    = "$/logTrace";
     inline constexpr const char* LSPMethod_Shutdown    = "shutdown";
     inline constexpr const char* LSPMethod_Exit        = "exit";
+
+    struct InitializationOptions
+    {
+        std::optional<bool> supportGlsldExtensions;
+    };
 
     struct InitializeParams
     {
@@ -1899,6 +1918,7 @@ namespace glsld::lsp
         //   * User provided initialization options.
         //   */
         //  initializationOptions?: LSPAny;
+        std::optional<InitializationOptions> initializationOptions;
 
         //  /**
         //   * The capabilities provided by the client (editor or tool)

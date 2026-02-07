@@ -21,6 +21,8 @@ namespace glsld
     private:
         LanguageServer& server;
 
+        bool enableGlsldExtensions = false;
+
         exec::timed_thread_context timedSchedulerCtx{};
         exec::static_thread_pool backgroundWorkerCtx{};
 

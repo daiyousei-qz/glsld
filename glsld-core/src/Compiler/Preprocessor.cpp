@@ -822,12 +822,14 @@ namespace glsld
             return;
         }
 
+        bool isActive = !conditionalInfo.seenActiveBranch;
+
         // Run PP callback event if any
         if (callback) {
-            callback->OnElseDirective(scanner.AllTokens());
+            callback->OnElseDirective(scanner.AllTokens(), isActive);
         }
 
-        conditionalInfo.active           = !conditionalInfo.seenActiveBranch;
+        conditionalInfo.active           = isActive;
         conditionalInfo.seenActiveBranch = true;
         conditionalInfo.seenElse         = true;
 

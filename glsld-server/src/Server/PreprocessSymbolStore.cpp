@@ -6,14 +6,15 @@
 
 namespace glsld
 {
-    auto PreprocessSymbolStore::GetCollectionCallback() -> std::unique_ptr<PPCallback>
+    auto PreprocessInfoStore::GetCollectionCallback() -> std::unique_ptr<PPCallback>
     {
         class PreprocessInfoCollector final : public PPCallback
         {
         private:
-            PreprocessSymbolStore& store;
+            PreprocessInfoStore& store;
 
             int includeDepth = 0;
+            std::optional<int> inactiveRegionStartLine;
             UnorderedStringMap<const PPMacroDefinition*> macroLookup;
 
             auto DefineMacro(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
@@ -40,8 +41,21 @@ namespace glsld
                 return nullptr;
             }
 
+            auto EnterInactiveRange(int startLine) -> void
+            {
+                inactiveRegionStartLine = startLine;
+            }
+
+            auto LeaveInactiveRange(int endLine) -> void
+            {
+                if (inactiveRegionStartLine) {
+                    store.inactiveRegions.push_back(PPInactiveRegion{*inactiveRegionStartLine, endLine});
+                    inactiveRegionStartLine = std::nullopt;
+                }
+            }
+
         public:
-            PreprocessInfoCollector(PreprocessSymbolStore& cache) : store(cache)
+            PreprocessInfoCollector(PreprocessInfoStore& cache) : store(cache)
             {
             }
 
@@ -81,6 +95,46 @@ namespace glsld
                         macroName.spelledRange,
                         PPMacroSymbol{
                             macroName, {}, FindMacro(macroName.text.StrView()), PPMacroOccurrenceType::IfDef}});
+
+                    if (!isActive) {
+                        EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
+                    }
+                }
+            }
+            auto OnIfDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
+            {
+                if (includeDepth == 0) {
+                    if (!isActive) {
+                        EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
+                    }
+                }
+            }
+            auto OnElifDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
+            {
+                if (includeDepth == 0) {
+                    if (isActive) {
+                        LeaveInactiveRange(tokens.back().spelledRange.start.line);
+                    }
+                    else {
+                        EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
+                    }
+                }
+            }
+            auto OnElseDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
+            {
+                if (includeDepth == 0) {
+                    if (isActive) {
+                        LeaveInactiveRange(tokens.back().spelledRange.start.line);
+                    }
+                    else {
+                        EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
+                    }
+                }
+            }
+            auto OnEndifDirective(ArrayView<PPToken> tokens) -> void override
+            {
+                if (includeDepth == 0) {
+                    LeaveInactiveRange(tokens.back().spelledRange.start.line);
                 }
             }
 
@@ -115,7 +169,7 @@ namespace glsld
         return std::make_unique<PreprocessInfoCollector>(*this);
     }
 
-    auto PreprocessSymbolStore::QueryPPSymbol(TextPosition position) const -> const PPSymbolOccurrence*
+    auto PreprocessInfoStore::QueryPPSymbol(TextPosition position) const -> const PPSymbolOccurrence*
     {
         auto it = std::ranges::upper_bound(
             occurrences, position, std::ranges::less{},

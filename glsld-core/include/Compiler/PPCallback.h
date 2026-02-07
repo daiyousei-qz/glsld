@@ -75,7 +75,7 @@ namespace glsld
         }
 
         // Called when a `#else` directive is encountered
-        virtual auto OnElseDirective(ArrayView<PPToken> tokens) -> void
+        virtual auto OnElseDirective(ArrayView<PPToken> tokens, bool isActive) -> void
         {
         }
 
@@ -179,10 +179,10 @@ namespace glsld
             second->OnIfDefDirective(tokens, macroName, isNDef, isActive);
         }
 
-        virtual auto OnElseDirective(ArrayView<PPToken> tokens) -> void override
+        virtual auto OnElseDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
         {
-            first->OnElseDirective(tokens);
-            second->OnElseDirective(tokens);
+            first->OnElseDirective(tokens, isActive);
+            second->OnElseDirective(tokens, isActive);
         }
 
         virtual auto OnEndifDirective(ArrayView<PPToken> tokens) -> void override

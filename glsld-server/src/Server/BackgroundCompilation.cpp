@@ -46,7 +46,7 @@ namespace glsld
         isPreambleAvailable.store(true, std::memory_order_release);
 
         // Second pass:
-        auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
+        auto ppInfoStore    = std::make_unique<PreprocessInfoStore>();
         auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
 
         nextConfig                   = localPreamble->GetLanguageConfig();
