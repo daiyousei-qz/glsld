@@ -86,6 +86,9 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
             GLSLD_CHECK_AST("uniform BLOCK {}", BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"), {}));
             GLSLD_CHECK_AST("uniform {};", BlockDecl(NamedQual({TokenKlass::K_uniform}), InvalidTok(), {}));
             GLSLD_CHECK_AST("uniform {}", BlockDecl(NamedQual({TokenKlass::K_uniform}), InvalidTok(), {}));
+
+            // This is invalid GLSL, but we parse it as interface block
+            GLSLD_CHECK_AST("layout() BLOCK {};", BlockDecl(NamedQual({}), IdTok("BLOCK"), {}));
         }
     }
 

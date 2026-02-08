@@ -215,7 +215,7 @@ namespace glsld
 
         ParsingBalancedParenGuard parenGuard(*this);
 
-        while (!Eof()) {
+        while (!Eof() && !TryTestToken(TokenKlass::RParen)) {
             auto idToken = ParseOptionalDeclIdHelper();
 
             AstExpr* value = nullptr;
@@ -556,6 +556,8 @@ namespace glsld
             return ParsePrecisionDecl();
         }
 
+        // Type qualifier always comes first in a decl, so we try to parse it first to disambiguate different kinds of
+        // decls.
         auto quals = ParseTypeQualifierSeq();
         if (atGlobalScope && quals) {
             if (TryConsumeToken(TokenKlass::Semicolon)) {
@@ -563,34 +565,16 @@ namespace glsld
                 // e.g. `layout(local_size_x = X​, local_size_y = Y​, local_size_z = Z​) in;`
                 return astBuilder.BuildGlobalQualifierDecl(CreateAstSyntaxRange(beginTokID), quals);
             }
-
-            if (quals->GetQualGroup().CanDeclareInterfaceBlock()) {
-                if (TryTestToken(TokenKlass::LBrace) ||
-                    (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
-                    // interface block decl
-                    // e.g. `uniform UBO { ... }`
-                    return ParseInterfaceBlockDecl(beginTokID, quals);
-                }
+            else if (TryTestToken(TokenKlass::LBrace) ||
+                     (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
+                // interface block decl
+                // e.g. `uniform UBO { ... }`
+                return ParseInterfaceBlockDecl(beginTokID, quals);
             }
-
-            if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
+            else if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
                 // Type qualifier override decl
                 // e.g. `invariant gl_Position;`
-                std::vector<AstSyntaxToken> varNames{GetCurrentToken()};
-                ConsumeToken();
-                while (TryConsumeToken(TokenKlass::Comma)) {
-                    if (TryTestToken(TokenKlass::Identifier)) {
-                        varNames.push_back(GetCurrentToken());
-                        ConsumeToken();
-                    }
-                    else {
-                        ReportError("expected identifier after ','");
-                        break;
-                    }
-                }
-                ParseOrInferSemicolonHelper();
-                return astBuilder.BuildTypeQualifierOverrideDecl(CreateAstSyntaxRange(beginTokID), quals,
-                                                                 std::move(varNames));
+                return ParseQualifierOverrideDecl(quals);
             }
         }
 
@@ -995,6 +979,34 @@ namespace glsld
         ParseOrInferSemicolonHelper();
 
         return astBuilder.BuildPrecisionDecl(CreateAstSyntaxRange(beginTokID), typeSpec);
+    }
+
+    auto Parser::ParseQualifierOverrideDecl(AstTypeQualifierSeq* quals) -> AstDecl*
+    {
+        GLSLD_TRACE_PARSER();
+
+        const auto beginTokID = quals->GetSyntaxRange().GetBeginID();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
+
+        // Parse identifier list
+        std::vector<AstSyntaxToken> varNames{GetCurrentToken()};
+        ConsumeToken();
+        while (TryConsumeToken(TokenKlass::Comma)) {
+            if (TryTestToken(TokenKlass::Identifier)) {
+                varNames.push_back(GetCurrentToken());
+                ConsumeToken();
+            }
+            else {
+                ReportError("expected identifier after ','");
+                break;
+            }
+        }
+
+        // Parse ';'
+        ParseOrInferSemicolonHelper();
+
+        return astBuilder.BuildTypeQualifierOverrideDecl(CreateAstSyntaxRange(beginTokID), quals, std::move(varNames));
     }
 
 #pragma endregion
