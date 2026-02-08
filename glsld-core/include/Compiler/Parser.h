@@ -266,6 +266,7 @@ namespace glsld
         // 1. a struct definition
         // 2. an identifier that's a type name
         // 3. a keyword that's a built-in type name
+        //
         // NOTE qualifier is previously parsed and passed in as a parameter.
         //
         // PARSE: type_spec
@@ -299,8 +300,8 @@ namespace glsld
         // PARSE: declaration
         //      - declaration := ';'
         //      - declaration := precision_decl
-        //      - declaration := qual_seq ';' (TODO)
-        //      - declaration := qual_seq id [ ',' id ]... ';' (TODO)
+        //      - declaration := qual_seq ';'
+        //      - declaration := qual_seq id [ ',' id ]... ';'
         //      - declaration := qual_seq interface_block_decl
         //      - declaration := qual_seq? type_spec func_decl
         //      - declaration := qual_seq? type_spec type_or_variable_decl
@@ -420,6 +421,8 @@ namespace glsld
         //
         auto ParseBlockBody() -> std::vector<AstBlockFieldDecl*>;
 
+        // Assuming we have already parsed type qualifier, parses an interface block declaration.
+        //
         // EXPECT: 'ID' '{' or '{'
         //
         // PARSE: interface_block_decl
@@ -428,6 +431,8 @@ namespace glsld
         // RECOVERY: ^'EOF' or ^';'
         auto ParseInterfaceBlockDecl(SyntaxTokenID beginTokIndex, AstTypeQualifierSeq* quals) -> AstDecl*;
 
+        // Parses a precision declaration.
+        //
         // EXPECT: 'K_precision'
         //
         // PARSE: precision_decl
@@ -435,6 +440,16 @@ namespace glsld
         //
         // RECOVERY: ^'EOF' or ^';'
         auto ParsePrecisionDecl() -> AstDecl*;
+
+        // Assuming we have already parsed type qualifier, parse a type qualifier override declaration.
+        //
+        // EXPECT: 'ID'
+        //
+        // PARSE: type_qualifier_override_decl
+        //      - type_qualifier_override_decl := 'ID' [',' 'ID']... ';'
+        //
+        // RECOVERY: ^'EOF' or ^';'
+        auto ParseQualifierOverrideDecl(AstTypeQualifierSeq* quals) -> AstDecl*;
 
 #pragma endregion
 

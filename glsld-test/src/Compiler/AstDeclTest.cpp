@@ -36,12 +36,60 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
         }
     }
 
+    SECTION("Global Qualifier Decl")
+    {
+        GLSLD_CHECK_AST("layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;",
+                        GlobalQualifierDecl(NamedQual({TokenKlass::K_in}, {{IdTok("local_size_x"), LiteralExpr(1)},
+                                                                           {IdTok("local_size_y"), LiteralExpr(2)},
+                                                                           {IdTok("local_size_z"), LiteralExpr(3)}})));
+
+        GLSLD_CHECK_AST("layout(triangle) out;",
+                        GlobalQualifierDecl(NamedQual({TokenKlass::K_out}, {{IdTok("triangle"), NullAst()}})));
+
+        SECTION("Permissive")
+        {
+
+            // TODO: could this be inferred?
+            // GLSLD_CHECK_AST("layout(triangle) out",
+            //                 GlobalQualifierDecl(NamedQual({TokenKlass::K_out}, {{"triangle", NullAst()}})));
+        }
+    }
+
+    SECTION("Type Qualifier Override Decl")
+    {
+        GLSLD_CHECK_AST("invariant gl_Position;",
+                        TypeQualifierOverrideDecl(NamedQual({TokenKlass::K_invariant}), {IdTok("gl_Position")}));
+
+        GLSLD_CHECK_AST("precise gl_FragColor, gl_FragData;",
+                        TypeQualifierOverrideDecl(NamedQual({TokenKlass::K_precise}),
+                                                  {IdTok("gl_FragColor"), IdTok("gl_FragData")}));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("invariant gl_Position",
+                            TypeQualifierOverrideDecl(NamedQual({TokenKlass::K_invariant}), {IdTok("gl_Position")}));
+
+            GLSLD_CHECK_AST("invariant gl_Position,",
+                            TypeQualifierOverrideDecl(NamedQual({TokenKlass::K_invariant}), {IdTok("gl_Position")}));
+        }
+    }
+
     SECTION("Interface Decl")
     {
         GLSLD_CHECK_AST("uniform BLOCK {};", BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"), {}));
-        GLSLD_CHECK_AST("uniform BLOCK { int a; };",
-                        BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"),
+        GLSLD_CHECK_AST("buffer BLOCK { int a; };",
+                        BlockDecl(NamedQual({TokenKlass::K_buffer}), IdTok("BLOCK"),
                                   {BlockFieldDecl(NamedType(TokenKlass::K_int), IdTok("a"), NullAst())}));
+
+        SECTION("Permissive")
+        {
+            GLSLD_CHECK_AST("uniform BLOCK {}", BlockDecl(NamedQual({TokenKlass::K_uniform}), IdTok("BLOCK"), {}));
+            GLSLD_CHECK_AST("uniform {};", BlockDecl(NamedQual({TokenKlass::K_uniform}), InvalidTok(), {}));
+            GLSLD_CHECK_AST("uniform {}", BlockDecl(NamedQual({TokenKlass::K_uniform}), InvalidTok(), {}));
+
+            // This is invalid GLSL, but we parse it as interface block
+            GLSLD_CHECK_AST("layout() BLOCK {};", BlockDecl(NamedQual({}), IdTok("BLOCK"), {}));
+        }
     }
 
     SECTION("Struct Decl")

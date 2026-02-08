@@ -161,6 +161,11 @@ namespace glsld
 
         auto BuildPrecisionDecl(AstSyntaxRange range, AstQualType* type) -> AstPrecisionDecl*;
 
+        auto BuildGlobalQualifierDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals) -> AstGlobalQualifierDecl*;
+
+        auto BuildTypeQualifierOverrideDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals,
+                                            std::vector<AstSyntaxToken> varNames) -> AstTypeQualifierOverrideDecl*;
+
         auto BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
             -> AstVariableDecl*;
 

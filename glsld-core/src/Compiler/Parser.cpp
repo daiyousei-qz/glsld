@@ -215,7 +215,7 @@ namespace glsld
 
         ParsingBalancedParenGuard parenGuard(*this);
 
-        while (!Eof()) {
+        while (!Eof() && !TryTestToken(TokenKlass::RParen)) {
             auto idToken = ParseOptionalDeclIdHelper();
 
             AstExpr* value = nullptr;
@@ -547,42 +547,34 @@ namespace glsld
         auto beginTokID = GetCurrentTokenID();
 
         if (TryConsumeToken(TokenKlass::Semicolon)) {
-            // empty decl
+            // Empty decl, aka. `;`
             return astBuilder.BuildEmptyDecl(CreateAstSyntaxRange(beginTokID));
         }
 
         if (atGlobalScope && TryTestToken(TokenKlass::K_precision)) {
-            // precision decl
+            // Precision decl, e.g. `precision highp float;`
             return ParsePrecisionDecl();
         }
 
+        // Type qualifier always comes first in a decl, so we try to parse it first to disambiguate different kinds of
+        // decls.
         auto quals = ParseTypeQualifierSeq();
         if (atGlobalScope && quals) {
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                // default qualifier decl
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                // Global qualifier decl
                 // e.g. `layout(local_size_x = X​, local_size_y = Y​, local_size_z = Z​) in;`
-                // FIXME: implement this
-                ReportError("default qualifier decl not supported yet");
-                EnterRecoveryMode();
-                return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokID));
+                return astBuilder.BuildGlobalQualifierDecl(CreateAstSyntaxRange(beginTokID), quals);
             }
-
-            if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::Semicolon, TokenKlass::Comma, 1)) {
-                // qualifier overwrite decl
+            else if (TryTestToken(TokenKlass::LBrace) ||
+                     (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
+                // interface block decl
+                // e.g. `uniform UBO { ... }`
+                return ParseInterfaceBlockDecl(beginTokID, quals);
+            }
+            else if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
+                // Type qualifier override decl
                 // e.g. `invariant gl_Position;`
-                // FIXME: implement this
-                ReportError("qualifier overwrite decl not supported yet");
-                EnterRecoveryMode();
-                return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokID));
-            }
-
-            if (quals->GetQualGroup().CanDeclareInterfaceBlock()) {
-                if (TryTestToken(TokenKlass::LBrace) ||
-                    (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::LBrace, 1))) {
-                    // interface block decl
-                    // e.g. `uniform UBO { ... }`
-                    return ParseInterfaceBlockDecl(beginTokID, quals);
-                }
+                return ParseQualifierOverrideDecl(quals);
             }
         }
 
@@ -987,6 +979,34 @@ namespace glsld
         ParseOrInferSemicolonHelper();
 
         return astBuilder.BuildPrecisionDecl(CreateAstSyntaxRange(beginTokID), typeSpec);
+    }
+
+    auto Parser::ParseQualifierOverrideDecl(AstTypeQualifierSeq* quals) -> AstDecl*
+    {
+        GLSLD_TRACE_PARSER();
+
+        const auto beginTokID = quals->GetSyntaxRange().GetBeginID();
+
+        GLSLD_ASSERT(TryTestToken(TokenKlass::Identifier));
+
+        // Parse identifier list
+        std::vector<AstSyntaxToken> varNames{GetCurrentToken()};
+        ConsumeToken();
+        while (TryConsumeToken(TokenKlass::Comma)) {
+            if (TryTestToken(TokenKlass::Identifier)) {
+                varNames.push_back(GetCurrentToken());
+                ConsumeToken();
+            }
+            else {
+                ReportError("expected identifier after ','");
+                break;
+            }
+        }
+
+        // Parse ';'
+        ParseOrInferSemicolonHelper();
+
+        return astBuilder.BuildTypeQualifierOverrideDecl(CreateAstSyntaxRange(beginTokID), quals, std::move(varNames));
     }
 
 #pragma endregion

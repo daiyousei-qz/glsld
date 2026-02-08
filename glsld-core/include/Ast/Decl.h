@@ -117,6 +117,85 @@ namespace glsld
         }
     };
 
+    // Represents a declaration of a global qualifier, e.g. `layout(local_size_x = X​​) in;`.
+    class AstGlobalQualifierDecl final : public AstDecl
+    {
+    private:
+        // [Node]
+        NotNull<AstTypeQualifierSeq*> quals;
+
+    public:
+        AstGlobalQualifierDecl(AstTypeQualifierSeq* quals) : quals(quals)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
+            return visitor.Traverse(*quals);
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDecl::DoPrint(printer);
+            printer.PrintChildNode("Qualifiers", *quals);
+        }
+
+        auto GetQualifiers() const noexcept -> const AstTypeQualifierSeq*
+        {
+            return quals;
+        }
+    };
+
+    // Represents a declaration that overrides type qualifiers for declared variables, e.g. `invariant gl_Position;`.
+    class AstTypeQualifierOverrideDecl final : public AstDecl
+    {
+    private:
+        // [Node]
+        NotNull<AstTypeQualifierSeq*> quals;
+
+        // [Node]
+        ArrayView<AstSyntaxToken> names;
+
+    public:
+        AstTypeQualifierOverrideDecl(AstTypeQualifierSeq* quals, ArrayView<AstSyntaxToken> names)
+            : quals(quals), names(names)
+        {
+        }
+
+        template <AstVisitorT Visitor>
+        auto DoTraverse(Visitor& visitor) const -> bool
+        {
+            if (!AstDecl::DoTraverse(visitor)) {
+                return false;
+            }
+            return visitor.Traverse(*quals);
+        }
+
+        template <AstPrinterT Printer>
+        auto DoPrint(Printer& printer) const -> void
+        {
+            AstDecl::DoPrint(printer);
+            printer.PrintChildNode("Qualifiers", *quals);
+            for (const auto& name : names) {
+                printer.PrintAttribute("Variable", name.text.StrView());
+            }
+        }
+
+        auto GetQualifiers() const noexcept -> const AstTypeQualifierSeq*
+        {
+            return quals;
+        }
+        auto GetOverriddenNames() const noexcept -> ArrayView<AstSyntaxToken>
+        {
+            return names;
+        }
+    };
+
     // Represents a single declarator, including name, array specifier and initializer.
     struct Declarator
     {

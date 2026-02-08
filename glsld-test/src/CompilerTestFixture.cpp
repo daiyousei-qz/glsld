@@ -15,12 +15,26 @@ namespace glsld
         {
         }
 
+        auto Fail(StringView errorMessage) -> AstMatchPipeline&
+        {
+            if (result.IsSuccess()) {
+                result = AstMatchResult::Failure(node, "{}", errorMessage);
+            }
+            return *this;
+        }
+
         auto Try(bool test, StringView errorMessage) -> AstMatchPipeline&
         {
             if (result.IsSuccess() && !test) {
                 result = AstMatchResult::Failure(node, "{}", errorMessage);
             }
 
+            return *this;
+        }
+
+        auto TryWith(std::function<void(AstMatchPipeline&)> matchCallback) -> AstMatchPipeline&
+        {
+            matchCallback(*this);
             return *this;
         }
 
@@ -40,6 +54,27 @@ namespace glsld
             if (result.IsSuccess() && !matcher->Match(token)) {
                 result = AstMatchResult::Failure(node, "Unexpected token, expecting {}, got {}", matcher->Describe(),
                                                  token.text.StrView());
+            }
+
+            return *this;
+        }
+
+        auto TryMatchAllTokens(ArrayView<AstSyntaxToken> tokens, ArrayView<TokenMatcher*> matchers) -> AstMatchPipeline&
+        {
+            if (result.IsSuccess()) {
+                if (tokens.size() != matchers.size()) {
+                    result = AstMatchResult::Failure(node, "Unexpected token count: expected {}, got {}",
+                                                     matchers.size(), tokens.size());
+                    return *this;
+                }
+
+                for (const auto& [token, matcher] : std::views::zip(tokens, matchers)) {
+                    if (!matcher->Match(token)) {
+                        result = AstMatchResult::Failure(node, "Unexpected token {}, expecting {}",
+                                                         token.text.StrView(), matcher->Describe());
+                        return *this;
+                    }
+                }
             }
 
             return *this;
@@ -163,10 +198,11 @@ namespace glsld
                        : AstMatchResult::FailWithUnexpectedAstNode(node, AstNodeTrait<AstQualType>::name);
         });
     }
-    auto CompilerTestFixture::NamedQual(std::vector<TokenKlass> keyword) -> AstMatcher*
+    auto CompilerTestFixture::NamedQual(std::vector<TokenKlass> keywords,
+                                        std::vector<std::tuple<TokenMatcher*, AstMatcher*>> layoutItems) -> AstMatcher*
     {
         auto expectedQualGroup = QualifierGroup{};
-        for (auto k : keyword) {
+        for (auto k : keywords) {
             switch (k) {
             case TokenKlass::K_highp:
                 expectedQualGroup.qHighp = true;
@@ -290,9 +326,26 @@ namespace glsld
         }
 
         return CreateAstMatcher<AstTypeQualifierSeq>(
-            __func__, [expectedQualGroup](const AstTypeQualifierSeq* node) -> AstMatchResult {
+            __func__,
+            [expectedQualGroup,
+             layoutItems = std::move(layoutItems)](const AstTypeQualifierSeq* node) -> AstMatchResult {
                 return AstMatchPipeline{node}
                     .TryEqual(expectedQualGroup, node->GetQualGroup(), "Unexpected qualifiers: expected {}, got {}")
+                    .TryWith([&](AstMatchPipeline& pipeline) {
+                        if (node->GetLayoutQuals().size() == layoutItems.size()) {
+                            for (const auto& [realLayoutItem, expectedLayoutItem] :
+                                 std::views::zip(node->GetLayoutQuals(), layoutItems)) {
+                                const auto& [expectedLayoutNameMatcher, expectedLayoutValueMatcher] =
+                                    expectedLayoutItem;
+                                pipeline.TryMatchToken(realLayoutItem.idToken, expectedLayoutNameMatcher);
+                                pipeline.TryMatch(realLayoutItem.value, expectedLayoutValueMatcher);
+                            }
+                        }
+                        else {
+                            pipeline.Fail(fmt::format("Unexpected layout qualifier count: expected {}, got {}",
+                                                      layoutItems.size(), node->GetLayoutQuals().size()));
+                        }
+                    })
                     .Finish();
             });
     }
@@ -643,6 +696,26 @@ namespace glsld
         return CreateAstMatcher<AstPrecisionDecl>(
             __func__, [typeMatcher](const AstPrecisionDecl* node) -> AstMatchResult {
                 return AstMatchPipeline{node}.TryMatch(node->GetType(), typeMatcher).Finish();
+            });
+    }
+    auto CompilerTestFixture::GlobalQualifierDecl(AstMatcher* qualMatcher) -> AstMatcher*
+    {
+        return CreateAstMatcher<AstGlobalQualifierDecl>(
+            __func__, [qualMatcher](const AstGlobalQualifierDecl* node) -> AstMatchResult {
+                return AstMatchPipeline{node}.TryMatch(node->GetQualifiers(), qualMatcher).Finish();
+            });
+    }
+    auto CompilerTestFixture::TypeQualifierOverrideDecl(AstMatcher* qualMatcher,
+                                                        std::vector<TokenMatcher*> nameMatchers) -> AstMatcher*
+    {
+        return CreateAstMatcher<AstTypeQualifierOverrideDecl>(
+            __func__,
+            [qualMatcher,
+             nameMatchers = std::move(nameMatchers)](const AstTypeQualifierOverrideDecl* node) -> AstMatchResult {
+                return AstMatchPipeline{node}
+                    .TryMatch(node->GetQualifiers(), qualMatcher)
+                    .TryMatchAllTokens(node->GetOverriddenNames(), nameMatchers)
+                    .Finish();
             });
     }
     auto CompilerTestFixture::BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher,
