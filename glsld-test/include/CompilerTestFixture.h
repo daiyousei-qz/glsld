@@ -163,7 +163,8 @@ namespace glsld
         auto AnyQual() -> AstMatcher*;
         auto AnyQualType() -> AstMatcher*;
 
-        auto NamedQual(std::vector<TokenKlass> keyword) -> AstMatcher*;
+        auto NamedQual(std::vector<TokenKlass> keywords,
+                       std::vector<std::tuple<TokenMatcher*, AstMatcher*>> layoutItems = {}) -> AstMatcher*;
 
         auto QualType(AstMatcher* qualMatcher, AstMatcher* structDeclMatcher, AstMatcher* arraySpecMatcher)
             -> AstMatcher*;
@@ -222,6 +223,8 @@ namespace glsld
         auto ErrorDecl() -> AstMatcher*;
         auto EmptyDecl() -> AstMatcher*;
         auto PrecisionDecl(AstMatcher* typeMatcher) -> AstMatcher*;
+        auto GlobalQualifierDecl(AstMatcher* qualMatcher) -> AstMatcher*;
+        auto TypeQualifierOverrideDecl(AstMatcher* qualMatcher, std::vector<TokenMatcher*> nameMatchers) -> AstMatcher*;
         auto BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher, std::vector<AstMatcher*> fieldMatchers)
             -> AstMatcher*;
         auto BlockDecl(AstMatcher* qualMatcher, TokenMatcher* blockNameMatcher, std::vector<AstMatcher*> fieldMatchers,

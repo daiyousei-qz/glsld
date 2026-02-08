@@ -299,8 +299,8 @@ namespace glsld
         // PARSE: declaration
         //      - declaration := ';'
         //      - declaration := precision_decl
-        //      - declaration := qual_seq ';' (TODO)
-        //      - declaration := qual_seq id [ ',' id ]... ';' (TODO)
+        //      - declaration := qual_seq ';'
+        //      - declaration := qual_seq id [ ',' id ]... ';'
         //      - declaration := qual_seq interface_block_decl
         //      - declaration := qual_seq? type_spec func_decl
         //      - declaration := qual_seq? type_spec type_or_variable_decl

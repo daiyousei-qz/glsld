@@ -989,6 +989,19 @@ namespace glsld
         return CreateAstNode<AstPrecisionDecl>(range, type);
     }
 
+    auto AstBuilder::BuildGlobalQualifierDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals)
+        -> AstGlobalQualifierDecl*
+    {
+        return CreateAstNode<AstGlobalQualifierDecl>(range, quals);
+    }
+
+    auto AstBuilder::BuildTypeQualifierOverrideDecl(AstSyntaxRange range, AstTypeQualifierSeq* quals,
+                                                    std::vector<AstSyntaxToken> varNames)
+        -> AstTypeQualifierOverrideDecl*
+    {
+        return CreateAstNode<AstTypeQualifierOverrideDecl>(range, quals, CopyArray(varNames));
+    }
+
     auto AstBuilder::BuildVariableDecl(AstSyntaxRange range, AstQualType* qualType, std::vector<Declarator> declarators)
         -> AstVariableDecl*
     {

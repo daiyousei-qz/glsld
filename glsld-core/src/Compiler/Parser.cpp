@@ -547,33 +547,21 @@ namespace glsld
         auto beginTokID = GetCurrentTokenID();
 
         if (TryConsumeToken(TokenKlass::Semicolon)) {
-            // empty decl
+            // Empty decl, aka. `;`
             return astBuilder.BuildEmptyDecl(CreateAstSyntaxRange(beginTokID));
         }
 
         if (atGlobalScope && TryTestToken(TokenKlass::K_precision)) {
-            // precision decl
+            // Precision decl, e.g. `precision highp float;`
             return ParsePrecisionDecl();
         }
 
         auto quals = ParseTypeQualifierSeq();
         if (atGlobalScope && quals) {
-            if (TryTestToken(TokenKlass::Semicolon)) {
-                // default qualifier decl
+            if (TryConsumeToken(TokenKlass::Semicolon)) {
+                // Global qualifier decl
                 // e.g. `layout(local_size_x = X​, local_size_y = Y​, local_size_z = Z​) in;`
-                // FIXME: implement this
-                ReportError("default qualifier decl not supported yet");
-                EnterRecoveryMode();
-                return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokID));
-            }
-
-            if (TryTestToken(TokenKlass::Identifier) && TryTestToken(TokenKlass::Semicolon, TokenKlass::Comma, 1)) {
-                // qualifier overwrite decl
-                // e.g. `invariant gl_Position;`
-                // FIXME: implement this
-                ReportError("qualifier overwrite decl not supported yet");
-                EnterRecoveryMode();
-                return astBuilder.BuildErrorDecl(CreateAstSyntaxRange(beginTokID));
+                return astBuilder.BuildGlobalQualifierDecl(CreateAstSyntaxRange(beginTokID), quals);
             }
 
             if (quals->GetQualGroup().CanDeclareInterfaceBlock()) {
@@ -583,6 +571,26 @@ namespace glsld
                     // e.g. `uniform UBO { ... }`
                     return ParseInterfaceBlockDecl(beginTokID, quals);
                 }
+            }
+
+            if (TryTestToken(TokenKlass::Identifier) && !astBuilder.IsStructName(PeekToken().text.StrView())) {
+                // Type qualifier override decl
+                // e.g. `invariant gl_Position;`
+                std::vector<AstSyntaxToken> varNames{GetCurrentToken()};
+                ConsumeToken();
+                while (TryConsumeToken(TokenKlass::Comma)) {
+                    if (TryTestToken(TokenKlass::Identifier)) {
+                        varNames.push_back(GetCurrentToken());
+                        ConsumeToken();
+                    }
+                    else {
+                        ReportError("expected identifier after ','");
+                        break;
+                    }
+                }
+                ParseOrInferSemicolonHelper();
+                return astBuilder.BuildTypeQualifierOverrideDecl(CreateAstSyntaxRange(beginTokID), quals,
+                                                                 std::move(varNames));
             }
         }
 
