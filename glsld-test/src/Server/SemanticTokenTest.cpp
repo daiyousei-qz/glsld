@@ -256,4 +256,6 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
             checkSemanticTokensDelta(source1, source4);
         }
     }
+
+    // TODO: Add tests for glsld/textDocument/publishInactiveRegion
 }

@@ -46,7 +46,7 @@ namespace glsld
                 inactiveRegionStartLine = startLine;
             }
 
-            auto LeaveInactiveRange(int endLine) -> void
+            auto TryLeaveInactiveRange(int endLine) -> void
             {
                 if (inactiveRegionStartLine) {
                     store.inactiveRegions.push_back(PPInactiveRegion{*inactiveRegionStartLine, endLine});
@@ -112,10 +112,8 @@ namespace glsld
             auto OnElifDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
             {
                 if (includeDepth == 0) {
-                    if (isActive) {
-                        LeaveInactiveRange(tokens.back().spelledRange.start.line);
-                    }
-                    else {
+                    TryLeaveInactiveRange(tokens.back().spelledRange.start.line);
+                    if (!isActive) {
                         EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
                     }
                 }
@@ -123,10 +121,8 @@ namespace glsld
             auto OnElseDirective(ArrayView<PPToken> tokens, bool isActive) -> void override
             {
                 if (includeDepth == 0) {
-                    if (isActive) {
-                        LeaveInactiveRange(tokens.back().spelledRange.start.line);
-                    }
-                    else {
+                    TryLeaveInactiveRange(tokens.back().spelledRange.start.line);
+                    if (!isActive) {
                         EnterInactiveRange(tokens.back().spelledRange.end.line + 1);
                     }
                 }
@@ -134,7 +130,7 @@ namespace glsld
             auto OnEndifDirective(ArrayView<PPToken> tokens) -> void override
             {
                 if (includeDepth == 0) {
-                    LeaveInactiveRange(tokens.back().spelledRange.start.line);
+                    TryLeaveInactiveRange(tokens.back().spelledRange.start.line);
                 }
             }
 

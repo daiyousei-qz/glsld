@@ -366,8 +366,7 @@ namespace glsld
             // EOF is handled by caller
         }
         else if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-            directiveTokBuffer.push_back(token);
-            TransitionTo(PreprocessorState::ExpectDirective);
+            TransitionToExpectDirectiveState(token);
         }
         else {
             // TODO: skip tokenization for version scanning mode
@@ -377,12 +376,11 @@ namespace glsld
 
     auto PreprocessStateMachine::AcceptOnInactiveState(const PPToken& token) -> void
     {
-        if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-            directiveTokBuffer.push_back(token);
-            TransitionTo(PreprocessorState::ExpectDirective);
-        }
-        else if (token.klass == TokenKlass::Eof) {
+        if (token.klass == TokenKlass::Eof) {
             // FIXME: Unterminated inactive region. Report error.
+        }
+        else if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+            TransitionToExpectDirectiveState(token);
         }
         else {
             // Ignore all other tokens since we are in an inactive region.
@@ -393,43 +391,41 @@ namespace glsld
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Empty directive.
-            ParsePPDirective();
+            DispatchPPDirectiveToHandler();
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                RedirectIncomingToken(PreprocessorState::Default, token);
+                TransitionToDefaultState(&token);
             }
             else {
-                RedirectIncomingToken(PreprocessorState::Inactive, token);
+                TransitionToInactiveState(&token);
             }
         }
-        else if (token.klass == TokenKlass::Identifier) {
-            // A PP directive parsed.
+        else {
+            // A PP directive parsed. We don't validate the directive here, just buffer the tokens.
             directiveTokBuffer.push_back(token);
             if (conditionalStack.empty() || conditionalStack.back().active) {
                 // We are in an active region, so we expect to process all directives.
                 if (token.text == atomDirectiveInclude) {
-                    TransitionTo(PreprocessorState::ExpectIncludeDirectiveTail);
+                    TransitionToExpectIncludeDirectiveTailState();
                 }
                 else {
-                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                    TransitionToExpectDefaultDirectiveTailState();
                 }
             }
             else {
                 // We are in an inactive region.
-                if (token.text == atomDirectiveElif || token.text == atomDirectiveElse ||
-                    token.text == atomDirectiveEndif) {
+                // Notably, even though if/ifdef/ifndef cannot restore the active state, we still need to process them
+                // in order to maintain the correct nesting level of conditional directives.
+                if (token.text == atomDirectiveIf || token.text == atomDirectiveIfdef ||
+                    token.text == atomDirectiveIfndef || token.text == atomDirectiveElif ||
+                    token.text == atomDirectiveElse || token.text == atomDirectiveEndif) {
                     // These directives may change the state of the conditional stack.
-                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                    TransitionToExpectDefaultDirectiveTailState();
                 }
                 else {
                     // Other directives are skipped in inactive regions.
-                    TransitionTo(PreprocessorState::Inactive);
+                    TransitionToInactiveState(nullptr);
                 }
             }
-        }
-        else {
-            // A bad directive.
-            directiveTokBuffer.push_back(token);
-            TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
         }
     }
 
@@ -437,15 +433,14 @@ namespace glsld
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Finish processing the directive.
-            ParsePPDirective();
-            directiveTokBuffer.clear();
+            DispatchPPDirectiveToHandler();
 
             // Redirect the token to the default state.
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                RedirectIncomingToken(PreprocessorState::Default, token);
+                TransitionToDefaultState(&token);
             }
             else {
-                RedirectIncomingToken(PreprocessorState::Inactive, token);
+                TransitionToInactiveState(&token);
             }
         }
         else {
@@ -453,7 +448,7 @@ namespace glsld
         }
     }
 
-    auto PreprocessStateMachine::ParsePPDirective() -> void
+    auto PreprocessStateMachine::DispatchPPDirectiveToHandler() -> void
     {
         PPTokenScanner scanner{directiveTokBuffer};
         scanner.ConsumeToken(); // Consume '#'
