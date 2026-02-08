@@ -73,14 +73,24 @@ namespace glsld
         }
     };
 
+    struct PPInactiveRegion
+    {
+        // 0-based line of which the inactive region starts
+        int startLine;
+
+        // 0-based line of which the inactive region ends (aka. the first active line after the inactive region)
+        int endLine;
+    };
+
     // TODO: collect all header name occurrences, including the path to the header file
     // TODO: collect all spelled macro uses in the main file, including the definition and expansion?
     // TODO: 1) support basic hover on macro, showing name only. 2) support definition tokens 3) support expansion
-    class PreprocessSymbolStore
+    class PreprocessInfoStore
     {
     private:
         std::vector<std::unique_ptr<PPMacroDefinition>> macroDefinitions;
         std::vector<PPSymbolOccurrence> occurrences;
+        std::vector<PPInactiveRegion> inactiveRegions;
 
     public:
         auto GetCollectionCallback() -> std::unique_ptr<PPCallback>;
@@ -88,6 +98,11 @@ namespace glsld
         auto GetAllOccurrences() const -> ArrayView<PPSymbolOccurrence>
         {
             return occurrences;
+        }
+
+        auto GetInactiveRegions() const -> ArrayView<PPInactiveRegion>
+        {
+            return inactiveRegions;
         }
 
         auto QueryPPSymbol(TextPosition position) const -> const PPSymbolOccurrence*;

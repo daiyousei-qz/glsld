@@ -150,8 +150,29 @@ namespace glsld
             }));
     }
 
+    auto LanguageService::PublishInactiveRegions(StringView uri, const LanguageQueryInfo& queryInfo) -> void
+    {
+        if (enableGlsldExtensions) {
+            lsp::PublishInactiveRegionParams inactiveRegions;
+            inactiveRegions.uri = uri.Str();
+            inactiveRegions.regions.reserve(queryInfo.GetPreprocessInfo().GetInactiveRegions().size() * 2);
+            for (const auto& range : queryInfo.GetPreprocessInfo().GetInactiveRegions()) {
+                inactiveRegions.regions.push_back(range.startLine);
+                inactiveRegions.regions.push_back(range.endLine);
+            }
+
+            server.SendServerNotification(lsp::LSPMethod_PublishInactiveRegion, inactiveRegions);
+            server.LogInfo("Published inactive regions for document {}", uri);
+        }
+    }
+
     auto LanguageService::OnInitialize(int requestId, lsp::InitializeParams params) -> void
     {
+        if (params.initializationOptions && params.initializationOptions->supportGlsldExtensions &&
+            *params.initializationOptions->supportGlsldExtensions) {
+            enableGlsldExtensions = true;
+        }
+
         auto result = lsp::InitializeResult{
             .capabilities =
                 {
@@ -288,6 +309,8 @@ namespace glsld
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
                                timer.GetElapsedMilliseconds());
+
+                PublishInactiveRegions(params.textDocument.uri, queryInfo);
             });
     }
 
@@ -305,6 +328,8 @@ namespace glsld
 
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensDelta",
                            timer.GetElapsedMilliseconds());
+
+            PublishInactiveRegions(params.textDocument.uri, queryInfo);
         });
     }
 

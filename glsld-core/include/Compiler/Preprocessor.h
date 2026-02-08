@@ -225,11 +225,8 @@ namespace glsld
         // In this mode, the preprocessor will halt the lexing when it sees the first non-comment/preprocessor token.
         bool versionScanningMode = false;
 
-        // The current PP directive token being processed.
-        std::optional<PPToken> directiveToken = std::nullopt;
-
-        // This buffer stores the tokens following the PP directive.
-        std::vector<PPToken> directiveArgBuffer = {};
+        // This buffer stores the tokens that form a PP directive. The first token is always '#'.
+        std::vector<PPToken> directiveTokBuffer = {};
 
         // This stack stores all information about the effective conditional directives.
         std::vector<PPConditionalInfo> conditionalStack = {};
@@ -400,7 +397,7 @@ namespace glsld
                     if (includeDepth == 0) {
                         // We are done with the main file. Insert an EOF token.
                         OutputToken(token, token.spelledRange);
-                        TransitionTo(PreprocessorState::Halt);
+                        TransitionToHaltState();
                     }
                 }
             }
@@ -483,26 +480,67 @@ namespace glsld
         }
 
         // Possible transitions:
-        // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
-        // - Default -> Halt (See the first token that is not comment nor part of preprocessor in version scanning mode)
-        // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
         // - ExpectDirective -> Default (Empty directive parsed)
-        // - ExpectDirective -> Inactive (Current PP directive cannot exit the inactive region)
-        // - ExpectDirective -> ExpectDefaultDirectiveTail (A PP directive parsed, expect following tokens)
-        // - ExpectDirective -> ExpectIncludeDirectiveTail (A #include directive parsed, expect following tokens)
         // - ExpectDefaultDirectiveTail -> Default (A PP directive handled)
         // - ExpectIncludeDirectiveTail -> Default (A #include directive handled)
-        // - ExpectDefaultDirectiveTail -> Inactive (A PP directive handled, entering an inactive region)
-        auto TransitionTo(PreprocessorState newState) -> void
+        auto TransitionToDefaultState(const PPToken* redirectedToken) -> void
         {
-            state = newState;
+            GLSLD_ASSERT(state == PreprocessorState::ExpectDirective ||
+                         state == PreprocessorState::ExpectDefaultDirectiveTail ||
+                         state == PreprocessorState::ExpectIncludeDirectiveTail);
+            state = PreprocessorState::Default;
+            if (redirectedToken) {
+                DispatchTokenToHandler(*redirectedToken);
+            }
         }
 
-        //
-        auto RedirectIncomingToken(PreprocessorState newState, const PPToken& token) -> void
+        // Possible transitions:
+        // - ExpectDirective -> Inactive (Current PP directive cannot exit the inactive region)
+        // - ExpectDefaultDirectiveTail -> Inactive (A PP directive handled, entering an inactive region)
+        auto TransitionToInactiveState(const PPToken* redirectedToken) -> void
         {
-            TransitionTo(newState);
-            DispatchTokenToHandler(token);
+            GLSLD_ASSERT(state == PreprocessorState::ExpectDirective ||
+                         state == PreprocessorState::ExpectDefaultDirectiveTail);
+            state = PreprocessorState::Inactive;
+            if (redirectedToken) {
+                DispatchTokenToHandler(*redirectedToken);
+            }
+        }
+
+        // Possible transitions:
+        // - Default -> Halt (See the first token that is not comment nor part of preprocessor in version scanning mode)
+        auto TransitionToHaltState() -> void
+        {
+            GLSLD_ASSERT(state == PreprocessorState::Default);
+            state = PreprocessorState::Halt;
+        }
+
+        // Possible transitions:
+        // - Default -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
+        // - Inactive -> ExpectDirective (See # from the beginning of a line, expect a PP directive next)
+        auto TransitionToExpectDirectiveState(const PPToken& hashToken) -> void
+        {
+            GLSLD_ASSERT(state == PreprocessorState::Default || state == PreprocessorState::Inactive);
+            GLSLD_ASSERT(hashToken.klass == TokenKlass::Hash && hashToken.isFirstTokenOfLine);
+            state = PreprocessorState::ExpectDirective;
+            directiveTokBuffer.clear();
+            directiveTokBuffer.push_back(hashToken);
+        }
+
+        // Possible transitions:
+        // - ExpectDirective -> ExpectDefaultDirectiveTail (A PP directive parsed, expect following tokens)
+        auto TransitionToExpectDefaultDirectiveTailState() -> void
+        {
+            GLSLD_ASSERT(state == PreprocessorState::ExpectDirective);
+            state = PreprocessorState::ExpectDefaultDirectiveTail;
+        }
+
+        // Possible transitions:
+        // - ExpectDirective -> ExpectIncludeDirectiveTail (A #include directive parsed, expect following tokens)
+        auto TransitionToExpectIncludeDirectiveTailState() -> void
+        {
+            GLSLD_ASSERT(state == PreprocessorState::ExpectDirective);
+            state = PreprocessorState::ExpectIncludeDirectiveTail;
         }
 
         // Dispatch the token to the appropriate handler based on the current state.
@@ -518,7 +556,8 @@ namespace glsld
         auto ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>;
         auto ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>;
 
-        auto HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void;
+        auto DispatchPPDirectiveToHandler() -> void;
+        auto HandleBadDirective(PPTokenScanner& scanner) -> void;
         auto HandleIncludeDirective(PPTokenScanner& scanner) -> void;
         auto HandleDefineDirective(PPTokenScanner& scanner) -> void;
         auto HandleUndefDirective(PPTokenScanner& scanner) -> void;

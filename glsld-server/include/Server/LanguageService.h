@@ -21,6 +21,8 @@ namespace glsld
     private:
         LanguageServer& server;
 
+        bool enableGlsldExtensions = false;
+
         exec::timed_thread_context timedSchedulerCtx{};
         exec::static_thread_pool backgroundWorkerCtx{};
 
@@ -142,6 +144,8 @@ namespace glsld
                                std::any_cast<StateType&>(stateObject.state));
                   }));
         }
+
+        auto PublishInactiveRegions(StringView uri, const LanguageQueryInfo& info) -> void;
 
     public:
         LanguageService(LanguageServer& server) : server(server)

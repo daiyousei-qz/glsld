@@ -366,7 +366,7 @@ namespace glsld
             // EOF is handled by caller
         }
         else if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-            TransitionTo(PreprocessorState::ExpectDirective);
+            TransitionToExpectDirectiveState(token);
         }
         else {
             // TODO: skip tokenization for version scanning mode
@@ -376,11 +376,11 @@ namespace glsld
 
     auto PreprocessStateMachine::AcceptOnInactiveState(const PPToken& token) -> void
     {
-        if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-            TransitionTo(PreprocessorState::ExpectDirective);
-        }
-        else if (token.klass == TokenKlass::Eof) {
+        if (token.klass == TokenKlass::Eof) {
             // FIXME: Unterminated inactive region. Report error.
+        }
+        else if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+            TransitionToExpectDirectiveState(token);
         }
         else {
             // Ignore all other tokens since we are in an inactive region.
@@ -391,42 +391,41 @@ namespace glsld
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Empty directive.
+            DispatchPPDirectiveToHandler();
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                RedirectIncomingToken(PreprocessorState::Default, token);
+                TransitionToDefaultState(&token);
             }
             else {
-                RedirectIncomingToken(PreprocessorState::Inactive, token);
+                TransitionToInactiveState(&token);
             }
         }
-        else if (token.klass == TokenKlass::Identifier) {
-            // A PP directive parsed.
-            directiveToken = token;
+        else {
+            // A PP directive parsed. We don't validate the directive here, just buffer the tokens.
+            directiveTokBuffer.push_back(token);
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                if (directiveToken->text == atomDirectiveInclude) {
-                    TransitionTo(PreprocessorState::ExpectIncludeDirectiveTail);
+                // We are in an active region, so we expect to process all directives.
+                if (token.text == atomDirectiveInclude) {
+                    TransitionToExpectIncludeDirectiveTailState();
                 }
                 else {
-                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                    TransitionToExpectDefaultDirectiveTailState();
                 }
             }
             else {
                 // We are in an inactive region.
-                if (directiveToken->text == atomDirectiveIf || directiveToken->text == atomDirectiveIfdef ||
-                    directiveToken->text == atomDirectiveIfndef || directiveToken->text == atomDirectiveElif ||
-                    directiveToken->text == atomDirectiveElse || directiveToken->text == atomDirectiveEndif) {
+                // Notably, even though if/ifdef/ifndef cannot restore the active state, we still need to process them
+                // in order to maintain the correct nesting level of conditional directives.
+                if (token.text == atomDirectiveIf || token.text == atomDirectiveIfdef ||
+                    token.text == atomDirectiveIfndef || token.text == atomDirectiveElif ||
+                    token.text == atomDirectiveElse || token.text == atomDirectiveEndif) {
                     // These directives may change the state of the conditional stack.
-                    TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
+                    TransitionToExpectDefaultDirectiveTailState();
                 }
                 else {
                     // Other directives are skipped in inactive regions.
-                    TransitionTo(PreprocessorState::Inactive);
-                    directiveToken = std::nullopt;
+                    TransitionToInactiveState(nullptr);
                 }
             }
-        }
-        else {
-            // A bad directive.
-            TransitionTo(PreprocessorState::ExpectDefaultDirectiveTail);
         }
     }
 
@@ -434,29 +433,31 @@ namespace glsld
     {
         if (token.klass == TokenKlass::Eof || token.isFirstTokenOfLine) {
             // Finish processing the directive.
-            if (directiveToken) {
-                // FIXME: what if the directive is bad? we should raise error
-                HandleDirective(*directiveToken, directiveArgBuffer);
-            }
-            directiveToken = std::nullopt;
-            directiveArgBuffer.clear();
+            DispatchPPDirectiveToHandler();
 
             // Redirect the token to the default state.
             if (conditionalStack.empty() || conditionalStack.back().active) {
-                RedirectIncomingToken(PreprocessorState::Default, token);
+                TransitionToDefaultState(&token);
             }
             else {
-                RedirectIncomingToken(PreprocessorState::Inactive, token);
+                TransitionToInactiveState(&token);
             }
         }
         else {
-            directiveArgBuffer.push_back(token);
+            directiveTokBuffer.push_back(token);
         }
     }
 
-    auto PreprocessStateMachine::HandleDirective(const PPToken& directiveToken, ArrayView<PPToken> restTokens) -> void
+    auto PreprocessStateMachine::DispatchPPDirectiveToHandler() -> void
     {
-        PPTokenScanner scanner{restTokens};
+        PPTokenScanner scanner{directiveTokBuffer};
+        scanner.ConsumeToken(); // Consume '#'
+        if (scanner.CursorAtEnd()) {
+            // Empty directive, nothing to do
+            return;
+        }
+
+        PPToken directiveToken = scanner.ConsumeToken();
         if (directiveToken.text == atomDirectiveInclude) {
             HandleIncludeDirective(scanner);
         }
@@ -508,6 +509,10 @@ namespace glsld
         }
     }
 
+    auto PreprocessStateMachine::HandleBadDirective(PPTokenScanner& scanner) -> void
+    {
+    }
+
     auto PreprocessStateMachine::HandleIncludeDirective(PPTokenScanner& scanner) -> void
     {
         const auto& compilerConfig = compiler.GetCompilerConfig();
@@ -534,7 +539,8 @@ namespace glsld
 
             // Run PP callback event if any
             if (callback) {
-                callback->OnIncludeDirective(*headerNameToken, sourceManager.GetAbsolutePath(includeFile));
+                callback->OnIncludeDirective(scanner.AllTokens(), *headerNameToken,
+                                             sourceManager.GetAbsolutePath(includeFile));
             }
 
             if (!includeFile.IsValid()) {
@@ -590,7 +596,7 @@ namespace glsld
 
             // Run PP callback event if any
             if (callback) {
-                callback->OnDefineDirective(macroName, {}, {}, false);
+                callback->OnDefineDirective(scanner.AllTokens(), macroName, {}, {}, false);
             }
             return;
         }
@@ -648,22 +654,22 @@ namespace glsld
         }
 
         // Parse the macro body
-        std::vector<PPToken> expansionTokens;
+        std::vector<PPToken> replacementTokens;
         while (!scanner.CursorAtEnd()) {
-            expansionTokens.push_back(scanner.ConsumeToken());
+            replacementTokens.push_back(scanner.ConsumeToken());
         }
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnDefineDirective(macroName, paramTokens, expansionTokens, isFunctionLike);
+            callback->OnDefineDirective(scanner.AllTokens(), macroName, paramTokens, replacementTokens, isFunctionLike);
         }
 
         // Register the macro
         if (isFunctionLike) {
-            macroTable.DefineFunctionLikeMacro(macroName, std::move(paramTokens), std::move(expansionTokens));
+            macroTable.DefineFunctionLikeMacro(macroName, std::move(paramTokens), std::move(replacementTokens));
         }
         else {
-            macroTable.DefineObjectLikeMacro(macroName, std::move(expansionTokens));
+            macroTable.DefineObjectLikeMacro(macroName, std::move(replacementTokens));
         }
     }
 
@@ -685,7 +691,7 @@ namespace glsld
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnUndefDirective(macroName);
+            callback->OnUndefDirective(scanner.AllTokens(), macroName);
         }
 
         // Undefine the macro
@@ -705,7 +711,7 @@ namespace glsld
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnIfDirective(evalToTrue);
+            callback->OnIfDirective(scanner.AllTokens(), evalToTrue);
         }
 
         conditionalStack.push_back(PPConditionalInfo{
@@ -740,20 +746,21 @@ namespace glsld
             // FIXME: report warning, expected no more tokens after the macro name.
         }
 
+        bool isActive = macroTable.IsMacroDefined(macroName.text) != isNDef;
+
         // Run PP callback event if any
         if (callback) {
-            callback->OnIfDefDirective(macroName, isNDef);
+            callback->OnIfDefDirective(scanner.AllTokens(), macroName, isNDef, isActive);
         }
 
-        bool active = macroTable.IsMacroDefined(macroName.text) != isNDef;
         conditionalStack.push_back(PPConditionalInfo{
-            .active           = active,
-            .seenActiveBranch = active,
+            .active           = isActive,
+            .seenActiveBranch = isActive,
             .seenElse         = false,
         });
 
 #if defined(GLSLD_DEBUG)
-        compiler.GetCompilerTrace().TracePPConditionalInfo(active);
+        compiler.GetCompilerTrace().TracePPConditionalInfo(isActive);
 #endif
     }
 
@@ -778,7 +785,7 @@ namespace glsld
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnElifDirective(evalToTrue);
+            callback->OnElifDirective(scanner.AllTokens(), evalToTrue);
         }
 
         conditionalInfo.active           = !conditionalInfo.seenActiveBranch && evalToTrue;
@@ -810,12 +817,14 @@ namespace glsld
             return;
         }
 
+        bool isActive = !conditionalInfo.seenActiveBranch;
+
         // Run PP callback event if any
         if (callback) {
-            callback->OnElseDirective();
+            callback->OnElseDirective(scanner.AllTokens(), isActive);
         }
 
-        conditionalInfo.active           = !conditionalInfo.seenActiveBranch;
+        conditionalInfo.active           = isActive;
         conditionalInfo.seenActiveBranch = true;
         conditionalInfo.seenElse         = true;
 
@@ -842,7 +851,7 @@ namespace glsld
 
         // Run PP callback event if any
         if (callback) {
-            callback->OnEndifDirective();
+            callback->OnEndifDirective(scanner.AllTokens());
         }
 
         conditionalStack.pop_back();
@@ -898,8 +907,7 @@ namespace glsld
 
         // TODO: validate the extension name and toggle
         if (callback) {
-            callback->OnExtensionDirective(extensionNameTok.spelledFile, extensionNameTok.spelledRange, *extension,
-                                           *behavior);
+            callback->OnExtensionDirective(scanner.AllTokens(), *extension, *behavior);
         }
     }
 
@@ -1032,7 +1040,7 @@ namespace glsld
         GLSLD_ASSERT(version && profile);
         // TODO: validate the version number and profile
         if (callback) {
-            callback->OnVersionDirective(versionTok.spelledFile, versionTok.spelledRange, *version, *profile);
+            callback->OnVersionDirective(scanner.AllTokens(), *version, *profile);
         }
     }
 

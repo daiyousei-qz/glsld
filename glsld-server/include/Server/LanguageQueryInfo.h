@@ -89,10 +89,10 @@ namespace glsld
         std::unique_ptr<CompilerResult> compilerResult = nullptr;
 
         // The preprocessor info collected during the compilation.
-        std::unique_ptr<PreprocessSymbolStore> ppInfoStore = nullptr;
+        std::unique_ptr<PreprocessInfoStore> ppInfoStore = nullptr;
 
     public:
-        LanguageQueryInfo(std::unique_ptr<CompilerResult> result, std::unique_ptr<PreprocessSymbolStore> ppInfoStore)
+        LanguageQueryInfo(std::unique_ptr<CompilerResult> result, std::unique_ptr<PreprocessInfoStore> ppInfoStore)
             : compilerResult(std::move(result)), ppInfoStore(std::move(ppInfoStore))
         {
         }
@@ -107,7 +107,7 @@ namespace glsld
             return *compilerResult->GetUserFileArtifacts().GetAst();
         }
 
-        auto GetPreprocessInfo() const -> const PreprocessSymbolStore&
+        auto GetPreprocessInfo() const -> const PreprocessInfoStore&
         {
             return *ppInfoStore;
         }

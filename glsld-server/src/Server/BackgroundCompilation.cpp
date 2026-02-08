@@ -17,13 +17,13 @@ namespace glsld
         {
         }
 
-        auto OnVersionDirective(FileID file, TextRange range, GlslVersion version, GlslProfile profile) -> void override
+        auto OnVersionDirective(ArrayView<PPToken> tokens, GlslVersion version, GlslProfile profile) -> void override
         {
             config.version = version;
             config.profile = profile;
         }
 
-        auto OnExtensionDirective(FileID file, TextRange range, ExtensionId extension, ExtensionBehavior behavior)
+        auto OnExtensionDirective(ArrayView<PPToken> tokens, ExtensionId extension, ExtensionBehavior behavior)
             -> void override
         {
             if (behavior == ExtensionBehavior::Enable || behavior == ExtensionBehavior::Require) {
@@ -46,7 +46,7 @@ namespace glsld
         isPreambleAvailable.store(true, std::memory_order_release);
 
         // Second pass:
-        auto ppInfoStore    = std::make_unique<PreprocessSymbolStore>();
+        auto ppInfoStore    = std::make_unique<PreprocessInfoStore>();
         auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
 
         nextConfig                   = localPreamble->GetLanguageConfig();

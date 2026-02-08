@@ -85,7 +85,7 @@ namespace glsld
         auto CompileLabelledSource(StringView labelledSourceText) -> void
         {
             auto [sourceText, labels] = ParseLabelledSource(labelledSourceText);
-            auto ppInfoStore          = std::make_unique<PreprocessSymbolStore>();
+            auto ppInfoStore          = std::make_unique<PreprocessInfoStore>();
             auto compiler             = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
