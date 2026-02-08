@@ -1839,8 +1839,8 @@ namespace glsld::lsp
         // The URI for which inactive region information is reported.
         DocumentUri uri;
 
-        // The text ranges of inactive regions.
-        std::vector<Range> regions;
+        // The line numbers of inactive regions. Every [2*i] is the start line and [2*i+1] is the end line.
+        std::vector<lsp::uinteger> regions;
     };
 
 #pragma endregion

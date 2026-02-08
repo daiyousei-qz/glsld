@@ -145,6 +145,8 @@ namespace glsld
                   }));
         }
 
+        auto PublishInactiveRegions(StringView uri, const LanguageQueryInfo& info) -> void;
+
     public:
         LanguageService(LanguageServer& server) : server(server)
         {
