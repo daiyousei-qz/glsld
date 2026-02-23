@@ -1,9 +1,9 @@
 #pragma once
-#include "Support/StringView.h"
-#include "Support/StringMap.h"
 #include "Ast/Base.h"
 #include "Language/Typing.h"
+#include "Support/StringView.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <variant>
@@ -71,8 +71,11 @@ namespace glsld
 
     struct StructTypeDesc
     {
-        // The linkage name of the struct type.
+        // The display name of the struct type.
         std::string name;
+
+        // The linkage name of the struct type.
+        std::string linkageName;
 
         // The AST node of the (first) declaration of this type.
         const AstDecl* decl;
@@ -102,10 +105,7 @@ namespace glsld
         int dimRow;
         int dimCol;
 
-        constexpr auto operator==(const ValueDimension& rhs) const noexcept -> bool
-        {
-            return dimRow == rhs.dimRow && dimCol == rhs.dimCol;
-        }
+        constexpr auto operator==(const ValueDimension& rhs) const noexcept -> bool = default;
     };
 
     // Type is a wrapper of type descriptor
@@ -119,31 +119,19 @@ namespace glsld
                                              MatrixTypeDesc, SamplerTypeDesc, ArrayTypeDesc, StructTypeDesc>;
 
     private:
-        // FIXME: is this for debug only?
-        std::string debugName = "__FIXME";
+        // A compiler-generated name that uniquely identifies the type.
+        std::string canonicalName;
 
-        DescPayloadType descPayload;
+        // Note this doesn't identify the type uniquely. The same canonical type may have different print names.
+        std::string printName;
+
+        // The actual type descriptor.
+        DescPayloadType typeDesc;
 
         bool containsOpaqueType = false;
 
     public:
-        Type(std::string name, DescPayloadType payload) : debugName(std::move(name)), descPayload(std::move(payload))
-        {
-            if (IsSampler()) {
-                containsOpaqueType = true;
-            }
-            else if (auto desc = GetArrayDesc()) {
-                containsOpaqueType = desc->elementType->containsOpaqueType;
-            }
-            else if (auto desc = GetStructDesc()) {
-                for (const auto& memberDesc : desc->members) {
-                    if (memberDesc.type->containsOpaqueType) {
-                        containsOpaqueType = true;
-                        break;
-                    }
-                }
-            }
-        }
+        Type(std::string printName, DescPayloadType typeDesc);
 
         // Get a globally unique type instance for error type
         static auto GetErrorType() -> const Type*;
@@ -152,62 +140,61 @@ namespace glsld
         static auto GetBuiltinType(GlslBuiltinType tag) -> const Type*;
 
         // Get a globally unique type instance for the particular scalar type, if any
-        // NOTE if the scalar type doesn't exist in glsl language, returns nullptr
         static auto GetScalarType(ScalarKind kind) -> const Type*;
 
         // Get a globally unique type instance for the particular vector type, if any
-        // NOTE if the vector type doesn't exist in glsl language, returns nullptr
+        // NOTE if the vector type doesn't exist in glsl language, returns ErrorType
         static auto GetVectorType(ScalarKind kind, size_t dim) -> const Type*;
 
         // Get a globally unique type instance for the particular matrix type, if any
-        // NOTE if the matrix type doesn't exist in glsl language, returns nullptr
+        // NOTE if the matrix type doesn't exist in glsl language, returns ErrorType
         static auto GetMatrixType(ScalarKind kind, size_t dimRow, size_t dimCol) -> const Type*;
 
         // Get a globally unique type instance for the particular arithmetic type, if any
         // This includes scalar, vector and matrix types.
-        // NOTE if the arithmetic type doesn't exist in glsl language, returns nullptr
+        // NOTE if the arithmetic type doesn't exist in glsl language, returns ErrorType
         static auto GetArithmeticType(ScalarKind kind, ValueDimension dim) -> const Type*;
 
         auto IsError() const noexcept -> bool
         {
-            return std::holds_alternative<ErrorTypeDesc>(descPayload);
+            return std::holds_alternative<ErrorTypeDesc>(typeDesc);
         }
         auto IsVoid() const noexcept -> bool
         {
-            return std::holds_alternative<VoidTypeDesc>(descPayload);
+            return std::holds_alternative<VoidTypeDesc>(typeDesc);
         }
         auto IsScalar() const noexcept -> bool
         {
-            return std::holds_alternative<ScalarTypeDesc>(descPayload);
+            return std::holds_alternative<ScalarTypeDesc>(typeDesc);
         }
         auto IsVector() const noexcept -> bool
         {
-            return std::holds_alternative<VectorTypeDesc>(descPayload);
+            return std::holds_alternative<VectorTypeDesc>(typeDesc);
         }
         auto IsMatrix() const noexcept -> bool
         {
-            return std::holds_alternative<MatrixTypeDesc>(descPayload);
+            return std::holds_alternative<MatrixTypeDesc>(typeDesc);
         }
         auto IsSampler() const noexcept -> bool
         {
-            return std::holds_alternative<SamplerTypeDesc>(descPayload);
+            return std::holds_alternative<SamplerTypeDesc>(typeDesc);
         }
         auto IsArray() const noexcept -> bool
         {
-            return std::holds_alternative<ArrayTypeDesc>(descPayload);
+            return std::holds_alternative<ArrayTypeDesc>(typeDesc);
         }
         auto IsStruct() const noexcept -> bool
         {
-            return std::holds_alternative<StructTypeDesc>(descPayload);
+            return std::holds_alternative<StructTypeDesc>(typeDesc);
         }
 
         auto IsScalarBool() const noexcept -> bool
         {
-            return this == Type::GetBuiltinType(GlslBuiltinType::Ty_bool);
+            return IsScalar() && std::get<ScalarTypeDesc>(typeDesc).type == ScalarKind::Bool;
         }
         auto IsScalarInt() const noexcept -> bool
         {
-            return this == Type::GetBuiltinType(GlslBuiltinType::Ty_int);
+            return IsScalar() && std::get<ScalarTypeDesc>(typeDesc).type == ScalarKind::Int;
         }
 
         auto IsOpaque() const noexcept -> bool
@@ -317,34 +304,39 @@ namespace glsld
             }
         }
 
+        auto GetCanonicalName() const noexcept -> StringView
+        {
+            return canonicalName;
+        }
+
         auto GetDebugName() const noexcept -> StringView
         {
-            return debugName;
+            return !printName.empty() ? printName : "<unnamed>";
         }
 
         auto GetScalarDesc() const noexcept -> const ScalarTypeDesc*
         {
-            return std::get_if<ScalarTypeDesc>(&descPayload);
+            return std::get_if<ScalarTypeDesc>(&typeDesc);
         }
         auto GetVectorDesc() const noexcept -> const VectorTypeDesc*
         {
-            return std::get_if<VectorTypeDesc>(&descPayload);
+            return std::get_if<VectorTypeDesc>(&typeDesc);
         }
         auto GetMatrixDesc() const noexcept -> const MatrixTypeDesc*
         {
-            return std::get_if<MatrixTypeDesc>(&descPayload);
+            return std::get_if<MatrixTypeDesc>(&typeDesc);
         }
         auto GetSamplerDesc() const noexcept -> const SamplerTypeDesc*
         {
-            return std::get_if<SamplerTypeDesc>(&descPayload);
+            return std::get_if<SamplerTypeDesc>(&typeDesc);
         }
         auto GetArrayDesc() const noexcept -> const ArrayTypeDesc*
         {
-            return std::get_if<ArrayTypeDesc>(&descPayload);
+            return std::get_if<ArrayTypeDesc>(&typeDesc);
         }
         auto GetStructDesc() const noexcept -> const StructTypeDesc*
         {
-            return std::get_if<StructTypeDesc>(&descPayload);
+            return std::get_if<StructTypeDesc>(&typeDesc);
         }
 
         // Returns true if this type is the same with the given builtin type.

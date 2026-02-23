@@ -24,16 +24,21 @@ namespace glsld
             }
         }
 
-        StringView typeName = "__UnnamedStructType";
+        StringView typeName = "";
         if (auto nameToken = decl.GetNameToken(); nameToken && nameToken->IsIdentifier()) {
             typeName = decl.GetNameToken()->text.StrView();
         }
 
-        auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                .name    = decl.GetNameToken() ? typeName.Str() : "",
-                                                                .decl    = &decl,
-                                                                .members = std::move(members),
-                                                            });
+        auto result = arena.Construct<Type>(
+            typeName.Str(),
+            StructTypeDesc{
+                .name = typeName.Str(),
+                .linkageName =
+                    fmt::format("{}@{}_{}", typeName, std::to_underlying(decl.GetSyntaxRange().GetTranslationUnit()),
+                                decl.GetSyntaxRange().GetBeginID().GetTokenIndex()),
+                .decl    = &decl,
+                .members = std::move(members),
+            });
         return result;
     }
 
@@ -51,16 +56,21 @@ namespace glsld
             }
         }
 
-        StringView typeName = "__UnnamedBlockType";
+        StringView typeName = "";
         if (decl.GetNameToken().IsIdentifier()) {
             typeName = decl.GetNameToken().text.StrView();
         }
 
-        auto result = arena.Construct<Type>(typeName.Str(), StructTypeDesc{
-                                                                .name    = typeName.Str(),
-                                                                .decl    = &decl,
-                                                                .members = std::move(members),
-                                                            });
+        auto result = arena.Construct<Type>(
+            typeName.Str(),
+            StructTypeDesc{
+                .name = typeName.Str(),
+                .linkageName =
+                    fmt::format("{}@{}_{}", typeName, std::to_underlying(decl.GetSyntaxRange().GetTranslationUnit()),
+                                decl.GetSyntaxRange().GetBeginID().GetTokenIndex()),
+                .decl    = &decl,
+                .members = std::move(members),
+            });
         return result;
     }
 
