@@ -15,6 +15,123 @@
 
 namespace glsld
 {
+    struct LanguageAtoms
+    {
+        struct
+        {
+#define DECL_PUNCT(PUNCT_NAME, ...) AtomString p_##PUNCT_NAME;
+#include "GlslPunctuation.inc"
+#undef DECL_PUNCT
+        } puncts;
+
+        struct
+        {
+            AtomString ppHash;
+            AtomString ppHashHash;
+
+            AtomString directiveInclude;
+            AtomString directiveDefine;
+            AtomString directiveUndef;
+            AtomString directiveIf;
+            AtomString directiveIfdef;
+            AtomString directiveIfndef;
+            AtomString directiveElse;
+            AtomString directiveElif;
+            AtomString directiveEndif;
+            AtomString directiveError;
+            AtomString directiveExtension;
+            AtomString directiveVersion;
+            AtomString directivePragma;
+            AtomString directiveLine;
+
+            AtomString extensionBehaviorEnable;
+            AtomString extensionBehaviorRequire;
+            AtomString extensionBehaviorWarn;
+            AtomString extensionBehaviorDisable;
+
+            AtomString versionString110;
+            AtomString versionString120;
+            AtomString versionString130;
+            AtomString versionString140;
+            AtomString versionString150;
+            AtomString versionString330;
+            AtomString versionString400;
+            AtomString versionString410;
+            AtomString versionString420;
+            AtomString versionString430;
+            AtomString versionString440;
+            AtomString versionString450;
+            AtomString versionString460;
+
+            AtomString versionProfileCore;
+            AtomString versionProfileCompatibility;
+            AtomString versionProfileEs;
+
+            AtomString builtinLineMacro;
+            AtomString builtinFileMacro;
+            AtomString builtinVersionMacro;
+            AtomString macroOperatorDefined;
+        } miscs;
+
+        std::unordered_map<AtomString, TokenKlass> keywordFixupLookup;
+
+        LanguageAtoms(AtomTable& atomTable)
+        {
+#define DECL_KEYWORD(KEYWORD) keywordFixupLookup[atomTable.GetAtom(#KEYWORD)] = TokenKlass::K_##KEYWORD;
+#include "GlslKeywords.inc"
+#undef DECL_KEYWORD
+#define DECL_PUNCT(PUNCT_NAME, OP_TEXT) puncts.p_##PUNCT_NAME = atomTable.GetAtom(OP_TEXT);
+#include "GlslPunctuation.inc"
+#undef DECL_PUNCT
+
+            miscs.ppHash     = atomTable.GetAtom("#");
+            miscs.ppHashHash = atomTable.GetAtom("##");
+
+            miscs.directiveInclude   = atomTable.GetAtom("include");
+            miscs.directiveDefine    = atomTable.GetAtom("define");
+            miscs.directiveUndef     = atomTable.GetAtom("undef");
+            miscs.directiveIf        = atomTable.GetAtom("if");
+            miscs.directiveIfdef     = atomTable.GetAtom("ifdef");
+            miscs.directiveIfndef    = atomTable.GetAtom("ifndef");
+            miscs.directiveElse      = atomTable.GetAtom("else");
+            miscs.directiveElif      = atomTable.GetAtom("elif");
+            miscs.directiveEndif     = atomTable.GetAtom("endif");
+            miscs.directiveError     = atomTable.GetAtom("error");
+            miscs.directiveExtension = atomTable.GetAtom("extension");
+            miscs.directiveVersion   = atomTable.GetAtom("version");
+            miscs.directivePragma    = atomTable.GetAtom("pragma");
+            miscs.directiveLine      = atomTable.GetAtom("line");
+
+            miscs.extensionBehaviorEnable  = atomTable.GetAtom("enable");
+            miscs.extensionBehaviorRequire = atomTable.GetAtom("require");
+            miscs.extensionBehaviorWarn    = atomTable.GetAtom("warn");
+            miscs.extensionBehaviorDisable = atomTable.GetAtom("disable");
+
+            miscs.versionString110 = atomTable.GetAtom("110");
+            miscs.versionString120 = atomTable.GetAtom("120");
+            miscs.versionString130 = atomTable.GetAtom("130");
+            miscs.versionString140 = atomTable.GetAtom("140");
+            miscs.versionString150 = atomTable.GetAtom("150");
+            miscs.versionString330 = atomTable.GetAtom("330");
+            miscs.versionString400 = atomTable.GetAtom("400");
+            miscs.versionString410 = atomTable.GetAtom("410");
+            miscs.versionString420 = atomTable.GetAtom("420");
+            miscs.versionString430 = atomTable.GetAtom("430");
+            miscs.versionString440 = atomTable.GetAtom("440");
+            miscs.versionString450 = atomTable.GetAtom("450");
+            miscs.versionString460 = atomTable.GetAtom("460");
+
+            miscs.versionProfileCore          = atomTable.GetAtom("core");
+            miscs.versionProfileCompatibility = atomTable.GetAtom("compatibility");
+            miscs.versionProfileEs            = atomTable.GetAtom("es");
+
+            miscs.builtinLineMacro     = atomTable.GetAtom("__LINE__");
+            miscs.builtinFileMacro     = atomTable.GetAtom("__FILE__");
+            miscs.builtinVersionMacro  = atomTable.GetAtom("__VERSION__");
+            miscs.macroOperatorDefined = atomTable.GetAtom("defined");
+        }
+    };
+
     struct PreprocessedTokens
     {
         std::vector<RawSyntaxToken> tokens;
@@ -63,6 +180,8 @@ namespace glsld
     class PreprocessStateMachine
     {
     private:
+        friend class Preprocessor;
+
         CompilerInvocationState& compiler;
 
         SourceManager& sourceManager;
@@ -209,9 +328,6 @@ namespace glsld
         // The macro expansion processor.
         MacroExpansionProcessor macroExpansionProcessor;
 
-        // Lookup map from keyword atom to keyword klass
-        std::unordered_map<AtomString, TokenKlass> keywordLookup;
-
         // The token expansion range in the main file.
         // - If we are at an included file, this is the expanded range of all tokens.
         // - If we are at the main file, this should always be std::nullopt.
@@ -242,48 +358,7 @@ namespace glsld
         // This tracks the (zero-based) line number trivia front attachment location.
         uint32_t triviaAttachmentLine = 0;
 
-        AtomString atomDirectiveInclude   = {};
-        AtomString atomDirectiveDefine    = {};
-        AtomString atomDirectiveUndef     = {};
-        AtomString atomDirectiveIf        = {};
-        AtomString atomDirectiveIfdef     = {};
-        AtomString atomDirectiveIfndef    = {};
-        AtomString atomDirectiveElse      = {};
-        AtomString atomDirectiveElif      = {};
-        AtomString atomDirectiveEndif     = {};
-        AtomString atomDirectiveError     = {};
-        AtomString atomDirectiveExtension = {};
-        AtomString atomDirectiveVersion   = {};
-        AtomString atomDirectivePragma    = {};
-        AtomString atomDirectiveLine      = {};
-
-        AtomString atomBuiltinLineMacro     = {};
-        AtomString atomBuiltinFileMacro     = {};
-        AtomString atomBuiltinVersionMacro  = {};
-        AtomString atomMacroOperatorDefined = {};
-
-        AtomString atomExtensionBehaviorEnable  = {};
-        AtomString atomExtensionBehaviorRequire = {};
-        AtomString atomExtensionBehaviorWarn    = {};
-        AtomString atomExtensionBehaviorDisable = {};
-
-        AtomString atomGlslVersion110 = {};
-        AtomString atomGlslVersion120 = {};
-        AtomString atomGlslVersion130 = {};
-        AtomString atomGlslVersion140 = {};
-        AtomString atomGlslVersion150 = {};
-        AtomString atomGlslVersion330 = {};
-        AtomString atomGlslVersion400 = {};
-        AtomString atomGlslVersion410 = {};
-        AtomString atomGlslVersion420 = {};
-        AtomString atomGlslVersion430 = {};
-        AtomString atomGlslVersion440 = {};
-        AtomString atomGlslVersion450 = {};
-        AtomString atomGlslVersion460 = {};
-
-        AtomString atomGlslProfileCore          = {};
-        AtomString atomGlslProfileCompatibility = {};
-        AtomString atomGlslProfileEs            = {};
+        LanguageAtoms atoms;
 
     public:
         PreprocessStateMachine(CompilerInvocationState& compiler, PreprocessedTokens& outputStream,
@@ -292,50 +367,8 @@ namespace glsld
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
               outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
-              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth)
+              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth), atoms(compiler.GetAtomTable())
         {
-            atomDirectiveInclude   = atomTable.GetAtom("include");
-            atomDirectiveDefine    = atomTable.GetAtom("define");
-            atomDirectiveUndef     = atomTable.GetAtom("undef");
-            atomDirectiveIf        = atomTable.GetAtom("if");
-            atomDirectiveIfdef     = atomTable.GetAtom("ifdef");
-            atomDirectiveIfndef    = atomTable.GetAtom("ifndef");
-            atomDirectiveElse      = atomTable.GetAtom("else");
-            atomDirectiveElif      = atomTable.GetAtom("elif");
-            atomDirectiveEndif     = atomTable.GetAtom("endif");
-            atomDirectiveError     = atomTable.GetAtom("error");
-            atomDirectiveExtension = atomTable.GetAtom("extension");
-            atomDirectiveVersion   = atomTable.GetAtom("version");
-            atomDirectivePragma    = atomTable.GetAtom("pragma");
-            atomDirectiveLine      = atomTable.GetAtom("line");
-
-            atomBuiltinLineMacro     = atomTable.GetAtom("__LINE__");
-            atomBuiltinFileMacro     = atomTable.GetAtom("__FILE__");
-            atomBuiltinVersionMacro  = atomTable.GetAtom("__VERSION__");
-            atomMacroOperatorDefined = atomTable.GetAtom("defined");
-
-            atomExtensionBehaviorEnable  = atomTable.GetAtom("enable");
-            atomExtensionBehaviorRequire = atomTable.GetAtom("require");
-            atomExtensionBehaviorWarn    = atomTable.GetAtom("warn");
-            atomExtensionBehaviorDisable = atomTable.GetAtom("disable");
-
-            atomGlslVersion110 = atomTable.GetAtom("110");
-            atomGlslVersion120 = atomTable.GetAtom("120");
-            atomGlslVersion130 = atomTable.GetAtom("130");
-            atomGlslVersion140 = atomTable.GetAtom("140");
-            atomGlslVersion150 = atomTable.GetAtom("150");
-            atomGlslVersion330 = atomTable.GetAtom("330");
-            atomGlslVersion400 = atomTable.GetAtom("400");
-            atomGlslVersion410 = atomTable.GetAtom("410");
-            atomGlslVersion420 = atomTable.GetAtom("420");
-            atomGlslVersion430 = atomTable.GetAtom("430");
-            atomGlslVersion440 = atomTable.GetAtom("440");
-            atomGlslVersion450 = atomTable.GetAtom("450");
-            atomGlslVersion460 = atomTable.GetAtom("460");
-
-            atomGlslProfileCore          = atomTable.GetAtom("core");
-            atomGlslProfileCompatibility = atomTable.GetAtom("compatibility");
-            atomGlslProfileEs            = atomTable.GetAtom("es");
         }
 
         auto GetState() const noexcept -> PreprocessorState
@@ -346,6 +379,16 @@ namespace glsld
         auto GetNextTokenId() const noexcept -> SyntaxTokenID
         {
             return SyntaxTokenID{tuId, GetNextTokenIndex()};
+        }
+
+        auto GetAtomTable() const noexcept -> AtomTable&
+        {
+            return atomTable;
+        }
+
+        auto GetLanguageAtoms() const noexcept -> const LanguageAtoms&
+        {
+            return atoms;
         }
 
         auto IsVersionScanningMode() const noexcept -> bool
@@ -403,7 +446,7 @@ namespace glsld
             }
         }
 
-    protected:
+    private:
         auto InitializeForVersionScanning() -> void
         {
             versionScanningMode = true;
@@ -411,14 +454,9 @@ namespace glsld
         auto InitializeForPP() -> void
         {
             versionScanningMode = false;
-            InitializeKeywordLookup();
         }
 
         auto PreprocessSourceFile(FileID sourceFile) -> void;
-
-    private:
-        auto InitializeKeywordLookup() -> void;
-        auto FixupKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass;
 
         auto DisableMacro(const MacroDefinition& macroDefinition) -> void
         {
@@ -450,7 +488,10 @@ namespace glsld
 
             TokenKlass klass = token.klass;
             if (token.klass == TokenKlass::Identifier) {
-                klass = FixupKeywordTokenKlass(token.klass, token.text);
+                // Fixup token klass for keywords. They are initially lexed as identifiers.
+                if (auto it = atoms.keywordFixupLookup.find(token.text); it != atoms.keywordFixupLookup.end()) {
+                    klass = it->second;
+                }
             }
 
 #if defined(GLSLD_ENABLE_COMPILER_TRACE)
@@ -576,10 +617,11 @@ namespace glsld
         auto EvaluatePPExpression(PPTokenScanner& scanner) -> bool;
     };
 
-    class Preprocessor final : PreprocessStateMachine
+    class Preprocessor final
     {
     private:
         CompilerInvocationState& compiler;
+        std::unique_ptr<PreprocessStateMachine> pp;
         FileID sourceFile;
         PreprocessedTokens outputStream;
 
@@ -599,22 +641,23 @@ namespace glsld
     public:
         Preprocessor(CompilerInvocationState& compiler, FileID sourceFile, PPCallback* callback,
                      bool versionScanningMode)
-            : PreprocessStateMachine(compiler, outputStream, GetTUId(sourceFile), callback, std::nullopt, 0),
+            : pp(std::make_unique<PreprocessStateMachine>(compiler, outputStream, GetTUId(sourceFile), callback,
+                                                          std::nullopt, 0)),
               sourceFile(sourceFile), compiler(compiler)
         {
             if (versionScanningMode) {
-                InitializeForVersionScanning();
+                pp->InitializeForVersionScanning();
             }
             else {
-                InitializeForPP();
+                pp->InitializeForPP();
             }
         }
 
         auto DoPreprocess() -> void
         {
-            PreprocessSourceFile(sourceFile);
+            pp->PreprocessSourceFile(sourceFile);
 
-            if (!IsVersionScanningMode()) {
+            if (!pp->IsVersionScanningMode()) {
                 compiler.UpdatePreprocessingArtifact(GetTUId(sourceFile), std::move(outputStream.tokens),
                                                      std::move(outputStream.comments), std::move(outputStream.files));
             }
