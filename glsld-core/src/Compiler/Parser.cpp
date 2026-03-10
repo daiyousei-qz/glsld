@@ -1388,8 +1388,7 @@ namespace glsld
             ConsumeToken();
             return astBuilder.BuildNameAccessExpr(CreateAstSyntaxRange(beginTokID), name);
         }
-        case TokenKlass::IntegerConstant:
-        case TokenKlass::FloatConstant:
+        case TokenKlass::NumberLiteral:
             // Number literal
             ConsumeToken();
             return astBuilder.BuildLiteralExpr(CreateAstSyntaxRange(beginTokID),
@@ -1843,8 +1842,7 @@ namespace glsld
             //
 
             // Primary expr
-        case TokenKlass::IntegerConstant:
-        case TokenKlass::FloatConstant:
+        case TokenKlass::NumberLiteral:
         case TokenKlass::K_true:
         case TokenKlass::K_false:
         case TokenKlass::LParen:

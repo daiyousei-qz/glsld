@@ -12,8 +12,8 @@ auto CreateLexingAutomata() -> NfaAutomata
 
     int acceptId = 0;
 
-    // Integer constant
     {
+        // Integer constant
         auto regexOctSeq = RegexSeq{RegexTextSeq{"0"}, RegexRepeat{RegexTextChoice{"01234567"}}};
         auto regexDecSeq = RegexSeq{RegexTextRange{'1', '9'}, RegexRepeat{RegexTextChoice{"0123456789"}}};
         auto regexHexSeq =
@@ -22,11 +22,9 @@ auto CreateLexingAutomata() -> NfaAutomata
         auto regexIntSuffix = RegexChoice{RegexTextSeq{"u"}, RegexTextSeq{"U"}};
         auto regexInteger = RegexSeq{RegexChoice{regexOctSeq, regexDecSeq, regexHexSeq}, RegexOptional{regexIntSuffix}};
 
-        builder.AddTokenRegex(static_cast<int>(TokenKlass::IntegerConstant), regexInteger);
-    }
+        builder.AddTokenRegex(static_cast<int>(TokenKlass::NumberLiteral), regexInteger);
 
-    // Float constant
-    {
+        // Float constant
         auto regexDigitSeq  = RegexSeq{RegexTextRange{'0', '9'}, RegexRepeat{RegexTextRange{'0', '9'}}};
         auto regexFracConst = RegexChoice{
             RegexSeq{regexDigitSeq, RegexTextSeq{"."}, RegexOptional{regexDigitSeq}},
@@ -40,7 +38,7 @@ auto CreateLexingAutomata() -> NfaAutomata
                                             RegexSeq{regexDigitSeq, regexExponentPart}},
                                 RegexOptional{regexFPSuffix}};
 
-        builder.AddTokenRegex(static_cast<int>(TokenKlass::FloatConstant), regexFP);
+        builder.AddTokenRegex(static_cast<int>(TokenKlass::NumberLiteral), RegexChoice{regexInteger, regexFP});
     }
 
     // Identifier

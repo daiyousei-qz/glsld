@@ -8,14 +8,14 @@ TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
 
     SECTION("Keyword")
     {
-#define DECL_KEYWORD(KEYWORD) GLSLD_CHECK_TOKENS(#KEYWORD, KeywordTok(TokenKlass::K_##KEYWORD), EofTok());
+#define DECL_KEYWORD(KEYWORD) CheckTokens(#KEYWORD, {KeywordTok(TokenKlass::K_##KEYWORD), EofTok()});
 #include "GlslKeywords.inc"
 #undef DECL_KEYWORD
     }
 
     SECTION("Punctuation")
     {
-#define DECL_PUNCT(PUNCT_NAME, PUNCT) GLSLD_CHECK_TOKENS(PUNCT, KeywordTok(TokenKlass::PUNCT_NAME), EofTok());
+#define DECL_PUNCT(PUNCT_NAME, PUNCT) CheckTokens(PUNCT, {KeywordTok(TokenKlass::PUNCT_NAME), EofTok()});
 #include "GlslPunctuation.inc"
 #undef DECL_PUNCT
     }
@@ -26,8 +26,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
             "0", "1", "123", "1234567890", "0x123abc", "0X123ABC", "0123", "0u", "123U", "0xabcu", "0XABcU", "0123u",
         };
 
-        for (StringView test : tests) {
-            GLSLD_CHECK_TOKENS(test, IntTok(test), EofTok());
+        for (SourceTextView test : tests) {
+            CheckTokens(test, {NumTok(test), EofTok()});
         }
     }
 
@@ -38,8 +38,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
             "0.123E1", "0.123e+1", "0.123e-1", "0.123e+00001", "0.123e-00001",
         };
 
-        for (StringView test : tests) {
-            GLSLD_CHECK_TOKENS(test, FloatTok(test), EofTok());
+        for (SourceTextView test : tests) {
+            CheckTokens(test, {NumTok(test), EofTok()});
         }
     }
 
@@ -52,8 +52,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
             "___",
         };
 
-        for (StringView test : tests) {
-            GLSLD_CHECK_TOKENS(test, IdTok(test), EofTok());
+        for (SourceTextView test : tests) {
+            CheckTokens(test, {IdTok(test), EofTok()});
         }
     }
 }

@@ -32,8 +32,7 @@ namespace glsld
         // Preprocessing: produced by `defined(X)` where X is not a defined macro.
         DefinedNo,
 
-        IntegerConstant,
-        FloatConstant,
+        NumberLiteral,
         Identifier,
 
 #define DECL_KEYWORD(KEYWORD) K_##KEYWORD,

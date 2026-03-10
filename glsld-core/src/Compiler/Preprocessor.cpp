@@ -111,7 +111,7 @@ namespace glsld
                 // Handle __LINE__ builtin macro
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass                = TokenKlass::IntegerConstant,
+                    .klass                = TokenKlass::NumberLiteral,
                     .spelledFile          = token.spelledFile,
                     .spelledRange         = TextRange{token.spelledRange.start},
                     .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledRange.start.line + 1)),
@@ -128,7 +128,7 @@ namespace glsld
                 // FIXME: Need clarification of what value to use here.
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass                = TokenKlass::IntegerConstant,
+                    .klass                = TokenKlass::NumberLiteral,
                     .spelledFile          = token.spelledFile,
                     .spelledRange         = TextRange{token.spelledRange.start},
                     .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledFile.GetValue())),
@@ -144,7 +144,7 @@ namespace glsld
                 // Handle __VERSION__ builtin macro
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass        = TokenKlass::IntegerConstant,
+                    .klass        = TokenKlass::NumberLiteral,
                     .spelledFile  = token.spelledFile,
                     .spelledRange = TextRange{token.spelledRange.start},
                     .text         = pp.atomTable.GetAtom(
@@ -913,7 +913,7 @@ namespace glsld
 
     auto PreprocessStateMachine::ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>
     {
-        if (versionNumber.klass != TokenKlass::IntegerConstant) {
+        if (versionNumber.klass != TokenKlass::NumberLiteral) {
             return std::nullopt;
         }
 

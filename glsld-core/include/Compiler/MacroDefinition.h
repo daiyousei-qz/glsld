@@ -64,7 +64,7 @@ namespace glsld
                 .hasLeadingWhitespace = false,
             };
             auto oneToken = PPToken{
-                .klass                = TokenKlass::IntegerConstant,
+                .klass                = TokenKlass::NumberLiteral,
                 .spelledFile          = FileID::SystemPreamble(),
                 .spelledRange         = {},
                 .text                 = number,

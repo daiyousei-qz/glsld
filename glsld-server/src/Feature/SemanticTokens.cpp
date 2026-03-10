@@ -38,7 +38,7 @@ namespace glsld
                     type = SemanticTokenType::Keyword;
                 }
             }
-            else if (tok->klass == TokenKlass::IntegerConstant || tok->klass == TokenKlass::FloatConstant) {
+            else if (tok->klass == TokenKlass::NumberLiteral) {
                 type = SemanticTokenType::Number;
             }
 
