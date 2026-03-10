@@ -92,11 +92,11 @@ def main():
         "w",
     ) as file:
         file.write("// clang-format off\n")
-        file.write("#include <string_view>\n")
+        file.write("#include \"Basic/SourceInfo.h\"\n")
         file.write("\n")
 
         file.write("namespace glsld {\n")
-        file.write("inline std::string_view GlslStdlibText = R\"glsl(\n")
+        file.write("inline constinit SourceTextView GlslStdlibText = R\"glsl(\n")
         file.write(builder.build())
         file.write(")glsl\";\n")
         file.write("} // namespace glsld\n")

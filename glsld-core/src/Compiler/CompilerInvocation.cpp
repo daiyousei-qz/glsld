@@ -25,7 +25,7 @@ namespace glsld
         mainFileId = sourceManager.OpenFromFile(path.StdStrView());
     }
 
-    auto CompilerInvocation::SetMainFileFromBuffer(StringView sourceText) -> void
+    auto CompilerInvocation::SetMainFileFromBuffer(SourceTextView sourceText) -> void
     {
         mainFileId = sourceManager.OpenFromBuffer(sourceText);
     }

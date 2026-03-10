@@ -30,7 +30,7 @@ namespace glsld
         // If `countUtf16Characters` is set to true, the tokenizer will count the number of UTF-16 code units in column
         // counter. Otherwise, the tokenizer will count the number of UTF-8 code units.
         Tokenizer(const CompilerInvocationState& compiler, PreprocessStateMachine& pp, AtomTable& atomTable,
-                  FileID sourceFile, StringView sourceText)
+                  FileID sourceFile, SourceTextView sourceText)
             : compiler(compiler), atomTable(atomTable), pp(pp), sourceFile(sourceFile),
               srcScanner(sourceText, compiler.GetCompilerConfig().countUtf16Character)
         {

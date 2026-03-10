@@ -110,7 +110,7 @@ namespace glsld
             return matcherTemplate(matcher);
         }
 
-        auto Compile(StringView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
+        auto Compile(SourceTextView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
             -> std::unique_ptr<CompilerResult>
         {
             auto compiler = std::make_unique<CompilerInvocation>();
@@ -258,7 +258,7 @@ namespace glsld
 #pragma endregion
     };
 
-    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<StringView>
+    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
     {
     private:
         const CompilerTestFixture& fixture;
@@ -272,7 +272,7 @@ namespace glsld
         {
         }
 
-        auto match(const StringView& sourceText) const -> bool override
+        auto match(const SourceTextView& sourceText) const -> bool override
         {
             auto compilerResult = fixture.Compile(sourceText, CompileMode::PreprocessOnly);
 
@@ -304,7 +304,7 @@ namespace glsld
         }
     };
 
-    class AstTestCatchMatcher : public Catch::Matchers::MatcherBase<StringView>
+    class AstTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
     {
     private:
         CompilerTestFixture& fixture;
@@ -317,7 +317,7 @@ namespace glsld
         {
         }
 
-        auto match(const StringView& sourceText) const -> bool override
+        auto match(const SourceTextView& sourceText) const -> bool override
         {
             auto compilerResult = fixture.Compile(sourceText, CompileMode::ParseOnly);
 

@@ -311,7 +311,7 @@ namespace glsld
 
         auto GetDebugName() const noexcept -> StringView
         {
-            return !printName.empty() ? printName : "<unnamed>";
+            return printName;
         }
 
         auto GetScalarDesc() const noexcept -> const ScalarTypeDesc*

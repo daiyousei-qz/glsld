@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Support/StringView.h"
 
 #include <compare>
 #include <limits>
@@ -149,5 +150,55 @@ namespace glsld
     {
         FileID fileID;
         TextRange range;
+    };
+
+    // This class represents a readonly view to the source text.
+    // Different from StringView, it requires the end pointer to point to a '\0' character to simplify lexing.
+    class SourceTextView final
+    {
+    private:
+        inline static const char* EmptyString = "";
+
+        const char* dataBegin;
+        const char* dataEnd;
+
+    public:
+        constexpr SourceTextView(const char* begin, const char* end) : dataBegin(begin), dataEnd(end)
+        {
+            GLSLD_ASSERT(dataEnd >= dataBegin && *dataEnd == '\0');
+        }
+        constexpr SourceTextView() : SourceTextView(EmptyString, EmptyString)
+        {
+        }
+        constexpr SourceTextView(const std::string& str) : SourceTextView(str.data(), str.data() + str.size())
+        {
+        }
+        template <size_t N>
+            requires(N > 0)
+        constexpr SourceTextView(const char (&s)[N]) : SourceTextView(s, s + N - 1)
+        {
+        }
+        template <typename T>
+            requires std::is_pointer_v<T> && std::is_same_v<std::remove_pointer_t<T>, const char>
+        constexpr SourceTextView(T s) : SourceTextView(s, s + strlen(s))
+        {
+        }
+
+        auto operator=(const SourceTextView& other) -> SourceTextView& = default;
+
+        operator StringView() const noexcept
+        {
+            return StringView{dataBegin, dataEnd};
+        }
+
+        auto begin() const noexcept -> const char*
+        {
+            return dataBegin;
+        }
+
+        auto end() const noexcept -> const char*
+        {
+            return dataEnd;
+        }
     };
 } // namespace glsld

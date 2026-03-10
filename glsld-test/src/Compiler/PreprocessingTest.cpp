@@ -9,7 +9,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Version")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #version 450 core
         )";
 
@@ -29,7 +29,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Extension")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #extension GL_EXT_ray_tracing : enable
         )";
 
@@ -49,7 +49,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Pragma")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #pragma some_pragma argument1 argument2
         )";
 
@@ -81,7 +81,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
         GLSLD_CHECK_TOKENS("#define MACRO(A, B) A##B\nMACRO(test, 2)", IdTok("test2"), EofTok());
 
         {
-            auto sourceText = R"(
+            const SourceTextView sourceText = R"(
                 #define MACRO test
                 #define MACRO2 MACRO
                 MACRO2
@@ -91,7 +91,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
         SECTION("Permissive")
         {
-            auto sourceText = R"(
+            const SourceTextView sourceText = R"(
                 #define FOO(X) X
                 FOO()
             )";

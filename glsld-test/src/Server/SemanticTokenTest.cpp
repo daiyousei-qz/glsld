@@ -164,18 +164,18 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
 TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
 {
     // TODO: Have a more comprehensive/expressive set of delta tests
-    auto checkSemanticTokensDelta = [this](StringView source, StringView modifiedSource) {
+    auto checkSemanticTokensDelta = [this](SourceTextView sourceText, SourceTextView modifiedSourceText) {
         SemanticTokenState state;
         SemanticTokenConfig config{.enable = true};
 
         // Compute previous tokens
-        CompileLabelledSource(source);
+        CompileLabelledSource(sourceText);
         auto previousTokens = HandleSemanticTokens(config, GetLanguageQueryInfo(), state, lsp::SemanticTokensParams{});
         std::string previousResultId = previousTokens.resultId;
         REQUIRE(!previousTokens.data.empty());
 
         // Compute new tokens full/delta
-        CompileLabelledSource(modifiedSource);
+        CompileLabelledSource(modifiedSourceText);
         auto deltaTokens = HandleSemanticTokensDelta(config, GetLanguageQueryInfo(), state,
                                                      lsp::SemanticTokensDeltaParams{
                                                          .previousResultId = previousResultId,
@@ -246,7 +246,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
 
         SECTION("Modify Many")
         {
-            auto source4 = R"(
+            std::string source4 = R"(
                 struct S { };
 
                 void foo(S s) {

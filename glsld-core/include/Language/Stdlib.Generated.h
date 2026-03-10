@@ -1,8 +1,8 @@
 // clang-format off
-#include <string_view>
+#include "Basic/SourceInfo.h"
 
 namespace glsld {
-inline std::string_view GlslStdlibText = R"glsl(
+inline constinit SourceTextView GlslStdlibText = R"glsl(
 
 const int gl_MaxVertexAttribs = 16;
 const int gl_MaxVertexUniformVectors = 256;

@@ -1,5 +1,5 @@
 #pragma once
-#include "Support/StringView.h"
+#include "Basic/SourceInfo.h"
 
 namespace glsld
 {
@@ -10,7 +10,7 @@ namespace glsld
         FileHandle()          = default;
         virtual ~FileHandle() = default;
 
-        virtual auto GetContent() const -> StringView = 0;
+        virtual auto GetContent() const -> SourceTextView = 0;
     };
 
     // This abstract interface is used to provide file system access to the compiler, allowing downstream users to
@@ -42,9 +42,9 @@ namespace glsld
             }
         }
 
-        virtual auto GetContent() const -> StringView override
+        virtual auto GetContent() const -> SourceTextView override
         {
-            return StringView{data, size};
+            return SourceTextView{data, data + size};
         }
 
     private:
