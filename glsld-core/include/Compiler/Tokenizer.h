@@ -3,57 +3,116 @@
 #include "Basic/SourceInfo.h"
 #include "Support/StringView.h"
 #include "Compiler/SyntaxToken.h"
-#include "Compiler/SourceScanner.h"
 #include "Compiler/Preprocessor.h"
 
 namespace glsld
 {
-    // A tokenizer is responsible for lexing a source file and piping the tokens to preprocessor.
-    // NOTE the tokenization process could be recursive and new instances of Tokenizer could be created when "#include"
-    // is encountered.
     class Tokenizer final
     {
     private:
-        const CompilerInvocationState& compiler;
-
-        AtomTable& atomTable;
-
-        PreprocessStateMachine& pp;
+        const PreprocessStateMachine& pp;
 
         FileID sourceFile;
 
-        SourceScanner srcScanner;
+        // The beginning of the source string
+        const char* srcBegin = nullptr;
+
+        // The end of the source string, which is always a null terminator (valid to access).
+        const char* srcEnd = nullptr;
+
+        // The current cursor position in the source string
+        const char* srcCursor = nullptr;
+
+        // The line number of the current cursor position.
+        int lineCounter = 0;
+
+        // The character offset in the current line of the current cursor position.
+        int characterCounter = 0;
+
+        // Count in utf-16 code units instead of utf-8. LSP requires utf-16 code units.
+        bool countUtf16Characters = false;
 
         std::vector<char> tokenTextBuffer;
 
-    public:
-        // If `countUtf16Characters` is set to true, the tokenizer will count the number of UTF-16 code units in column
-        // counter. Otherwise, the tokenizer will count the number of UTF-8 code units.
-        Tokenizer(const CompilerInvocationState& compiler, PreprocessStateMachine& pp, AtomTable& atomTable,
-                  FileID sourceFile, SourceTextView sourceText)
-            : compiler(compiler), atomTable(atomTable), pp(pp), sourceFile(sourceFile),
-              srcScanner(sourceText, compiler.GetCompilerConfig().countUtf16Character)
+        // Peek the next code unit.
+        auto PeekCodeUnit() -> char
         {
+            return *srcCursor;
         }
 
-        // Tokenize the source file and feed the tokens to the preprocessor.
-        // This function should be called only once. After this function returns, this tokenizer object should no longer
-        // be used.
-        auto DoTokenize() -> void;
+        // Get the current cursor position in the source text in line number and character offset in the line.
+        auto GetTextPosition() const noexcept -> TextPosition
+        {
+            return TextPosition{lineCounter, characterCounter};
+        };
 
-    private:
-        // Lex the next PP token from the scanner or return an EOF token if the file is exhausted.
-        auto LexPPToken() -> PPToken;
+        auto ComputeLspCodeUnitNum(int numCodeUnit) -> int
+        {
+            if (countUtf16Characters) {
+                // utf-16
+                return numCodeUnit == 4 ? 2 : 1;
+            }
+            else {
+                // utf-8
+                return numCodeUnit;
+            }
+        }
+
+        auto TryConsumeLineContinuation() -> bool;
+
+        // Consumes all whitespace characters from the current cursor position.
+        auto TryConsumeWhitespace(bool& skippedWhitespace, bool& skippedNewline) -> void;
+
+        // Consume a utf-8 char and returns a view of the consumed code units.
+        // Note we don't validate the utf-8 encoding.
+        auto ConsumeChar(TextPosition& endPos) -> StringView;
+
+        // Consume a utf-8 char and returns a view of the consumed code units, assuming it is not EOF or '\n'.
+        // Note we don't validate the utf-8 encoding.
+        auto ConsumeCharUnsafe(TextPosition& endPos) -> StringView;
+
+        // Consume an ascii char and returns it, assuming it is ASCII but not EOF or '\n'.
+        auto ConsumeAsciiCharUnsafe(TextPosition& endPos) -> char;
+
+        // Try to consume the current char if it equals the given char, but it cannot be '\n' or '\0'.
+        auto TryConsumeAsciiChar(TextPosition& endPos, char ch) -> bool;
+
+        auto ExtractTokenText() -> AtomString
+        {
+            return pp.GetAtomTable().GetAtom(StringView(tokenTextBuffer.data(), tokenTextBuffer.size()));
+        }
+
+        // Assuming we are seeing an underscore or alphabetic character, parse the identifier.
+        auto LexIdentifier(TextPosition& endPos, char firstChar) -> void;
+
+        // Assuming we are seeing a dot or digit character, parse the number literal.
+        auto LexNumberLiteral(TextPosition& endPos, char firstChar) -> void;
 
         // Assuming we are seeing "//", parse the line comment and return the token klass.
-        auto ParseLineComment() -> TokenKlass;
+        auto LexLineComment(TextPosition& endPos) -> void;
 
         // Assuming we are seeing "/*", parse the block comment and return the token klass.
-        auto ParseBlockComment() -> TokenKlass;
+        auto LexBlockComment(TextPosition& endPos) -> TokenKlass;
 
         // Assuming we are seeing `quoteStart`, parse the header name closed by `quoteEnd` and return the token klass.
-        auto ParseHeaderName(char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass;
-    };
+        auto LexHeaderName(TextPosition& endPos, char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass;
 
-    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>;
+    public:
+        Tokenizer(const PreprocessStateMachine& pp, FileID sourceFile, SourceTextView sourceText,
+                  bool countUtf16Characters)
+            : pp(pp), sourceFile(sourceFile), srcBegin(sourceText.begin()), srcEnd(sourceText.end()),
+              srcCursor(sourceText.begin()), countUtf16Characters(countUtf16Characters)
+        {
+            GLSLD_ASSERT(*srcEnd == '\0');
+        }
+
+        auto Exhausted() const -> bool
+        {
+            return srcCursor == srcEnd;
+        }
+
+        // Skip leading whitespace and lex the next token.
+        // If the end of the source is reached, an EOF token will be returned.
+        auto Lex() -> PPToken;
+    };
 } // namespace glsld

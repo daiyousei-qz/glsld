@@ -2,7 +2,6 @@ GLSLD is a language server for GLSL. It aims to implement a frontend of a langua
 
 This project includes the following components:
 - glsld-core: A core library that provides glsl parser and other utilities.
-- glsld-lexgen: A lexer genenerator for the glsl language.
 - glsld-wrapper: A standalone wrapper executable that is built around the glsld-core.
 - glsld-server: A language server library that implement language server protocol on top of glsld-core.
 - glsld: The language server executable built on top of the glsld-server.

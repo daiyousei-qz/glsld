@@ -248,11 +248,19 @@ namespace glsld
                 }
 
                 // Try to tokenize the pasted text.
-                auto [klass, tokText, remText] = TokenizeOnce(pastedText);
-                if (!pastingFailure && remText.Empty()) {
-                    token.klass = klass;
-                    token.text  = pp.atomTable.GetAtom(tokText);
+                if (!pastingFailure) {
+                    Tokenizer pastedTokenizer{pp, macroNameTok.spelledFile, pastedText,
+                                              pp.compiler.GetCompilerConfig().countUtf16Character};
+                    PPToken token              = pastedTokenizer.Lex();
+                    token.spelledFile          = macroNameTok.spelledFile;
+                    token.spelledRange         = TextRange{macroNameTok.spelledRange.start};
+                    token.isFirstTokenOfLine   = false;
+                    token.hasLeadingWhitespace = false;
                     nextProcessor.Feed(token);
+
+                    if (!pastedTokenizer.Exhausted()) {
+                        // FIXME: report error, pasted token is not fully consumed.
+                    }
                 }
                 else {
                     // FIXME: report error, bad token pasting
@@ -295,6 +303,8 @@ namespace glsld
 #pragma region PreprocessStateMachine
     auto PreprocessStateMachine::PreprocessSourceFile(FileID sourceFile) -> void
     {
+        GLSLD_ASSERT(GetState() == PreprocessorState::Default);
+
         if (!sourceFile.IsValid()) {
             // FIXME: report error, invalid source file
             return;
@@ -303,7 +313,29 @@ namespace glsld
         auto beginTokenIndex   = outputStream.tokens.size();
         auto beginCommentIndex = outputStream.comments.size();
         auto sourceText        = sourceManager.GetSourceText(sourceFile);
-        Tokenizer{compiler, *this, atomTable, sourceFile, sourceText}.DoTokenize();
+
+        Tokenizer tokenizer{*this, sourceFile, sourceText, compiler.GetCompilerConfig().countUtf16Character};
+
+        while (!ShouldHaltLexing()) {
+            PPToken token = tokenizer.Lex();
+#if defined(GLSLD_DEBUG)
+            compiler.GetCompilerTrace().TracePPTokenLexed(token);
+#endif
+            if (token.klass == TokenKlass::Eof) {
+                FeedPPToken(token);
+                break;
+            }
+
+            if (InActiveRegion() || (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine)) {
+                FeedPPToken(token);
+            }
+            else {
+                // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
+                if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+                    FeedPPToken(token);
+                }
+            }
+        }
 
         outputStream.files.push_back(PreprocessedFile{
             .fileID            = sourceFile,

@@ -1,90 +1,641 @@
 #include "Compiler/Tokenizer.h"
 #include "Support/StringView.h"
-#include "Compiler/Preprocessor.h"
-#include "Compiler/CompilerTrace.h"
-
-namespace glsld::detail
-{
-    // Defined in generated file "Tokenize.generated.cpp"
-    auto Tokenize(SourceScanner& srcView, std::vector<char>& buffer) -> TokenKlass;
-} // namespace glsld::detail
 
 namespace glsld
 {
-    auto Tokenizer::DoTokenize() -> void
+    static auto IsAscii(char ch) noexcept -> bool
     {
-        GLSLD_ASSERT(pp.GetState() == PreprocessorState::Default);
-        std::vector<PPToken> ppLineBuffer;
-        while (!pp.ShouldHaltLexing()) {
-            PPToken token = LexPPToken();
-#if defined(GLSLD_DEBUG)
-            compiler.GetCompilerTrace().TracePPTokenLexed(token);
-#endif
+        return (ch & 0x80) == 0;
+    }
 
-            if (token.klass == TokenKlass::Eof) {
-                pp.FeedPPToken(token);
-                break;
+    static auto IsAlpha(char ch) noexcept -> bool
+    {
+        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+    }
+
+    static auto IsDigit(char ch) noexcept -> bool
+    {
+        return ch >= '0' && ch <= '9';
+    }
+
+    static auto IsWhitespace(char ch) noexcept -> bool
+    {
+        return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+    }
+
+    auto Tokenizer::TryConsumeLineContinuation() -> bool
+    {
+        bool consumed = false;
+        while (srcCursor[0] == '\\') {
+            if (srcCursor[1] == '\n') {
+                srcCursor += 2;
+                ++lineCounter;
+                characterCounter = 0;
+                consumed         = true;
             }
-
-            if (pp.InActiveRegion() || (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine)) {
-                pp.FeedPPToken(token);
+            else if (srcCursor[1] == '\r' && srcCursor[2] == '\n') {
+                srcCursor += 3;
+                ++lineCounter;
+                characterCounter = 0;
+                consumed         = true;
             }
             else {
-                // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
-                if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
-                    pp.FeedPPToken(token);
-                }
+                break;
+            }
+        }
+
+        return consumed;
+    }
+
+    auto Tokenizer::TryConsumeWhitespace(bool& skippedWhitespace, bool& skippedNewline) -> void
+    {
+        while (true) {
+            auto ch = *srcCursor;
+
+            if (ch == ' ' || ch == '\t' || ch == '\r') {
+                ++characterCounter;
+
+                skippedWhitespace = true;
+                ++srcCursor;
+            }
+            else if (ch == '\n') {
+                ++lineCounter;
+                characterCounter = 0;
+
+                skippedWhitespace = true;
+                skippedNewline    = true;
+                ++srcCursor;
+            }
+            else if (!TryConsumeLineContinuation()) {
+                break;
             }
         }
     }
 
-    auto Tokenizer::LexPPToken() -> PPToken
+    auto Tokenizer::ConsumeChar(TextPosition& endPos) -> StringView
+    {
+        StringView result;
+        if (srcCursor == srcEnd) {
+            result = StringView{srcCursor, 1};
+        }
+        else if (*srcCursor == '\n') {
+            result = StringView{srcCursor, 1};
+            ++srcCursor;
+            characterCounter = 0;
+            ++lineCounter;
+        }
+        else {
+            result = ConsumeCharUnsafe(endPos);
+        }
+
+        endPos = GetTextPosition();
+        TryConsumeLineContinuation();
+        GLSLD_ASSERT(!result.Empty());
+        return result;
+    }
+
+    auto Tokenizer::ConsumeCharUnsafe(TextPosition& endPos) -> StringView
+    {
+        GLSLD_ASSERT(srcCursor != srcEnd && *srcCursor != '\n');
+
+        const char firstCodeUnit = *srcCursor;
+
+        StringView result;
+        if (IsAscii(firstCodeUnit)) [[likely]] {
+            // Fast path for ascii characters
+            result = StringView{srcCursor, 1};
+
+            ++srcCursor;
+            characterCounter += 1;
+        }
+        else [[unlikely]] {
+            // Slow path for non-ascii characters. We don't validate the encoding for better performance.
+            int numCodeUnits = std::min(std::countl_one(static_cast<unsigned char>(firstCodeUnit)),
+                                        static_cast<int>(srcEnd - srcCursor));
+            characterCounter += ComputeLspCodeUnitNum(numCodeUnits);
+            result = StringView{srcCursor, static_cast<size_t>(numCodeUnits)};
+            srcCursor += numCodeUnits;
+        }
+
+        endPos = GetTextPosition();
+        TryConsumeLineContinuation();
+        GLSLD_ASSERT(!result.Empty());
+        return result;
+    }
+
+    auto Tokenizer::ConsumeAsciiCharUnsafe(TextPosition& endPos) -> char
+    {
+        GLSLD_ASSERT(srcCursor != srcEnd && IsAscii(*srcCursor) && *srcCursor != '\n');
+
+        const char result = *srcCursor;
+        ++srcCursor;
+        ++characterCounter;
+
+        endPos = GetTextPosition();
+        TryConsumeLineContinuation();
+        return result;
+    };
+
+    auto Tokenizer::TryConsumeAsciiChar(TextPosition& endPos, char ch) -> bool
+    {
+        GLSLD_ASSERT(ch != '\0' && ch != '\n');
+
+        if (*srcCursor == ch) {
+            ConsumeAsciiCharUnsafe(endPos);
+            return true;
+        }
+
+        return false;
+    }
+
+    auto Tokenizer::LexIdentifier(TextPosition& endPos, char firstChar) -> void
+    {
+        GLSLD_ASSERT(firstChar == '_' || IsAlpha(firstChar));
+        tokenTextBuffer = {firstChar};
+
+        while (true) {
+            const char nextChar = PeekCodeUnit();
+            if (nextChar == '_' || IsAlpha(nextChar) || IsDigit(nextChar)) {
+                ConsumeAsciiCharUnsafe(endPos);
+                tokenTextBuffer.push_back(nextChar);
+            }
+            else {
+                break;
+            }
+        }
+    }
+    auto Tokenizer::LexNumberLiteral(TextPosition& endPos, char firstChar) -> void
+    {
+        GLSLD_ASSERT(IsDigit(firstChar) || (firstChar == '.' && IsDigit(PeekCodeUnit())));
+        tokenTextBuffer = {firstChar};
+
+        bool seenHexPrefix = false;
+        bool seenDot       = (firstChar == '.');
+        bool seenExp       = false;
+
+        // Check if we have a hex prefix "0x" or "0X". This affects if we see e/E as exponent or just part of hex
+        // literal.
+        if (firstChar == '0') {
+            if (PeekCodeUnit() == 'x' || PeekCodeUnit() == 'X') {
+                tokenTextBuffer.push_back(ConsumeAsciiCharUnsafe(endPos));
+                seenHexPrefix = true;
+            }
+        }
+
+        while (true) {
+            const char nextChar = PeekCodeUnit();
+            if (nextChar == '.') {
+                if (seenDot || seenExp) {
+                    break;
+                }
+                seenDot = true;
+                ConsumeAsciiCharUnsafe(endPos);
+                tokenTextBuffer.push_back(nextChar);
+            }
+            else if (!seenHexPrefix && (nextChar == 'e' || nextChar == 'E')) {
+                if (seenExp) {
+                    break;
+                }
+                seenExp = true;
+                ConsumeAsciiCharUnsafe(endPos);
+                tokenTextBuffer.push_back(nextChar);
+
+                if (PeekCodeUnit() == '+' || PeekCodeUnit() == '-') {
+                    tokenTextBuffer.push_back(ConsumeAsciiCharUnsafe(endPos));
+                }
+            }
+            else if (IsDigit(nextChar) || IsAlpha(nextChar)) {
+                tokenTextBuffer.push_back(nextChar);
+                ConsumeAsciiCharUnsafe(endPos);
+            }
+            else {
+                break;
+            }
+        }
+    }
+    auto Tokenizer::LexLineComment(TextPosition& endPos) -> void
+    {
+        // Assuming "//" is already consumed
+        // FIXME: add a toggle
+        tokenTextBuffer = {'/', '/'};
+
+        while (true) {
+            if (PeekCodeUnit() == '\n') {
+                tokenTextBuffer.push_back('\n');
+                break;
+            }
+
+            const StringView nextChar = ConsumeCharUnsafe(endPos);
+            tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
+        }
+    }
+    auto Tokenizer::LexBlockComment(TextPosition& endPos) -> TokenKlass
+    {
+        // Assuming "/*" is already consumed
+        // FIXME: add a toggle
+        tokenTextBuffer = {'/', '*'};
+
+        bool prevWasStar = false;
+        while (true) {
+            const StringView nextChar = ConsumeChar(endPos);
+            if (nextChar[0] == '*') {
+                prevWasStar = true;
+            }
+            else {
+                if (prevWasStar && nextChar[0] == '/') {
+                    tokenTextBuffer.push_back('*');
+                    tokenTextBuffer.push_back('/');
+                    return TokenKlass::Comment;
+                }
+                prevWasStar = false;
+            }
+
+            tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
+        }
+
+        return TokenKlass::Unknown;
+    }
+    auto Tokenizer::LexHeaderName(TextPosition& endPos, char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass
+    {
+        // Assuming `quoteStart` is already consumed
+        tokenTextBuffer = {quoteStart};
+
+        while (true) {
+            if (PeekCodeUnit() == '\n') {
+                break;
+            }
+            if (TryConsumeAsciiChar(endPos, quoteEnd)) {
+                tokenTextBuffer.push_back(quoteEnd);
+                return klass;
+            }
+            else {
+                const StringView nextChar = ConsumeCharUnsafe(endPos);
+                tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
+            }
+        }
+
+        return TokenKlass::Unknown;
+    }
+    auto Tokenizer::Lex() -> PPToken
     {
         bool skippedWhitespace = false;
-        bool skippedNewLine    = srcScanner.CursorAtBegin();
-        srcScanner.SkipWhitespace(skippedWhitespace, skippedNewLine);
+        bool skippedNewLine    = srcCursor == srcBegin;
+        TryConsumeWhitespace(skippedWhitespace, skippedNewLine);
 
-        if (srcScanner.CursorAtEnd()) {
-            // NOTE we always regard an EOF in a new line
+        if (Exhausted()) {
+            // NOTE we always regard an EOF in its own line
             return PPToken{
                 .klass                = TokenKlass::Eof,
                 .spelledFile          = sourceFile,
-                .spelledRange         = TextRange{srcScanner.GetTextPosition()},
+                .spelledRange         = TextRange{GetTextPosition()},
                 .text                 = {},
                 .isFirstTokenOfLine   = true,
                 .hasLeadingWhitespace = true,
             };
         }
 
-        tokenTextBuffer.clear();
-        TokenKlass klass      = TokenKlass::Unknown;
-        TextPosition beginPos = srcScanner.GetTextPosition();
+        TextPosition beginPos = GetTextPosition();
+        TextPosition endPos;
 
-        // We handle comments and header names manually instead of using generated lexer. Those are only places where
-        // unicode is allowed.
-        // TODO: also handle comment text for better intellisesnse feature
-        if (srcScanner.TryConsumeAsciiText("//")) {
-            klass = ParseLineComment();
-        }
-        else if (srcScanner.TryConsumeAsciiText("/*")) {
-            klass = ParseBlockComment();
-        }
-        else if (pp.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('"')) {
-            klass = ParseHeaderName('"', '"', TokenKlass::UserHeaderName);
-        }
-        else if (pp.ShouldLexHeaderName() && srcScanner.TryConsumeAsciiChar('<')) {
-            klass = ParseHeaderName('<', '>', TokenKlass::SystemHeaderName);
-        }
-        else {
-            klass = detail::Tokenize(srcScanner, tokenTextBuffer);
-            if (klass == TokenKlass::Unknown) [[unlikely]] {
-                // At least consume one character to avoid infinite loop
-                srcScanner.ConsumeChar(tokenTextBuffer);
+        StringView firstChar = ConsumeCharUnsafe(endPos);
+        GLSLD_ASSERT(!firstChar.Empty());
+
+        TokenKlass klass = TokenKlass::Unknown;
+        AtomString text;
+        switch (firstChar[0]) {
+        case '!':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::NotEqual;
+                text  = pp.GetLanguageAtoms().puncts.p_NotEqual;
             }
+            else {
+                klass = TokenKlass::Bang;
+                text  = pp.GetLanguageAtoms().puncts.p_Bang;
+            }
+            break;
         }
+        case '"':
+        {
+            if (pp.ShouldLexHeaderName()) {
+                klass = LexHeaderName(endPos, '"', '"', TokenKlass::UserHeaderName);
+                text  = ExtractTokenText();
+            }
+            break;
+        }
+        case '#':
+        {
+            if (TryConsumeAsciiChar(endPos, '#')) {
+                klass = TokenKlass::HashHash;
+                text  = pp.GetLanguageAtoms().miscs.ppHashHash;
+            }
+            else {
+                klass = TokenKlass::Hash;
+                text  = pp.GetLanguageAtoms().miscs.ppHash;
+            }
+            break;
+        }
+        case '%':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::ModAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_ModAssign;
+            }
+            else {
+                klass = TokenKlass::Percent;
+                text  = pp.GetLanguageAtoms().puncts.p_Percent;
+            }
+            break;
+        }
+        case '&':
+        {
+            if (TryConsumeAsciiChar(endPos, '&')) {
+                klass = TokenKlass::And;
+                text  = pp.GetLanguageAtoms().puncts.p_And;
+            }
+            else if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::AndAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_AndAssign;
+            }
+            else {
+                klass = TokenKlass::Ampersand;
+                text  = pp.GetLanguageAtoms().puncts.p_Ampersand;
+            }
+            break;
+        }
+        case '(':
+        {
+            klass = TokenKlass::LParen;
+            text  = pp.GetLanguageAtoms().puncts.p_LParen;
+            break;
+        }
+        case ')':
+        {
+            klass = TokenKlass::RParen;
+            text  = pp.GetLanguageAtoms().puncts.p_RParen;
+            break;
+        }
+        case '*':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::MulAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_MulAssign;
+            }
+            else {
+                klass = TokenKlass::Star;
+                text  = pp.GetLanguageAtoms().puncts.p_Star;
+            }
+            break;
+        }
+        case '+':
+        {
+            if (TryConsumeAsciiChar(endPos, '+')) {
+                klass = TokenKlass::Increment;
+                text  = pp.GetLanguageAtoms().puncts.p_Increment;
+            }
+            else if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::AddAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_AddAssign;
+            }
+            else {
+                klass = TokenKlass::Plus;
+                text  = pp.GetLanguageAtoms().puncts.p_Plus;
+            }
+            break;
+        }
+        case ',':
+        {
+            klass = TokenKlass::Comma;
+            text  = pp.GetLanguageAtoms().puncts.p_Comma;
+            break;
+        }
+        case '-':
+        {
+            if (TryConsumeAsciiChar(endPos, '-')) {
+                klass = TokenKlass::Decrement;
+                text  = pp.GetLanguageAtoms().puncts.p_Decrement;
+            }
+            else if (TryConsumeAsciiChar(endPos, '=')) {
 
-        AtomString text     = atomTable.GetAtom(StringView{tokenTextBuffer});
-        TextPosition endPos = srcScanner.GetTextPosition();
+                klass = TokenKlass::SubAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_SubAssign;
+            }
+            else {
+                klass = TokenKlass::Dash;
+                text  = pp.GetLanguageAtoms().puncts.p_Dash;
+            }
+            break;
+        }
+        case '.':
+        {
+            if (IsDigit(PeekCodeUnit())) {
+                LexNumberLiteral(endPos, firstChar[0]);
+                klass = TokenKlass::NumberLiteral;
+                text  = ExtractTokenText();
+            }
+            else {
+                klass = TokenKlass::Dot;
+                text  = pp.GetLanguageAtoms().puncts.p_Dot;
+            }
+            break;
+        }
+        case '/':
+        {
+            if (TryConsumeAsciiChar(endPos, '/')) {
+                LexLineComment(endPos);
+                klass = TokenKlass::Comment;
+                text  = ExtractTokenText();
+            }
+            else if (TryConsumeAsciiChar(endPos, '*')) {
+                klass = LexBlockComment(endPos);
+                text  = ExtractTokenText();
+            }
+            else if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::DivAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_DivAssign;
+            }
+            else {
+                klass = TokenKlass::Slash;
+                text  = pp.GetLanguageAtoms().puncts.p_Slash;
+            }
+            break;
+        }
+        case ':':
+        {
+            klass = TokenKlass::Colon;
+            text  = pp.GetLanguageAtoms().puncts.p_Colon;
+            break;
+        }
+        case ';':
+        {
+            klass = TokenKlass::Semicolon;
+            text  = pp.GetLanguageAtoms().puncts.p_Semicolon;
+            break;
+        }
+        case '<':
+        {
+            if (pp.ShouldLexHeaderName()) {
+                klass = LexHeaderName(endPos, '<', '>', TokenKlass::SystemHeaderName);
+                text  = ExtractTokenText();
+            }
+            else if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::LessEq;
+                text  = pp.GetLanguageAtoms().puncts.p_LessEq;
+            }
+            else if (TryConsumeAsciiChar(endPos, '<')) {
+                if (TryConsumeAsciiChar(endPos, '=')) {
+                    klass = TokenKlass::LShiftAssign;
+                    text  = pp.GetLanguageAtoms().puncts.p_LShiftAssign;
+                }
+                else {
+                    klass = TokenKlass::LShift;
+                    text  = pp.GetLanguageAtoms().puncts.p_LShift;
+                }
+            }
+            else {
+                klass = TokenKlass::LAngle;
+                text  = pp.GetLanguageAtoms().puncts.p_LAngle;
+            }
+            break;
+        }
+        case '=':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::Equal;
+                text  = pp.GetLanguageAtoms().puncts.p_Equal;
+            }
+            else {
+                klass = TokenKlass::Assign;
+                text  = pp.GetLanguageAtoms().puncts.p_Assign;
+            }
+            break;
+        }
+        case '>':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::GreaterEq;
+                text  = pp.GetLanguageAtoms().puncts.p_GreaterEq;
+            }
+            else if (TryConsumeAsciiChar(endPos, '>')) {
+                if (TryConsumeAsciiChar(endPos, '=')) {
+                    klass = TokenKlass::RShiftAssign;
+                    text  = pp.GetLanguageAtoms().puncts.p_RShiftAssign;
+                }
+                else {
+                    klass = TokenKlass::RShift;
+                    text  = pp.GetLanguageAtoms().puncts.p_RShift;
+                }
+            }
+            else {
+                klass = TokenKlass::RAngle;
+                text  = pp.GetLanguageAtoms().puncts.p_RAngle;
+            }
+            break;
+        }
+        case '?':
+        {
+            klass = TokenKlass::Question;
+            text  = pp.GetLanguageAtoms().puncts.p_Question;
+            break;
+        }
+        case '[':
+        {
+            klass = TokenKlass::LBracket;
+            text  = pp.GetLanguageAtoms().puncts.p_LBracket;
+            break;
+        }
+        case ']':
+        {
+            klass = TokenKlass::RBracket;
+            text  = pp.GetLanguageAtoms().puncts.p_RBracket;
+            break;
+        }
+        case '^':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::XorAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_XorAssign;
+            }
+            else if (TryConsumeAsciiChar(endPos, '^')) {
+                klass = TokenKlass::Xor;
+                text  = pp.GetLanguageAtoms().puncts.p_Xor;
+            }
+            else {
+                klass = TokenKlass::Caret;
+                text  = pp.GetLanguageAtoms().puncts.p_Caret;
+            }
+            break;
+        }
+        case '{':
+        {
+            klass = TokenKlass::LBrace;
+            text  = pp.GetLanguageAtoms().puncts.p_LBrace;
+            break;
+        }
+        case '|':
+        {
+            if (TryConsumeAsciiChar(endPos, '=')) {
+                klass = TokenKlass::OrAssign;
+                text  = pp.GetLanguageAtoms().puncts.p_OrAssign;
+            }
+            else if (TryConsumeAsciiChar(endPos, '|')) {
+                klass = TokenKlass::Or;
+                text  = pp.GetLanguageAtoms().puncts.p_Or;
+            }
+            else {
+                klass = TokenKlass::VerticalBar;
+                text  = pp.GetLanguageAtoms().puncts.p_VerticalBar;
+            }
+            break;
+        }
+        case '}':
+        {
+            klass = TokenKlass::RBrace;
+            text  = pp.GetLanguageAtoms().puncts.p_RBrace;
+            break;
+        }
+        case '~':
+        {
+            klass = TokenKlass::Tilde;
+            text  = pp.GetLanguageAtoms().puncts.p_Tilde;
+            break;
+        }
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        {
+            LexNumberLiteral(endPos, firstChar[0]);
+            klass = TokenKlass::NumberLiteral;
+            text  = ExtractTokenText();
+            break;
+        }
+            // clang-format off
+        case '_':
+        case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i': case 'j':
+        case 'k': case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r': case 's': case 't':
+        case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
+        case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J':
+        case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T':
+        case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+            // clang-format on
+            {
+                LexIdentifier(endPos, firstChar[0]);
+                klass = TokenKlass::Identifier;
+                text  = ExtractTokenText();
+                break;
+            }
+        default:
+            klass = TokenKlass::Unknown;
+            text  = pp.GetAtomTable().GetAtom(firstChar);
+            break;
+        }
 
         return PPToken{
             .klass                = klass,
@@ -94,76 +645,6 @@ namespace glsld
             .isFirstTokenOfLine   = skippedNewLine,
             .hasLeadingWhitespace = skippedWhitespace,
         };
-    }
-
-    auto Tokenizer::ParseLineComment() -> TokenKlass
-    {
-        // Assuming "//" is already consumed
-        // FIXME: add a toggle
-        tokenTextBuffer.push_back('/');
-        tokenTextBuffer.push_back('/');
-
-        while (!srcScanner.CursorAtEnd()) {
-            if (srcScanner.PeekCodeUnit() == '\n') {
-                tokenTextBuffer.push_back('\n');
-                break;
-            }
-
-            srcScanner.ConsumeChar(tokenTextBuffer);
-        }
-
-        return TokenKlass::Comment;
-    }
-
-    auto Tokenizer::ParseBlockComment() -> TokenKlass
-    {
-        // Assuming "/*" is already consumed
-        // FIXME: add a toggle
-        tokenTextBuffer.push_back('/');
-        tokenTextBuffer.push_back('*');
-
-        while (!srcScanner.CursorAtEnd()) {
-            if (srcScanner.TryConsumeAsciiText("*/")) {
-                tokenTextBuffer.push_back('*');
-                tokenTextBuffer.push_back('/');
-                return TokenKlass::Comment;
-            }
-
-            srcScanner.ConsumeChar(tokenTextBuffer);
-        }
-
-        return TokenKlass::Unknown;
-    }
-
-    auto Tokenizer::ParseHeaderName(char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass
-    {
-        // Assuming `quoteStart` is already consumed
-        tokenTextBuffer.push_back(quoteStart);
-
-        while (!srcScanner.CursorAtEnd()) {
-            if (srcScanner.PeekCodeUnit() == '\n') {
-                break;
-            }
-            if (srcScanner.TryConsumeAsciiChar(quoteEnd)) {
-                tokenTextBuffer.push_back(quoteEnd);
-                return klass;
-            }
-            else {
-                srcScanner.ConsumeChar(tokenTextBuffer);
-            }
-        }
-
-        return TokenKlass::Unknown;
-    }
-
-    auto TokenizeOnce(StringView text) -> std::tuple<TokenKlass, StringView, StringView>
-    {
-        std::vector<char> tokenTextBuffer;
-        tokenTextBuffer.reserve(text.Size());
-
-        SourceScanner srcScanner{text, false};
-        TokenKlass klass = detail::Tokenize(srcScanner, tokenTextBuffer);
-        return {klass, srcScanner.GetScannedText(), srcScanner.GetRemainingText()};
     }
 
 } // namespace glsld
