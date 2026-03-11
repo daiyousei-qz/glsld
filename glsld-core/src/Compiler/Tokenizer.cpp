@@ -243,7 +243,6 @@ namespace glsld
             }
             else {
                 if (prevWasStar && nextChar[0] == '/') {
-                    tokenTextBuffer.push_back('*');
                     tokenTextBuffer.push_back('/');
                     return TokenKlass::Comment;
                 }

@@ -134,7 +134,7 @@ namespace glsld
                                  "Actual tokens: {}\n"
                                  "\n"
                                  "{}",
-                                 sourceText,
+                                 StringView{sourceText},
                                  fmt::join(matchers | std::views::transform(
                                                           [](TokenMatcher* matcher) { return matcher->Describe(); }),
                                            ", "),
@@ -176,6 +176,10 @@ namespace glsld
         auto InvalidTok() -> TokenMatcher*
         {
             return CreateTokenMatcher("InvalidToken", TokenKlass::Invalid, std::nullopt);
+        }
+        auto UnknownTok(StringView text) -> TokenMatcher*
+        {
+            return CreateTokenMatcher(fmt::format("UnknownToken[{}]", text), TokenKlass::Unknown, text.Str());
         }
         auto IdTok(StringView identifier) -> TokenMatcher*
         {
