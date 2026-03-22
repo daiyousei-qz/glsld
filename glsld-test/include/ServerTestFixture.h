@@ -36,6 +36,7 @@ namespace glsld
             int currentCharacter = 0; // Here we should count in UTF-8 code units
             for (const char* p = labeledSourceText.begin(); p != labeledSourceText.end();) {
                 if (p[0] == '^' && p[1] == '[') {
+                    // This is safe because the source text is guaranteed to be null-terminated.
                     // We are seeing a label. Try to consume it.
                     p += 2; // Skip '^['
                     labelBuffer.clear();

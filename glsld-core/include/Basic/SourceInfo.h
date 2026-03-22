@@ -3,6 +3,7 @@
 #include "Support/StringView.h"
 
 #include <compare>
+#include <cstring>
 #include <limits>
 
 namespace glsld

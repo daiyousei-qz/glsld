@@ -18,11 +18,6 @@ namespace glsld
         return ch >= '0' && ch <= '9';
     }
 
-    static auto IsWhitespace(char ch) noexcept -> bool
-    {
-        return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
-    }
-
     auto Tokenizer::TryConsumeLineContinuation() -> bool
     {
         bool consumed = false;
@@ -75,7 +70,7 @@ namespace glsld
     auto Tokenizer::ConsumeChar(TextPosition& endPos) -> StringView
     {
         StringView result;
-        if (srcCursor == srcEnd) {
+        if (*srcCursor == '\0') {
             result = StringView{srcCursor, 1};
         }
         else if (*srcCursor == '\n') {
@@ -96,7 +91,7 @@ namespace glsld
 
     auto Tokenizer::ConsumeCharUnsafe(TextPosition& endPos) -> StringView
     {
-        GLSLD_ASSERT(srcCursor != srcEnd && *srcCursor != '\n');
+        GLSLD_ASSERT(*srcCursor != '\n' && *srcCursor != '\0');
 
         const char firstCodeUnit = *srcCursor;
 
@@ -125,7 +120,7 @@ namespace glsld
 
     auto Tokenizer::ConsumeAsciiCharUnsafe(TextPosition& endPos) -> char
     {
-        GLSLD_ASSERT(srcCursor != srcEnd && IsAscii(*srcCursor) && *srcCursor != '\n');
+        GLSLD_ASSERT(IsAscii(*srcCursor) && *srcCursor != '\n' && *srcCursor != '\0');
 
         const char result = *srcCursor;
         ++srcCursor;
@@ -138,7 +133,7 @@ namespace glsld
 
     auto Tokenizer::TryConsumeAsciiChar(TextPosition& endPos, char ch) -> bool
     {
-        GLSLD_ASSERT(ch != '\0' && ch != '\n');
+        GLSLD_ASSERT(ch != '\n' && ch != '\0');
 
         if (*srcCursor == ch) {
             ConsumeAsciiCharUnsafe(endPos);
@@ -148,7 +143,7 @@ namespace glsld
         return false;
     }
 
-    auto Tokenizer::LexIdentifier(TextPosition& endPos, char firstChar) -> void
+    auto Tokenizer::LexIdentifier(TextPosition& endPos, char firstChar) -> std::tuple<TokenKlass, AtomString>
     {
         GLSLD_ASSERT(firstChar == '_' || IsAlpha(firstChar));
         tokenTextBuffer = {firstChar};
@@ -163,8 +158,10 @@ namespace glsld
                 break;
             }
         }
+
+        return {TokenKlass::Identifier, ExtractTokenText()};
     }
-    auto Tokenizer::LexNumberLiteral(TextPosition& endPos, char firstChar) -> void
+    auto Tokenizer::LexNumberLiteral(TextPosition& endPos, char firstChar) -> std::tuple<TokenKlass, AtomString>
     {
         GLSLD_ASSERT(IsDigit(firstChar) || (firstChar == '.' && IsDigit(PeekCodeUnit())));
         tokenTextBuffer = {firstChar};
@@ -212,24 +209,29 @@ namespace glsld
                 break;
             }
         }
+
+        return {TokenKlass::NumberLiteral, ExtractTokenText()};
     }
-    auto Tokenizer::LexLineComment(TextPosition& endPos) -> void
+    auto Tokenizer::LexLineComment(TextPosition& endPos) -> std::tuple<TokenKlass, AtomString>
     {
         // Assuming "//" is already consumed
         // FIXME: add a toggle
         tokenTextBuffer = {'/', '/'};
 
         while (true) {
-            if (PeekCodeUnit() == '\n') {
+            if (PeekCodeUnit() == '\0' || PeekCodeUnit() == '\n') {
                 tokenTextBuffer.push_back('\n');
                 break;
             }
-
-            const StringView nextChar = ConsumeCharUnsafe(endPos);
-            tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
+            else {
+                const StringView nextChar = ConsumeCharUnsafe(endPos);
+                tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
+            }
         }
+
+        return {TokenKlass::Comment, ExtractTokenText()};
     }
-    auto Tokenizer::LexBlockComment(TextPosition& endPos) -> TokenKlass
+    auto Tokenizer::LexBlockComment(TextPosition& endPos) -> std::tuple<TokenKlass, AtomString>
     {
         // Assuming "/*" is already consumed
         // FIXME: add a toggle
@@ -238,13 +240,17 @@ namespace glsld
         bool prevWasStar = false;
         while (true) {
             const StringView nextChar = ConsumeChar(endPos);
-            if (nextChar[0] == '*') {
+            if (nextChar[0] == '\0') {
+                // Unexpected EOF in block comment.
+                break;
+            }
+            else if (nextChar[0] == '*') {
                 prevWasStar = true;
             }
             else {
                 if (prevWasStar && nextChar[0] == '/') {
                     tokenTextBuffer.push_back('/');
-                    return TokenKlass::Comment;
+                    return {TokenKlass::Comment, ExtractTokenText()};
                 }
                 prevWasStar = false;
             }
@@ -252,20 +258,22 @@ namespace glsld
             tokenTextBuffer.insert(tokenTextBuffer.end(), nextChar.begin(), nextChar.end());
         }
 
-        return TokenKlass::Unknown;
+        // aka. unterminated block comment
+        return {TokenKlass::Unknown, ExtractTokenText()};
     }
-    auto Tokenizer::LexHeaderName(TextPosition& endPos, char quoteStart, char quoteEnd, TokenKlass klass) -> TokenKlass
+    auto Tokenizer::LexHeaderName(TextPosition& endPos, char quoteStart, char quoteEnd, TokenKlass klass)
+        -> std::tuple<TokenKlass, AtomString>
     {
         // Assuming `quoteStart` is already consumed
         tokenTextBuffer = {quoteStart};
 
         while (true) {
-            if (PeekCodeUnit() == '\n') {
+            if (PeekCodeUnit() == '\0' || PeekCodeUnit() == '\n') {
                 break;
             }
-            if (TryConsumeAsciiChar(endPos, quoteEnd)) {
+            else if (TryConsumeAsciiChar(endPos, quoteEnd)) {
                 tokenTextBuffer.push_back(quoteEnd);
-                return klass;
+                return {klass, ExtractTokenText()};
             }
             else {
                 const StringView nextChar = ConsumeCharUnsafe(endPos);
@@ -273,7 +281,7 @@ namespace glsld
             }
         }
 
-        return TokenKlass::Unknown;
+        return {TokenKlass::Unknown, ExtractTokenText()};
     }
     auto Tokenizer::Lex() -> PPToken
     {
@@ -317,8 +325,10 @@ namespace glsld
         case '"':
         {
             if (pp.ShouldLexHeaderName()) {
-                klass = LexHeaderName(endPos, '"', '"', TokenKlass::UserHeaderName);
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexHeaderName(endPos, '"', '"', TokenKlass::UserHeaderName);
+            }
+            else {
+                goto LABEL_LEX_UNKNOWN_TOKEN;
             }
             break;
         }
@@ -428,9 +438,7 @@ namespace glsld
         case '.':
         {
             if (IsDigit(PeekCodeUnit())) {
-                LexNumberLiteral(endPos, firstChar[0]);
-                klass = TokenKlass::NumberLiteral;
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexNumberLiteral(endPos, firstChar[0]);
             }
             else {
                 klass = TokenKlass::Dot;
@@ -441,13 +449,10 @@ namespace glsld
         case '/':
         {
             if (TryConsumeAsciiChar(endPos, '/')) {
-                LexLineComment(endPos);
-                klass = TokenKlass::Comment;
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexLineComment(endPos);
             }
             else if (TryConsumeAsciiChar(endPos, '*')) {
-                klass = LexBlockComment(endPos);
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexBlockComment(endPos);
             }
             else if (TryConsumeAsciiChar(endPos, '=')) {
                 klass = TokenKlass::DivAssign;
@@ -474,8 +479,7 @@ namespace glsld
         case '<':
         {
             if (pp.ShouldLexHeaderName()) {
-                klass = LexHeaderName(endPos, '<', '>', TokenKlass::SystemHeaderName);
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexHeaderName(endPos, '<', '>', TokenKlass::SystemHeaderName);
             }
             else if (TryConsumeAsciiChar(endPos, '=')) {
                 klass = TokenKlass::LessEq;
@@ -610,9 +614,7 @@ namespace glsld
         case '8':
         case '9':
         {
-            LexNumberLiteral(endPos, firstChar[0]);
-            klass = TokenKlass::NumberLiteral;
-            text  = ExtractTokenText();
+            std::tie(klass, text) = LexNumberLiteral(endPos, firstChar[0]);
             break;
         }
             // clang-format off
@@ -625,12 +627,11 @@ namespace glsld
         case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
             // clang-format on
             {
-                LexIdentifier(endPos, firstChar[0]);
-                klass = TokenKlass::Identifier;
-                text  = ExtractTokenText();
+                std::tie(klass, text) = LexIdentifier(endPos, firstChar[0]);
                 break;
             }
         default:
+        LABEL_LEX_UNKNOWN_TOKEN:
             klass = TokenKlass::Unknown;
             text  = pp.GetAtomTable().GetAtom(firstChar);
             break;
