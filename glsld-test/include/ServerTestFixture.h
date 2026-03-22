@@ -5,7 +5,6 @@
 #include "Basic/SourceInfo.h"
 #include "Support/StringMap.h"
 #include "Compiler/CompilerInvocation.h"
-#include "Compiler/SourceScanner.h"
 #include "Server/LanguageQueryInfo.h"
 
 #include <catch2/catch_message.hpp>
@@ -26,39 +25,53 @@ namespace glsld
         StringMap<TextPosition> labels;
 
         // Parses and remove "^[label]" from the source text provided
-        auto ParseLabelledSource(StringView sourceText) const -> std::tuple<std::string, StringMap<TextPosition>>
+        auto ParseLabelledSource(SourceTextView labeledSourceText) const
+            -> std::tuple<std::string, StringMap<TextPosition>>
         {
-            SourceScanner scanner(sourceText, true);
 
             StringMap<TextPosition> labels;
-            std::vector<char> sourceBuffer;
-            std::vector<char> labelBuffer;
-            while (!scanner.CursorAtEnd()) {
-                auto textPosition = scanner.GetTextPosition();
-                if (scanner.TryConsumeAsciiChar('^')) {
-                    if (!scanner.TryConsumeAsciiChar('[')) {
-                        UNSCOPED_INFO("Bad labelled source");
-                    }
-                    while (!scanner.CursorAtEnd()) {
-                        if (scanner.TryConsumeAsciiChar(']')) {
+            std::string sourceBuffer;
+            std::string labelBuffer;
+            int currentLine      = 0;
+            int currentCharacter = 0; // Here we should count in UTF-8 code units
+            for (const char* p = labeledSourceText.begin(); p != labeledSourceText.end();) {
+                if (p[0] == '^' && p[1] == '[') {
+                    // This is safe because the source text is guaranteed to be null-terminated.
+                    // We are seeing a label. Try to consume it.
+                    p += 2; // Skip '^['
+                    labelBuffer.clear();
+                    while (true) {
+                        if (p == labeledSourceText.end()) {
+                            UNSCOPED_INFO(fmt::format("Unterminated label: {}", labelBuffer));
+                            break;
+                        }
+                        else if (*p == ']') {
                             // Found the end of the label
-                            scanner.SetTextPosition(textPosition);
+                            labels.Insert({std::move(labelBuffer), TextPosition{currentLine, currentCharacter}});
+                            ++p; // Skip ']'
                             break;
                         }
                         else {
-                            scanner.ConsumeChar(labelBuffer);
+                            // Part of the label
+                            labelBuffer.push_back(*p);
+                            ++p;
                         }
                     }
                 }
                 else {
-                    scanner.ConsumeChar(sourceBuffer);
+                    if (*p == '\n') {
+                        currentLine += 1;
+                        currentCharacter = 0;
+                    }
+                    else {
+                        currentCharacter += 1;
+                    }
+                    sourceBuffer.push_back(*p);
+                    ++p;
                 }
-
-                labels.Insert({std::string(labelBuffer.begin(), labelBuffer.end()), textPosition});
-                labelBuffer.clear();
             }
 
-            return {std::string(sourceBuffer.begin(), sourceBuffer.end()), std::move(labels)};
+            return {std::move(sourceBuffer), std::move(labels)};
         }
 
     public:
@@ -82,9 +95,9 @@ namespace glsld
             return TextRange{GetLabelledPosition(labelBegin), GetLabelledPosition(labelEnd)};
         }
 
-        auto CompileLabelledSource(StringView labelledSourceText) -> void
+        auto CompileLabelledSource(SourceTextView labeledSourceText) -> void
         {
-            auto [sourceText, labels] = ParseLabelledSource(labelledSourceText);
+            auto [sourceText, labels] = ParseLabelledSource(labeledSourceText);
             auto ppInfoStore          = std::make_unique<PreprocessInfoStore>();
             auto compiler             = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);

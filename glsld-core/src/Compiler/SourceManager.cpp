@@ -2,7 +2,7 @@
 
 namespace glsld
 {
-    auto SourceManager::OpenFromBuffer(StringView sourceText) -> FileID
+    auto SourceManager::OpenFromBuffer(SourceTextView sourceText) -> FileID
     {
         auto result = entries.emplace_back(GetNextFileID(), "", sourceText);
         return result.id;

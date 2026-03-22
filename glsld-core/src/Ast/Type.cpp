@@ -113,6 +113,10 @@ namespace glsld
             },
             typeDesc);
 
+        if (printName.empty()) {
+            printName = "<unnamed>";
+        }
+
         if (IsSampler()) {
             containsOpaqueType = true;
         }

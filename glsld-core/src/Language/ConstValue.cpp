@@ -1011,6 +1011,8 @@ namespace glsld
 
     auto ParseNumberLiteral(StringView literalText) -> ConstValue
     {
+        // FIXME: Our lexer may be far permissive than what std::from_chars can handle. We should report error for these
+        //        cases instead of just returning an error ConstValue.
         bool hasHexPrefix    = literalText.StartWith("0x") || literalText.StartWith("0X");
         bool hasDecimalPoint = literalText.Contains('.');
         bool hasExponent     = !hasHexPrefix && (literalText.Contains('e') || literalText.Contains('E'));

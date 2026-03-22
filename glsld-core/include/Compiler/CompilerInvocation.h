@@ -134,7 +134,7 @@ namespace glsld
         }
 
         // User should ensure that the preamble text outlive the CompilerInvocation
-        auto SetUserPreamble(StringView content) -> void
+        auto SetUserPreamble(SourceTextView content) -> void
         {
             GLSLD_REQUIRE(preamble == nullptr);
             sourceManager.SetUserPreamble(content);
@@ -143,7 +143,7 @@ namespace glsld
         auto SetMainFileFromFile(StringView path) -> void;
 
         // User should ensure that the source text outlive the CompilerInvocation
-        auto SetMainFileFromBuffer(StringView sourceText) -> void;
+        auto SetMainFileFromBuffer(SourceTextView sourceText) -> void;
 
         // Scan the starting part of the main file to get the version and extensions.
         // Scanning should end at the first non-comment, non-preprocessor token.

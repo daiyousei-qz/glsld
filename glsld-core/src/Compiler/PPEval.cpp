@@ -44,7 +44,7 @@ namespace glsld
                 }
             }
             else {
-                if (token.klass == TokenKlass::IntegerConstant) {
+                if (token.klass == TokenKlass::NumberLiteral) {
                     auto value = ParseNumberLiteral(token.text.StrView());
                     if (value.IsScalarInt32()) {
                         PushOperand(value.GetInt32Value());

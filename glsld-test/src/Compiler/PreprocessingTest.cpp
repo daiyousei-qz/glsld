@@ -9,7 +9,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Version")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #version 450 core
         )";
 
@@ -29,7 +29,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Extension")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #extension GL_EXT_ray_tracing : enable
         )";
 
@@ -49,7 +49,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Pragma")
     {
-        const auto sourceText = R"(
+        const SourceTextView sourceText = R"(
             #pragma some_pragma argument1 argument2
         )";
 
@@ -70,57 +70,57 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
 
     SECTION("Macro")
     {
-        GLSLD_CHECK_TOKENS("#define MACRO test\nMACRO", IdTok("test"), EofTok());
+        CheckTokens("#define MACRO test\nMACRO", {IdTok("test"), EofTok()});
 
-        GLSLD_CHECK_TOKENS("#define MACRO test##2\nMACRO", IdTok("test2"), EofTok());
+        CheckTokens("#define MACRO test##2\nMACRO", {IdTok("test2"), EofTok()});
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A) A\nMACRO(test)", IdTok("test"), EofTok());
+        CheckTokens("#define MACRO(A) A\nMACRO(test)", {IdTok("test"), EofTok()});
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A) A##2\nMACRO(test)", IdTok("test2"), EofTok());
+        CheckTokens("#define MACRO(A) A##2\nMACRO(test)", {IdTok("test2"), EofTok()});
 
-        GLSLD_CHECK_TOKENS("#define MACRO(A, B) A##B\nMACRO(test, 2)", IdTok("test2"), EofTok());
+        CheckTokens("#define MACRO(A, B) A##B\nMACRO(test, 2)", {IdTok("test2"), EofTok()});
 
         {
-            auto sourceText = R"(
+            const SourceTextView sourceText = R"(
                 #define MACRO test
                 #define MACRO2 MACRO
                 MACRO2
             )";
-            GLSLD_CHECK_TOKENS(sourceText, IdTok("test"), EofTok());
+            CheckTokens(sourceText, {IdTok("test"), EofTok()});
         }
 
         SECTION("Permissive")
         {
-            auto sourceText = R"(
+            const SourceTextView sourceText = R"(
                 #define FOO(X) X
                 FOO()
             )";
-            GLSLD_CHECK_TOKENS(sourceText, EofTok());
+            CheckTokens(sourceText, {EofTok()});
         }
     }
 
     SECTION("Conditional")
     {
-        GLSLD_CHECK_TOKENS("#if 1\na\n#endif", IdTok("a"), EofTok());
-        GLSLD_CHECK_TOKENS("#if 0\na\n#endif", EofTok());
-        GLSLD_CHECK_TOKENS("#if 1\na\n#elif 1\nb\n#endif", IdTok("a"), EofTok());
-        GLSLD_CHECK_TOKENS("#if 0\na\n#elif 1\nb\n#endif", IdTok("b"), EofTok());
-        GLSLD_CHECK_TOKENS("#if 0\na\n#elif 0\nb\n#endif", EofTok());
-        GLSLD_CHECK_TOKENS("#if 0\na\n#elif 0\nb\n#else\nc\n#endif", IdTok("c"), EofTok());
+        CheckTokens("#if 1\na\n#endif", {IdTok("a"), EofTok()});
+        CheckTokens("#if 0\na\n#endif", {EofTok()});
+        CheckTokens("#if 1\na\n#elif 1\nb\n#endif", {IdTok("a"), EofTok()});
+        CheckTokens("#if 0\na\n#elif 1\nb\n#endif", {IdTok("b"), EofTok()});
+        CheckTokens("#if 0\na\n#elif 0\nb\n#endif", {EofTok()});
+        CheckTokens("#if 0\na\n#elif 0\nb\n#else\nc\n#endif", {IdTok("c"), EofTok()});
 
-        GLSLD_CHECK_TOKENS("#define MACRO 0\n#if MACRO\na\n#else\nb\n#endif", IdTok("b"), EofTok());
-        GLSLD_CHECK_TOKENS("#define MACRO 1\n#if MACRO\na\n#else\nb\n#endif", IdTok("a"), EofTok());
-        GLSLD_CHECK_TOKENS("#if UNDEFINED_MACRO\na\n#else\nb\n#endif", IdTok("b"), EofTok());
+        CheckTokens("#define MACRO 0\n#if MACRO\na\n#else\nb\n#endif", {IdTok("b"), EofTok()});
+        CheckTokens("#define MACRO 1\n#if MACRO\na\n#else\nb\n#endif", {IdTok("a"), EofTok()});
+        CheckTokens("#if UNDEFINED_MACRO\na\n#else\nb\n#endif", {IdTok("b"), EofTok()});
 
-        GLSLD_CHECK_TOKENS(R"(
+        CheckTokens(R"(
             #if 0
             #if 1
             a
             #endif
             #endif
         )",
-                           EofTok());
-        GLSLD_CHECK_TOKENS(R"(
+                    {EofTok()});
+        CheckTokens(R"(
             #if 0
             #if 1
             a
@@ -129,7 +129,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
             #endif
             #endif
         )",
-                           EofTok());
+                    {EofTok()});
     }
 
     SECTION("PPEval")
@@ -137,7 +137,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
         AtomTable atomTable;
         auto ppInt = [&atomTable](int value) {
             return PPToken{
-                .klass                = TokenKlass::IntegerConstant,
+                .klass                = TokenKlass::NumberLiteral,
                 .spelledFile          = FileID{},
                 .spelledRange         = TextRange{},
                 .text                 = atomTable.GetAtom(fmt::to_string(value)),

@@ -21,14 +21,14 @@ namespace glsld
             // The absolute path of file. Could be empty if the file is not on disk.
             std::string canonicalPath;
 
-            StringView content;
+            SourceTextView content;
         };
 
         FileSystemProvider& fileSystemProvider = DefaultFileSystemProvider::GetInstance();
 
-        StringView systemPreamble;
+        SourceTextView systemPreamble;
 
-        StringView userPreamble;
+        SourceTextView userPreamble;
 
         std::vector<SourceFileEntry> entries;
 
@@ -56,22 +56,22 @@ namespace glsld
             }
         }
 
-        auto SetSystemPreamble(StringView content) -> void
+        auto SetSystemPreamble(SourceTextView content) -> void
         {
             systemPreamble = content;
         }
 
-        auto SetUserPreamble(StringView content) -> void
+        auto SetUserPreamble(SourceTextView content) -> void
         {
             userPreamble = content;
         }
 
-        auto GetSystemPreamble() const noexcept -> StringView
+        auto GetSystemPreamble() const noexcept -> SourceTextView
         {
             return systemPreamble;
         }
 
-        auto GetUserPreamble() const noexcept -> StringView
+        auto GetUserPreamble() const noexcept -> SourceTextView
         {
             return userPreamble;
         }
@@ -92,7 +92,7 @@ namespace glsld
             }
         }
 
-        auto GetSourceText(FileID fileId) -> StringView
+        auto GetSourceText(FileID fileId) -> SourceTextView
         {
             if (!fileId.IsValid()) {
                 return {};
@@ -108,7 +108,7 @@ namespace glsld
             }
         }
 
-        auto OpenFromBuffer(StringView sourceText) -> FileID;
+        auto OpenFromBuffer(SourceTextView sourceText) -> FileID;
 
         auto OpenFromFile(const std::filesystem::path& path) -> FileID;
 

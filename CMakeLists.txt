@@ -132,29 +132,11 @@ if(GLSLD_BUILD_UNIT_TEST)
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 endif()
 
-# GLSLD Lexer Generator
-file(GLOB_RECURSE GLSLD_LEXGEN_HEADER_FILE glsld-lexgen/include/*.h)
-file(GLOB_RECURSE GLSLD_LEXGEN_SOURCE_FILE glsld-lexgen/src/*.cpp)
-
-add_executable(glsld-lexgen ${GLSLD_LEXGEN_HEADER_FILE} ${GLSLD_LEXGEN_SOURCE_FILE})
-target_include_directories(glsld-lexgen PUBLIC glsld-core/include)
-target_include_directories(glsld-lexgen PUBLIC glsld-lexgen/include)
-
-target_link_libraries(glsld-lexgen PRIVATE fmt::fmt)
-target_link_libraries(glsld-lexgen PRIVATE magic_enum::magic_enum)
-
-add_custom_command(
-    OUTPUT Tokenize.generated.cpp
-    COMMAND glsld-lexgen "Tokenize.generated.cpp"
-    COMMENT "Generating Tokenize.generated.cpp"
-    VERBATIM
-)
-
 # GLSL Core Library
 file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-core/include/*.h)
 file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-core/src/*.cpp)
 
-add_library(glsld-core STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE} "Tokenize.generated.cpp")
+add_library(glsld-core STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE})
 target_include_directories(glsld-core PUBLIC glsld-core/include)
 
 target_link_libraries(glsld-core PUBLIC fmt::fmt)

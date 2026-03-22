@@ -107,11 +107,11 @@ namespace glsld
         GLSLD_ASSERT(witheldTokens.empty() && argLParenCounter == 0);
 
         if (token.klass == TokenKlass::Identifier) {
-            if (token.text == pp.atomBuiltinLineMacro) {
+            if (token.text == pp.atoms.miscs.builtinLineMacro) {
                 // Handle __LINE__ builtin macro
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass                = TokenKlass::IntegerConstant,
+                    .klass                = TokenKlass::NumberLiteral,
                     .spelledFile          = token.spelledFile,
                     .spelledRange         = TextRange{token.spelledRange.start},
                     .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledRange.start.line + 1)),
@@ -123,12 +123,12 @@ namespace glsld
                     pp.callback->OnMacroExpansion(token, AstSyntaxRange{nextTokenId});
                 }
             }
-            else if (token.text == pp.atomBuiltinFileMacro) {
+            else if (token.text == pp.atoms.miscs.builtinFileMacro) {
                 // Handle __FILE__ builtin macro
                 // FIXME: Need clarification of what value to use here.
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass                = TokenKlass::IntegerConstant,
+                    .klass                = TokenKlass::NumberLiteral,
                     .spelledFile          = token.spelledFile,
                     .spelledRange         = TextRange{token.spelledRange.start},
                     .text                 = pp.atomTable.GetAtom(std::to_string(token.spelledFile.GetValue())),
@@ -140,11 +140,11 @@ namespace glsld
                     pp.callback->OnMacroExpansion(token, AstSyntaxRange{nextTokenId});
                 }
             }
-            else if (token.text == pp.atomBuiltinVersionMacro) {
+            else if (token.text == pp.atoms.miscs.builtinVersionMacro) {
                 // Handle __VERSION__ builtin macro
                 const auto nextTokenId = pp.GetNextTokenId();
                 YieldToken(PPToken{
-                    .klass        = TokenKlass::IntegerConstant,
+                    .klass        = TokenKlass::NumberLiteral,
                     .spelledFile  = token.spelledFile,
                     .spelledRange = TextRange{token.spelledRange.start},
                     .text         = pp.atomTable.GetAtom(
@@ -248,11 +248,19 @@ namespace glsld
                 }
 
                 // Try to tokenize the pasted text.
-                auto [klass, tokText, remText] = TokenizeOnce(pastedText);
-                if (!pastingFailure && remText.Empty()) {
-                    token.klass = klass;
-                    token.text  = pp.atomTable.GetAtom(tokText);
+                if (!pastingFailure) {
+                    Tokenizer pastedTokenizer{pp, macroNameTok.spelledFile, pastedText,
+                                              pp.compiler.GetCompilerConfig().countUtf16Character};
+                    PPToken token              = pastedTokenizer.Lex();
+                    token.spelledFile          = macroNameTok.spelledFile;
+                    token.spelledRange         = TextRange{macroNameTok.spelledRange.start};
+                    token.isFirstTokenOfLine   = false;
+                    token.hasLeadingWhitespace = false;
                     nextProcessor.Feed(token);
+
+                    if (!pastedTokenizer.Exhausted()) {
+                        // FIXME: report error, pasted token is not fully consumed.
+                    }
                 }
                 else {
                     // FIXME: report error, bad token pasting
@@ -295,6 +303,8 @@ namespace glsld
 #pragma region PreprocessStateMachine
     auto PreprocessStateMachine::PreprocessSourceFile(FileID sourceFile) -> void
     {
+        GLSLD_ASSERT(GetState() == PreprocessorState::Default);
+
         if (!sourceFile.IsValid()) {
             // FIXME: report error, invalid source file
             return;
@@ -303,7 +313,29 @@ namespace glsld
         auto beginTokenIndex   = outputStream.tokens.size();
         auto beginCommentIndex = outputStream.comments.size();
         auto sourceText        = sourceManager.GetSourceText(sourceFile);
-        Tokenizer{compiler, *this, atomTable, sourceFile, sourceText}.DoTokenize();
+
+        Tokenizer tokenizer{*this, sourceFile, sourceText, compiler.GetCompilerConfig().countUtf16Character};
+
+        while (!ShouldHaltLexing()) {
+            PPToken token = tokenizer.Lex();
+#if defined(GLSLD_DEBUG)
+            compiler.GetCompilerTrace().TracePPTokenLexed(token);
+#endif
+            if (token.klass == TokenKlass::Eof) {
+                FeedPPToken(token);
+                break;
+            }
+
+            if (InActiveRegion() || (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine)) {
+                FeedPPToken(token);
+            }
+            else {
+                // FIXME: We are in an inactive branch of preprocessor. Fast scan for # instead of expensive lexing.
+                if (token.klass == TokenKlass::Hash && token.isFirstTokenOfLine) {
+                    FeedPPToken(token);
+                }
+            }
+        }
 
         outputStream.files.push_back(PreprocessedFile{
             .fileID            = sourceFile,
@@ -312,24 +344,6 @@ namespace glsld
             .beginCommentIndex = beginCommentIndex,
             .endCommentIndex   = outputStream.comments.size(),
         });
-    }
-
-    auto PreprocessStateMachine::InitializeKeywordLookup() -> void
-    {
-#define DECL_KEYWORD(KEYWORD) keywordLookup[atomTable.GetAtom(#KEYWORD)] = TokenKlass::K_##KEYWORD;
-#include "GlslKeywords.inc"
-#undef DECL_KEYWORD
-    }
-
-    auto PreprocessStateMachine::FixupKeywordTokenKlass(TokenKlass klass, AtomString text) -> TokenKlass
-    {
-        if (klass == TokenKlass::Identifier) {
-            if (auto it = keywordLookup.find(text); it != keywordLookup.end()) {
-                return it->second;
-            }
-        }
-
-        return klass;
     }
 
     auto PreprocessStateMachine::DispatchTokenToHandler(const PPToken& token) -> void
@@ -404,7 +418,7 @@ namespace glsld
             directiveTokBuffer.push_back(token);
             if (conditionalStack.empty() || conditionalStack.back().active) {
                 // We are in an active region, so we expect to process all directives.
-                if (token.text == atomDirectiveInclude) {
+                if (token.text == atoms.miscs.directiveInclude) {
                     TransitionToExpectIncludeDirectiveTailState();
                 }
                 else {
@@ -415,9 +429,9 @@ namespace glsld
                 // We are in an inactive region.
                 // Notably, even though if/ifdef/ifndef cannot restore the active state, we still need to process them
                 // in order to maintain the correct nesting level of conditional directives.
-                if (token.text == atomDirectiveIf || token.text == atomDirectiveIfdef ||
-                    token.text == atomDirectiveIfndef || token.text == atomDirectiveElif ||
-                    token.text == atomDirectiveElse || token.text == atomDirectiveEndif) {
+                if (token.text == atoms.miscs.directiveIf || token.text == atoms.miscs.directiveIfdef ||
+                    token.text == atoms.miscs.directiveIfndef || token.text == atoms.miscs.directiveElif ||
+                    token.text == atoms.miscs.directiveElse || token.text == atoms.miscs.directiveEndif) {
                     // These directives may change the state of the conditional stack.
                     TransitionToExpectDefaultDirectiveTailState();
                 }
@@ -458,46 +472,46 @@ namespace glsld
         }
 
         PPToken directiveToken = scanner.ConsumeToken();
-        if (directiveToken.text == atomDirectiveInclude) {
+        if (directiveToken.text == atoms.miscs.directiveInclude) {
             HandleIncludeDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveDefine) {
+        else if (directiveToken.text == atoms.miscs.directiveDefine) {
             HandleDefineDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveUndef) {
+        else if (directiveToken.text == atoms.miscs.directiveUndef) {
             HandleUndefDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveIf) {
+        else if (directiveToken.text == atoms.miscs.directiveIf) {
             HandleIfDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveIfdef) {
+        else if (directiveToken.text == atoms.miscs.directiveIfdef) {
             HandleIfdefDirective(scanner, false);
         }
-        else if (directiveToken.text == atomDirectiveIfndef) {
+        else if (directiveToken.text == atoms.miscs.directiveIfndef) {
             HandleIfdefDirective(scanner, true);
         }
-        else if (directiveToken.text == atomDirectiveElse) {
+        else if (directiveToken.text == atoms.miscs.directiveElse) {
             HandleElseDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveElif) {
+        else if (directiveToken.text == atoms.miscs.directiveElif) {
             HandleElifDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveEndif) {
+        else if (directiveToken.text == atoms.miscs.directiveEndif) {
             HandleEndifDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveError) {
+        else if (directiveToken.text == atoms.miscs.directiveError) {
             // FIXME: report error
         }
-        else if (directiveToken.text == atomDirectiveExtension) {
+        else if (directiveToken.text == atoms.miscs.directiveExtension) {
             HandleExtensionDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveVersion) {
+        else if (directiveToken.text == atoms.miscs.directiveVersion) {
             HandleVersionDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectivePragma) {
+        else if (directiveToken.text == atoms.miscs.directivePragma) {
             HandlePragmaDirective(scanner);
         }
-        else if (directiveToken.text == atomDirectiveLine) {
+        else if (directiveToken.text == atoms.miscs.directiveLine) {
             HandleLineDirective(scanner);
         }
         else {
@@ -556,15 +570,11 @@ namespace glsld
                 callback->OnEnterIncludedFile();
             }
 
-            PreprocessStateMachine nextPP{
-                compiler,
-                outputStream,
-                tuId,
-                callback,
+            auto nextPP = std::make_unique<PreprocessStateMachine>(
+                compiler, outputStream, tuId, callback,
                 includeExpansionRange ? includeExpansionRange : TextRange{headerNameToken->spelledRange.start},
-                includeDepth + 1,
-            };
-            nextPP.PreprocessSourceFile(includeFile);
+                includeDepth + 1);
+            nextPP->PreprocessSourceFile(includeFile);
 
             if (callback) {
                 callback->OnExitIncludedFile();
@@ -860,16 +870,16 @@ namespace glsld
     auto PreprocessStateMachine::ParseExtensionBehavior(const PPToken& toggle) -> std::optional<ExtensionBehavior>
     {
         GLSLD_ASSERT(toggle.klass == TokenKlass::Identifier);
-        if (toggle.text == atomExtensionBehaviorEnable) {
+        if (toggle.text == atoms.miscs.extensionBehaviorEnable) {
             return ExtensionBehavior::Enable;
         }
-        else if (toggle.text == atomExtensionBehaviorRequire) {
+        else if (toggle.text == atoms.miscs.extensionBehaviorRequire) {
             return ExtensionBehavior::Require;
         }
-        else if (toggle.text == atomExtensionBehaviorWarn) {
+        else if (toggle.text == atoms.miscs.extensionBehaviorWarn) {
             return ExtensionBehavior::Warn;
         }
-        else if (toggle.text == atomExtensionBehaviorDisable) {
+        else if (toggle.text == atoms.miscs.extensionBehaviorDisable) {
             return ExtensionBehavior::Disable;
         }
         else {
@@ -913,47 +923,47 @@ namespace glsld
 
     auto PreprocessStateMachine::ParseGlslVersion(const PPToken& versionNumber) -> std::optional<GlslVersion>
     {
-        if (versionNumber.klass != TokenKlass::IntegerConstant) {
+        if (versionNumber.klass != TokenKlass::NumberLiteral) {
             return std::nullopt;
         }
 
-        if (versionNumber.text == atomGlslVersion110) {
+        if (versionNumber.text == atoms.miscs.versionString110) {
             return GlslVersion::Ver110;
         }
-        else if (versionNumber.text == atomGlslVersion120) {
+        else if (versionNumber.text == atoms.miscs.versionString120) {
             return GlslVersion::Ver120;
         }
-        else if (versionNumber.text == atomGlslVersion130) {
+        else if (versionNumber.text == atoms.miscs.versionString130) {
             return GlslVersion::Ver130;
         }
-        else if (versionNumber.text == atomGlslVersion140) {
+        else if (versionNumber.text == atoms.miscs.versionString140) {
             return GlslVersion::Ver140;
         }
-        else if (versionNumber.text == atomGlslVersion150) {
+        else if (versionNumber.text == atoms.miscs.versionString150) {
             return GlslVersion::Ver150;
         }
-        else if (versionNumber.text == atomGlslVersion330) {
+        else if (versionNumber.text == atoms.miscs.versionString330) {
             return GlslVersion::Ver330;
         }
-        else if (versionNumber.text == atomGlslVersion400) {
+        else if (versionNumber.text == atoms.miscs.versionString400) {
             return GlslVersion::Ver400;
         }
-        else if (versionNumber.text == atomGlslVersion410) {
+        else if (versionNumber.text == atoms.miscs.versionString410) {
             return GlslVersion::Ver410;
         }
-        else if (versionNumber.text == atomGlslVersion420) {
+        else if (versionNumber.text == atoms.miscs.versionString420) {
             return GlslVersion::Ver420;
         }
-        else if (versionNumber.text == atomGlslVersion430) {
+        else if (versionNumber.text == atoms.miscs.versionString430) {
             return GlslVersion::Ver430;
         }
-        else if (versionNumber.text == atomGlslVersion440) {
+        else if (versionNumber.text == atoms.miscs.versionString440) {
             return GlslVersion::Ver440;
         }
-        else if (versionNumber.text == atomGlslVersion450) {
+        else if (versionNumber.text == atoms.miscs.versionString450) {
             return GlslVersion::Ver450;
         }
-        else if (versionNumber.text == atomGlslVersion460) {
+        else if (versionNumber.text == atoms.miscs.versionString460) {
             return GlslVersion::Ver460;
         }
         else {
@@ -964,13 +974,13 @@ namespace glsld
     auto PreprocessStateMachine::ParseGlslProfile(const PPToken& profile) -> std::optional<GlslProfile>
     {
         GLSLD_ASSERT(profile.klass == TokenKlass::Identifier);
-        if (profile.text == atomGlslProfileCore) {
+        if (profile.text == atoms.miscs.versionProfileCore) {
             return GlslProfile::Core;
         }
-        else if (profile.text == atomGlslProfileCompatibility) {
+        else if (profile.text == atoms.miscs.versionProfileCompatibility) {
             return GlslProfile::Compatibility;
         }
-        else if (profile.text == atomGlslProfileEs) {
+        else if (profile.text == atoms.miscs.versionProfileEs) {
             return GlslProfile::Es;
         }
         else {
@@ -1080,7 +1090,7 @@ namespace glsld
         // However, it is not a problem since it's a UB.
         while (!scanner.CursorAtEnd()) {
             auto token = scanner.ConsumeToken();
-            if (token.klass == TokenKlass::Identifier && token.text == atomMacroOperatorDefined) {
+            if (token.klass == TokenKlass::Identifier && token.text == atoms.miscs.macroOperatorDefined) {
                 PPToken macroName;
                 if (scanner.TryTestToken(TokenKlass::Identifier)) {
                     macroName = scanner.ConsumeToken();

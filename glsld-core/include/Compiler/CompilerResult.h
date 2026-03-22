@@ -54,12 +54,12 @@ namespace glsld
             return languageConfig;
         }
 
-        auto GetSystemPreamble() const noexcept -> StringView
+        auto GetSystemPreamble() const noexcept -> SourceTextView
         {
             return systemPreambleText;
         }
 
-        auto GetUserPreamble() const noexcept -> StringView
+        auto GetUserPreamble() const noexcept -> SourceTextView
         {
             return userPreambleText;
         }

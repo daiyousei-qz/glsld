@@ -9,6 +9,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
+#include "fmt/ranges.h"
 #include <tuple>
 
 namespace glsld
@@ -110,13 +111,57 @@ namespace glsld
             return matcherTemplate(matcher);
         }
 
-        auto Compile(StringView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
+        auto Compile(SourceTextView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
             -> std::unique_ptr<CompilerResult>
         {
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
             return compiler->CompileMainFile(ppCallback, compileMode);
+        }
+
+        auto CheckTokens(SourceTextView sourceText, std::vector<TokenMatcher*> matchers) -> void
+        {
+            auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
+            auto tokens         = compilerResult->GetUserFileArtifacts().GetTokens();
+
+            auto failWithMessage = [&](const std::string& message) {
+                FAIL(fmt::format("Lexing:\n"
+                                 "```\n"
+                                 "{}\n"
+                                 "```\n"
+                                 "Expected tokens: {}\n"
+                                 "Actual tokens: {}\n"
+                                 "\n"
+                                 "{}",
+                                 StringView{sourceText},
+                                 fmt::join(matchers | std::views::transform(
+                                                          [](TokenMatcher* matcher) { return matcher->Describe(); }),
+                                           ", "),
+                                 fmt::join(tokens | std::views::transform(
+                                                        [](const RawSyntaxToken& tok) { return tok.text.StrView(); }),
+                                           ", "),
+                                 message));
+            };
+
+            if (tokens.size() != matchers.size()) {
+                failWithMessage(fmt::format("Token stream has unexpected size. Expected: {}, Actual: {}",
+                                            matchers.size(), tokens.size()));
+                return;
+            }
+
+            for (uint32_t i = 0; i < tokens.size(); ++i) {
+                auto token = AstSyntaxToken{
+                    .id    = SyntaxTokenID{TranslationUnitID::UserFile, i},
+                    .klass = tokens[i].klass,
+                    .text  = tokens[i].text,
+                };
+                if (!matchers[i]->Match(token)) {
+                    failWithMessage(fmt::format("Token mismatches at index {}. Expected: {}, Actual: {}", i,
+                                                matchers[i]->Describe(), token.text.StrView()));
+                    return;
+                }
+            }
         }
 
 #pragma region Token Matchers
@@ -132,6 +177,10 @@ namespace glsld
         {
             return CreateTokenMatcher("InvalidToken", TokenKlass::Invalid, std::nullopt);
         }
+        auto UnknownTok(StringView text) -> TokenMatcher*
+        {
+            return CreateTokenMatcher(fmt::format("UnknownToken[{}]", text), TokenKlass::Unknown, text.Str());
+        }
         auto IdTok(StringView identifier) -> TokenMatcher*
         {
             return CreateTokenMatcher(fmt::format("Identifier[{}]", identifier), TokenKlass::Identifier,
@@ -141,14 +190,9 @@ namespace glsld
         {
             return CreateTokenMatcher(fmt::format("Keyword[{}]", EnumToString(keyword)), keyword, std::nullopt);
         }
-        auto IntTok(StringView value) -> TokenMatcher*
+        auto NumTok(StringView value) -> TokenMatcher*
         {
-            return CreateTokenMatcher(fmt::format("IntegerConstant[{}]", value), TokenKlass::IntegerConstant,
-                                      value.Str());
-        }
-        auto FloatTok(StringView value) -> TokenMatcher*
-        {
-            return CreateTokenMatcher(fmt::format("FloatConstant[{}]", value), TokenKlass::FloatConstant, value.Str());
+            return CreateTokenMatcher(fmt::format("NumberLiteral[{}]", value), TokenKlass::NumberLiteral, value.Str());
         }
 #pragma endregion
 
@@ -258,7 +302,7 @@ namespace glsld
 #pragma endregion
     };
 
-    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<StringView>
+    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
     {
     private:
         const CompilerTestFixture& fixture;
@@ -272,7 +316,7 @@ namespace glsld
         {
         }
 
-        auto match(const StringView& sourceText) const -> bool override
+        auto match(const SourceTextView& sourceText) const -> bool override
         {
             auto compilerResult = fixture.Compile(sourceText, CompileMode::PreprocessOnly);
 
@@ -304,7 +348,7 @@ namespace glsld
         }
     };
 
-    class AstTestCatchMatcher : public Catch::Matchers::MatcherBase<StringView>
+    class AstTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
     {
     private:
         CompilerTestFixture& fixture;
@@ -317,7 +361,7 @@ namespace glsld
         {
         }
 
-        auto match(const StringView& sourceText) const -> bool override
+        auto match(const SourceTextView& sourceText) const -> bool override
         {
             auto compilerResult = fixture.Compile(sourceText, CompileMode::ParseOnly);
 
@@ -342,14 +386,6 @@ namespace glsld
 } // namespace glsld
 
 #define SOURCE_PIECES(...) std::make_tuple(__VA_ARGS__)
-
-#define GLSLD_CHECK_TOKENS(SRC, ...)                                                                                   \
-    do {                                                                                                               \
-        auto matchers__ =                                                                                              \
-            ::glsld::LexingTestCatchMatcher{*this, ::std::vector<::glsld::TokenMatcher*>{__VA_ARGS__}, #__VA_ARGS__};  \
-        auto sourceText__ = WrapSource((SRC));                                                                         \
-        CHECK_THAT(sourceText__, matchers__);                                                                          \
-    } while (false)
 
 #define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
     do {                                                                                                               \
