@@ -179,6 +179,8 @@ namespace glsld
             }
         }
 
+        // This is more permissive than the spec requires. But this allows us to lex invalid literals and report
+        // diagnostics in a more user-friendly way, instead of just giving up at the first invalid token.
         while (true) {
             const char nextChar = PeekCodeUnit();
             if (nextChar == '.') {

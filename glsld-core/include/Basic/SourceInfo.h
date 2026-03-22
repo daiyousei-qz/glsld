@@ -183,6 +183,9 @@ namespace glsld
             requires std::is_pointer_v<T> && std::is_same_v<std::remove_pointer_t<T>, const char>
         constexpr SourceTextView(T s) : SourceTextView(s, s + strlen(s))
         {
+            // This ctor is effectively constructing a SourceTextView from a `const char*`
+            // But we want to avoid string literal to decay and lose size information.
+            // So we make this a template to lower the overload priority.
         }
 
         auto operator=(const SourceTextView& other) -> SourceTextView& = default;
