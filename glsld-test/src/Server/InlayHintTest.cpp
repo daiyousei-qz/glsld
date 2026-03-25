@@ -39,7 +39,7 @@ struct InlayHintsExpectedResult
     std::vector<OneInlayHintExpectedResult> hints;
 };
 
-TEST_CASE_METHOD(ServerTestFixture, "InlayHints")
+TEST_CASE_METHOD(ServerTestFixture, "Server::InlayHintTest")
 {
     auto checkInlayHints = [this](StringView labelBegin, StringView labelEnd, InlayHintsExpectedResult expectedResult,
                                   const InlayHintConfig& config = {.enable = true}) {

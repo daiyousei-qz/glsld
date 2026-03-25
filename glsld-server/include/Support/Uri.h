@@ -82,8 +82,8 @@ namespace glsld
         };
 
         std::string result;
-        for (StringView s = httpStr; !s.Empty();) {
-            if (s.Size() >= 3 && s[0] == '%' && isHexDigit(s[1]) && isHexDigit(s[2])) {
+        for (StringView s = httpStr; !s.empty();) {
+            if (s.size() >= 3 && s[0] == '%' && isHexDigit(s[1]) && isHexDigit(s[2])) {
                 result += static_cast<char>(hexDigitToInt(s[1]) * 16 + hexDigitToInt(s[2]));
                 s = s.Drop(3);
             }

@@ -120,7 +120,7 @@ namespace glsld
 
     auto UniqueFile::Write(StringView text) noexcept -> Status
     {
-        return Write(text.data(), 1, text.Size());
+        return Write(text.data(), 1, text.size());
     }
 
     auto UniqueFile::Flush() noexcept -> Status

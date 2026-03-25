@@ -133,8 +133,8 @@ if(GLSLD_BUILD_UNIT_TEST)
 endif()
 
 # GLSL Core Library
-file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE glsld-core/include/*.h)
-file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE glsld-core/src/*.cpp)
+file(GLOB_RECURSE GLSLD_COMMON_HEADER_FILE CONFIGURE_DEPENDS glsld-core/include/*.h)
+file(GLOB_RECURSE GLSLD_COMMON_SOURCE_FILE CONFIGURE_DEPENDS glsld-core/src/*.cpp)
 
 add_library(glsld-core STATIC ${GLSLD_COMMON_HEADER_FILE} ${GLSLD_COMMON_SOURCE_FILE})
 target_include_directories(glsld-core PUBLIC glsld-core/include)
@@ -144,8 +144,8 @@ target_link_libraries(glsld-core PUBLIC magic_enum::magic_enum)
 
 # GLSLD Wrapper
 if(GLSLD_BUILD_WRAPPER)
-    file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE glsld-wrapper/include/*.h)
-    file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE glsld-wrapper/src/*.cpp)
+    file(GLOB_RECURSE GLSLD_WRAPPER_HEADER_FILE CONFIGURE_DEPENDS glsld-wrapper/include/*.h)
+    file(GLOB_RECURSE GLSLD_WRAPPER_SOURCE_FILE CONFIGURE_DEPENDS glsld-wrapper/src/*.cpp)
 
     add_executable(glsld-wrapper ${GLSLD_WRAPPER_HEADER_FILE} ${GLSLD_WRAPPER_SOURCE_FILE})
     target_include_directories(glsld-wrapper PRIVATE glsld-wrapper/include)
@@ -159,8 +159,8 @@ endif()
 
 # GLSLD Language Server
 if(GLSLD_BUILD_LANGUAGE_SERVER OR GLSLD_BUILD_UNIT_TEST)
-    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_HEADER_FILE glsld-server/include/*.h)
-    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_SOURCE_FILE glsld-server/src/*.cpp)
+    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_HEADER_FILE CONFIGURE_DEPENDS glsld-server/include/*.h)
+    file(GLOB_RECURSE GLSLD_LANGUAGE_SERVER_SOURCE_FILE CONFIGURE_DEPENDS glsld-server/src/*.cpp)
 
     add_library(glsld-server STATIC ${GLSLD_LANGUAGE_SERVER_HEADER_FILE} ${GLSLD_LANGUAGE_SERVER_SOURCE_FILE})
     target_include_directories(glsld-server PUBLIC glsld-server/include)
@@ -176,8 +176,8 @@ endif()
 
 # GLSLD
 if(GLSLD_BUILD_LANGUAGE_SERVER)
-    file(GLOB_RECURSE GLSLD_HEADER_FILE glsld/include/*.h)
-    file(GLOB_RECURSE GLSLD_SOURCE_FILE glsld/src/*.cpp)
+    file(GLOB_RECURSE GLSLD_HEADER_FILE CONFIGURE_DEPENDS glsld/include/*.h)
+    file(GLOB_RECURSE GLSLD_SOURCE_FILE CONFIGURE_DEPENDS glsld/src/*.cpp)
 
     add_executable(glsld ${GLSLD_HEADER_FILE} ${GLSLD_SOURCE_FILE})
     target_include_directories(glsld PRIVATE glsld/include)
@@ -193,8 +193,8 @@ if(GLSLD_BUILD_UNIT_TEST)
     include(CTest)
     include(Catch)
 
-    file(GLOB_RECURSE GLSLD_TEST_HEADER_FILE glsld-test/include/*.h)
-    file(GLOB_RECURSE GLSLD_TEST_SOURCE_FILE glsld-test/src/*.cpp)
+    file(GLOB_RECURSE GLSLD_TEST_HEADER_FILE CONFIGURE_DEPENDS glsld-test/include/*.h)
+    file(GLOB_RECURSE GLSLD_TEST_SOURCE_FILE CONFIGURE_DEPENDS glsld-test/src/*.cpp)
 
     add_executable(glsld-test ${GLSLD_TEST_HEADER_FILE} ${GLSLD_TEST_SOURCE_FILE})
     target_include_directories(glsld-test PRIVATE glsld-test/include)

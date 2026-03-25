@@ -3,11 +3,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iterator>
 #include <vector>
-#include <ranges>
 
 using namespace glsld;
 
-TEST_CASE("EnumReflectionTest")
+TEST_CASE("Support::EnumReflectionTest")
 {
     enum class SimpleTestEnum
     {

@@ -7,12 +7,12 @@
 
 namespace glsld
 {
-    template <typename F>
-    concept CharPredicate = std::predicate<F, char>;
-
     // This class wraps around std::string_view and adds string utilities
     class StringView : std::ranges::view_base
     {
+    private:
+        std::string_view view;
+
     public:
         using Iterator      = std::string_view::iterator;
         using ConstIterator = std::string_view::const_iterator;
@@ -24,49 +24,51 @@ namespace glsld
         constexpr StringView(const char* p, size_t count) : view(p, count)
         {
         }
-        template <size_t N>
-        constexpr StringView(const char (&s)[N]) : view(s, N - 1)
-        {
-        }
-        constexpr StringView(std::nullptr_t p) = delete;
         constexpr StringView(std::string_view s) : view(s)
         {
         }
+        constexpr explicit StringView(const std::string& s) : view(s)
+        {
+        }
+        constexpr StringView(std::nullptr_t p) = delete;
 
-        explicit StringView(const std::string& s) : view(s)
+        template <size_t N>
+            requires(N > 0)
+        constexpr StringView(const char (&s)[N]) : view(s, N - 1)
         {
         }
 
         template <std::contiguous_iterator It, std::sized_sentinel_for<It> End>
-            requires std::is_same_v<std::iter_value_t<It>, char> && (!std::is_convertible_v<End, size_t>)
+            requires(!std::is_convertible_v<End, size_t>)
         constexpr StringView(It first, End last) : view(first, last)
         {
+            // We let the underlying std::string_view constructor validate the range
         }
 
         template <std::ranges::contiguous_range R>
-            requires std::is_same_v<std::ranges::range_value_t<R>, char>
         constexpr StringView(R&& r) : view(std::ranges::data(r), std::ranges::size(r))
         {
+            // We let the underlying std::string_view constructor validate the range
         }
 
         constexpr StringView(const StringView&) noexcept                    = default;
         constexpr auto operator=(const StringView&) noexcept -> StringView& = default;
 
-        [[nodiscard]] constexpr auto Empty() const noexcept -> bool
+        [[nodiscard]] constexpr auto empty() const noexcept -> bool
         {
             return view.empty();
         }
 
-        [[nodiscard]] constexpr auto Size() const noexcept -> size_t
+        [[nodiscard]] constexpr auto size() const noexcept -> size_t
         {
             return view.size();
         }
 
-        [[nodiscard]] constexpr auto Front() const noexcept -> char
+        [[nodiscard]] constexpr auto front() const noexcept -> char
         {
             return view.front();
         }
-        [[nodiscard]] constexpr auto Back() const noexcept -> char
+        [[nodiscard]] constexpr auto back() const noexcept -> char
         {
             return view.back();
         }
@@ -87,7 +89,7 @@ namespace glsld
         {
             auto offset = view.find(seperator.view);
             if (offset != std::string_view::npos) {
-                return std::pair{Take(offset), Drop(offset + seperator.Size())};
+                return std::pair{Take(offset), Drop(offset + seperator.size())};
             }
             else {
                 return std::pair{*this, StringView{view.end(), view.end()}};
@@ -126,28 +128,46 @@ namespace glsld
         {
             return StringView{view.substr(n)};
         }
-        [[nodiscard]] constexpr auto TakeUntil(CharPredicate auto&& predicate) const noexcept -> StringView
+        template <typename Fn>
+            requires std::predicate<Fn, char>
+        [[nodiscard]] constexpr auto TakeUntil(Fn&& predicate) const noexcept -> StringView
         {
-            return StringView{view.begin(), std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate))};
+            return StringView{std::to_address(view.begin()), std::to_address(std::ranges::find_if(
+                                                                 view, std::forward<decltype(predicate)>(predicate)))};
         }
-        [[nodiscard]] constexpr auto DropUntil(CharPredicate auto&& predicate) const noexcept -> StringView
+        template <typename Fn>
+            requires std::predicate<Fn, char>
+        [[nodiscard]] constexpr auto DropUntil(Fn&& predicate) const noexcept -> StringView
         {
-            return StringView{std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate)), view.end()};
+            return StringView{std::to_address(std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate))),
+                              std::to_address(view.end())};
         }
 
-        [[nodiscard]] constexpr auto TakeBack(size_t n) const noexcept -> StringView;
+        [[nodiscard]] constexpr auto TakeBack(size_t n) const noexcept -> StringView
+        {
+            return StringView{view.substr(view.size() - n)};
+        }
         [[nodiscard]] constexpr auto DropBack(size_t n) const noexcept -> StringView
         {
             auto s = view;
             s.remove_suffix(n);
             return s;
         }
-        [[nodiscard]] constexpr auto TakeBackUntil(CharPredicate auto predicate) const noexcept -> StringView;
-        [[nodiscard]] constexpr auto DropBackUntil(CharPredicate auto predicate) const noexcept -> StringView;
-
-        [[nodiscard]] constexpr auto SubStr(size_t start, size_t N = npos) const noexcept -> StringView
+        template <typename Fn>
+            requires std::predicate<Fn, char>
+        [[nodiscard]] constexpr auto TakeBackUntil(Fn&& predicate) const noexcept -> StringView
         {
-            return StringView{view.substr(start, N)};
+            return StringView{std::to_address(std::ranges::find_if(view | std::views::reverse,
+                                                                   std::forward<decltype(predicate)>(predicate))),
+                              std::to_address(view.end())};
+        }
+        template <typename Fn>
+            requires std::predicate<Fn, char>
+        [[nodiscard]] constexpr auto DropBackUntil(Fn&& predicate) const noexcept -> StringView
+        {
+            return StringView{std::to_address(view.begin()),
+                              std::to_address(std::ranges::find_if(view | std::views::reverse,
+                                                                   std::forward<decltype(predicate)>(predicate)))};
         }
 
         [[nodiscard]] auto Str() const noexcept -> std::string
@@ -234,11 +254,6 @@ namespace glsld
         {
             return lhs.view <=> rhs.view;
         }
-
-        static constexpr auto npos = std::string_view::npos;
-
-    private:
-        std::string_view view;
     };
 
     inline auto operator+=(std::string& lhs, StringView rhs) -> std::string&

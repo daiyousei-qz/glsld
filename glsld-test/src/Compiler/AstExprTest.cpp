@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyAst(), IdTok("test__"), AnyAst(), AnyAst()),
@@ -349,7 +349,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstExprTest")
     }
 }
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstInitializerList")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstInitializerListTest")
 {
     SetTestTemplate("unknown test__ = {};", [this](AstMatcher* matcher) {
         return FindMatch(VariableDecl(AnyQualType(), IdTok("test__"), AnyAst(), AnyInitializer()),
@@ -413,7 +413,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "AstInitializerList")
     }
 }
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstImplicitCast")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstImplicitCastTest")
 {
     SetTestTemplate("void main() {{ {}; }}", [this](AstMatcher* matcher) {
         return FindMatch(FunctionDecl(AnyQualType(), IdTok("main"), {}, AnyStmt()),

@@ -28,7 +28,7 @@ struct FoldingRangeExpectedResult
     std::vector<OneFoldingRangeExpectedResult> ranges;
 };
 
-TEST_CASE_METHOD(ServerTestFixture, "FoldingRangeTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::FoldingRangeTest")
 {
     auto checkFoldingRange = [this](FoldingRangeExpectedResult expectedResult,
                                     const FoldingRangeConfig& config = {.enable = true}) {

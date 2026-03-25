@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Support/ArraySpan.h"
 #include "Support/StringView.h"
 #include "Compiler/SyntaxToken.h"
 

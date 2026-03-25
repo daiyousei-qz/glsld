@@ -433,7 +433,7 @@ namespace glsld
                     // swizzle operators
                     // TODO: we should support swizzle on scalar as well?
                     auto pendingReplacementText = completionType.pendingReplacementToken.text.StrView();
-                    if (pendingReplacementText.Empty()) {
+                    if (pendingReplacementText.empty()) {
                         // No pending text, suggest all possible swizzle components
                         for (StringView charSetSeq : {"xyzw", "rgba", "stpq"}) {
                             for (char ch : charSetSeq.Take(vectorDesc->vectorSize)) {
@@ -451,7 +451,7 @@ namespace glsld
                             .kind  = lsp::CompletionItemKind::Field,
                         }});
 
-                        if (pendingReplacementText.Size() < 4) {
+                        if (pendingReplacementText.size() < 4) {
                             for (char newChar : swizzleDesc.GetCharSetSeq().Take(vectorDesc->vectorSize)) {
                                 result.push_back({lsp::CompletionItem{
                                     .label = pendingReplacementText.Str() + newChar,

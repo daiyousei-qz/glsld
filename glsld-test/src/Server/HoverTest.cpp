@@ -17,7 +17,7 @@ static auto MockHover(const ServerTestFixture& fixture, TextPosition pos, const 
                        });
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "HoverTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::HoverTest")
 {
     auto checkNoHover = [this](StringView labelPos, const HoverConfig& config = {.enable = true}) {
         INFO(fmt::format("Checking hover at label '{}'", labelPos));

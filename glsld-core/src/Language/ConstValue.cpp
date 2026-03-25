@@ -976,7 +976,7 @@ namespace glsld
     {
         T value           = 0;
         const char* start = literalText.data();
-        const char* end   = literalText.data() + literalText.Size();
+        const char* end   = literalText.data() + literalText.size();
 
         // Determine base
         int base = 10;
@@ -984,7 +984,7 @@ namespace glsld
             base = 16;
             start += 2;
         }
-        else if (literalText.StartWith("0") && literalText.Size() > 1) {
+        else if (literalText.StartWith("0") && literalText.size() > 1) {
             base = 8;
             start += 1;
         }
@@ -1001,8 +1001,8 @@ namespace glsld
     static auto ParseFloatLiteral(StringView literalText) -> ConstValue
     {
         T value;
-        auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.Size(), value);
-        if (parseResult.ptr == literalText.data() + literalText.Size() && parseResult.ec == std::errc{}) {
+        auto parseResult = std::from_chars(literalText.data(), literalText.data() + literalText.size(), value);
+        if (parseResult.ptr == literalText.data() + literalText.size() && parseResult.ec == std::errc{}) {
             return ConstValue::CreateScalar<T>(value);
         }
 

@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-TEST_CASE("ConstValue")
+TEST_CASE("Compiler::ConstValueTest")
 {
     SECTION("CreateScalar")
     {

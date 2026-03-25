@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "Lexing")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::LexingTest")
 {
     SetTestTemplate("{}");
 

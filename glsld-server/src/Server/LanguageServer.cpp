@@ -103,20 +103,22 @@ namespace glsld
             }
 
             LogDebug("Received LSP message header line: `{}`", headerView);
-            if (headerView.Empty()) {
+            if (headerView.empty()) {
                 // Empty line indicates end of headers, aka. start of payload.
                 break;
             }
 
-            if (headerView.StartWith("Content-Length: ")) {
-                auto lengthView = headerView.Drop(16);
-                if (std::from_chars(lengthView.data(), lengthView.data() + lengthView.Size(), payloadLength).ec !=
+            if (constexpr StringView contentLengthPrefix = "Content-Length: ";
+                headerView.StartWith(contentLengthPrefix)) {
+                auto lengthView = headerView.Drop(contentLengthPrefix.size());
+                if (std::from_chars(lengthView.data(), lengthView.data() + lengthView.size(), payloadLength).ec !=
                     std::errc()) {
                     LogError("Failed to parse Content-Length header.");
                     return false;
                 }
             }
-            else if (headerView.StartWith("Content-Type: ")) {
+            else if (constexpr StringView contentTypePrefix = "Content-Type: ";
+                     headerView.StartWith(contentTypePrefix)) {
                 // do nothing...
             }
             else {
@@ -145,7 +147,7 @@ namespace glsld
         std::lock_guard<std::mutex> lock{serverOutputMutex};
 
         // TODO: optimize this
-        std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.Size());
+        std::string header = fmt::format("Content-Length: {}\r\n\r\n", payload.size());
         LogDebug("Sending LSP message header:\n```\n{}```", header);
         LogDebug("Sending LSP message payload:\n```\n{}\n```", payload);
 

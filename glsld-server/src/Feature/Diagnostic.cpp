@@ -127,7 +127,7 @@ namespace glsld
         glslang::TShader shader(*stage);
 
         const char* sourceDataPtr = sourceBuffer.data();
-        int sourceLen             = static_cast<int>(sourceBuffer.Size());
+        int sourceLen             = static_cast<int>(sourceBuffer.size());
         shader.setStringsWithLengths(&sourceDataPtr, &sourceLen, 1);
         shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_4);
         shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);

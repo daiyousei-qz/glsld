@@ -37,7 +37,7 @@ struct SymbolQueryExpectedResult
     bool isDeclaration = false;
 };
 
-TEST_CASE_METHOD(ServerTestFixture, "SymbolQueryTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::SymbolQueryTest")
 {
     auto checkSymbol = [this](StringView labelPos, SymbolQueryExpectedResult expectedResult) {
         auto queryResult = GetLanguageQueryInfo().QuerySymbolByPosition(GetLabelledPosition(labelPos));

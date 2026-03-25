@@ -10,7 +10,7 @@ static auto MockSemanticTokens(const ServerTestFixture& fixture, const SemanticT
     return CollectSemanticTokens(config, fixture.GetLanguageQueryInfo());
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::SemanticTokenTest")
 {
     auto checkSemanticToken = [&](ArrayView<SemanticTokenInfo> tokens, StringView labelBegin, StringView labelEnd,
                                   SemanticTokenType type, SemanticTokenModifierBits modifiers = {}) {
@@ -161,7 +161,7 @@ TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenTest")
     }
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "SemanticTokenDeltaTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::SemanticTokenDeltaTest")
 {
     // TODO: Have a more comprehensive/expressive set of delta tests
     auto checkSemanticTokensDelta = [this](SourceTextView sourceText, SourceTextView modifiedSourceText) {

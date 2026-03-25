@@ -16,7 +16,7 @@ static auto MockSignatureHelp(const ServerTestFixture& fixture, TextPosition pos
                                });
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "SignatureHelpTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::SignatureHelpTest")
 {
     // TODO: implement tests
 }

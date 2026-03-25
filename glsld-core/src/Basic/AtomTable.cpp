@@ -36,9 +36,9 @@ namespace glsld
 
     auto AtomTable::AddAtom(StringView s) -> AtomString
     {
-        char* atomPtr = reinterpret_cast<char*>(arena.Allocate(s.Size() + 1));
+        char* atomPtr = reinterpret_cast<char*>(arena.Allocate(s.size() + 1));
         std::ranges::copy(s, atomPtr);
-        atomPtr[s.Size()] = '\0';
+        atomPtr[s.size()] = '\0';
 
         return AtomString{atomPtr};
     }

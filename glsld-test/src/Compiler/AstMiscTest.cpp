@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstMiscTest")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstMiscTest")
 {
     SetTestTemplate("{}");
 

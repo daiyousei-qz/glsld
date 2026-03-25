@@ -4,6 +4,6 @@
 
 using namespace glsld;
 
-TEST_CASE("ProtocolTest")
+TEST_CASE("Server::ProtocolTest")
 {
 }
