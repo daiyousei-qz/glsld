@@ -94,14 +94,14 @@ TEST_CASE("Support::ArraySpanTest")
         std::array<int, 7> values = {4, 8, 15, 16, 23, 42, 108};
         ArraySpan<int> view{values};
 
-        CHECK(view.TakeUntil([](int value) { return value == 16; }) == ArraySpan<int>{values.data(), 3});
-        CHECK(view.DropUntil([](int value) { return value == 16; }) == ArraySpan<int>{values.data() + 3, 4});
-        CHECK(view.TakeUntil([](int value) { return value == 999; }) == view);
-        CHECK(view.DropUntil([](int value) { return value == 999; }).empty());
-        CHECK(view.TakeBackUntil([](int value) { return value == 23; }) == ArraySpan<int>{values.data() + 4, 3});
-        CHECK(view.DropBackUntil([](int value) { return value == 23; }) == ArraySpan<int>{values.data(), 4});
-        CHECK(view.TakeBackUntil([](int value) { return value == 4; }) == view);
-        CHECK(view.DropBackUntil([](int value) { return value == 4; }).empty());
+        CHECK(view.TakeWhile([](int value) { return value != 16; }) == ArraySpan<int>{values.data(), 3});
+        CHECK(view.DropWhile([](int value) { return value != 16; }) == ArraySpan<int>{values.data() + 3, 4});
+        CHECK(view.TakeWhile([](int value) { return value != 999; }) == view);
+        CHECK(view.DropWhile([](int value) { return value != 999; }).empty());
+        CHECK(view.TakeBackWhile([](int value) { return value != 23; }) == ArraySpan<int>{values.data() + 5, 2});
+        CHECK(view.DropBackWhile([](int value) { return value != 23; }) == ArraySpan<int>{values.data(), 5});
+        CHECK(view.TakeBackWhile([](int value) { return value != 999; }) == view);
+        CHECK(view.DropBackWhile([](int value) { return value != 999; }).empty());
     }
 
     SECTION("Comparison and iteration")
@@ -115,7 +115,6 @@ TEST_CASE("Support::ArraySpanTest")
 
         CHECK(lhs == lhsCopy);
         CHECK(lhs != rhs);
-        CHECK((lhs <=> rhs) == std::strong_ordering::less);
 
         int sum = 0;
         for (int value : lhs) {

@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <array>
 #include <concepts>
 #include <ranges>
 #include <span>
@@ -97,17 +98,25 @@ namespace glsld
         }
         template <typename Fn>
             requires std::predicate<Fn, T>
-        [[nodiscard]] constexpr auto TakeUntil(Fn&& predicate) const noexcept -> ArraySpan
+        [[nodiscard]] constexpr auto TakeWhile(Fn predicate) const noexcept -> ArraySpan
         {
-            return ArraySpan{std::to_address(span.begin()),
-                             std::to_address(std::ranges::find_if(span, std::forward<decltype(predicate)>(predicate)))};
+            T* newEnd = span.data();
+            while (newEnd != span.data() + span.size() && predicate(*newEnd)) {
+                ++newEnd;
+            }
+
+            return ArraySpan{span.data(), static_cast<size_t>(newEnd - span.data())};
         }
         template <typename Fn>
             requires std::predicate<Fn, T>
-        [[nodiscard]] constexpr auto DropUntil(Fn&& predicate) const noexcept -> ArraySpan
+        [[nodiscard]] constexpr auto DropWhile(Fn predicate) const noexcept -> ArraySpan
         {
-            return ArraySpan{std::to_address(std::ranges::find_if(span, std::forward<decltype(predicate)>(predicate))),
-                             std::to_address(span.end())};
+            T* newBegin = span.data();
+            while (newBegin != span.data() + span.size() && predicate(*newBegin)) {
+                ++newBegin;
+            }
+
+            return ArraySpan{newBegin, static_cast<size_t>(span.data() + span.size() - newBegin)};
         }
 
         [[nodiscard]] constexpr auto TakeBack(size_t n) const noexcept -> ArraySpan
@@ -118,17 +127,27 @@ namespace glsld
         {
             return ArraySpan{span.subspan(0, span.size() - n)};
         }
-        [[nodiscard]] constexpr auto TakeBackUntil(auto&& predicate) const noexcept -> ArraySpan
+        template <typename Fn>
+            requires std::predicate<Fn, T>
+        [[nodiscard]] constexpr auto TakeBackWhile(Fn predicate) const noexcept -> ArraySpan
         {
-            return ArraySpan{std::to_address(std::ranges::find_if(span | std::views::reverse,
-                                                                  std::forward<decltype(predicate)>(predicate))),
-                             std::to_address(span.end())};
+            T* newBegin = span.data() + span.size();
+            while (newBegin != span.data() && predicate(*(newBegin - 1))) {
+                --newBegin;
+            }
+
+            return ArraySpan{newBegin, static_cast<size_t>(span.data() + span.size() - newBegin)};
         }
-        [[nodiscard]] constexpr auto DropBackUntil(auto&& predicate) const noexcept -> ArraySpan
+        template <typename Fn>
+            requires std::predicate<Fn, T>
+        [[nodiscard]] constexpr auto DropBackWhile(Fn predicate) const noexcept -> ArraySpan
         {
-            return ArraySpan{std::to_address(span.begin()),
-                             std::to_address(std::ranges::find_if(span | std::views::reverse,
-                                                                  std::forward<decltype(predicate)>(predicate)))};
+            T* newEnd = span.data() + span.size();
+            while (newEnd != span.data() && predicate(*(newEnd - 1))) {
+                --newEnd;
+            }
+
+            return ArraySpan{span.data(), static_cast<size_t>(newEnd - span.data())};
         }
 
         [[nodiscard]] constexpr auto StdSpan() const noexcept -> SpanType
@@ -166,12 +185,9 @@ namespace glsld
         }
 
         [[nodiscard]] friend constexpr auto operator==(ArraySpan lhs, ArraySpan rhs) noexcept -> bool
+            requires std::equality_comparable<T>
         {
             return std::ranges::equal(lhs.span, rhs.span);
-        }
-        [[nodiscard]] friend constexpr auto operator<=>(ArraySpan lhs, ArraySpan rhs) noexcept -> std::strong_ordering
-        {
-            return std::lexicographical_compare_three_way(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
         }
     };
 

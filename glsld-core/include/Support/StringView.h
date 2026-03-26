@@ -75,9 +75,9 @@ namespace glsld
 
         // Operations
 
-        [[nodiscard]] constexpr auto Split(char seperator) const noexcept -> std::pair<StringView, StringView>
+        [[nodiscard]] constexpr auto Split(char separator) const noexcept -> std::pair<StringView, StringView>
         {
-            auto offset = view.find(seperator);
+            auto offset = view.find(separator);
             if (offset != std::string_view::npos) {
                 return std::pair{Take(offset), Drop(offset + 1)};
             }
@@ -85,11 +85,11 @@ namespace glsld
                 return std::pair{*this, StringView{view.end(), view.end()}};
             }
         }
-        [[nodiscard]] constexpr auto Split(StringView seperator) const noexcept -> std::pair<StringView, StringView>
+        [[nodiscard]] constexpr auto Split(StringView separator) const noexcept -> std::pair<StringView, StringView>
         {
-            auto offset = view.find(seperator.view);
+            auto offset = view.find(separator.view);
             if (offset != std::string_view::npos) {
-                return std::pair{Take(offset), Drop(offset + seperator.size())};
+                return std::pair{Take(offset), Drop(offset + separator.size())};
             }
             else {
                 return std::pair{*this, StringView{view.end(), view.end()}};
@@ -130,17 +130,25 @@ namespace glsld
         }
         template <typename Fn>
             requires std::predicate<Fn, char>
-        [[nodiscard]] constexpr auto TakeUntil(Fn&& predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto TakeWhile(Fn predicate) const noexcept -> StringView
         {
-            return StringView{std::to_address(view.begin()), std::to_address(std::ranges::find_if(
-                                                                 view, std::forward<decltype(predicate)>(predicate)))};
+            const char* newEnd = view.data();
+            while (newEnd != view.data() + view.size() && predicate(*newEnd)) {
+                ++newEnd;
+            }
+
+            return StringView{view.data(), static_cast<size_t>(newEnd - view.data())};
         }
         template <typename Fn>
             requires std::predicate<Fn, char>
-        [[nodiscard]] constexpr auto DropUntil(Fn&& predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto DropWhile(Fn predicate) const noexcept -> StringView
         {
-            return StringView{std::to_address(std::ranges::find_if(view, std::forward<decltype(predicate)>(predicate))),
-                              std::to_address(view.end())};
+            const char* newBegin = view.data();
+            while (newBegin != view.data() + view.size() && predicate(*newBegin)) {
+                ++newBegin;
+            }
+
+            return StringView{newBegin, static_cast<size_t>(view.data() + view.size() - newBegin)};
         }
 
         [[nodiscard]] constexpr auto TakeBack(size_t n) const noexcept -> StringView
@@ -155,19 +163,25 @@ namespace glsld
         }
         template <typename Fn>
             requires std::predicate<Fn, char>
-        [[nodiscard]] constexpr auto TakeBackUntil(Fn&& predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto TakeBackWhile(Fn predicate) const noexcept -> StringView
         {
-            return StringView{std::to_address(std::ranges::find_if(view | std::views::reverse,
-                                                                   std::forward<decltype(predicate)>(predicate))),
-                              std::to_address(view.end())};
+            const char* newBegin = view.data() + view.size();
+            while (newBegin != view.data() && predicate(*(newBegin - 1))) {
+                --newBegin;
+            }
+
+            return StringView{newBegin, static_cast<size_t>(view.data() + view.size() - newBegin)};
         }
         template <typename Fn>
             requires std::predicate<Fn, char>
-        [[nodiscard]] constexpr auto DropBackUntil(Fn&& predicate) const noexcept -> StringView
+        [[nodiscard]] constexpr auto DropBackWhile(Fn predicate) const noexcept -> StringView
         {
-            return StringView{std::to_address(view.begin()),
-                              std::to_address(std::ranges::find_if(view | std::views::reverse,
-                                                                   std::forward<decltype(predicate)>(predicate)))};
+            const char* newEnd = view.data() + view.size();
+            while (newEnd != view.data() && predicate(*(newEnd - 1))) {
+                --newEnd;
+            }
+
+            return StringView{view.data(), static_cast<size_t>(newEnd - view.data())};
         }
 
         [[nodiscard]] auto Str() const noexcept -> std::string

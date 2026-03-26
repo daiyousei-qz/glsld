@@ -102,12 +102,14 @@ TEST_CASE("Support::StringViewTest")
     {
         StringView view = "token=42;tail";
 
-        CHECK(view.TakeUntil([](char ch) { return ch == '='; }) == "token");
-        CHECK(view.DropUntil([](char ch) { return ch == '='; }) == "=42;tail");
-        CHECK(view.TakeUntil([](char ch) { return ch == '!'; }) == view);
-        CHECK(view.DropUntil([](char ch) { return ch == '!'; }).empty());
-        CHECK(view.TakeBackUntil([](char ch) { return ch == ';'; }) == ";tail");
-        CHECK(view.DropBackUntil([](char ch) { return ch == ';'; }) == "token=42");
+        CHECK(view.TakeWhile([](char ch) { return ch != '='; }) == "token");
+        CHECK(view.DropWhile([](char ch) { return ch != '='; }) == "=42;tail");
+        CHECK(view.TakeWhile([](char ch) { return ch != '!'; }) == view);
+        CHECK(view.DropWhile([](char ch) { return ch != '!'; }).empty());
+        CHECK(view.TakeBackWhile([](char ch) { return ch != ';'; }) == "tail");
+        CHECK(view.DropBackWhile([](char ch) { return ch != ';'; }) == "token=42;");
+        CHECK(view.TakeBackWhile([](char ch) { return ch != '!'; }) == view);
+        CHECK(view.DropBackWhile([](char ch) { return ch != '!'; }).empty());
     }
 
     SECTION("Search predicates")
