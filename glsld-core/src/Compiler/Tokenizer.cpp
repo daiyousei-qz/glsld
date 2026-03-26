@@ -85,7 +85,7 @@ namespace glsld
 
         endPos = GetTextPosition();
         TryConsumeLineContinuation();
-        GLSLD_ASSERT(!result.Empty());
+        GLSLD_ASSERT(!result.empty());
         return result;
     }
 
@@ -114,7 +114,7 @@ namespace glsld
 
         endPos = GetTextPosition();
         TryConsumeLineContinuation();
-        GLSLD_ASSERT(!result.Empty());
+        GLSLD_ASSERT(!result.empty());
         return result;
     }
 
@@ -307,7 +307,7 @@ namespace glsld
         TextPosition endPos;
 
         StringView firstChar = ConsumeCharUnsafe(endPos);
-        GLSLD_ASSERT(!firstChar.Empty());
+        GLSLD_ASSERT(!firstChar.empty());
 
         TokenKlass klass = TokenKlass::Unknown;
         AtomString text;

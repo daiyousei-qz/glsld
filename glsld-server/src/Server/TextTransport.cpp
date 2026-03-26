@@ -81,8 +81,8 @@ namespace glsld
         auto Write(StringView data) -> bool override
         {
             size_t totalWritten = 0;
-            while (totalWritten < data.Size()) {
-                size_t bytesWritten = fwrite(data.data() + totalWritten, 1, data.Size() - totalWritten, stdout);
+            while (totalWritten < data.size()) {
+                size_t bytesWritten = fwrite(data.data() + totalWritten, 1, data.size() - totalWritten, stdout);
                 if (bytesWritten == 0) {
                     return false;
                 }

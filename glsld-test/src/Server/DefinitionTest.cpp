@@ -15,7 +15,7 @@ static auto MockDefinition(const ServerTestFixture& fixture, TextPosition pos,
                             });
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "DefinitionTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::DefinitionTest")
 {
     auto checkNoDefinition = [&](StringView labelPos) {
         auto locations = MockDefinition(*this, GetLabelledPosition(labelPos));

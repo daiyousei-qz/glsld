@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic/Common.h"
+#include "Support/ArraySpan.h"
 #include "Support/StringView.h"
 
 #include <algorithm>
@@ -177,7 +178,7 @@ namespace glsld
 
         static auto Parse(StringView swizzleName) -> SwizzleDesc
         {
-            if (swizzleName.Empty() || swizzleName.Size() > MaxSwizzleDimension) {
+            if (swizzleName.empty() || swizzleName.size() > MaxSwizzleDimension) {
                 // Swizzle name is empty or too long
                 return {};
             }
@@ -224,7 +225,7 @@ namespace glsld
 
             std::optional<SwizzleCharSet> lastCharSet = std::nullopt;
             uint8_t swizzleBuffer[MaxSwizzleDimension];
-            for (int i = 0; i < swizzleName.Size(); ++i) {
+            for (int i = 0; i < swizzleName.size(); ++i) {
                 const auto [charSet, index] = parseSwizzleComponent(swizzleName[i]);
                 if (!charSet) {
                     // Bad swizzle char
@@ -239,7 +240,7 @@ namespace glsld
                 swizzleBuffer[i] = static_cast<uint8_t>(index);
             }
 
-            return SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.Size()}, *lastCharSet};
+            return SwizzleDesc{ArrayView<uint8_t>{swizzleBuffer, swizzleName.size()}, *lastCharSet};
         }
     };
 

@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-TEST_CASE("ConfigTest")
+TEST_CASE("Server::ConfigTest")
 {
     auto config       = R"(
 {

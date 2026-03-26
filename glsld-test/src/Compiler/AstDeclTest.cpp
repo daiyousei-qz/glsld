@@ -2,7 +2,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "AstDeclTest")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstDeclTest")
 {
     SetTestTemplate("{}", [this](AstMatcher* matcher) { return TranslationUnit({matcher}); });
 

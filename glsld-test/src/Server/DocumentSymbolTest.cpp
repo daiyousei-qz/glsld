@@ -14,7 +14,7 @@ static auto MockDocumentSymbol(const ServerTestFixture& fixture, const DocumentS
                                 });
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "DocumentSymbolTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::DocumentSymbolTest")
 {
     auto checkSymbol = [this](const lsp::DocumentSymbol& symbol, StringView name, lsp::SymbolKind kind,
                               StringView labelBegin, StringView labelEnd) {

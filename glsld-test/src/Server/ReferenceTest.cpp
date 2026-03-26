@@ -18,7 +18,7 @@ static auto MockReferences(const ServerTestFixture& fixture, TextPosition pos, b
                             });
 }
 
-TEST_CASE_METHOD(ServerTestFixture, "ReferenceTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::ReferenceTest")
 {
     auto checkNoReference = [this](StringView labelPos, bool includeDeclaration = false,
                                    const ReferenceConfig& config = {.enable = true}) {

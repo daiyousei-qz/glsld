@@ -100,7 +100,7 @@ namespace glsld
                     paramNameHint = paramDecl->GetDeclarator()->nameToken.text.StrView();
                 }
 
-                if (!outputHint.Empty() || !paramNameHint.Empty()) {
+                if (!outputHint.empty() || !paramNameHint.empty()) {
                     TryAddInlayHintBefore(*argExpr, fmt::format("{}{}:", outputHint, paramNameHint));
                 }
             }
@@ -142,13 +142,13 @@ namespace glsld
                 }
                 else {
                     for (auto argExpr : args) {
-                        if (remainingSwizzleNames.Empty()) {
+                        if (remainingSwizzleNames.empty()) {
                             break;
                         }
 
                         StringView swizzleName =
                             remainingSwizzleNames.Take(argExpr->GetDeducedType()->GetElementScalarCount().value_or(1));
-                        remainingSwizzleNames = remainingSwizzleNames.Drop(swizzleName.Size());
+                        remainingSwizzleNames = remainingSwizzleNames.Drop(swizzleName.size());
                         TryAddInlayHintBefore(*argExpr, fmt::format(".{}:", swizzleName));
                     }
                 }

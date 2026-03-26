@@ -13,7 +13,7 @@ namespace glsld
 
         auto Append(StringView s) -> void
         {
-            buffer.append(s.data(), s.data() + s.Size());
+            buffer.append(s.data(), s.data() + s.size());
         }
 
     public:

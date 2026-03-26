@@ -4,7 +4,7 @@
 
 using namespace glsld;
 
-TEST_CASE("JsonSerializerTest")
+TEST_CASE("Support::JsonSerializerTest")
 {
     auto testSerialization = [&](const auto& object) {
         using ObjectType = std::remove_cvref_t<decltype(object)>;

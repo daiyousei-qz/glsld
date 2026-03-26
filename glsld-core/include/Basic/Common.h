@@ -1,7 +1,6 @@
 #pragma once
 #include <cassert>
 #include <functional>
-#include <span>
 
 #include <fmt/format.h>
 
@@ -23,12 +22,6 @@ namespace glsld
     concept Printable = requires(const T& value) {
         { value.ToString() } -> std::convertible_to<std::string>;
     };
-
-    template <typename T, size_t Extent = std::dynamic_extent>
-    using ArraySpan = std::span<T, Extent>;
-
-    template <typename T, size_t Extent = std::dynamic_extent>
-    using ArrayView = std::span<const T, Extent>;
 
     template <typename T>
         requires std::is_pointer_v<T>

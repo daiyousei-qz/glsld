@@ -3,7 +3,7 @@
 
 using namespace glsld;
 
-TEST_CASE_METHOD(CompilerTestFixture, "Preprocessing")
+TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 {
     SetTestTemplate("{}");
 

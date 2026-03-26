@@ -32,7 +32,7 @@ struct CompletionExpectedResult
     std::vector<CompletionItemExpectedResult> items;
 };
 
-TEST_CASE_METHOD(ServerTestFixture, "CompletionTest")
+TEST_CASE_METHOD(ServerTestFixture, "Server::CompletionTest")
 {
     auto checkCompletion = [this](StringView cursorLabel, CompletionExpectedResult expectedResult,
                                   const CompletionConfig& config = {.enable = true}) {
