@@ -29,15 +29,15 @@ namespace glsld
         }
         constexpr ArraySpan(std::nullptr_t p) = delete;
 
-        template <size_t N>
-            requires(Extent == std::dynamic_extent || N == Extent)
-        constexpr ArraySpan(T (&arr)[N]) : span(arr, N)
+        template <typename U, size_t N>
+            requires(Extent == std::dynamic_extent || N == Extent) && std::is_convertible_v<U (*)[], T (*)[]>
+        constexpr ArraySpan(U (&arr)[N]) : span(arr, N)
         {
         }
 
-        template <size_t N>
-            requires(Extent == std::dynamic_extent || N == Extent)
-        constexpr ArraySpan(std::array<T, N>& arr) : span(arr.data(), N)
+        template <typename U, size_t N>
+            requires(Extent == std::dynamic_extent || N == Extent) && std::is_convertible_v<U (*)[], T (*)[]>
+        constexpr ArraySpan(std::array<U, N>& arr) : span(arr.data(), N)
         {
         }
 
