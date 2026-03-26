@@ -134,7 +134,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
     SECTION("PPEval")
     {
-        AtomTable atomTable;
+        AtomTable atomTable{nullptr};
         auto ppInt = [&atomTable](int value) {
             return PPToken{
                 .klass                = TokenKlass::NumberLiteral,

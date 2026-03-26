@@ -3,13 +3,6 @@
 
 namespace glsld
 {
-    AstContext::AstContext(const AstContext* preambleContext)
-    {
-        if (preambleContext) {
-            arrayTypes = preambleContext->arrayTypes;
-        }
-    }
-
     auto AstContext::CreateStructType(AstStructDecl& decl) -> const Type*
     {
         std::vector<StructTypeDesc::StructMemberDesc> members;
@@ -106,7 +99,7 @@ namespace glsld
             return elementType;
         }
 
-        auto& cachedItem = arrayTypes[std::pair{elementType, dimSize}];
+        auto& cachedItem = arrayTypeCache[std::pair{elementType, dimSize}];
         if (cachedItem == nullptr) {
             std::string debugName = elementType->GetDebugName().Str();
             // FIXME: error vs runtime-sized

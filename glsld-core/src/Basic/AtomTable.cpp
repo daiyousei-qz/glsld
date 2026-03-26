@@ -4,10 +4,10 @@
 
 namespace glsld
 {
-    auto AtomTable::Import(const AtomTable& other) -> void
+    AtomTable::AtomTable(const AtomTable* preambleAtomTable)
     {
-        for (const auto& [key, value] : other.atomLookup) {
-            atomLookup[key] = value;
+        if (preambleAtomTable) {
+            atomLookup = preambleAtomTable->atomLookup;
         }
     }
 

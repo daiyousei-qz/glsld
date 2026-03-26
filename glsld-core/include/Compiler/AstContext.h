@@ -12,13 +12,14 @@ namespace glsld
     {
     private:
         // The cached array types.
-        std::map<std::pair<const Type*, size_t>, const Type*> arrayTypes;
+        std::map<std::pair<const Type*, size_t>, const Type*> arrayTypeCache;
 
         // The memory arena that holds all memory allocated for AST.
         MemoryArena arena;
 
     public:
-        AstContext(const AstContext* preambleContext);
+        // FIXME: check how struct/array type in the preamble is handled
+        AstContext() = default;
 
         auto GetArena() noexcept -> MemoryArena&
         {

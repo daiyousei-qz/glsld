@@ -68,7 +68,6 @@ namespace glsld
             GLSLD_ASSERT(this->preamble != nullptr);
             Initialize();
             // stdlib imported from preamble if any.
-            // FIXME: import macros from preamble
         }
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
                                 LanguageConfig languageConfig)

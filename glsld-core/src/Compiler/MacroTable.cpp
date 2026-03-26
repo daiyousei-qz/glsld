@@ -2,6 +2,13 @@
 
 namespace glsld
 {
+    MacroTable::MacroTable(const MacroTable* preambleMacroTable)
+    {
+        if (preambleMacroTable) {
+            macroLookup = preambleMacroTable->macroLookup;
+        }
+    }
+
     auto MacroTable::DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void
     {
         macroLookup.insert(std::make_pair(

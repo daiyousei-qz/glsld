@@ -12,14 +12,6 @@
 
 namespace glsld
 {
-    struct SourceFileInfo
-    {
-        FileID id;
-
-        // The absolute path of file. Could be empty if the file is not on disk.
-        std::string canonicalPath;
-    };
-
     class PrecompiledPreamble
     {
     private:

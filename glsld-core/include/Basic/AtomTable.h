@@ -67,18 +67,12 @@ namespace glsld
         std::unordered_map<StringView, AtomString> atomLookup;
 
     public:
-        AtomTable()  = default;
+        // NOTE caller must make sure the lifetime of the preamble AtomTable is longer than this one.
+        AtomTable(const AtomTable* preambleAtomTable);
         ~AtomTable() = default;
 
         AtomTable(const AtomTable&)            = delete;
         AtomTable& operator=(const AtomTable&) = delete;
-
-        AtomTable(AtomTable&&)            = default;
-        AtomTable& operator=(AtomTable&&) = default;
-
-        // Import all atoms from another AtomTable.
-        // NOTE caller must make sure the lifetime of the other AtomTable is longer than this one.
-        auto Import(const AtomTable& other) -> void;
 
         // Get an atom string from the table that matches the given string.
         // If the string is not found, a new atom string will be created and added to the table.
