@@ -112,7 +112,20 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
-        auto CheckTokens(ArrayView<RawSyntaxToken> tokens, ArrayView<TokenMatcher*> matchers) -> void
+        auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
+                                     PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
+        {
+            auto preambleCompiler = std::make_unique<CompilerInvocation>();
+            preambleCompiler->SetNoStdlib(true);
+            preambleCompiler->SetUserPreamble(userPreamble);
+
+            auto preamble = preambleCompiler->CompilePreamble(ppCallback);
+            auto compiler = std::make_unique<CompilerInvocation>(preamble);
+            compiler->SetMainFileFromBuffer(mainFile);
+            return compiler->CompileMainFile(ppCallback, compileMode);
+        }
+
+        auto CheckTokens(ArrayView<RawSyntaxToken> tokens, std::vector<TokenMatcher*> matchers) -> void
         {
             auto failWithMessage = [&](const std::string& message) {
                 FAIL(fmt::format("Expected Tokens: {}\n"
@@ -157,7 +170,7 @@ namespace glsld
                              sourceText));
 
             auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
-            CheckTokens(compilerResult->GetUserFileArtifacts().GetTokens(), matchers);
+            CheckTokens(compilerResult->GetUserFileArtifacts().GetTokens(), std::move(matchers));
         }
 
         auto CheckAst(const AstNode* ast, AstMatcher* matcher) -> void
