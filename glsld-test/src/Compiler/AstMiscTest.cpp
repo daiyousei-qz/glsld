@@ -8,14 +8,14 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstMiscTest")
 
     SECTION("Error Recovery")
     {
-        GLSLD_CHECK_AST(R"(
+        CheckAst(R"(
                 void foo((((((
                 ;
                 void bar();
             )",
-                        TranslationUnit({
-                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("foo"), {}, NullAst()),
-                            FunctionDecl(NamedType(TokenKlass::K_void), IdTok("bar"), {}, NullAst()),
-                        }));
+                 TranslationUnit({
+                     FunctionDecl(NamedType(TokenKlass::K_void), IdTok("foo"), {}, NullAst()),
+                     FunctionDecl(NamedType(TokenKlass::K_void), IdTok("bar"), {}, NullAst()),
+                 }));
     }
 }

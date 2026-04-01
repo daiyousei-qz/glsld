@@ -24,39 +24,39 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::ConstEvalTest")
 
     SECTION("Simple Literal")
     {
-        GLSLD_CHECK_AST("true", checkScalar(true));
-        GLSLD_CHECK_AST("false", checkScalar(false));
+        CheckAst("true", checkScalar(true));
+        CheckAst("false", checkScalar(false));
 
-        GLSLD_CHECK_AST("1", checkScalar(1));
-        GLSLD_CHECK_AST("1u", checkScalar(1u));
-        GLSLD_CHECK_AST("1.0", checkScalar(1.0f));
-        GLSLD_CHECK_AST("1.0lf", checkScalar(1.0));
+        CheckAst("1", checkScalar(1));
+        CheckAst("1u", checkScalar(1u));
+        CheckAst("1.0", checkScalar(1.0f));
+        CheckAst("1.0lf", checkScalar(1.0));
     }
 
     SECTION("Scalar Ctor")
     {
-        GLSLD_CHECK_AST("bool(0)", checkScalar(false));
-        GLSLD_CHECK_AST("bool(1)", checkScalar(true));
-        GLSLD_CHECK_AST("int(0.0)", checkScalar(0));
-        GLSLD_CHECK_AST("uint(0)", checkScalar(0u));
-        GLSLD_CHECK_AST("float(0)", checkScalar(0.0f));
+        CheckAst("bool(0)", checkScalar(false));
+        CheckAst("bool(1)", checkScalar(true));
+        CheckAst("int(0.0)", checkScalar(0));
+        CheckAst("uint(0)", checkScalar(0u));
+        CheckAst("float(0)", checkScalar(0.0f));
 
-        GLSLD_CHECK_AST("int(vec4(1))", checkScalar(1));
-        GLSLD_CHECK_AST("int(vec4(4, 3, 2, 1))", checkScalar(4));
-        GLSLD_CHECK_AST("int(mat4(1))", checkScalar(1));
-        GLSLD_CHECK_AST("int(mat4(2))", checkScalar(2));
+        CheckAst("int(vec4(1))", checkScalar(1));
+        CheckAst("int(vec4(4, 3, 2, 1))", checkScalar(4));
+        CheckAst("int(mat4(1))", checkScalar(1));
+        CheckAst("int(mat4(2))", checkScalar(2));
     }
 
     SECTION("Vector Ctor")
     {
-        GLSLD_CHECK_AST("vec4(1)", checkVector(1.f, 1.f, 1.f, 1.f));
-        GLSLD_CHECK_AST("vec4(1, 2, 3, 4)", checkVector(1.f, 2.f, 3.f, 4.f));
-        GLSLD_CHECK_AST("vec4(1.)", checkVector(1.f, 1.f, 1.f, 1.f));
-        GLSLD_CHECK_AST("vec4(1., 2., 3., 4.)", checkVector(1.f, 2.f, 3.f, 4.f));
+        CheckAst("vec4(1)", checkVector(1.f, 1.f, 1.f, 1.f));
+        CheckAst("vec4(1, 2, 3, 4)", checkVector(1.f, 2.f, 3.f, 4.f));
+        CheckAst("vec4(1.)", checkVector(1.f, 1.f, 1.f, 1.f));
+        CheckAst("vec4(1., 2., 3., 4.)", checkVector(1.f, 2.f, 3.f, 4.f));
 
-        GLSLD_CHECK_AST("vec4(1, vec3(2, 3, 4))", checkVector(1.f, 2.f, 3.f, 4.f));
-        GLSLD_CHECK_AST("vec4(1, vec2(2, 3), 4)", checkVector(1.f, 2.f, 3.f, 4.f));
-        GLSLD_CHECK_AST("vec4(mat2(1, 2, 3, 4))", checkVector(1.f, 2.f, 3.f, 4.f));
+        CheckAst("vec4(1, vec3(2, 3, 4))", checkVector(1.f, 2.f, 3.f, 4.f));
+        CheckAst("vec4(1, vec2(2, 3), 4)", checkVector(1.f, 2.f, 3.f, 4.f));
+        CheckAst("vec4(mat2(1, 2, 3, 4))", checkVector(1.f, 2.f, 3.f, 4.f));
     }
 
     SECTION("Matrix Ctor")
@@ -66,36 +66,36 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::ConstEvalTest")
 
     SECTION("UnaryExpr")
     {
-        GLSLD_CHECK_AST("-1", checkScalar(-1));
-        GLSLD_CHECK_AST("!true", checkScalar(false));
+        CheckAst("-1", checkScalar(-1));
+        CheckAst("!true", checkScalar(false));
 
-        GLSLD_CHECK_AST("(1).length()", checkError());
-        GLSLD_CHECK_AST("vec4(1).length()", checkScalar(4));
-        GLSLD_CHECK_AST("mat2(1).length()", checkScalar(2));
-        GLSLD_CHECK_AST("mat2x3(1).length()", checkScalar(3));
-        GLSLD_CHECK_AST("mat3x2(1).length()", checkScalar(2));
-        GLSLD_CHECK_AST("int[2u](1, 2).length()", checkScalar(2));
-        GLSLD_CHECK_AST("int[2](unknown1, unknown2).length()", checkScalar(2));
+        CheckAst("(1).length()", checkError());
+        CheckAst("vec4(1).length()", checkScalar(4));
+        CheckAst("mat2(1).length()", checkScalar(2));
+        CheckAst("mat2x3(1).length()", checkScalar(3));
+        CheckAst("mat3x2(1).length()", checkScalar(2));
+        CheckAst("int[2u](1, 2).length()", checkScalar(2));
+        CheckAst("int[2](unknown1, unknown2).length()", checkScalar(2));
     }
 
     SECTION("BinaryExpr")
     {
-        GLSLD_CHECK_AST("1 + 2", checkScalar(3));
-        GLSLD_CHECK_AST("1 + 2u", checkScalar(3u));
-        GLSLD_CHECK_AST("1 + 2.0", checkScalar(3.0f));
-        GLSLD_CHECK_AST("vec2(1) + vec2(2)", checkVector(3.f, 3.f));
+        CheckAst("1 + 2", checkScalar(3));
+        CheckAst("1 + 2u", checkScalar(3u));
+        CheckAst("1 + 2.0", checkScalar(3.0f));
+        CheckAst("vec2(1) + vec2(2)", checkVector(3.f, 3.f));
     }
 
     SECTION("SelectExpr")
     {
-        GLSLD_CHECK_AST("true ? 1 : 2", checkScalar(1));
-        GLSLD_CHECK_AST("false ? 1 : 2", checkScalar(2));
+        CheckAst("true ? 1 : 2", checkScalar(1));
+        CheckAst("false ? 1 : 2", checkScalar(2));
     }
 
     SECTION("NameAccessExpr")
     {
-        GLSLD_CHECK_AST("const int x = 1; x", checkScalar(1));
-        GLSLD_CHECK_AST("const vec4 x = vec4(1); x", checkVector(1.f, 1.f, 1.f, 1.f));
+        CheckAst("const int x = 1; x", checkScalar(1));
+        CheckAst("const vec4 x = vec4(1); x", checkVector(1.f, 1.f, 1.f, 1.f));
     }
 
     SECTION("FieldAccessExpr")
@@ -105,8 +105,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::ConstEvalTest")
 
     SECTION("SwizzleAccessExpr")
     {
-        GLSLD_CHECK_AST("vec4(1, 2, 3, 4).xy", checkVector(1.f, 2.f));
-        GLSLD_CHECK_AST("vec4(1, 2, 3, 4).xxx", checkVector(1.f, 1.f, 1.f));
-        GLSLD_CHECK_AST("1.0.xxx", checkVector(1.f, 1.f, 1.f));
+        CheckAst("vec4(1, 2, 3, 4).xy", checkVector(1.f, 2.f));
+        CheckAst("vec4(1, 2, 3, 4).xxx", checkVector(1.f, 1.f, 1.f));
+        CheckAst("1.0.xxx", checkVector(1.f, 1.f, 1.f));
     }
 }

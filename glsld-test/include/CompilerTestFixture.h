@@ -1,6 +1,5 @@
 #pragma once
 
-#include "StringMaker.h"
 #include "AstMatcher.h"
 
 #include "Support/StringView.h"
@@ -9,7 +8,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_all.hpp>
-#include "fmt/ranges.h"
+#include <fmt/ranges.h>
+
 #include <tuple>
 
 namespace glsld
@@ -95,20 +95,12 @@ namespace glsld
         }
 
         template <typename... Args>
-        auto WrapSource(std::tuple<Args...> sourcePieces) -> std::string
+        auto MakeSourcePieces(Args&&... args) const -> std::array<SourceTextView, sizeof...(Args)>
         {
-            return std::apply(
-                [this](const auto&... args) { return fmt::format(fmt::runtime(sourceTemplate), args...); },
-                sourcePieces);
-        }
-        auto WrapSource(StringView sourceText) -> std::string
-        {
-            return WrapSource(std::make_tuple(sourceText));
-        }
-
-        auto WrapMatcher(AstMatcher* matcher) -> AstMatcher*
-        {
-            return matcherTemplate(matcher);
+            static_assert(sizeof...(Args) > 0, "MakeSourcePieces require at least one argument");
+            static_assert((std::is_convertible_v<Args, SourceTextView> && ...),
+                          "All arguments must be convertible to SourceTextView");
+            return {static_cast<SourceTextView>(std::forward<Args>(args))...};
         }
 
         auto Compile(SourceTextView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
@@ -120,26 +112,20 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
-        auto CheckTokens(SourceTextView sourceText, std::vector<TokenMatcher*> matchers) -> void
+        auto CheckTokens(ArrayView<RawSyntaxToken> tokens, ArrayView<TokenMatcher*> matchers) -> void
         {
-            auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
-            auto tokens         = compilerResult->GetUserFileArtifacts().GetTokens();
-
             auto failWithMessage = [&](const std::string& message) {
-                FAIL(fmt::format("Lexing:\n"
-                                 "```\n"
-                                 "{}\n"
-                                 "```\n"
-                                 "Expected tokens: {}\n"
-                                 "Actual tokens: {}\n"
+                FAIL(fmt::format("Expected Tokens: {}\n"
+                                 "Actual Tokens: {}\n"
                                  "\n"
                                  "{}",
-                                 StringView{sourceText},
                                  fmt::join(matchers | std::views::transform(
                                                           [](TokenMatcher* matcher) { return matcher->Describe(); }),
                                            ", "),
-                                 fmt::join(tokens | std::views::transform(
-                                                        [](const RawSyntaxToken& tok) { return tok.text.StrView(); }),
+                                 fmt::join(tokens | std::views::transform([](const RawSyntaxToken& tok) {
+                                               return fmt::format("{}('{}')", EnumToString(tok.klass),
+                                                                  tok.text.StrView());
+                                           }),
                                            ", "),
                                  message));
             };
@@ -147,7 +133,6 @@ namespace glsld
             if (tokens.size() != matchers.size()) {
                 failWithMessage(fmt::format("Token stream has unexpected size. Expected: {}, Actual: {}",
                                             matchers.size(), tokens.size()));
-                return;
             }
 
             for (uint32_t i = 0; i < tokens.size(); ++i) {
@@ -159,9 +144,57 @@ namespace glsld
                 if (!matchers[i]->Match(token)) {
                     failWithMessage(fmt::format("Token mismatches at index {}. Expected: {}, Actual: {}", i,
                                                 matchers[i]->Describe(), token.text.StrView()));
-                    return;
                 }
             }
+        }
+
+        auto CheckTokens(SourceTextView sourceText, std::vector<TokenMatcher*> matchers) -> void
+        {
+            INFO(fmt::format("Lexing:\n"
+                             "```\n"
+                             "{}\n"
+                             "```\n",
+                             sourceText));
+
+            auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
+            CheckTokens(compilerResult->GetUserFileArtifacts().GetTokens(), matchers);
+        }
+
+        auto CheckAst(const AstNode* ast, AstMatcher* matcher) -> void
+        {
+            AstMatcher* wrappedMatcher = matcher;
+            if (matcherTemplate) {
+                wrappedMatcher = matcherTemplate(matcher);
+            }
+
+            if (auto matchResult = wrappedMatcher->Match(ast); !matchResult.IsSuccess()) {
+                FAIL(fmt::format("AST match failed, see AST:\n"
+                                 "{}\n"
+                                 "See error trace:\n"
+                                 "{}",
+                                 ast ? ast->ToString() : "null", matchResult.GetErrorTrace()));
+            }
+        }
+
+        template <size_t N>
+        auto CheckAst(std::array<SourceTextView, N> sourcePieces, AstMatcher* matcher) -> void
+        {
+            std::string wrappedSourceText = std::apply(
+                [this](const auto&... args) { return fmt::format(fmt::runtime(sourceTemplate), StringView{args}...); },
+                sourcePieces);
+            INFO(fmt::format("Parsing:\n"
+                             "```\n"
+                             "{}\n"
+                             "```\n",
+                             wrappedSourceText));
+
+            auto compilerResult = Compile(wrappedSourceText, CompileMode::ParseOnly);
+            CheckAst(compilerResult->GetUserFileArtifacts().GetAst(), matcher);
+        }
+
+        auto CheckAst(SourceTextView sourceText, AstMatcher* matcher) -> void
+        {
+            CheckAst(MakeSourcePieces(sourceText), matcher);
         }
 
 #pragma region Token Matchers
@@ -294,102 +327,10 @@ namespace glsld
 
         auto TranslationUnit(std::vector<AstMatcher*> declMatchers) -> AstMatcher*;
 
-        auto FindMatch(AstMatcher* finder, AstMatcher* matcher) -> AstMatcher*
-        {
-            return CreateAstMatcher("FindMatch", finder, matcher);
-        }
+        // This is a special matcher that find the first descendant node that matches the given finder matcher, and then
+        // applies the second matcher to it
+        auto FindMatch(AstMatcher* finder, AstMatcher* matcher) -> AstMatcher*;
 
 #pragma endregion
     };
-
-    class LexingTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
-    {
-    private:
-        const CompilerTestFixture& fixture;
-        std::vector<TokenMatcher*> matchers;
-        StringView matcherDesc;
-
-    public:
-        LexingTestCatchMatcher(const CompilerTestFixture& fixture, std::vector<TokenMatcher*> matchers,
-                               StringView matcherDesc)
-            : fixture(fixture), matchers(std::move(matchers)), matcherDesc(matcherDesc)
-        {
-        }
-
-        auto match(const SourceTextView& sourceText) const -> bool override
-        {
-            auto compilerResult = fixture.Compile(sourceText, CompileMode::PreprocessOnly);
-
-            auto tokens = compilerResult->GetUserFileArtifacts().GetTokens();
-            if (tokens.size() != matchers.size()) {
-                UNSCOPED_INFO(fmt::format("Token stream match failed: expected {} tokens, got {} tokens",
-                                          matchers.size(), tokens.size()));
-                return false;
-            }
-
-            for (uint32_t i = 0; i < tokens.size(); ++i) {
-                auto token = AstSyntaxToken{
-                    .id    = SyntaxTokenID{TranslationUnitID::UserFile, i},
-                    .klass = tokens[i].klass,
-                    .text  = tokens[i].text,
-                };
-                if (!matchers[i]->Match(token)) {
-                    UNSCOPED_INFO(fmt::format("Token stream match failed: mismatch at index {}", i));
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        auto describe() const -> std::string override
-        {
-            return matcherDesc.Str();
-        }
-    };
-
-    class AstTestCatchMatcher : public Catch::Matchers::MatcherBase<SourceTextView>
-    {
-    private:
-        CompilerTestFixture& fixture;
-        AstMatcher* matcher;
-        StringView matcherDesc;
-
-    public:
-        AstTestCatchMatcher(CompilerTestFixture& fixture, AstMatcher* matcher, StringView matcherDesc)
-            : fixture(fixture), matcher(fixture.WrapMatcher(matcher)), matcherDesc(matcherDesc)
-        {
-        }
-
-        auto match(const SourceTextView& sourceText) const -> bool override
-        {
-            auto compilerResult = fixture.Compile(sourceText, CompileMode::ParseOnly);
-
-            auto matchResult = matcher->Match(compilerResult->GetUserFileArtifacts().GetAst());
-            if (matchResult.IsSuccess()) {
-                return true;
-            }
-            else {
-                UNSCOPED_INFO("AST match failed, see AST:\n" +
-                              (matchResult.GetFailedNode() ? matchResult.GetFailedNode()->ToString() : "null") +
-                              "\nSee error trace:\n" + matchResult.GetErrorTrace());
-                return false;
-            }
-        }
-
-        auto describe() const -> std::string override
-        {
-            return "AstMatcher";
-        }
-    };
-
 } // namespace glsld
-
-#define SOURCE_PIECES(...) std::make_tuple(__VA_ARGS__)
-
-#define GLSLD_CHECK_AST(SRC, ...)                                                                                      \
-    do {                                                                                                               \
-        auto matcher__    = ::glsld::AstTestCatchMatcher{*this, __VA_ARGS__, #__VA_ARGS__};                            \
-        auto sourceText__ = WrapSource((SRC));                                                                         \
-        CHECK_THAT(sourceText__, matcher__);                                                                           \
-    } while (false)

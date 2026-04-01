@@ -912,4 +912,9 @@ namespace glsld
                     .Finish();
             });
     }
+
+    auto CompilerTestFixture::FindMatch(AstMatcher* finder, AstMatcher* matcher) -> AstMatcher*
+    {
+        return CreateAstMatcher("FindMatch", finder, matcher);
+    }
 } // namespace glsld
