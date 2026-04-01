@@ -114,27 +114,22 @@ namespace glsld
     class SymbolTable
     {
     private:
-        size_t importedLevelCount = 0;
+        size_t importedLevelCount;
         std::vector<SymbolTableLevel*> levels;
 
     public:
-        SymbolTable(ArrayView<SymbolTableLevel*> importedLevels) : importedLevelCount(importedLevels.size())
+        // NOTE caller must make sure the lifetime of the preamble SymbolTable is longer than this one.
+        SymbolTable(const SymbolTable* preambleSymbolTable)
         {
-            GLSLD_ASSERT(std::ranges::all_of(importedLevels, [](const SymbolTableLevel* level) {
-                // FIXME: should be freezed
-                // return level->IsFreezed() && level->IsGlobalScope();
-                return level->IsGlobalScope();
-            }));
-
+            auto importedLevels =
+                preambleSymbolTable ? preambleSymbolTable->GetGlobalLevels() : ArrayView<SymbolTableLevel*>{};
+            importedLevelCount = importedLevels.size();
             levels.insert(levels.end(), importedLevels.begin(), importedLevels.end());
             levels.push_back(new SymbolTableLevel(DeclScope::Global));
         }
-        SymbolTable() : SymbolTable(ArrayView<SymbolTableLevel*>{})
-        {
-        }
         ~SymbolTable()
         {
-            assert(levels.size() == importedLevelCount + 1);
+            GLSLD_ASSERT(levels.size() == importedLevelCount + 1);
             for (size_t i = importedLevelCount; i < levels.size(); ++i) {
                 delete levels[i];
             }
@@ -142,7 +137,7 @@ namespace glsld
 
         auto GetCurrentLevel() const -> SymbolTableLevel*
         {
-            assert(!levels.empty());
+            GLSLD_ASSERT(!levels.empty());
             return levels.back();
         }
 

@@ -13,26 +13,23 @@ namespace glsld
     auto CompilerInvocationState::Initialize() -> void
     {
         if (preamble) {
-            atomTable = std::make_unique<AtomTable>();
-            atomTable->Import(preamble->GetAtomTable());
-            // FIXME: import macros if preamble is present
-            macroTable  = std::make_unique<MacroTable>();
-            symbolTable = std::make_unique<SymbolTable>(preamble->GetSymbolTable().GetGlobalLevels());
-            astContext  = std::make_unique<AstContext>(&preamble->GetAstContext());
+            atomTable   = std::make_unique<AtomTable>(&preamble->GetAtomTable());
+            macroTable  = std::make_unique<MacroTable>(&preamble->GetMacroTable());
+            symbolTable = std::make_unique<SymbolTable>(&preamble->GetSymbolTable());
 
             systemPreambleArtifacts = preamble->GetSystemPreambleArtifacts().CreateReference();
             userPreambleArtifacts   = preamble->GetUserPreambleArtifacts().CreateReference();
         }
         else {
-            atomTable   = std::make_unique<AtomTable>();
-            macroTable  = std::make_unique<MacroTable>();
-            symbolTable = std::make_unique<SymbolTable>();
-            astContext  = std::make_unique<AstContext>(nullptr);
+            atomTable   = std::make_unique<AtomTable>(nullptr);
+            macroTable  = std::make_unique<MacroTable>(nullptr);
+            symbolTable = std::make_unique<SymbolTable>(nullptr);
 
             systemPreambleArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::SystemPreamble);
             userPreambleArtifacts   = std::make_unique<CompilerArtifact>(TranslationUnitID::UserPreamble);
         }
 
+        astContext        = std::make_unique<AstContext>();
         diagStream        = std::make_unique<DiagnosticStream>();
         userFileArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::UserFile);
     }
