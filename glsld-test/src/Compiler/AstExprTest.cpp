@@ -11,67 +11,66 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
 
     SECTION("ErrorExpr")
     {
-        GLSLD_CHECK_AST("", ErrorExpr());
+        CheckAst("", ErrorExpr());
     }
 
     SECTION("LiteralExpr")
     {
         // Integer literal
-        GLSLD_CHECK_AST("1", LiteralExpr(1));
-        GLSLD_CHECK_AST("0xe1", LiteralExpr(0xe1));
-        GLSLD_CHECK_AST("0xf", LiteralExpr(0xf));
+        CheckAst("1", LiteralExpr(1));
+        CheckAst("0xe1", LiteralExpr(0xe1));
+        CheckAst("0xf", LiteralExpr(0xf));
 
         // Float literal
-        GLSLD_CHECK_AST("1.0", LiteralExpr(1.0f));
-        GLSLD_CHECK_AST("1e1", LiteralExpr(1e1f));
+        CheckAst("1.0", LiteralExpr(1.0f));
+        CheckAst("1e1", LiteralExpr(1e1f));
 
         // Double literal
-        GLSLD_CHECK_AST("1.0lf", LiteralExpr(1.0));
-        GLSLD_CHECK_AST("1e1lf", LiteralExpr(1e1));
+        CheckAst("1.0lf", LiteralExpr(1.0));
+        CheckAst("1e1lf", LiteralExpr(1e1));
 
         // Bool literal
-        GLSLD_CHECK_AST("true", LiteralExpr(true));
+        CheckAst("true", LiteralExpr(true));
     }
 
     SECTION("NameAccessExpr")
     {
-        GLSLD_CHECK_AST("a", NameAccessExpr("a"));
+        CheckAst("a", NameAccessExpr("a"));
     }
 
     SECTION("FieldAccessExpr")
     {
-        GLSLD_CHECK_AST("a.b", FieldAccessExpr(NameAccessExpr("a"), "b"));
-        GLSLD_CHECK_AST("a.b.c", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), "b"), "c"));
-        GLSLD_CHECK_AST("foo().bar", FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"));
+        CheckAst("a.b", FieldAccessExpr(NameAccessExpr("a"), "b"));
+        CheckAst("a.b.c", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), "b"), "c"));
+        CheckAst("foo().bar", FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"));
 
         SECTION("Permissive")
         {
             // FIXME: match invalid syntax token with better syntax
-            GLSLD_CHECK_AST("a.", FieldAccessExpr(NameAccessExpr("a"), ""));
-            GLSLD_CHECK_AST("a..b", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), ""), "b"));
+            CheckAst("a.", FieldAccessExpr(NameAccessExpr("a"), ""));
+            CheckAst("a..b", FieldAccessExpr(FieldAccessExpr(NameAccessExpr("a"), ""), "b"));
         }
     }
 
     SECTION("UnaryExpr")
     {
-        GLSLD_CHECK_AST("+1", UnaryExpr(UnaryOp::Identity, LiteralExpr(1)));
-        GLSLD_CHECK_AST("-1", UnaryExpr(UnaryOp::Negate, LiteralExpr(1)));
-        GLSLD_CHECK_AST("~1", UnaryExpr(UnaryOp::BitwiseNot, LiteralExpr(1)));
-        GLSLD_CHECK_AST("!true", UnaryExpr(UnaryOp::LogicalNot, LiteralExpr(true)));
-        GLSLD_CHECK_AST("++a", UnaryExpr(UnaryOp::PrefixInc, NameAccessExpr("a")));
-        GLSLD_CHECK_AST("--a", UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a")));
-        GLSLD_CHECK_AST("a++", UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a")));
-        GLSLD_CHECK_AST("a--", UnaryExpr(UnaryOp::PostfixDec, NameAccessExpr("a")));
-        GLSLD_CHECK_AST("vec3().length()",
-                        UnaryExpr(UnaryOp::Length, ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {})));
-        GLSLD_CHECK_AST("--(--a)", UnaryExpr(UnaryOp::PrefixDec, UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a"))));
-        GLSLD_CHECK_AST("-~a", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::BitwiseNot, NameAccessExpr("a"))));
-        GLSLD_CHECK_AST("-(a++)", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a"))));
+        CheckAst("+1", UnaryExpr(UnaryOp::Identity, LiteralExpr(1)));
+        CheckAst("-1", UnaryExpr(UnaryOp::Negate, LiteralExpr(1)));
+        CheckAst("~1", UnaryExpr(UnaryOp::BitwiseNot, LiteralExpr(1)));
+        CheckAst("!true", UnaryExpr(UnaryOp::LogicalNot, LiteralExpr(true)));
+        CheckAst("++a", UnaryExpr(UnaryOp::PrefixInc, NameAccessExpr("a")));
+        CheckAst("--a", UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a")));
+        CheckAst("a++", UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a")));
+        CheckAst("a--", UnaryExpr(UnaryOp::PostfixDec, NameAccessExpr("a")));
+        CheckAst("vec3().length()", UnaryExpr(UnaryOp::Length, ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {})));
+        CheckAst("--(--a)", UnaryExpr(UnaryOp::PrefixDec, UnaryExpr(UnaryOp::PrefixDec, NameAccessExpr("a"))));
+        CheckAst("-~a", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::BitwiseNot, NameAccessExpr("a"))));
+        CheckAst("-(a++)", UnaryExpr(UnaryOp::Negate, UnaryExpr(UnaryOp::PostfixInc, NameAccessExpr("a"))));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("+", UnaryExpr(UnaryOp::Identity, ErrorExpr()));
-            GLSLD_CHECK_AST("++", UnaryExpr(UnaryOp::PrefixInc, ErrorExpr()));
+            CheckAst("+", UnaryExpr(UnaryOp::Identity, ErrorExpr()));
+            CheckAst("++", UnaryExpr(UnaryOp::PrefixInc, ErrorExpr()));
         }
     }
 
@@ -82,13 +81,12 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
                              FunctionDecl(AnyAst(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
         });
 
-        GLSLD_CHECK_AST("1, 2", BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST(
-            "1, 2, 3",
-            BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
-        GLSLD_CHECK_AST("(a = 1, b)",
-                        BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)),
-                                   NameAccessExpr("b")));
+        CheckAst("1, 2", BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1, 2, 3", BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Comma, LiteralExpr(1), LiteralExpr(2)),
+                                       LiteralExpr(3)));
+        CheckAst("(a = 1, b)",
+                 BinaryExpr(BinaryOp::Comma, BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)),
+                            NameAccessExpr("b")));
     }
 
     SECTION("AssignmentExpr")
@@ -98,104 +96,98 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
                              FunctionDecl(AnyAst(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
         });
 
-        GLSLD_CHECK_AST("a = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a += 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a -= 1", BinaryExpr(BinaryOp::SubAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a *= 1", BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a /= 1", BinaryExpr(BinaryOp::DivAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a %= 1", BinaryExpr(BinaryOp::ModAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a <<= 1", BinaryExpr(BinaryOp::LShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a >>= 1", BinaryExpr(BinaryOp::RShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a &= 1", BinaryExpr(BinaryOp::AndAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a |= 1", BinaryExpr(BinaryOp::OrAssign, NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a ^= 1", BinaryExpr(BinaryOp::XorAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a += 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a -= 1", BinaryExpr(BinaryOp::SubAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a *= 1", BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a /= 1", BinaryExpr(BinaryOp::DivAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a %= 1", BinaryExpr(BinaryOp::ModAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a <<= 1", BinaryExpr(BinaryOp::LShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a >>= 1", BinaryExpr(BinaryOp::RShiftAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a &= 1", BinaryExpr(BinaryOp::AndAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a |= 1", BinaryExpr(BinaryOp::OrAssign, NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a ^= 1", BinaryExpr(BinaryOp::XorAssign, NameAccessExpr("a"), LiteralExpr(1)));
 
-        GLSLD_CHECK_AST("a = b = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
-                                                BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
-        GLSLD_CHECK_AST("a += b = 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"),
-                                                 BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
-        GLSLD_CHECK_AST("a = b += 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
-                                                 BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), LiteralExpr(1))));
-        GLSLD_CHECK_AST("a *= b += c",
-                        BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"),
-                                   BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), NameAccessExpr("c"))));
+        CheckAst("a = b = 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
+                                         BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
+        CheckAst("a += b = 1", BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("a"),
+                                          BinaryExpr(BinaryOp::Assign, NameAccessExpr("b"), LiteralExpr(1))));
+        CheckAst("a = b += 1", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"),
+                                          BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), LiteralExpr(1))));
+        CheckAst("a *= b += c", BinaryExpr(BinaryOp::MulAssign, NameAccessExpr("a"),
+                                           BinaryExpr(BinaryOp::AddAssign, NameAccessExpr("b"), NameAccessExpr("c"))));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("1 = 2", BinaryExpr(BinaryOp::Assign, LiteralExpr(1), LiteralExpr(2)));
-            GLSLD_CHECK_AST("=", BinaryExpr(BinaryOp::Assign, ErrorExpr(), ErrorExpr()));
-            GLSLD_CHECK_AST("a =", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), ErrorExpr()));
-            GLSLD_CHECK_AST("= b", BinaryExpr(BinaryOp::Assign, ErrorExpr(), NameAccessExpr("b")));
+            CheckAst("1 = 2", BinaryExpr(BinaryOp::Assign, LiteralExpr(1), LiteralExpr(2)));
+            CheckAst("=", BinaryExpr(BinaryOp::Assign, ErrorExpr(), ErrorExpr()));
+            CheckAst("a =", BinaryExpr(BinaryOp::Assign, NameAccessExpr("a"), ErrorExpr()));
+            CheckAst("= b", BinaryExpr(BinaryOp::Assign, ErrorExpr(), NameAccessExpr("b")));
         }
     }
 
     SECTION("BinaryExpr")
     {
-        GLSLD_CHECK_AST("1 + 2", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 - 2", BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 * 2", BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 / 2", BinaryExpr(BinaryOp::Div, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 % 2", BinaryExpr(BinaryOp::Modulo, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 == 2", BinaryExpr(BinaryOp::Equal, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 != 2", BinaryExpr(BinaryOp::NotEqual, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 < 2", BinaryExpr(BinaryOp::Less, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 <= 2", BinaryExpr(BinaryOp::LessEq, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 > 2", BinaryExpr(BinaryOp::Greater, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 >= 2", BinaryExpr(BinaryOp::GreaterEq, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 & 2", BinaryExpr(BinaryOp::BitwiseAnd, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 | 2", BinaryExpr(BinaryOp::BitwiseOr, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 ^ 2", BinaryExpr(BinaryOp::BitwiseXor, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 && 2", BinaryExpr(BinaryOp::LogicalAnd, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 || 2", BinaryExpr(BinaryOp::LogicalOr, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 << 2", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("1 >> 2", BinaryExpr(BinaryOp::ShiftRight, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 + 2", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 - 2", BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 * 2", BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 / 2", BinaryExpr(BinaryOp::Div, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 % 2", BinaryExpr(BinaryOp::Modulo, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 == 2", BinaryExpr(BinaryOp::Equal, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 != 2", BinaryExpr(BinaryOp::NotEqual, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 < 2", BinaryExpr(BinaryOp::Less, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 <= 2", BinaryExpr(BinaryOp::LessEq, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 > 2", BinaryExpr(BinaryOp::Greater, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 >= 2", BinaryExpr(BinaryOp::GreaterEq, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 & 2", BinaryExpr(BinaryOp::BitwiseAnd, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 | 2", BinaryExpr(BinaryOp::BitwiseOr, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 ^ 2", BinaryExpr(BinaryOp::BitwiseXor, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 && 2", BinaryExpr(BinaryOp::LogicalAnd, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 || 2", BinaryExpr(BinaryOp::LogicalOr, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 << 2", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("1 >> 2", BinaryExpr(BinaryOp::ShiftRight, LiteralExpr(1), LiteralExpr(2)));
 
-        GLSLD_CHECK_AST(
-            "1 + 2 + 3",
-            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
-        GLSLD_CHECK_AST("1 + 2 * 3", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
-                                                BinaryExpr(BinaryOp::Mul, LiteralExpr(2), LiteralExpr(3))));
-        GLSLD_CHECK_AST(
-            "1 * 2 + 3",
-            BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
-        GLSLD_CHECK_AST(
-            "1 - 2 - 3",
-            BinaryExpr(BinaryOp::Minus, BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
-        GLSLD_CHECK_AST("1 << 2 + 3", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1),
-                                                 BinaryExpr(BinaryOp::Plus, LiteralExpr(2), LiteralExpr(3))));
-        GLSLD_CHECK_AST("1 + (2 << 3)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
-                                                   BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(2), LiteralExpr(3))));
+        CheckAst("1 + 2 + 3", BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)),
+                                         LiteralExpr(3)));
+        CheckAst("1 + 2 * 3",
+                 BinaryExpr(BinaryOp::Plus, LiteralExpr(1), BinaryExpr(BinaryOp::Mul, LiteralExpr(2), LiteralExpr(3))));
+        CheckAst("1 * 2 + 3",
+                 BinaryExpr(BinaryOp::Plus, BinaryExpr(BinaryOp::Mul, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        CheckAst("1 - 2 - 3", BinaryExpr(BinaryOp::Minus, BinaryExpr(BinaryOp::Minus, LiteralExpr(1), LiteralExpr(2)),
+                                         LiteralExpr(3)));
+        CheckAst("1 << 2 + 3", BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(1),
+                                          BinaryExpr(BinaryOp::Plus, LiteralExpr(2), LiteralExpr(3))));
+        CheckAst("1 + (2 << 3)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1),
+                                            BinaryExpr(BinaryOp::ShiftLeft, LiteralExpr(2), LiteralExpr(3))));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("* 1", BinaryExpr(BinaryOp::Mul, ErrorExpr(), LiteralExpr(1)));
-            GLSLD_CHECK_AST("1 *", BinaryExpr(BinaryOp::Mul, LiteralExpr(1), ErrorExpr()));
-            GLSLD_CHECK_AST("*", BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr()));
-            GLSLD_CHECK_AST(
-                "**", BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr()), ErrorExpr()));
+            CheckAst("* 1", BinaryExpr(BinaryOp::Mul, ErrorExpr(), LiteralExpr(1)));
+            CheckAst("1 *", BinaryExpr(BinaryOp::Mul, LiteralExpr(1), ErrorExpr()));
+            CheckAst("*", BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr()));
+            CheckAst("**", BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Mul, ErrorExpr(), ErrorExpr()), ErrorExpr()));
         }
     }
 
     SECTION("SelectExpr")
     {
-        GLSLD_CHECK_AST("true ? 1 : 2", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST("true ? 1 : false ? 2 : 3",
-                        SelectExpr(LiteralExpr(true), LiteralExpr(1),
-                                   SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3))));
-        GLSLD_CHECK_AST("true ? false ? 1 : 2 : 3",
-                        SelectExpr(LiteralExpr(true), SelectExpr(LiteralExpr(false), LiteralExpr(1), LiteralExpr(2)),
-                                   LiteralExpr(3)));
-        GLSLD_CHECK_AST("a ? b : c + d",
-                        SelectExpr(NameAccessExpr("a"), NameAccessExpr("b"),
-                                   BinaryExpr(BinaryOp::Plus, NameAccessExpr("c"), NameAccessExpr("d"))));
+        CheckAst("true ? 1 : 2", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("true ? 1 : false ? 2 : 3",
+                 SelectExpr(LiteralExpr(true), LiteralExpr(1),
+                            SelectExpr(LiteralExpr(false), LiteralExpr(2), LiteralExpr(3))));
+        CheckAst("true ? false ? 1 : 2 : 3",
+                 SelectExpr(LiteralExpr(true), SelectExpr(LiteralExpr(false), LiteralExpr(1), LiteralExpr(2)),
+                            LiteralExpr(3)));
+        CheckAst("a ? b : c + d", SelectExpr(NameAccessExpr("a"), NameAccessExpr("b"),
+                                             BinaryExpr(BinaryOp::Plus, NameAccessExpr("c"), NameAccessExpr("d"))));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("true ? 1", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
-            GLSLD_CHECK_AST("true ? 1 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
-            GLSLD_CHECK_AST("true ? 1 : 2 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
-            GLSLD_CHECK_AST("true ? : ? :", SelectExpr(LiteralExpr(true), ErrorExpr(),
-                                                       SelectExpr(ErrorExpr(), ErrorExpr(), ErrorExpr())));
+            CheckAst("true ? 1", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
+            CheckAst("true ? 1 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), ErrorExpr()));
+            CheckAst("true ? 1 : 2 :", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
+            CheckAst("true ? : ? :",
+                     SelectExpr(LiteralExpr(true), ErrorExpr(), SelectExpr(ErrorExpr(), ErrorExpr(), ErrorExpr())));
         }
     }
 
@@ -206,70 +198,66 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
                              VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
-        GLSLD_CHECK_AST("x.xy", SwizzleAccessExpr(NameAccessExpr("x"), "xy"));
-        GLSLD_CHECK_AST("x.xyz", SwizzleAccessExpr(NameAccessExpr("x"), "xyz"));
-        GLSLD_CHECK_AST("x.xyzw", SwizzleAccessExpr(NameAccessExpr("x"), "xyzw"));
+        CheckAst("x.x", SwizzleAccessExpr(NameAccessExpr("x"), "x"));
+        CheckAst("x.xy", SwizzleAccessExpr(NameAccessExpr("x"), "xy"));
+        CheckAst("x.xyz", SwizzleAccessExpr(NameAccessExpr("x"), "xyz"));
+        CheckAst("x.xyzw", SwizzleAccessExpr(NameAccessExpr("x"), "xyzw"));
 
-        GLSLD_CHECK_AST("y.xxxx", SwizzleAccessExpr(NameAccessExpr("y"), "xxxx"));
-        GLSLD_CHECK_AST("y.wzyx", SwizzleAccessExpr(NameAccessExpr("y"), "wzyx"));
+        CheckAst("y.xxxx", SwizzleAccessExpr(NameAccessExpr("y"), "xxxx"));
+        CheckAst("y.wzyx", SwizzleAccessExpr(NameAccessExpr("y"), "wzyx"));
 
         // Swizzle expression has no permissive parsing since it would be classified as other expressions instead.
     }
 
     SECTION("IndexAccessExpr")
     {
-        GLSLD_CHECK_AST("a[1]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("a[1u]",
-                        IndexAccessExpr(NameAccessExpr("a"),
-                                        ImplicitCastExpr(LiteralExpr(1u))->CheckType(GlslBuiltinType::Ty_int)));
-        GLSLD_CHECK_AST("a[1][2]",
-                        IndexAccessExpr(IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)), LiteralExpr(2)));
+        CheckAst("a[1]", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+        CheckAst("a[1u]", IndexAccessExpr(NameAccessExpr("a"),
+                                          ImplicitCastExpr(LiteralExpr(1u))->CheckType(GlslBuiltinType::Ty_int)));
+        CheckAst("a[1][2]", IndexAccessExpr(IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)), LiteralExpr(2)));
 
-        GLSLD_CHECK_AST("foo()[1]", IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)));
-        GLSLD_CHECK_AST("foo()[bar]",
-                        IndexAccessExpr(FunctionCallExpr("foo", {}),
-                                        ImplicitCastExpr(NameAccessExpr("bar"))->CheckType(GlslBuiltinType::Ty_int)));
+        CheckAst("foo()[1]", IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)));
+        CheckAst("foo()[bar]",
+                 IndexAccessExpr(FunctionCallExpr("foo", {}),
+                                 ImplicitCastExpr(NameAccessExpr("bar"))->CheckType(GlslBuiltinType::Ty_int)));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("a[]", IndexAccessExpr(NameAccessExpr("a"),
-                                                   ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
-            GLSLD_CHECK_AST("a[", IndexAccessExpr(NameAccessExpr("a"),
-                                                  ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
-            GLSLD_CHECK_AST("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
+            CheckAst("a[]", IndexAccessExpr(NameAccessExpr("a"),
+                                            ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
+            CheckAst("a[", IndexAccessExpr(NameAccessExpr("a"),
+                                           ImplicitCastExpr(ErrorExpr())->CheckType(GlslBuiltinType::Ty_int)));
+            CheckAst("a[1", IndexAccessExpr(NameAccessExpr("a"), LiteralExpr(1)));
             // FIXME: this is seen as a constructor call???
-            // GLSLD_CHECK_AST("a[int bool]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
+            // CheckAst("a[int bool]", IndexAccessExpr(NameAccessExpr("a"), ErrorExpr()));
         }
     }
 
     SECTION("MixedAccessExpr")
     {
-        GLSLD_CHECK_AST("foo().bar[1]",
-                        IndexAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), LiteralExpr(1)));
-        GLSLD_CHECK_AST("foo()[1].bar",
-                        FieldAccessExpr(IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)), "bar"));
-        GLSLD_CHECK_AST("foo().bar.baz", FieldAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), "baz"));
+        CheckAst("foo().bar[1]", IndexAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), LiteralExpr(1)));
+        CheckAst("foo()[1].bar", FieldAccessExpr(IndexAccessExpr(FunctionCallExpr("foo", {}), LiteralExpr(1)), "bar"));
+        CheckAst("foo().bar.baz", FieldAccessExpr(FieldAccessExpr(FunctionCallExpr("foo", {}), "bar"), "baz"));
     }
 
     SECTION("FunctionCallExpr")
     {
-        GLSLD_CHECK_AST("foo()", FunctionCallExpr("foo", {}));
-        GLSLD_CHECK_AST("foo(1)", FunctionCallExpr("foo", {LiteralExpr(1)}));
-        GLSLD_CHECK_AST("foo((1))", FunctionCallExpr("foo", {LiteralExpr(1)}));
-        GLSLD_CHECK_AST("foo(1, 2)", FunctionCallExpr("foo", {LiteralExpr(1), LiteralExpr(2)}));
-        GLSLD_CHECK_AST("foo(bar(1))", FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)})}));
-        GLSLD_CHECK_AST("foo(bar(1), baz(2, 3))",
-                        FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)}),
-                                                 FunctionCallExpr("baz", {LiteralExpr(2), LiteralExpr(3)})}));
+        CheckAst("foo()", FunctionCallExpr("foo", {}));
+        CheckAst("foo(1)", FunctionCallExpr("foo", {LiteralExpr(1)}));
+        CheckAst("foo((1))", FunctionCallExpr("foo", {LiteralExpr(1)}));
+        CheckAst("foo(1, 2)", FunctionCallExpr("foo", {LiteralExpr(1), LiteralExpr(2)}));
+        CheckAst("foo(bar(1))", FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)})}));
+        CheckAst("foo(bar(1), baz(2, 3))",
+                 FunctionCallExpr("foo", {FunctionCallExpr("bar", {LiteralExpr(1)}),
+                                          FunctionCallExpr("baz", {LiteralExpr(2), LiteralExpr(3)})}));
 
         SECTION("Permissive")
         {
             // FIXME: shouldn't we parse `foo(` as `foo()`?
-            GLSLD_CHECK_AST("foo(", FunctionCallExpr("foo", {ErrorExpr()}));
-            GLSLD_CHECK_AST("foo(()", FunctionCallExpr("foo", {ErrorExpr()}));
-            GLSLD_CHECK_AST("foo(())", FunctionCallExpr("foo", {ErrorExpr()}));
-            GLSLD_CHECK_AST("foo(1,)", FunctionCallExpr("foo", {LiteralExpr(1), ErrorExpr()}));
+            CheckAst("foo(", FunctionCallExpr("foo", {ErrorExpr()}));
+            CheckAst("foo(()", FunctionCallExpr("foo", {ErrorExpr()}));
+            CheckAst("foo(())", FunctionCallExpr("foo", {ErrorExpr()}));
+            CheckAst("foo(1,)", FunctionCallExpr("foo", {LiteralExpr(1), ErrorExpr()}));
         }
     }
 
@@ -280,71 +268,67 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstExprTest")
                              VariableDecl(AnyAst(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("int()", ConstructorCallExpr(NamedType(TokenKlass::K_int), {}));
-        GLSLD_CHECK_AST("int[2](1, 2)", ConstructorCallExpr(QualType(NullAst(), KeywordTok(TokenKlass::K_int),
-                                                                     ArraySpec({LiteralExpr(2)})),
-                                                            {
-                                                                LiteralExpr(1),
-                                                                LiteralExpr(2),
-                                                            }));
-        GLSLD_CHECK_AST("float(1)", ConstructorCallExpr(NamedType(TokenKlass::K_float), {LiteralExpr(1)}));
+        CheckAst("int()", ConstructorCallExpr(NamedType(TokenKlass::K_int), {}));
+        CheckAst("int[2](1, 2)",
+                 ConstructorCallExpr(QualType(NullAst(), KeywordTok(TokenKlass::K_int), ArraySpec({LiteralExpr(2)})),
+                                     {
+                                         LiteralExpr(1),
+                                         LiteralExpr(2),
+                                     }));
+        CheckAst("float(1)", ConstructorCallExpr(NamedType(TokenKlass::K_float), {LiteralExpr(1)}));
 
-        GLSLD_CHECK_AST("vec3()", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}));
-        GLSLD_CHECK_AST("vec3(1)",
-                        ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
-                                                                               ImplicitCastExpr(LiteralExpr(1)),
-                                                                           }));
-        GLSLD_CHECK_AST("mat3(vec3(1.0), vec3(2.0), vec3(3.0))",
-                        ConstructorCallExpr(NamedType(TokenKlass::K_mat3),
-                                            {
-                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(1.f)}),
-                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(2.f)}),
-                                                ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(3.f)}),
-                                            }));
+        CheckAst("vec3()", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}));
+        CheckAst("vec3(1)", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                   ImplicitCastExpr(LiteralExpr(1)),
+                                                                               }));
+        CheckAst("mat3(vec3(1.0), vec3(2.0), vec3(3.0))",
+                 ConstructorCallExpr(NamedType(TokenKlass::K_mat3),
+                                     {
+                                         ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(1.f)}),
+                                         ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(2.f)}),
+                                         ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {LiteralExpr(3.f)}),
+                                     }));
 
-        GLSLD_CHECK_AST("S()", ConstructorCallExpr(NamedType("S"), {}));
-        GLSLD_CHECK_AST("S[2]()",
-                        ConstructorCallExpr(QualType(NullAst(), IdTok("S"), ArraySpec({LiteralExpr(2)})), {}));
+        CheckAst("S()", ConstructorCallExpr(NamedType("S"), {}));
+        CheckAst("S[2]()", ConstructorCallExpr(QualType(NullAst(), IdTok("S"), ArraySpec({LiteralExpr(2)})), {}));
 
-        GLSLD_CHECK_AST("struct {}()", ConstructorCallExpr(StructType(StructDecl(InvalidTok(), {})), {}));
-        GLSLD_CHECK_AST("struct X { int x; }(0)",
-                        ConstructorCallExpr(
-                            StructType(StructDecl(
-                                IdTok("X"), {StructFieldDecl(NamedType(TokenKlass::K_int), IdTok("x"), NullAst())})),
-                            {
-                                LiteralExpr(0),
-                            }));
+        CheckAst("struct {}()", ConstructorCallExpr(StructType(StructDecl(InvalidTok(), {})), {}));
+        CheckAst("struct X { int x; }(0)",
+                 ConstructorCallExpr(StructType(StructDecl(IdTok("X"), {StructFieldDecl(NamedType(TokenKlass::K_int),
+                                                                                        IdTok("x"), NullAst())})),
+                                     {
+                                         LiteralExpr(0),
+                                     }));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("vec3(", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
-                                                                                            ErrorExpr(),
-                                                                                        }));
-            GLSLD_CHECK_AST("vec3(1,)",
-                            ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
-                                                                                   ImplicitCastExpr(LiteralExpr(1)),
-                                                                                   ErrorExpr(),
-                                                                               }));
+            CheckAst("vec3(", ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                                     ErrorExpr(),
+                                                                                 }));
+            CheckAst("vec3(1,)",
+                     ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {
+                                                                            ImplicitCastExpr(LiteralExpr(1)),
+                                                                            ErrorExpr(),
+                                                                        }));
         }
     }
 
     SECTION("Paren Wrapped Expr")
     {
-        GLSLD_CHECK_AST("(1)", LiteralExpr(1));
-        GLSLD_CHECK_AST("((1))", LiteralExpr(1));
-        GLSLD_CHECK_AST("(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
-        GLSLD_CHECK_AST(
-            "(1 + 2) * 3",
-            BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
-        GLSLD_CHECK_AST("(true ? 1 : 2)", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("(1)", LiteralExpr(1));
+        CheckAst("((1))", LiteralExpr(1));
+        CheckAst("(1 + 2)", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)));
+        CheckAst("(1 + 2) * 3",
+                 BinaryExpr(BinaryOp::Mul, BinaryExpr(BinaryOp::Plus, LiteralExpr(1), LiteralExpr(2)), LiteralExpr(3)));
+        CheckAst("(true ? 1 : 2)", SelectExpr(LiteralExpr(true), LiteralExpr(1), LiteralExpr(2)));
 
         SECTION("Permissive")
         {
-            GLSLD_CHECK_AST("(", ErrorExpr());
-            GLSLD_CHECK_AST("()", ErrorExpr());
-            GLSLD_CHECK_AST("(())", ErrorExpr());
-            GLSLD_CHECK_AST("(1", LiteralExpr(1));
-            GLSLD_CHECK_AST("(1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
+            CheckAst("(", ErrorExpr());
+            CheckAst("()", ErrorExpr());
+            CheckAst("(())", ErrorExpr());
+            CheckAst("(1", LiteralExpr(1));
+            CheckAst("(1 +", BinaryExpr(BinaryOp::Plus, LiteralExpr(1), ErrorExpr()));
         }
     }
 }
@@ -363,53 +347,53 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstInitializerListTest")
                              VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher));
         });
 
-        GLSLD_CHECK_AST("{}", InitializerList({}));
-        GLSLD_CHECK_AST("{1}", InitializerList({LiteralExpr(1)}));
-        GLSLD_CHECK_AST("{1,}", InitializerList({LiteralExpr(1)}));
-        GLSLD_CHECK_AST("{1,2}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
-        GLSLD_CHECK_AST("{1,2,}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
+        CheckAst("{}", InitializerList({}));
+        CheckAst("{1}", InitializerList({LiteralExpr(1)}));
+        CheckAst("{1,}", InitializerList({LiteralExpr(1)}));
+        CheckAst("{1,2}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
+        CheckAst("{1,2,}", InitializerList({LiteralExpr(1), LiteralExpr(2)}));
     }
 
     SECTION("Nested")
     {
-        GLSLD_CHECK_AST("{{}}", InitializerList({
-                                    InitializerList({}),
-                                }));
-        GLSLD_CHECK_AST("{{},}", InitializerList({
-                                     InitializerList({}),
-                                 }));
-        GLSLD_CHECK_AST("{{},{}}", InitializerList({
-                                       InitializerList({}),
-                                       InitializerList({}),
-                                   }));
+        CheckAst("{{}}", InitializerList({
+                             InitializerList({}),
+                         }));
+        CheckAst("{{},}", InitializerList({
+                              InitializerList({}),
+                          }));
+        CheckAst("{{},{}}", InitializerList({
+                                InitializerList({}),
+                                InitializerList({}),
+                            }));
 
-        GLSLD_CHECK_AST("{{1}}", InitializerList({
-                                     InitializerList({
-                                         LiteralExpr(1),
-                                     }),
-                                 }));
-        GLSLD_CHECK_AST("{{1}, {2, {3}}}", InitializerList({
-                                               InitializerList({
-                                                   LiteralExpr(1),
-                                               }),
-                                               InitializerList({
-                                                   LiteralExpr(2),
-                                                   InitializerList({
-                                                       LiteralExpr(3),
-                                                   }),
-                                               }),
-                                           }));
+        CheckAst("{{1}}", InitializerList({
+                              InitializerList({
+                                  LiteralExpr(1),
+                              }),
+                          }));
+        CheckAst("{{1}, {2, {3}}}", InitializerList({
+                                        InitializerList({
+                                            LiteralExpr(1),
+                                        }),
+                                        InitializerList({
+                                            LiteralExpr(2),
+                                            InitializerList({
+                                                LiteralExpr(3),
+                                            }),
+                                        }),
+                                    }));
     }
 
     SECTION("Permissive")
     {
-        GLSLD_CHECK_AST("{", InitializerList({ErrorExpr()}));
-        GLSLD_CHECK_AST("{,", InitializerList({ErrorExpr(), ErrorExpr()}));
+        CheckAst("{", InitializerList({ErrorExpr()}));
+        CheckAst("{,", InitializerList({ErrorExpr(), ErrorExpr()}));
         // This is considered as a single-element list like `{1,}`
-        GLSLD_CHECK_AST("{,}", InitializerList({ErrorExpr()}));
-        GLSLD_CHECK_AST("{,,", InitializerList({ErrorExpr(), ErrorExpr(), ErrorExpr()}));
+        CheckAst("{,}", InitializerList({ErrorExpr()}));
+        CheckAst("{,,", InitializerList({ErrorExpr(), ErrorExpr(), ErrorExpr()}));
         // This is considered as a two-element list like `{1,2,}`
-        GLSLD_CHECK_AST("{,,}", InitializerList({ErrorExpr(), ErrorExpr()}));
+        CheckAst("{,,}", InitializerList({ErrorExpr(), ErrorExpr()}));
     }
 }
 
@@ -423,38 +407,36 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstImplicitCastTest")
     SECTION("BinaryExpr")
     {
         // int + uint -> uint + uint
-        GLSLD_CHECK_AST("1 + 2u", BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2u))
-                                      ->CheckType(GlslBuiltinType::Ty_uint));
+        CheckAst("1 + 2u", BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2u))
+                               ->CheckType(GlslBuiltinType::Ty_uint));
         // int + float -> float + float
-        GLSLD_CHECK_AST("1 + 2.0f", BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2.0f))
-                                        ->CheckType(GlslBuiltinType::Ty_float));
+        CheckAst("1 + 2.0f", BinaryExpr(BinaryOp::Plus, ImplicitCastExpr(LiteralExpr(1)), LiteralExpr(2.0f))
+                                 ->CheckType(GlslBuiltinType::Ty_float));
         // double + float -> double + double
-        GLSLD_CHECK_AST("1.0lf + 2.0f",
-                        BinaryExpr(BinaryOp::Plus, LiteralExpr(1.0), ImplicitCastExpr(LiteralExpr(2.0f)))
-                            ->CheckType(GlslBuiltinType::Ty_double));
+        CheckAst("1.0lf + 2.0f", BinaryExpr(BinaryOp::Plus, LiteralExpr(1.0), ImplicitCastExpr(LiteralExpr(2.0f)))
+                                     ->CheckType(GlslBuiltinType::Ty_double));
         // ivecn + vecn -> vecn + vecn
-        GLSLD_CHECK_AST(
-            "ivec2(1) + vec2(2.0f)",
-            BinaryExpr(BinaryOp::Plus,
-                       ImplicitCastExpr(ConstructorCallExpr(NamedType(TokenKlass::K_ivec2), {LiteralExpr(1)}))
-                           ->CheckType(GlslBuiltinType::Ty_vec2),
-                       AnyExpr()));
+        CheckAst("ivec2(1) + vec2(2.0f)",
+                 BinaryExpr(BinaryOp::Plus,
+                            ImplicitCastExpr(ConstructorCallExpr(NamedType(TokenKlass::K_ivec2), {LiteralExpr(1)}))
+                                ->CheckType(GlslBuiltinType::Ty_vec2),
+                            AnyExpr()));
     }
 
     SECTION("SelectExpr")
     {
         // bool ? int : uint -> bool ? uint : uint
-        GLSLD_CHECK_AST(
+        CheckAst(
             "true ? 1 : 2u",
             SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_uint), AnyExpr()));
         // bool ? int : float -> bool ? float : float
-        GLSLD_CHECK_AST(
+        CheckAst(
             "true ? 1 : 2.0f",
             SelectExpr(AnyExpr(), ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float), AnyExpr()));
         // bool ? double : float -> bool ? double : double
-        GLSLD_CHECK_AST("true ? 1.0lf : 2.0f",
-                        SelectExpr(AnyExpr(), AnyExpr(),
-                                   ImplicitCastExpr(LiteralExpr(2.0f))->CheckType(GlslBuiltinType::Ty_double)));
+        CheckAst("true ? 1.0lf : 2.0f",
+                 SelectExpr(AnyExpr(), AnyExpr(),
+                            ImplicitCastExpr(LiteralExpr(2.0f))->CheckType(GlslBuiltinType::Ty_double)));
     }
 
     SECTION("Function Call")
@@ -471,16 +453,15 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstImplicitCastTest")
                              FunctionDecl(AnyQualType(), AnyTok(), {}, CompoundStmt({ExprStmt(matcher)})));
         });
 
-        GLSLD_CHECK_AST(
-            "foo(1)", FunctionCallExpr("foo", {
-                                                  ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_uint),
-                                              }));
-        GLSLD_CHECK_AST(
-            "bar(1, 2.0f)",
-            FunctionCallExpr("bar", {
-                                        ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_double),
-                                        ImplicitCastExpr(LiteralExpr(2.0f))->CheckType(GlslBuiltinType::Ty_double),
-                                    }));
+        CheckAst("foo(1)",
+                 FunctionCallExpr("foo", {
+                                             ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_uint),
+                                         }));
+        CheckAst("bar(1, 2.0f)",
+                 FunctionCallExpr("bar", {
+                                             ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_double),
+                                             ImplicitCastExpr(LiteralExpr(2.0f))->CheckType(GlslBuiltinType::Ty_double),
+                                         }));
     }
 
     SECTION("Constructor")
@@ -493,27 +474,27 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstImplicitCastTest")
         });
 
         // Conversion constructor doesn't introduce an implicit cast
-        GLSLD_CHECK_AST(SOURCE_PIECES("float", "float(1)"),
-                        ConstructorCallExpr(NamedType(TokenKlass::K_float), {LiteralExpr(1)}));
+        CheckAst(MakeSourcePieces("float", "float(1)"),
+                 ConstructorCallExpr(NamedType(TokenKlass::K_float), {LiteralExpr(1)}));
 
         // Broadcast constructor
-        GLSLD_CHECK_AST(SOURCE_PIECES("vec4", "vec4(1)"),
-                        ConstructorCallExpr(NamedType(TokenKlass::K_vec4),
-                                            {
-                                                ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
-                                            }));
+        CheckAst(MakeSourcePieces("vec4", "vec4(1)"),
+                 ConstructorCallExpr(NamedType(TokenKlass::K_vec4),
+                                     {
+                                         ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
+                                     }));
 
         // Swizzle constructor
-        GLSLD_CHECK_AST(SOURCE_PIECES("vec4", "vec4(1, ivec3(1))"),
-                        ConstructorCallExpr(
-                            NamedType(TokenKlass::K_vec4),
-                            {
-                                ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
-                                ImplicitCastExpr(ConstructorCallExpr(NamedType(TokenKlass::K_ivec3), {LiteralExpr(1)}))
-                                    ->CheckType(GlslBuiltinType::Ty_vec3),
-                            }));
+        CheckAst(MakeSourcePieces("vec4", "vec4(1, ivec3(1))"),
+                 ConstructorCallExpr(
+                     NamedType(TokenKlass::K_vec4),
+                     {
+                         ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
+                         ImplicitCastExpr(ConstructorCallExpr(NamedType(TokenKlass::K_ivec3), {LiteralExpr(1)}))
+                             ->CheckType(GlslBuiltinType::Ty_vec3),
+                     }));
 
-        // GLSLD_CHECK_AST(SOURCE_PIECES("vec4[]", "vec4[](ivec4(1))"),
+        // CheckAst(MakeSourcePieces("vec4[]", "vec4[](ivec4(1))"),
         //                 ConstructorCallExpr(
         //                     NamedType(TokenKlass::K_vec4),
         //                     {
@@ -533,26 +514,26 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::AstImplicitCastTest")
                              CompoundStmt({DeclStmt(VariableDecl(AnyQualType(), AnyTok(), AnyAst(), matcher))})));
         });
 
-        GLSLD_CHECK_AST(SOURCE_PIECES("float", "1"),
-                        ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float));
+        CheckAst(MakeSourcePieces("float", "1"),
+                 ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float));
 
-        GLSLD_CHECK_AST(SOURCE_PIECES("vec2", "{1, 2}"),
-                        InitializerList({
-                            ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
-                            ImplicitCastExpr(LiteralExpr(2))->CheckType(GlslBuiltinType::Ty_float),
-                        }));
+        CheckAst(MakeSourcePieces("vec2", "{1, 2}"),
+                 InitializerList({
+                     ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
+                     ImplicitCastExpr(LiteralExpr(2))->CheckType(GlslBuiltinType::Ty_float),
+                 }));
 
-        GLSLD_CHECK_AST(SOURCE_PIECES("struct { float x; double y; }", "{1, 2}"),
-                        InitializerList({
-                            ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
-                            ImplicitCastExpr(LiteralExpr(2))->CheckType(GlslBuiltinType::Ty_double),
-                        }));
+        CheckAst(MakeSourcePieces("struct { float x; double y; }", "{1, 2}"),
+                 InitializerList({
+                     ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
+                     ImplicitCastExpr(LiteralExpr(2))->CheckType(GlslBuiltinType::Ty_double),
+                 }));
 
-        GLSLD_CHECK_AST(SOURCE_PIECES("vec3", "{1, true, 3}"),
-                        InitializerList({
-                            ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
-                            ImplicitCastExpr(LiteralExpr(true))->CheckType(GlslBuiltinType::Ty_float),
-                            ImplicitCastExpr(LiteralExpr(3))->CheckType(GlslBuiltinType::Ty_float),
-                        }));
+        CheckAst(MakeSourcePieces("vec3", "{1, true, 3}"),
+                 InitializerList({
+                     ImplicitCastExpr(LiteralExpr(1))->CheckType(GlslBuiltinType::Ty_float),
+                     ImplicitCastExpr(LiteralExpr(true))->CheckType(GlslBuiltinType::Ty_float),
+                     ImplicitCastExpr(LiteralExpr(3))->CheckType(GlslBuiltinType::Ty_float),
+                 }));
     }
 }

@@ -11,19 +11,18 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::TypeCheckTest")
 
     SECTION("Swizzle")
     {
-        GLSLD_CHECK_AST("(1).x;", SwizzleAccessExpr(LiteralExpr(1), "x")->CheckType(GlslBuiltinType::Ty_int));
+        CheckAst("(1).x;", SwizzleAccessExpr(LiteralExpr(1), "x")->CheckType(GlslBuiltinType::Ty_int));
 
-        GLSLD_CHECK_AST("vec3().x;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "x")
-                                         ->CheckType(GlslBuiltinType::Ty_float));
+        CheckAst("vec3().x;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "x")
+                                  ->CheckType(GlslBuiltinType::Ty_float));
 
-        GLSLD_CHECK_AST("vec3().xy;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xy")
-                                          ->CheckType(GlslBuiltinType::Ty_vec2));
+        CheckAst("vec3().xy;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xy")
+                                   ->CheckType(GlslBuiltinType::Ty_vec2));
 
-        GLSLD_CHECK_AST("vec3().xyz;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xyz")
-                                           ->CheckType(GlslBuiltinType::Ty_vec3));
+        CheckAst("vec3().xyz;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xyz")
+                                    ->CheckType(GlslBuiltinType::Ty_vec3));
 
-        GLSLD_CHECK_AST("vec3().xyzw;",
-                        SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xyzw")
-                            ->CheckType(GlslBuiltinType::Ty_vec4));
+        CheckAst("vec3().xyzw;", SwizzleAccessExpr(ConstructorCallExpr(NamedType(TokenKlass::K_vec3), {}), "xyzw")
+                                     ->CheckType(GlslBuiltinType::Ty_vec4));
     }
 }
