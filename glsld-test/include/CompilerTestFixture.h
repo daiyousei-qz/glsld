@@ -95,7 +95,7 @@ namespace glsld
         }
 
         template <typename... Args>
-        auto MakeSourcePieces(Args&&... args) -> std::array<SourceTextView, sizeof...(Args)>
+        auto MakeSourcePieces(Args&&... args) const -> std::array<SourceTextView, sizeof...(Args)>
         {
             static_assert(sizeof...(Args) > 0, "MakeSourcePieces require at least one argument");
             static_assert((std::is_convertible_v<Args, SourceTextView> && ...),
@@ -112,7 +112,7 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
-        auto CheckTokens(ArrayView<RawSyntaxToken> tokens, ArrayView<TokenMatcher*> matchers) const -> void
+        auto CheckTokens(ArrayView<RawSyntaxToken> tokens, ArrayView<TokenMatcher*> matchers) -> void
         {
             auto failWithMessage = [&](const std::string& message) {
                 FAIL(fmt::format("Expected Tokens: {}\n"
