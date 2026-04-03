@@ -502,8 +502,17 @@ namespace glsld
                 TraverseAst(CompletionCollector{result, queryInfo, completionType, cursorPosition},
                             queryInfo.GetUserFileAst());
             }
+        }
 
-            // FIXME: add the completion items from the preprocessor, aka. macros
+        // TODO: this is really loose and may contain a lot of irrelevant macros. However, it may be useful for users to
+        // have all macros which could be used in ifdefs. Should we add some filtering here?
+        for (const auto& ppSymbolOccurrence : queryInfo.GetPreprocessInfo().GetAllOccurrences()) {
+            if (auto macroInfo = ppSymbolOccurrence.GetMacroInfo(); macroInfo) {
+                result.push_back({lsp::CompletionItem{
+                    .label = macroInfo->macroName.text.Str(),
+                    .kind  = lsp::CompletionItemKind::Text,
+                }});
+            }
         }
 
         return lsp::CompletionList{
