@@ -1,4 +1,5 @@
 #pragma once
+#include "Compiler/MacroTable.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/PPCallback.h"
 
@@ -93,7 +94,7 @@ namespace glsld
         std::vector<PPInactiveRegion> inactiveRegions;
 
     public:
-        auto GetCollectionCallback() -> std::unique_ptr<PPCallback>;
+        auto CreateCollectionCallback(const MacroTable* preambleMacroTable) -> std::unique_ptr<PPCallback>;
 
         auto GetAllOccurrences() const -> ArrayView<PPSymbolOccurrence>
         {

@@ -39,6 +39,12 @@ namespace glsld
         // Note that caller should make sure the imported macro table has longer lifetime than this macro table.
         MacroTable(const MacroTable* preambleMacroTable);
 
+        // Get a view to currently defined macros.
+        auto GetMacroDefinitions() const
+        {
+            return macroLookup | std::views::values;
+        }
+
         auto DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void;
 
         auto DefineFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,

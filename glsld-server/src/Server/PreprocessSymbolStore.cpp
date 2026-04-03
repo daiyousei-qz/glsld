@@ -6,7 +6,8 @@
 
 namespace glsld
 {
-    auto PreprocessInfoStore::GetCollectionCallback() -> std::unique_ptr<PPCallback>
+    auto PreprocessInfoStore::CreateCollectionCallback(const MacroTable* preambleMacroTable)
+        -> std::unique_ptr<PPCallback>
     {
         class PreprocessInfoCollector final : public PPCallback
         {
@@ -55,8 +56,17 @@ namespace glsld
             }
 
         public:
-            PreprocessInfoCollector(PreprocessInfoStore& cache) : store(cache)
+            PreprocessInfoCollector(PreprocessInfoStore& cache, const MacroTable* preambleMacroTable) : store(cache)
             {
+                // TODO: this is very inefficient if there are many macros defined in the preamble. We may want to
+                // optimize this by using a more efficient data structure or by changing the design to avoid copying all
+                // macro definitions.
+                if (preambleMacroTable) {
+                    for (const auto& macroDef : preambleMacroTable->GetMacroDefinitions()) {
+                        DefineMacro(macroDef.defToken, macroDef.paramTokens, macroDef.expansionTokens,
+                                    macroDef.isFunctionLike);
+                    }
+                }
             }
 
             auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
@@ -162,7 +172,7 @@ namespace glsld
             }
         };
 
-        return std::make_unique<PreprocessInfoCollector>(*this);
+        return std::make_unique<PreprocessInfoCollector>(*this, preambleMacroTable);
     }
 
     auto PreprocessInfoStore::QueryPPSymbol(TextPosition position) const -> const PPSymbolOccurrence*
