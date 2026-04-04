@@ -32,7 +32,7 @@ namespace glsld
         }
         else if (symbolInfo->symbolType == SymbolDeclType::Macro) {
             if (auto macroInfo = symbolInfo->ppSymbolOccurrence->GetMacroInfo(); macroInfo && macroInfo->definition) {
-                const auto& declToken = macroInfo->definition->macroName;
+                const auto& declToken = macroInfo->definition->defToken;
                 if (info.IsMainFile(declToken.spelledFile)) {
                     // FIXME: Currently we only support macros defined in the main file. Need support include file.
                     return {lsp::Location{

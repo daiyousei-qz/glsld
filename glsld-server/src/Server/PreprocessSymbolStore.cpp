@@ -14,26 +14,22 @@ namespace glsld
         private:
             PreprocessInfoStore& store;
 
+            // We only collect PP symbol occurrences in the main file, so we need to track the include depth here.
             int includeDepth = 0;
+
+            // This tracks the start line of the currently active inactive region. When we encounter a branch directive
+            // that makes the current region inactive, we set this to the start line of the inactive region. When we
+            // encounter a branch directive that makes the current region active again, we push the inactive region to
+            // the store and reset this.
             std::optional<int> inactiveRegionStartLine;
-            UnorderedStringMap<const PPMacroDefinition*> macroLookup;
 
-            auto DefineMacro(const PPToken& macroName, ArrayView<PPToken> params, ArrayView<PPToken> tokens,
-                             bool isFunctionLike) -> const PPMacroDefinition*
-            {
-                store.macroDefinitions.push_back(std::make_unique<PPMacroDefinition>(
-                    macroName, std::vector<PPToken>(params.begin(), params.end()),
-                    std::vector<PPToken>(tokens.begin(), tokens.end()), isFunctionLike));
+            // This tracks the currently defined macros as we scan through the translation unit.
+            // The macro definitions are either from:
+            // - The preamble macro table
+            // - The macro definition buffer in the store
+            UnorderedStringMap<const MacroDefinition*> macroLookup;
 
-                return macroLookup[macroName.text.StrView()] = store.macroDefinitions.back().get();
-            }
-
-            auto UndefMacro(const PPToken& macroName) -> void
-            {
-                macroLookup.Erase(macroName.text.StrView());
-            }
-
-            auto FindMacro(StringView macroName) -> const PPMacroDefinition*
+            auto FindMacro(StringView macroName) -> const MacroDefinition*
             {
                 if (auto it = macroLookup.Find(macroName); it != macroLookup.end()) {
                     return it->second;
@@ -58,13 +54,9 @@ namespace glsld
         public:
             PreprocessInfoCollector(PreprocessInfoStore& cache, const MacroTable* preambleMacroTable) : store(cache)
             {
-                // TODO: this is very inefficient if there are many macros defined in the preamble. We may want to
-                // optimize this by using a more efficient data structure or by changing the design to avoid copying all
-                // macro definitions.
                 if (preambleMacroTable) {
                     for (const auto& macroDef : preambleMacroTable->GetMacroDefinitions()) {
-                        DefineMacro(macroDef.defToken, macroDef.paramTokens, macroDef.expansionTokens,
-                                    macroDef.isFunctionLike);
+                        macroLookup[macroDef.defToken.text.StrView()] = &macroDef;
                     }
                 }
             }
@@ -80,11 +72,21 @@ namespace glsld
             auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName, ArrayView<PPToken> paramTokens,
                                    ArrayView<PPToken> replacementTokens, bool isFunctionLike) -> void override
             {
+                // While macros in included files are not relevant to user interaction, we still need record them for
+                // later queries.
+                store.macroDefinitions.push_back(MacroDefinition{
+                    .isCompilerDefined = false,
+                    .isFunctionLike    = isFunctionLike,
+                    .defToken          = macroName,
+                    .paramTokens       = std::vector<PPToken>(paramTokens.begin(), paramTokens.end()),
+                    .expansionTokens   = std::vector<PPToken>(replacementTokens.begin(), replacementTokens.end()),
+                });
+                macroLookup[macroName.text.StrView()] = &store.macroDefinitions.back();
+
                 if (includeDepth == 0) {
-                    auto macroDefinition = DefineMacro(macroName, paramTokens, replacementTokens, isFunctionLike);
                     store.occurrences.push_back(PPSymbolOccurrence{
                         macroName.spelledRange,
-                        PPMacroSymbol{macroName, {}, macroDefinition, PPMacroOccurrenceType::Define}});
+                        PPMacroSymbol{macroName, {}, &store.macroDefinitions.back(), PPMacroOccurrenceType::Define}});
                 }
             }
             auto OnUndefDirective(ArrayView<PPToken> tokens, const PPToken& macroName) -> void override
@@ -94,8 +96,11 @@ namespace glsld
                         macroName.spelledRange,
                         PPMacroSymbol{
                             macroName, {}, FindMacro(macroName.text.StrView()), PPMacroOccurrenceType::Undef}});
-                    UndefMacro(macroName);
                 }
+
+                // While macros in included files are not relevant to user interaction, we still need record them for
+                // later queries.
+                macroLookup.Erase(macroName.text.StrView());
             }
             auto OnIfDefDirective(ArrayView<PPToken> tokens, const PPToken& macroName, bool isNDef, bool isActive)
                 -> void override

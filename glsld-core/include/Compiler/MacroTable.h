@@ -30,7 +30,8 @@ namespace glsld
         std::vector<PPToken> expansionTokens;
     };
 
-    class MacroTable
+    // Macro table maintains the currently defined macros. When a macro is undefined, it is dropped from the table.
+    class MacroTable final
     {
     private:
         std::unordered_map<AtomString, MacroDefinition> macroLookup;
