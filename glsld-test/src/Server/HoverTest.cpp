@@ -69,6 +69,7 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::HoverTest")
     }
 
     // TODO: function-like macro
+    // TODO: add test for macros in included files
     SECTION("Macro")
     {
         CompileLabelledSource(R"(
