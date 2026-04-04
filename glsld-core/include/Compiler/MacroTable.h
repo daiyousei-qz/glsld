@@ -4,9 +4,8 @@
 
 namespace glsld
 {
-    class MacroDefinition final
+    struct MacroDefinition final
     {
-    private:
         // A compiler defined macro is a macro that is defined by the compiler itself.
         // Therefore, it cannot be redefined or undefined by the user.
         bool isCompilerDefined = false;
@@ -29,80 +28,10 @@ namespace glsld
         // The tokens of the macro expansion
         // e.g. `#define FOO(a, b) a + b` -> `a + b`
         std::vector<PPToken> expansionTokens;
-
-        MacroDefinition(bool isCompilerDefined, bool isFunctionLike, PPToken defToken, std::vector<PPToken> paramTokens,
-                        std::vector<PPToken> expansionTokens)
-            : isCompilerDefined(isCompilerDefined), isFunctionLike(isFunctionLike), defToken(defToken),
-              paramTokens(std::move(paramTokens)), expansionTokens(std::move(expansionTokens))
-        {
-        }
-
-    public:
-        static auto CreateObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> MacroDefinition
-        {
-            return MacroDefinition{
-                false, false, defToken, {}, std::move(expansionTokens),
-            };
-        }
-
-        static auto CreateFunctionLikeMacro(PPToken defToken, std::vector<PPToken> paramTokens,
-                                            std::vector<PPToken> expansionTokens) -> MacroDefinition
-        {
-            return MacroDefinition{
-                false, true, defToken, std::move(paramTokens), std::move(expansionTokens),
-            };
-        }
-
-        static auto CreateFeatureMacro(AtomString name, AtomString number) -> MacroDefinition
-        {
-            auto defToken = PPToken{
-                .klass                = TokenKlass::Identifier,
-                .spelledFile          = FileID::SystemPreamble(),
-                .spelledRange         = {},
-                .text                 = name,
-                .isFirstTokenOfLine   = false,
-                .hasLeadingWhitespace = false,
-            };
-            auto oneToken = PPToken{
-                .klass                = TokenKlass::NumberLiteral,
-                .spelledFile          = FileID::SystemPreamble(),
-                .spelledRange         = {},
-                .text                 = number,
-                .isFirstTokenOfLine   = false,
-                .hasLeadingWhitespace = false,
-            };
-            return MacroDefinition{
-                true, false, defToken, {}, {oneToken},
-            };
-        }
-
-        auto IsCompilerDefined() const noexcept -> bool
-        {
-            return isCompilerDefined;
-        }
-
-        auto IsFunctionLike() const noexcept -> bool
-        {
-            return isFunctionLike;
-        }
-
-        auto GetDefToken() const noexcept -> const PPToken&
-        {
-            return defToken;
-        }
-
-        auto GetParamTokens() const noexcept -> ArrayView<PPToken>
-        {
-            return paramTokens;
-        }
-
-        auto GetExpansionTokens() const noexcept -> ArrayView<PPToken>
-        {
-            return expansionTokens;
-        }
     };
 
-    class MacroTable
+    // Macro table maintains the currently defined macros. When a macro is undefined, it is dropped from the table.
+    class MacroTable final
     {
     private:
         std::unordered_map<AtomString, MacroDefinition> macroLookup;
@@ -110,6 +39,12 @@ namespace glsld
     public:
         // Note that caller should make sure the imported macro table has longer lifetime than this macro table.
         MacroTable(const MacroTable* preambleMacroTable);
+
+        // Get a view to currently defined macros.
+        auto GetMacroDefinitions() const
+        {
+            return macroLookup | std::views::values;
+        }
 
         auto DefineObjectLikeMacro(PPToken defToken, std::vector<PPToken> expansionTokens) -> void;
 

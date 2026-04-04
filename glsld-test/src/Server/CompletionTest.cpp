@@ -18,8 +18,15 @@ static auto MockCompletion(const ServerTestFixture& fixture, TextPosition pos,
 
 struct CompletionItemExpectedResult
 {
+    // The label of the completion item to check
     StringView label;
-    lsp::CompletionItemKind kind;
+
+    // Optionally match the kind of the completion item. If not specified, the check will ignore the kind.
+    std::optional<lsp::CompletionItemKind> kind = std::nullopt;
+
+    // If true, the test will check that no completion item with the specified label and kind exists in the completion
+    // result.
+    bool checkNotExist = false;
 };
 
 struct CompletionExpectedResult
@@ -54,11 +61,21 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::CompletionTest")
         for (const auto& itemExpectedResult : expectedResult.items) {
             auto it =
                 std::ranges::find_if(completionList.items, [&itemExpectedResult](const lsp::CompletionItem& item) {
-                    return item.label == itemExpectedResult.label && item.kind == itemExpectedResult.kind;
+                    return item.label == itemExpectedResult.label &&
+                           (item.kind == itemExpectedResult.kind || !itemExpectedResult.kind.has_value());
                 });
-            if (it == completionList.items.end()) {
-                FAIL(fmt::format("Failed to find completion item: label='{}', kind={}", itemExpectedResult.label,
-                                 EnumToString(itemExpectedResult.kind)));
+            StringView kindStr = itemExpectedResult.kind.has_value() ? EnumToString(*itemExpectedResult.kind) : "<n/a>";
+            if (itemExpectedResult.checkNotExist) {
+                if (it != completionList.items.end()) {
+                    FAIL(fmt::format("Unexpectedly found completion item: label='{}', kind={}",
+                                     itemExpectedResult.label, kindStr));
+                }
+            }
+            else {
+                if (it == completionList.items.end()) {
+                    FAIL(fmt::format("Failed to find completion item: label='{}', kind={}", itemExpectedResult.label,
+                                     kindStr));
+                }
             }
         }
     };
@@ -92,6 +109,34 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::CompletionTest")
                                                     {.label = "if", .kind = lsp::CompletionItemKind::Keyword},
                                                 },
                                         });
+    }
+
+    SECTION("Macro")
+    {
+        CompileLabelledSource(R"(
+            #define HELLO 123
+
+            void main() {
+                int x = ^[macro.use];
+                vec4 v = vec4(1.0);
+                v.^[field.use];
+            }
+        )");
+
+        checkCompletion("macro.use", CompletionExpectedResult{
+                                         .items =
+                                             {
+                                                 {.label = "HELLO", .kind = lsp::CompletionItemKind::Text},
+                                             },
+                                     });
+
+        // Currently, macro completion is disabled in access chain context
+        checkCompletion("field.use", CompletionExpectedResult{
+                                         .items =
+                                             {
+                                                 {.label = "HELLO", .checkNotExist = true},
+                                             },
+                                     });
     }
 
     SECTION("StructMemberAccess")

@@ -103,7 +103,7 @@ namespace glsld
             compiler->SetNoStdlib(true);
             compiler->SetMainFileFromBuffer(sourceText);
 
-            auto ppCallback = ppInfoStore->GetCollectionCallback();
+            auto ppCallback = ppInfoStore->CreateCollectionCallback(nullptr);
             auto result     = compiler->CompileMainFile(ppCallback.get(), CompileMode::ParseOnly);
 
             this->info   = std::make_unique<LanguageQueryInfo>(std::move(result), std::move(ppInfoStore));

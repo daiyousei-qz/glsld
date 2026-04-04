@@ -503,7 +503,21 @@ namespace glsld
                             queryInfo.GetUserFileAst());
             }
 
-            // FIXME: add the completion items from the preprocessor, aka. macros
+            // Technically, macros could be completed anywhere, including `expr.^MACRO`. However, it may be too noisy in
+            // the real-world usage. Thus, we only provide macro completion at the global scope for now.
+            // TODO: this is really loose and may contain a lot of irrelevant macros. However, it may be useful for
+            // users to have all macros which could be used in ifdefs. Should we add some filtering here?
+            std::unordered_set<AtomString> seenMacroNames;
+            for (const auto& ppSymbolOccurrence : queryInfo.GetPreprocessInfo().GetAllOccurrences()) {
+                if (auto macroInfo = ppSymbolOccurrence.GetMacroInfo(); macroInfo) {
+                    if (seenMacroNames.insert(macroInfo->macroName.text).second) {
+                        result.push_back({lsp::CompletionItem{
+                            .label = macroInfo->macroName.text.Str(),
+                            .kind  = lsp::CompletionItemKind::Text,
+                        }});
+                    }
+                }
+            }
         }
 
         return lsp::CompletionList{

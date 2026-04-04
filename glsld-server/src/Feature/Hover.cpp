@@ -108,7 +108,7 @@ namespace glsld
             }
 
             std::vector<std::string> params;
-            for (const auto& param : macroInfo->definition->params) {
+            for (const auto& param : macroInfo->definition->paramTokens) {
                 params.push_back(param.text.Str());
             }
 
@@ -124,7 +124,7 @@ namespace glsld
                 codeBuffer += ")";
             }
 
-            for (const auto& token : macroInfo->definition->tokens) {
+            for (const auto& token : macroInfo->definition->expansionTokens) {
                 codeBuffer += " ";
                 codeBuffer += token.text.StrView();
             }

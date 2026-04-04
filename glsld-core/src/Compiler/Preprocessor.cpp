@@ -69,13 +69,13 @@ namespace glsld
                 // The argument list has been fully collected. Now we can finalize the macro invocation.
                 GLSLD_ASSERT(token.klass == TokenKlass::RParen);
                 FinishPendingInvocationArgument();
-                if (pendingInvokedMacro->GetParamTokens().empty() && invocationArguments.size() == 1 &&
+                if (pendingInvokedMacro->paramTokens.empty() && invocationArguments.size() == 1 &&
                     invocationArguments.front().numArgumentToken == 0) {
                     // If the macro has no parameter and no token in the argument list, we should fix-up the argument
                     // list so that it's also empty.
                     invocationArguments.clear();
                 }
-                if (invocationArguments.size() != pendingInvokedMacro->GetParamTokens().size()) {
+                if (invocationArguments.size() != pendingInvokedMacro->paramTokens.size()) {
                     // FIXME: Not exact number of arguments provided. Report error.
                 }
 
@@ -158,7 +158,7 @@ namespace glsld
                 }
             }
             else if (auto macroDefinition = pp.FindEnabledMacroDefinition(token.text); macroDefinition) {
-                if (macroDefinition->IsFunctionLike()) {
+                if (macroDefinition->isFunctionLike) {
                     // Could be a function-like macro invocation. We withold the token for potential expansion.
                     witheldTokens.push_back(token);
                     pendingInvokedMacro     = macroDefinition;
@@ -189,9 +189,9 @@ namespace glsld
             ExitMacroExpansion(macroNameTok, macroDefinition, AstSyntaxRange{expansionStartId, pp.GetNextTokenId()});
         }};
 
-        ArrayView<PPToken> paramTokens = macroDefinition.GetParamTokens();
+        ArrayView<PPToken> paramTokens = macroDefinition.paramTokens;
 
-        PPTokenScanner macroScanner{macroDefinition.GetExpansionTokens()};
+        PPTokenScanner macroScanner{macroDefinition.expansionTokens};
         MacroExpansionProcessor nextProcessor{pp, outputBuffer};
         while (!macroScanner.CursorAtEnd()) {
             // NOTE we assume that all tokens are expanded into the beginning of the macro use token.

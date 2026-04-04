@@ -47,7 +47,7 @@ namespace glsld
 
         // Second pass:
         auto ppInfoStore    = std::make_unique<PreprocessInfoStore>();
-        auto ppInfoCallback = ppInfoStore->GetCollectionCallback();
+        auto ppInfoCallback = ppInfoStore->CreateCollectionCallback(&localPreamble->GetMacroTable());
 
         nextConfig                   = localPreamble->GetLanguageConfig();
         auto configCollectorCallback = LanguageConfigCollector{nextConfig};

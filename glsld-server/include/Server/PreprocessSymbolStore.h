@@ -1,4 +1,5 @@
 #pragma once
+#include "Compiler/MacroTable.h"
 #include "Compiler/SyntaxToken.h"
 #include "Compiler/PPCallback.h"
 
@@ -8,14 +9,6 @@
 
 namespace glsld
 {
-    struct PPMacroDefinition
-    {
-        PPToken macroName;
-        std::vector<PPToken> params;
-        std::vector<PPToken> tokens;
-        bool isFunctionLike;
-    };
-
     struct PPHeaderNameSymbol
     {
         PPToken headerName;
@@ -34,7 +27,7 @@ namespace glsld
     {
         PPToken macroName;
         AstSyntaxRange expandedTokens;
-        const PPMacroDefinition* definition = nullptr;
+        const MacroDefinition* definition = nullptr;
         PPMacroOccurrenceType occurrenceType;
     };
 
@@ -88,12 +81,14 @@ namespace glsld
     class PreprocessInfoStore
     {
     private:
-        std::vector<std::unique_ptr<PPMacroDefinition>> macroDefinitions;
+        // Because the MacroTable is only available for the preamble, we need to collect macro definitions in the user
+        // files separately here.
+        std::deque<MacroDefinition> macroDefinitions;
         std::vector<PPSymbolOccurrence> occurrences;
         std::vector<PPInactiveRegion> inactiveRegions;
 
     public:
-        auto GetCollectionCallback() -> std::unique_ptr<PPCallback>;
+        auto CreateCollectionCallback(const MacroTable* preambleMacroTable) -> std::unique_ptr<PPCallback>;
 
         auto GetAllOccurrences() const -> ArrayView<PPSymbolOccurrence>
         {
