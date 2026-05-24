@@ -12,6 +12,265 @@
 
 namespace glsld
 {
+    // Assuming F is applicable to the operand, this function applies the operator in an element-wise manner and returns
+    // the result.
+    template <typename SrcScalarType, typename DstScalarType, typename F>
+    static auto ApplyElemwiseUnaryOpUnsafe(const ConstValue& operand, F f) -> ConstValue
+    {
+        GLSLD_ASSERT(operand.GetScalarKind() == GetScalarKindFromCppType<SrcScalarType>());
+
+        auto srcBuffer = operand.GetBufferAs<SrcScalarType>();
+
+        ConstValue result{GetScalarKindFromCppType<DstScalarType>(), static_cast<int16_t>(operand.GetRowSize()),
+                          static_cast<int16_t>(operand.GetColumnSize())};
+        auto dstBuffer = result.GetMutableBufferAs<DstScalarType>();
+
+        for (int i = 0; i < dstBuffer.size(); ++i) {
+            dstBuffer[i] = f(srcBuffer[i]);
+        }
+
+        return result;
+    }
+
+    // Assuming F is applicable to the operands, this function applies the operator in an element-wise manner and
+    // returns the result.
+    template <typename SrcScalarType, typename DstScalarType, typename F>
+    static auto ApplyElemwiseBinaryOpUnsafe(const ConstValue& lhs, const ConstValue& rhs, F f) -> ConstValue
+    {
+        GLSLD_ASSERT(lhs.GetScalarKind() == GetScalarKindFromCppType<SrcScalarType>());
+        GLSLD_ASSERT(rhs.GetScalarKind() == GetScalarKindFromCppType<SrcScalarType>());
+
+        auto lhsBuffer = lhs.GetBufferAs<SrcScalarType>();
+        auto rhsBuffer = rhs.GetBufferAs<SrcScalarType>();
+
+        // Case 1: both operands have the same shape, we apply the operator element-wise.
+        if (lhs.GetColumnSize() == rhs.GetColumnSize() && lhs.GetRowSize() == rhs.GetRowSize()) {
+            ConstValue result{GetScalarKindFromCppType<DstScalarType>(), static_cast<int16_t>(lhs.GetRowSize()),
+                              static_cast<int16_t>(lhs.GetColumnSize())};
+            ArraySpan<DstScalarType> dstBuffer = result.GetMutableBufferAs<DstScalarType>();
+
+            for (int i = 0; i < dstBuffer.size(); ++i) {
+                dstBuffer[i] = f(lhsBuffer[i], rhsBuffer[i]);
+            }
+
+            return result;
+        }
+        // Case 2: `<scalar> <op> <vector/matrix>`, we broadcast the scalar to all elements and apply the operator.
+        else if (lhs.IsScalar()) {
+            GLSLD_ASSERT(!rhs.IsScalar());
+
+            ConstValue result{GetScalarKindFromCppType<DstScalarType>(), static_cast<int16_t>(rhs.GetRowSize()),
+                              static_cast<int16_t>(rhs.GetColumnSize())};
+            ArraySpan<DstScalarType> dstBuffer = result.GetMutableBufferAs<DstScalarType>();
+
+            for (int i = 0; i < dstBuffer.size(); ++i) {
+                dstBuffer[i] = f(lhsBuffer[0], rhsBuffer[i]);
+            }
+
+            return result;
+        }
+        // Case 3: `<vector/matrix> <op> <scalar>`, we broadcast the scalar to all elements and apply the operator.
+        else if (rhs.IsScalar()) {
+            GLSLD_ASSERT(!lhs.IsScalar());
+
+            ConstValue result{GetScalarKindFromCppType<DstScalarType>(), static_cast<int16_t>(lhs.GetRowSize()),
+                              static_cast<int16_t>(lhs.GetColumnSize())};
+            ArraySpan<DstScalarType> dstBuffer = result.GetMutableBufferAs<DstScalarType>();
+
+            for (int i = 0; i < dstBuffer.size(); ++i) {
+                dstBuffer[i] = f(lhsBuffer[i], rhsBuffer[0]);
+            }
+
+            return result;
+        }
+        // Case 4: Incompatible shapes
+        else {
+            return ConstValue{};
+        }
+    }
+
+    template <typename DstType>
+    auto ApplyElemwiseCast(const ConstValue& operand) -> ConstValue
+    {
+        switch (operand.GetScalarKind()) {
+        case ScalarKind::Bool:
+            return ApplyElemwiseUnaryOpUnsafe<bool, DstType>(operand, [](bool x) { return static_cast<DstType>(x); });
+        case ScalarKind::Int:
+            return ApplyElemwiseUnaryOpUnsafe<int32_t, DstType>(operand,
+                                                                [](int32_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Uint:
+            return ApplyElemwiseUnaryOpUnsafe<uint32_t, DstType>(operand,
+                                                                 [](uint32_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Float:
+            return ApplyElemwiseUnaryOpUnsafe<float, DstType>(operand, [](float x) { return static_cast<DstType>(x); });
+        case ScalarKind::Double:
+            return ApplyElemwiseUnaryOpUnsafe<double, DstType>(operand,
+                                                               [](double x) { return static_cast<DstType>(x); });
+        case ScalarKind::Int8:
+            return ApplyElemwiseUnaryOpUnsafe<int8_t, DstType>(operand,
+                                                               [](int8_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Int16:
+            return ApplyElemwiseUnaryOpUnsafe<int16_t, DstType>(operand,
+                                                                [](int16_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Int64:
+            return ApplyElemwiseUnaryOpUnsafe<int64_t, DstType>(operand,
+                                                                [](int64_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Uint8:
+            return ApplyElemwiseUnaryOpUnsafe<uint8_t, DstType>(operand,
+                                                                [](uint8_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Uint16:
+            return ApplyElemwiseUnaryOpUnsafe<uint16_t, DstType>(operand,
+                                                                 [](uint16_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Uint64:
+            return ApplyElemwiseUnaryOpUnsafe<uint64_t, DstType>(operand,
+                                                                 [](uint64_t x) { return static_cast<DstType>(x); });
+        case ScalarKind::Float16:
+            // FIXME: implement this
+            return ConstValue{};
+        default:
+            return ConstValue{};
+        }
+    }
+
+    template <typename F>
+    static auto ApplyElemwiseUnaryOp(const ConstValue& operand, F f) -> ConstValue
+    {
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x); }) {                                                                     \
+        return ApplyElemwiseUnaryOpUnsafe<CPPTYPE, CPPTYPE>(operand, f);                                               \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        return ConstValue();                                                                                           \
+    }
+        switch (static_cast<ScalarKind>(operand.GetScalarKind())) {
+        case ScalarKind::Bool:
+            SWITCH_CASE(bool)
+        case ScalarKind::Int:
+            SWITCH_CASE(int32_t)
+        case ScalarKind::Uint:
+            SWITCH_CASE(uint32_t)
+        case ScalarKind::Float:
+            SWITCH_CASE(float)
+        case ScalarKind::Double:
+            SWITCH_CASE(double)
+        case ScalarKind::Int8:
+            SWITCH_CASE(int8_t)
+        case ScalarKind::Int16:
+            SWITCH_CASE(int16_t)
+        case ScalarKind::Int64:
+            SWITCH_CASE(int64_t)
+        case ScalarKind::Uint8:
+            SWITCH_CASE(uint8_t)
+        case ScalarKind::Uint16:
+            SWITCH_CASE(uint16_t)
+        case ScalarKind::Uint64:
+            SWITCH_CASE(uint64_t)
+        case ScalarKind::Float16:
+            GLSLD_NO_IMPL();
+        default:
+            return ConstValue();
+        }
+#undef SWITCH_CASE
+    }
+
+    template <typename F>
+    static auto ApplyElemwiseBinaryOp(const ConstValue& lhs, const ConstValue& rhs, F f) -> ConstValue
+    {
+        if (lhs.GetScalarKind() != rhs.GetScalarKind()) {
+            // Incompatible scalar kinds
+            return ConstValue{};
+        }
+
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
+        return ApplyElemwiseBinaryOpUnsafe<CPPTYPE, CPPTYPE>(lhs, rhs, f);                                             \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        break;                                                                                                         \
+    }
+        switch (lhs.GetScalarKind()) {
+        case ScalarKind::Bool:
+            SWITCH_CASE(bool)
+        case ScalarKind::Int:
+            SWITCH_CASE(int32_t)
+        case ScalarKind::Uint:
+            SWITCH_CASE(uint32_t)
+        case ScalarKind::Float:
+            SWITCH_CASE(float)
+        case ScalarKind::Double:
+            SWITCH_CASE(double)
+        case ScalarKind::Int8:
+            SWITCH_CASE(int8_t)
+        case ScalarKind::Int16:
+            SWITCH_CASE(int16_t)
+        case ScalarKind::Int64:
+            SWITCH_CASE(int64_t)
+        case ScalarKind::Uint8:
+            SWITCH_CASE(uint8_t)
+        case ScalarKind::Uint16:
+            SWITCH_CASE(uint16_t)
+        case ScalarKind::Uint64:
+            SWITCH_CASE(uint64_t)
+        case ScalarKind::Float16:
+            // FIXME: implement this
+            break;
+        }
+#undef SWITCH_CASE
+
+        return ConstValue{};
+    }
+
+    template <typename F>
+    static auto ApplyElemwiseComparisonOp(const ConstValue& lhs, const ConstValue& rhs, F f) -> ConstValue
+    {
+        if (lhs.GetScalarKind() != rhs.GetScalarKind()) {
+            // Incompatible scalar kinds
+            return ConstValue{};
+        }
+        if (lhs.GetRowSize() != rhs.GetRowSize() || lhs.GetColumnSize() != rhs.GetColumnSize()) {
+            // Incompatible shapes
+            return ConstValue{};
+        }
+
+#define SWITCH_CASE(CPPTYPE)                                                                                           \
+    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
+        return ApplyElemwiseBinaryOpUnsafe<CPPTYPE, bool>(lhs, rhs, f);                                                \
+    }                                                                                                                  \
+    else {                                                                                                             \
+        break;                                                                                                         \
+    }
+        switch (lhs.GetScalarKind()) {
+        case ScalarKind::Bool:
+            SWITCH_CASE(bool)
+        case ScalarKind::Int:
+            SWITCH_CASE(int32_t)
+        case ScalarKind::Uint:
+            SWITCH_CASE(uint32_t)
+        case ScalarKind::Float:
+            SWITCH_CASE(float)
+        case ScalarKind::Double:
+            SWITCH_CASE(double)
+        case ScalarKind::Int8:
+            SWITCH_CASE(int8_t)
+        case ScalarKind::Int16:
+            SWITCH_CASE(int16_t)
+        case ScalarKind::Int64:
+            SWITCH_CASE(int64_t)
+        case ScalarKind::Uint8:
+            SWITCH_CASE(uint8_t)
+        case ScalarKind::Uint16:
+            SWITCH_CASE(uint16_t)
+        case ScalarKind::Uint64:
+            SWITCH_CASE(uint64_t)
+        case ScalarKind::Float16:
+            // FIXME: implement this
+            break;
+        }
+#undef SWITCH_CASE
+
+        return ConstValue{};
+    }
+
     auto ConstValue::GetGlslType() const noexcept -> std::optional<GlslBuiltinType>
     {
         if (IsScalar()) {
@@ -432,27 +691,27 @@ namespace glsld
 
         switch (kind) {
         case ScalarKind::Bool:
-            return ApplyElemwiseCast<bool>();
+            return ApplyElemwiseCast<bool>(*this);
         case ScalarKind::Int:
-            return ApplyElemwiseCast<int32_t>();
+            return ApplyElemwiseCast<int32_t>(*this);
         case ScalarKind::Uint:
-            return ApplyElemwiseCast<uint32_t>();
+            return ApplyElemwiseCast<uint32_t>(*this);
         case ScalarKind::Float:
-            return ApplyElemwiseCast<float>();
+            return ApplyElemwiseCast<float>(*this);
         case ScalarKind::Double:
-            return ApplyElemwiseCast<double>();
+            return ApplyElemwiseCast<double>(*this);
         case ScalarKind::Int8:
-            return ApplyElemwiseCast<int8_t>();
+            return ApplyElemwiseCast<int8_t>(*this);
         case ScalarKind::Uint8:
-            return ApplyElemwiseCast<uint8_t>();
+            return ApplyElemwiseCast<uint8_t>(*this);
         case ScalarKind::Int16:
-            return ApplyElemwiseCast<int16_t>();
+            return ApplyElemwiseCast<int16_t>(*this);
         case ScalarKind::Uint16:
-            return ApplyElemwiseCast<uint16_t>();
+            return ApplyElemwiseCast<uint16_t>(*this);
         case ScalarKind::Int64:
-            return ApplyElemwiseCast<int64_t>();
+            return ApplyElemwiseCast<int64_t>(*this);
         case ScalarKind::Uint64:
-            return ApplyElemwiseCast<uint64_t>();
+            return ApplyElemwiseCast<uint64_t>(*this);
         case ScalarKind::Float16:
             GLSLD_NO_IMPL();
             return ConstValue{};
@@ -507,6 +766,17 @@ namespace glsld
         return result;
     }
 
+    auto ConstValue::Length() const -> ConstValue
+    {
+        if (colSize > 0) {
+            // FIXME: which type should it be?
+            return ConstValue::CreateScalar(static_cast<int32_t>(colSize));
+        }
+        else {
+            return ConstValue{};
+        }
+    }
+
     namespace
     {
         template <typename F, typename... Ts>
@@ -537,67 +807,57 @@ namespace glsld
 
     auto ConstValue::ElemwiseNegate() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(ExcludingBool<std::negate<>>{});
+        return ApplyElemwiseUnaryOp(*this, ExcludingBool<std::negate<>>{});
     }
     auto ConstValue::ElemwiseBitNot() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(ExcludingBoolFloat<std::bit_not<>>{});
+        return ApplyElemwiseUnaryOp(*this, ExcludingBoolFloat<std::bit_not<>>{});
     }
     auto ConstValue::ElemwiseLogicalNot() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(std::logical_not<bool>{});
-    }
-    auto ConstValue::Length() const -> ConstValue
-    {
-        if (colSize > 0) {
-            // FIXME: which type should it be?
-            return ConstValue::CreateScalar(static_cast<int32_t>(colSize));
-        }
-        else {
-            return ConstValue{};
-        }
+        return ApplyElemwiseUnaryOp(*this, std::logical_not<bool>{});
     }
 
 #pragma region Binary
     auto ConstValue::ElemwisePlus(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBool<std::plus<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBool<std::plus<>>{});
     }
     auto ConstValue::ElemwiseMinus(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBool<std::minus<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBool<std::minus<>>{});
     }
     auto ConstValue::ElemwiseMul(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBool<std::multiplies<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBool<std::multiplies<>>{});
     }
     auto ConstValue::ElemwiseDiv(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBool<std::divides<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBool<std::divides<>>{});
     }
     auto ConstValue::ElemwiseMod(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::modulus<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBoolFloat<std::modulus<>>{});
     }
     auto ConstValue::ElemwiseBitAnd(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_and<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBoolFloat<std::bit_and<>>{});
     }
     auto ConstValue::ElemwiseBitOr(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_or<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBoolFloat<std::bit_or<>>{});
     }
     auto ConstValue::ElemwiseBitXor(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, ExcludingBoolFloat<std::bit_xor<>>{});
+        return ApplyElemwiseBinaryOp(*this, other, ExcludingBoolFloat<std::bit_xor<>>{});
     }
     auto ConstValue::ElemwiseLogicalAnd(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, std::logical_and<bool>{});
+        return ApplyElemwiseBinaryOp(*this, other, std::logical_and<bool>{});
     }
     auto ConstValue::ElemwiseLogicalOr(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, std::logical_or<bool>{});
+        return ApplyElemwiseBinaryOp(*this, other, std::logical_or<bool>{});
     }
     auto ConstValue::ElemwiseLogicalXor(const ConstValue& other) const -> ConstValue
     {
@@ -609,7 +869,7 @@ namespace glsld
             }
         };
 
-        return ApplyElemwiseBinaryOp(other, LogicalXor{});
+        return ApplyElemwiseBinaryOp(*this, other, LogicalXor{});
     }
     auto ConstValue::ElemwiseShiftLeft(const ConstValue& other) const -> ConstValue
     {
@@ -624,27 +884,27 @@ namespace glsld
 
     auto ConstValue::ElemwiseEquals(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, std::equal_to<>{});
+        return ApplyElemwiseComparisonOp(*this, other, std::equal_to<>{});
     }
     auto ConstValue::ElemwiseNotEquals(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, std::not_equal_to<>{});
+        return ApplyElemwiseComparisonOp(*this, other, std::not_equal_to<>{});
     }
     auto ConstValue::ElemwiseLessThan(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, ExcludingBool<std::less<>>{});
+        return ApplyElemwiseComparisonOp(*this, other, ExcludingBool<std::less<>>{});
     }
     auto ConstValue::ElemwiseLessThanEq(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, ExcludingBool<std::less_equal<>>{});
+        return ApplyElemwiseComparisonOp(*this, other, ExcludingBool<std::less_equal<>>{});
     }
     auto ConstValue::ElemwiseGreaterThan(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, ExcludingBool<std::greater<>>{});
+        return ApplyElemwiseComparisonOp(*this, other, ExcludingBool<std::greater<>>{});
     }
     auto ConstValue::ElemwiseGreaterThanEq(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseComparisonOp(other, ExcludingBool<std::greater_equal<>>{});
+        return ApplyElemwiseComparisonOp(*this, other, ExcludingBool<std::greater_equal<>>{});
     }
 #pragma endregion
 
@@ -857,80 +1117,80 @@ namespace glsld
 
     auto ConstValue::ElemwiseRadians() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Radians{});
+        return ApplyElemwiseUnaryOp(*this, Radians{});
     }
     auto ConstValue::ElemwiseDegrees() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Degrees{});
+        return ApplyElemwiseUnaryOp(*this, Degrees{});
     }
     auto ConstValue::ElemwiseSin() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Sin{});
+        return ApplyElemwiseUnaryOp(*this, Sin{});
     }
     auto ConstValue::ElemwiseCos() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Cos{});
+        return ApplyElemwiseUnaryOp(*this, Cos{});
     }
     auto ConstValue::ElemwiseAsin() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Asin{});
+        return ApplyElemwiseUnaryOp(*this, Asin{});
     }
     auto ConstValue::ElemwiseAcos() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Acos{});
+        return ApplyElemwiseUnaryOp(*this, Acos{});
     }
 
     auto ConstValue::ElemwisePow(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, Pow{});
+        return ApplyElemwiseBinaryOp(*this, other, Pow{});
     }
     auto ConstValue::ElemwiseExp() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Exp{});
+        return ApplyElemwiseUnaryOp(*this, Exp{});
     }
     auto ConstValue::ElemwiseLog() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Log{});
+        return ApplyElemwiseUnaryOp(*this, Log{});
     }
     auto ConstValue::ElemwiseExp2() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Exp2{});
+        return ApplyElemwiseUnaryOp(*this, Exp2{});
     }
     auto ConstValue::ElemwiseLog2() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Log2{});
+        return ApplyElemwiseUnaryOp(*this, Log2{});
     }
     auto ConstValue::ElemwiseSqrt() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Sqrt{});
+        return ApplyElemwiseUnaryOp(*this, Sqrt{});
     }
     auto ConstValue::ElemwiseInverseSqrt() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(InverseSqrt{});
+        return ApplyElemwiseUnaryOp(*this, InverseSqrt{});
     }
     auto ConstValue::ElemwiseAbs() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Abs{});
+        return ApplyElemwiseUnaryOp(*this, Abs{});
     }
     auto ConstValue::ElemwiseSign() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Sign{});
+        return ApplyElemwiseUnaryOp(*this, Sign{});
     }
     auto ConstValue::ElemwiseFloor() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Floor{});
+        return ApplyElemwiseUnaryOp(*this, Floor{});
     }
     auto ConstValue::ElemwiseTrunc() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Trunc{});
+        return ApplyElemwiseUnaryOp(*this, Trunc{});
     }
     auto ConstValue::ElemwiseRound() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Round{});
+        return ApplyElemwiseUnaryOp(*this, Round{});
     }
     auto ConstValue::ElemwiseCeil() const -> ConstValue
     {
-        return ApplyElemwiseUnaryOp(Ceil{});
+        return ApplyElemwiseUnaryOp(*this, Ceil{});
     }
     // auto ConstValue::ElemwiseMod(const ConstValue& other) const -> ConstValue
     // {
@@ -938,17 +1198,27 @@ namespace glsld
     // }
     auto ConstValue::ElemwiseMin(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, Min{});
+        return ApplyElemwiseBinaryOp(*this, other, Min{});
     }
     auto ConstValue::ElemwiseMax(const ConstValue& other) const -> ConstValue
     {
-        return ApplyElemwiseBinaryOp(other, Max{});
+        return ApplyElemwiseBinaryOp(*this, other, Max{});
     }
     auto ConstValue::ElemwiseClamp(const ConstValue& min, const ConstValue& max) const -> ConstValue
     {
         return ElemwiseMax(min).ElemwiseMin(max);
     }
+
 #pragma endregion
+
+    auto ConstValue::InitializeAsError() -> void
+    {
+        scalarType = 0;
+        arraySize  = 0;
+        rowSize    = 0;
+        colSize    = 0;
+        std::ranges::fill(localBuffer, std::byte(0));
+    }
 
     auto ConstValue::InitializeAsBlob(ScalarKind scalarType, int16_t rowSize, int16_t colSize) -> ArraySpan<std::byte>
     {
@@ -968,7 +1238,9 @@ namespace glsld
             buffer = reinterpret_cast<std::byte*>(&localBuffer);
         }
 
-        return ArraySpan<std::byte>(buffer, GetBufferSize());
+        auto result = ArraySpan<std::byte>(buffer, GetBufferSize());
+        std::ranges::fill(result, std::byte(0));
+        return result;
     }
 
     template <std::integral T>
