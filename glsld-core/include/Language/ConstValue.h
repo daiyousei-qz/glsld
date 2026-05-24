@@ -11,6 +11,47 @@
 
 namespace glsld
 {
+    template <typename T>
+    inline constexpr auto GetScalarKindFromCppType() -> ScalarKind
+    {
+        if constexpr (std::is_same_v<T, bool>) {
+            return ScalarKind::Bool;
+        }
+        else if constexpr (std::is_same_v<T, int32_t>) {
+            return ScalarKind::Int;
+        }
+        else if constexpr (std::is_same_v<T, uint32_t>) {
+            return ScalarKind::Uint;
+        }
+        else if constexpr (std::is_same_v<T, float>) {
+            return ScalarKind::Float;
+        }
+        else if constexpr (std::is_same_v<T, double>) {
+            return ScalarKind::Double;
+        }
+        else if constexpr (std::is_same_v<T, int8_t>) {
+            return ScalarKind::Int8;
+        }
+        else if constexpr (std::is_same_v<T, uint8_t>) {
+            return ScalarKind::Uint8;
+        }
+        else if constexpr (std::is_same_v<T, int16_t>) {
+            return ScalarKind::Int16;
+        }
+        else if constexpr (std::is_same_v<T, uint16_t>) {
+            return ScalarKind::Uint16;
+        }
+        else if constexpr (std::is_same_v<T, int64_t>) {
+            return ScalarKind::Int64;
+        }
+        else if constexpr (std::is_same_v<T, uint64_t>) {
+            return ScalarKind::Uint64;
+        }
+        else {
+            static_assert(false, "Unsupported C++ type for scalar kind");
+        }
+    }
+
     // Represents a compile-time constant primitive. This can be either:
     // - error
     // - scalar
@@ -38,6 +79,11 @@ namespace glsld
     public:
         ConstValue() : scalarType(0), arraySize(0), rowSize(0), colSize(0), localBuffer()
         {
+        }
+        explicit ConstValue(ScalarKind kind, int16_t rowSize, int16_t colSize) : ConstValue()
+        {
+            GLSLD_ASSERT(rowSize > 0 && colSize > 0);
+            InitializeAsBlob(kind, rowSize, colSize);
         }
         ~ConstValue()
         {
@@ -140,12 +186,33 @@ namespace glsld
         static auto ConstructVector(const ConstValue& value, ScalarKind kind, int dimSize) -> ConstValue;
 
         // Construct a matrix constant as per GLSL matrix constructor
-        static auto ConstructMatrix(const ConstValue& value, ScalarKind kind, int rolSize, int colSize) -> ConstValue;
+        static auto ConstructMatrix(const ConstValue& value, ScalarKind kind, int rowSize, int colSize) -> ConstValue;
 
         // Get a view to the constant value as a blob of bytes.
         auto GetBufferAsBlob() const -> ArrayView<std::byte>
         {
             return ArrayView<std::byte>(GetBufferPtr(), GetBufferSize());
+        }
+
+        // Get a view to the constant value as an array of the given type.
+        // The type must match the scalar kind of the constant.
+        template <typename T>
+        auto GetBufferAs() const -> ArrayView<T>
+        {
+            GLSLD_ASSERT(GetScalarKindFromCppType<T>() == GetScalarKind());
+            return ArrayView<T>(reinterpret_cast<const T*>(GetBufferPtr()), arraySize);
+        }
+
+        auto GetMutableBufferAsBlob() -> ArraySpan<std::byte>
+        {
+            return ArraySpan<std::byte>(GetBufferPtr(), GetBufferSize());
+        }
+
+        template <typename T>
+        auto GetMutableBufferAs() -> ArraySpan<T>
+        {
+            GLSLD_ASSERT(GetScalarKindFromCppType<T>() == GetScalarKind());
+            return ArraySpan<T>(reinterpret_cast<T*>(GetBufferPtr()), arraySize);
         }
 
         // Get a view to the constant element value as a blob of bytes.
@@ -163,14 +230,6 @@ namespace glsld
             }
         }
 
-        // Get a view to the constant value as an array of the given type.
-        // The type must match the scalar kind of the constant.
-        template <typename T>
-        auto GetBufferAs() const -> ArrayView<T>
-        {
-            GLSLD_ASSERT(GetScalarKindFromCppType<T>() == GetScalarKind());
-            return ArrayView<T>(reinterpret_cast<const T*>(GetBufferPtr()), arraySize);
-        }
         auto GetBoolValue() const -> bool
         {
             GLSLD_ASSERT(IsScalarBool());
@@ -281,9 +340,13 @@ namespace glsld
             return IsScalar() && GetScalarKind() == ScalarKind::Float16;
         }
 
+        // Get the size of the underlying scalar type in bytes.
         auto GetScalarSize() const noexcept -> int;
 
+        // Get a string representation of the constant value.
         auto ToString() const -> std::string;
+
+        // Create a copy of the constant value.
         auto Clone() const -> ConstValue;
 
         // Cast the underlying scalar type to the given kind while keeping the shape.
@@ -291,10 +354,14 @@ namespace glsld
         auto GetElement(int index) const -> ConstValue;
         auto GetSwizzle(SwizzleDesc swizzle) const -> ConstValue;
 
+        // Maps to `.length()` in GLSL.
+        // - For vector, this returns the number of components.
+        // - For matrix, this returns the number of columns.
+        auto Length() const -> ConstValue;
+
         auto ElemwiseNegate() const -> ConstValue;
         auto ElemwiseBitNot() const -> ConstValue;
         auto ElemwiseLogicalNot() const -> ConstValue;
-        auto Length() const -> ConstValue;
 
         auto ElemwisePlus(const ConstValue& other) const -> ConstValue;
         auto ElemwiseMinus(const ConstValue& other) const -> ConstValue;
@@ -342,268 +409,18 @@ namespace glsld
         auto ElemwiseClamp(const ConstValue& min, const ConstValue& max) const -> ConstValue;
 
     private:
-        template <typename T>
-        static constexpr auto GetScalarKindFromCppType() -> ScalarKind
-        {
-            if constexpr (std::is_same_v<T, bool>) {
-                return ScalarKind::Bool;
-            }
-            else if constexpr (std::is_same_v<T, int32_t>) {
-                return ScalarKind::Int;
-            }
-            else if constexpr (std::is_same_v<T, uint32_t>) {
-                return ScalarKind::Uint;
-            }
-            else if constexpr (std::is_same_v<T, float>) {
-                return ScalarKind::Float;
-            }
-            else if constexpr (std::is_same_v<T, double>) {
-                return ScalarKind::Double;
-            }
-            else if constexpr (std::is_same_v<T, int8_t>) {
-                return ScalarKind::Int8;
-            }
-            else if constexpr (std::is_same_v<T, uint8_t>) {
-                return ScalarKind::Uint8;
-            }
-            else if constexpr (std::is_same_v<T, int16_t>) {
-                return ScalarKind::Int16;
-            }
-            else if constexpr (std::is_same_v<T, uint16_t>) {
-                return ScalarKind::Uint16;
-            }
-            else if constexpr (std::is_same_v<T, int64_t>) {
-                return ScalarKind::Int64;
-            }
-            else if constexpr (std::is_same_v<T, uint64_t>) {
-                return ScalarKind::Uint64;
-            }
-            else {
-                static_assert(false, "Unsupported C++ type for scalar kind");
-            }
-        }
-
-        template <typename T, typename U, typename F>
-        auto ApplyElemwiseUnaryOpUnsafe(F f) const -> ConstValue
-        {
-            ConstValue result;
-
-            auto srcBuffer = GetBufferAs<T>();
-            auto dstBuffer = result.InitializeAs<U>(rowSize, colSize);
-
-            for (int i = 0; i < arraySize; ++i) {
-                dstBuffer[i] = f(srcBuffer[i]);
-            }
-            return result;
-        }
-
-        template <typename T, typename F>
-        auto ApplyElemwiseBinaryOpUnsafe(const ConstValue& other, F f) const -> ConstValue
-        {
-            ConstValue result;
-
-            auto srcBuffer1 = GetBufferAs<T>();
-            auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<T>(rowSize, colSize);
-
-            for (int i = 0; i < arraySize; ++i) {
-                dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);
-            }
-            return result;
-        }
-
-        template <typename T, typename F>
-        auto ApplyElemwiseComparisonOpUnsafe(const ConstValue& other, F f) const -> ConstValue
-        {
-            ConstValue result;
-
-            auto srcBuffer1 = GetBufferAs<T>();
-            auto srcBuffer2 = other.GetBufferAs<T>();
-            auto dstBuffer  = result.InitializeAs<bool>(rowSize, colSize);
-
-            for (int i = 0; i < arraySize; ++i) {
-                dstBuffer[i] = f(srcBuffer1[i], srcBuffer2[i]);
-            }
-            return result;
-        }
-
-        template <typename TargetType>
-        auto ApplyElemwiseCast() const -> ConstValue
-        {
-            switch (GetScalarKind()) {
-            case ScalarKind::Bool:
-                return ApplyElemwiseUnaryOpUnsafe<bool, TargetType>([](bool x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Int:
-                return ApplyElemwiseUnaryOpUnsafe<int32_t, TargetType>(
-                    [](int32_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Uint:
-                return ApplyElemwiseUnaryOpUnsafe<uint32_t, TargetType>(
-                    [](uint32_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Float:
-                return ApplyElemwiseUnaryOpUnsafe<float, TargetType>(
-                    [](float x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Double:
-                return ApplyElemwiseUnaryOpUnsafe<double, TargetType>(
-                    [](double x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Int8:
-                return ApplyElemwiseUnaryOpUnsafe<int8_t, TargetType>(
-                    [](int8_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Int16:
-                return ApplyElemwiseUnaryOpUnsafe<int16_t, TargetType>(
-                    [](int16_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Int64:
-                return ApplyElemwiseUnaryOpUnsafe<int64_t, TargetType>(
-                    [](int64_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Uint8:
-                return ApplyElemwiseUnaryOpUnsafe<uint8_t, TargetType>(
-                    [](uint8_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Uint16:
-                return ApplyElemwiseUnaryOpUnsafe<uint16_t, TargetType>(
-                    [](uint16_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Uint64:
-                return ApplyElemwiseUnaryOpUnsafe<uint64_t, TargetType>(
-                    [](uint64_t x) { return static_cast<TargetType>(x); });
-            case ScalarKind::Float16:
-                GLSLD_NO_IMPL();
-            default:
-                return ConstValue();
-            }
-        }
-
-        template <typename F>
-        auto ApplyElemwiseUnaryOp(F f) const -> ConstValue
-        {
-#define SWITCH_CASE(CPPTYPE)                                                                                           \
-    if constexpr (requires(CPPTYPE x) { f(x); }) {                                                                     \
-        return ApplyElemwiseUnaryOpUnsafe<CPPTYPE, CPPTYPE>(f);                                                        \
-    }                                                                                                                  \
-    else {                                                                                                             \
-        return ConstValue();                                                                                           \
-    }
-            switch (static_cast<ScalarKind>(scalarType)) {
-            case ScalarKind::Bool:
-                SWITCH_CASE(bool)
-            case ScalarKind::Int:
-                SWITCH_CASE(int32_t)
-            case ScalarKind::Uint:
-                SWITCH_CASE(uint32_t)
-            case ScalarKind::Float:
-                SWITCH_CASE(float)
-            case ScalarKind::Double:
-                SWITCH_CASE(double)
-            case ScalarKind::Int8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Int16:
-                SWITCH_CASE(int16_t)
-            case ScalarKind::Int64:
-                SWITCH_CASE(int64_t)
-            case ScalarKind::Uint8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Uint16:
-                SWITCH_CASE(uint16_t)
-            case ScalarKind::Uint64:
-                SWITCH_CASE(uint64_t)
-            case ScalarKind::Float16:
-                GLSLD_NO_IMPL();
-            default:
-                return ConstValue();
-            }
-#undef SWITCH_CASE
-        }
-
-        template <typename F>
-        auto ApplyElemwiseBinaryOp(const ConstValue& other, F f) const -> ConstValue
-        {
-#define SWITCH_CASE(CPPTYPE)                                                                                           \
-    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
-        return ApplyElemwiseBinaryOpUnsafe<CPPTYPE>(other, f);                                                         \
-    }                                                                                                                  \
-    else {                                                                                                             \
-        return ConstValue();                                                                                           \
-    }
-            switch (static_cast<ScalarKind>(scalarType)) {
-            case ScalarKind::Bool:
-                SWITCH_CASE(bool)
-            case ScalarKind::Int:
-                SWITCH_CASE(int32_t)
-            case ScalarKind::Uint:
-                SWITCH_CASE(uint32_t)
-            case ScalarKind::Float:
-                SWITCH_CASE(float)
-            case ScalarKind::Double:
-                SWITCH_CASE(double)
-            case ScalarKind::Int8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Int16:
-                SWITCH_CASE(int16_t)
-            case ScalarKind::Int64:
-                SWITCH_CASE(int64_t)
-            case ScalarKind::Uint8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Uint16:
-                SWITCH_CASE(uint16_t)
-            case ScalarKind::Uint64:
-                SWITCH_CASE(uint64_t)
-            case ScalarKind::Float16:
-                GLSLD_NO_IMPL();
-            default:
-                return ConstValue();
-            }
-#undef SWITCH_CASE
-        }
-
-        template <typename F>
-        auto ApplyElemwiseComparisonOp(const ConstValue& other, F f) const -> ConstValue
-        {
-#define SWITCH_CASE(CPPTYPE)                                                                                           \
-    if constexpr (requires(CPPTYPE x) { f(x, x); }) {                                                                  \
-        return ApplyElemwiseComparisonOpUnsafe<CPPTYPE>(other, f);                                                     \
-    }                                                                                                                  \
-    else {                                                                                                             \
-        return ConstValue();                                                                                           \
-    }
-            switch (static_cast<ScalarKind>(scalarType)) {
-            case ScalarKind::Bool:
-                SWITCH_CASE(bool)
-            case ScalarKind::Int:
-                SWITCH_CASE(int32_t)
-            case ScalarKind::Uint:
-                SWITCH_CASE(uint32_t)
-            case ScalarKind::Float:
-                SWITCH_CASE(float)
-            case ScalarKind::Double:
-                SWITCH_CASE(double)
-            case ScalarKind::Int8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Int16:
-                SWITCH_CASE(int16_t)
-            case ScalarKind::Int64:
-                SWITCH_CASE(int64_t)
-            case ScalarKind::Uint8:
-                SWITCH_CASE(int8_t)
-            case ScalarKind::Uint16:
-                SWITCH_CASE(uint16_t)
-            case ScalarKind::Uint64:
-                SWITCH_CASE(uint64_t)
-            case ScalarKind::Float16:
-                GLSLD_NO_IMPL();
-            default:
-                return ConstValue();
-            }
-        }
-
         auto GetBufferSize() const noexcept -> size_t
         {
             return GetScalarSize() * arraySize;
         }
 
-        auto GetBufferPtr() const noexcept -> const std::byte*
+        auto GetBufferPtr(this auto&& self) noexcept -> decltype(&self.localBuffer[0])
         {
-            if (UseHeapBuffer()) {
-                return bufferPtr;
+            if (self.UseHeapBuffer()) {
+                return self.bufferPtr;
             }
             else {
-                return &localBuffer[0];
+                return &self.localBuffer[0];
             }
         }
 
@@ -612,25 +429,18 @@ namespace glsld
             return GetBufferSize() > sizeof(localBuffer);
         }
 
-        // Note this doesn't release the memory of existing heap pointer
-        auto InitializeAsError() -> void
-        {
-            scalarType = 0;
-            arraySize  = 0;
-            rowSize    = 0;
-            colSize    = 0;
-            std::ranges::fill(localBuffer, std::byte(0));
-        }
+        // Note this doesn't release the memory of existing heap pointer. Caller must ensure heap memory is not leaked.
+        auto InitializeAsError() -> void;
 
-        // Note this doesn't release the memory of existing heap pointer
+        // Note this doesn't release the memory of existing heap pointer. Caller must ensure heap memory is not leaked.
         auto InitializeAsBlob(ScalarKind scalarType, int16_t rowSize, int16_t colSize) -> ArraySpan<std::byte>;
 
-        // Note this doesn't release the memory of existing heap pointer
-        template <typename T>
-        auto InitializeAs(int16_t rowSize, int16_t colSize) -> ArraySpan<T>
+        // Note this doesn't release the memory of existing heap pointer. Caller must ensure heap memory is not leaked.
+        template <typename CppType>
+        auto InitializeAs(int16_t rowSize, int16_t colSize) -> ArraySpan<CppType>
         {
-            auto blob = InitializeAsBlob(GetScalarKindFromCppType<T>(), rowSize, colSize);
-            return ArraySpan<T>(reinterpret_cast<T*>(blob.data()), arraySize);
+            auto blob = InitializeAsBlob(GetScalarKindFromCppType<CppType>(), rowSize, colSize);
+            return ArraySpan<CppType>(reinterpret_cast<CppType*>(blob.data()), arraySize);
         }
     };
 
