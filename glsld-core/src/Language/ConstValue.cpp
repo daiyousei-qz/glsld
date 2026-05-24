@@ -257,7 +257,7 @@ namespace glsld
         case ScalarKind::Int64:
             SWITCH_CASE(int64_t)
         case ScalarKind::Uint8:
-            SWITCH_CASE(int8_t)
+            SWITCH_CASE(uint8_t)
         case ScalarKind::Uint16:
             SWITCH_CASE(uint16_t)
         case ScalarKind::Uint64:
