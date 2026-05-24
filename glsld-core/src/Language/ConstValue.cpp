@@ -206,7 +206,7 @@ namespace glsld
         case ScalarKind::Int64:
             SWITCH_CASE(int64_t)
         case ScalarKind::Uint8:
-            SWITCH_CASE(int8_t)
+            SWITCH_CASE(uint8_t)
         case ScalarKind::Uint16:
             SWITCH_CASE(uint16_t)
         case ScalarKind::Uint64:
@@ -1238,7 +1238,9 @@ namespace glsld
             buffer = reinterpret_cast<std::byte*>(&localBuffer);
         }
 
-        return ArraySpan<std::byte>(buffer, GetBufferSize());
+        auto result = ArraySpan<std::byte>(buffer, GetBufferSize());
+        std::ranges::fill(result, std::byte(0));
+        return result;
     }
 
     template <std::integral T>
