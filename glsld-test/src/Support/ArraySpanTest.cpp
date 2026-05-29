@@ -1,6 +1,6 @@
-#include "Support/ArraySpan.h"
+#include "Catch2Wrapper.h"
 
-#include <catch2/catch_test_macros.hpp>
+#include "Support/ArraySpan.h"
 
 #include <array>
 #include <span>

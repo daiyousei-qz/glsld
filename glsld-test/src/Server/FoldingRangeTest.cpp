@@ -2,8 +2,6 @@
 
 #include "Feature/FoldingRange.h"
 
-#include <catch2/catch_test_macros.hpp>
-
 using namespace glsld;
 
 static auto MockFoldingRange(const ServerTestFixture& fixture, const FoldingRangeConfig& config = {.enable = true})

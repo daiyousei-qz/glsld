@@ -1,27 +1,14 @@
 #pragma once
+#include "Support/EnumReflection.h"
 #include "Support/StringView.h"
 #include "Basic/SourceInfo.h"
-#include "Ast/Base.h"
 
-#include "Support/EnumReflection.h"
-#include "catch2/catch_tostring.hpp"
+#include <catch2/catch_tostring.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 namespace Catch
 {
-    template <typename T>
-    struct StringMaker<std::optional<T>>
-    {
-        static auto convert(const std::optional<T>& value) -> std::string
-        {
-            if (value.has_value()) {
-                return StringMaker<T>::convert(*value);
-            }
-            else {
-                return "std::nullopt";
-            }
-        }
-    };
-
     template <>
     struct StringMaker<glsld::StringView>
     {
@@ -51,10 +38,11 @@ namespace Catch
         }
     };
 
-    template <>
-    struct StringMaker<glsld::AstNodeTag>
+    template <typename E>
+        requires std::is_enum_v<E>
+    struct StringMaker<E>
     {
-        static auto convert(const glsld::AstNodeTag& value) -> std::string
+        static auto convert(E value) -> std::string
         {
             return glsld::EnumToString(value).Str();
         }

@@ -1,6 +1,6 @@
-#include "Server/Protocol.h"
+#include "Catch2Wrapper.h"
 
-#include <catch2/catch_test_macros.hpp>
+#include "Server/Protocol.h"
 
 using namespace glsld;
 

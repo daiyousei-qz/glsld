@@ -1,13 +1,12 @@
 #pragma once
 
 #include "AstMatcher.h"
+#include "Catch2Wrapper.h"
 
 #include "Support/StringView.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_all.hpp>
 #include <fmt/ranges.h>
 
 #include <tuple>

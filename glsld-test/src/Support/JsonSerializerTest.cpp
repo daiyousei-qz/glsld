@@ -1,6 +1,6 @@
-#include "Support/JsonSerializer.h"
+#include "Catch2Wrapper.h"
 
-#include <catch2/catch_test_macros.hpp>
+#include "Support/JsonSerializer.h"
 
 using namespace glsld;
 

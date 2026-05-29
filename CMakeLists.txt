@@ -124,7 +124,7 @@ if(GLSLD_BUILD_UNIT_TEST)
     CPMAddPackage(
         NAME catch2
         GITHUB_REPOSITORY catchorg/Catch2
-        GIT_TAG 88abf9bf325c798c33f54f6b9220ef885b267f4f # v3.12.0
+        GIT_TAG 6ee0826dcae55ed1e06b2c5701981221e979e1e6 # v3.15.0
         OPTIONS "CATCH_BUILD_STATIC_LIBRARY ON"
     )
 
@@ -202,6 +202,7 @@ if(GLSLD_BUILD_UNIT_TEST)
     target_link_libraries(glsld-test PRIVATE glsld-core glsld-server)
 
     target_link_libraries(glsld-test PRIVATE Catch2::Catch2WithMain)
+    target_compile_definitions(glsld-test PRIVATE CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS)
 
     catch_discover_tests(glsld-test)
 
