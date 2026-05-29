@@ -1,6 +1,7 @@
+#include "Catch2Wrapper.h"
+
 #include "Support/EnumReflection.h"
 
-#include <catch2/catch_test_macros.hpp>
 #include <iterator>
 #include <vector>
 

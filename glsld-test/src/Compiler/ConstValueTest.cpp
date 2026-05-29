@@ -1,6 +1,6 @@
+#include "Catch2Wrapper.h"
+
 #include "Language/ConstValue.h"
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_approx.hpp>
 
 using namespace glsld;
 
@@ -119,16 +119,16 @@ TEST_CASE("Compiler::ConstValueTest")
     }
 
     // Prepare some constants for later tests
-    ConstValue b0 = ConstValue::CreateScalar(false);
-    ConstValue b1 = ConstValue::CreateScalar(true);
-    ConstValue i0 = ConstValue::CreateScalar(0);
-    ConstValue i1 = ConstValue::CreateScalar(1);
-    ConstValue i2 = ConstValue::CreateScalar(2);
-    ConstValue i3 = ConstValue::CreateScalar(3);
-    ConstValue i4 = ConstValue::CreateScalar(4);
+    ConstValue b0    = ConstValue::CreateScalar(false);
+    ConstValue b1    = ConstValue::CreateScalar(true);
+    ConstValue i0    = ConstValue::CreateScalar(0);
+    ConstValue i1    = ConstValue::CreateScalar(1);
+    ConstValue i2    = ConstValue::CreateScalar(2);
+    ConstValue i3    = ConstValue::CreateScalar(3);
+    ConstValue i4    = ConstValue::CreateScalar(4);
     ConstValue f2_75 = ConstValue::CreateScalar(2.75f);
-    ConstValue f3 = ConstValue::CreateScalar(3.0f);
-    ConstValue f4 = ConstValue::CreateScalar(4.0f);
+    ConstValue f3    = ConstValue::CreateScalar(3.0f);
+    ConstValue f4    = ConstValue::CreateScalar(4.0f);
 
     ConstValue bv4_0101 = ConstValue::CreateVector<bool>({false, true, false, true});
     ConstValue bv4_0011 = ConstValue::CreateVector<bool>({false, false, true, true});
@@ -143,14 +143,12 @@ TEST_CASE("Compiler::ConstValueTest")
     ConstValue v4_0123  = ConstValue::CreateVector<float>({0.0f, 1.0f, 2.0f, 3.0f});
     ConstValue v4_1111  = ConstValue::CreateVector<float>({1.0f, 1.0f, 1.0f, 1.0f});
 
-    ConstValue im2x3_123456 = ConstValue::ConstructMatrix(ConstValue::CreateVector<int32_t>({1, 2, 3, 4, 5, 6}),
-                                                          ScalarKind::Int, 2, 3);
-    ConstValue m2x3_123456  = ConstValue::ConstructMatrix(ConstValue::CreateVector<float>({1.0f, 2.0f, 3.0f, 4.0f,
-                                                                                           5.0f, 6.0f}),
-                                                          ScalarKind::Float, 2, 3);
-    ConstValue m3x2_123456  = ConstValue::ConstructMatrix(ConstValue::CreateVector<float>({1.0f, 2.0f, 3.0f, 4.0f,
-                                                                                           5.0f, 6.0f}),
-                                                          ScalarKind::Float, 3, 2);
+    ConstValue im2x3_123456 =
+        ConstValue::ConstructMatrix(ConstValue::CreateVector<int32_t>({1, 2, 3, 4, 5, 6}), ScalarKind::Int, 2, 3);
+    ConstValue m2x3_123456 = ConstValue::ConstructMatrix(
+        ConstValue::CreateVector<float>({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}), ScalarKind::Float, 2, 3);
+    ConstValue m3x2_123456 = ConstValue::ConstructMatrix(
+        ConstValue::CreateVector<float>({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}), ScalarKind::Float, 3, 2);
 
     SECTION("Unary Element-wise Arithmetics")
     {
@@ -578,8 +576,8 @@ TEST_CASE("Compiler::ConstValueTest")
             REQUIRE(TestConstVector(iv4_0123.CastScalar(ScalarKind::Bool), {false, true, true, true}));
             REQUIRE(TestConstVector(iv4_0123.CastScalar(ScalarKind::Float), {0.0f, 1.0f, 2.0f, 3.0f}));
             REQUIRE(TestConstVector(iv4_0123.CastScalar(ScalarKind::Double), {0.0, 1.0, 2.0, 3.0}));
-            REQUIRE(TestConstVector(iv4_0123.CastScalar(ScalarKind::Uint64), {uint64_t(0), uint64_t(1), uint64_t(2),
-                                                                              uint64_t(3)}));
+            REQUIRE(TestConstVector(iv4_0123.CastScalar(ScalarKind::Uint64),
+                                    {uint64_t(0), uint64_t(1), uint64_t(2), uint64_t(3)}));
 
             REQUIRE(TestConstVector(bv4_0101.CastScalar(ScalarKind::Int), {0, 1, 0, 1}));
         }
@@ -588,8 +586,8 @@ TEST_CASE("Compiler::ConstValueTest")
         {
             REQUIRE(TestConstMatrix(im2x3_123456.CastScalar(ScalarKind::Float), 2, 3,
                                     {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}));
-            REQUIRE(TestConstMatrix(im2x3_123456.CastScalar(ScalarKind::Bool), 2, 3,
-                                    {true, true, true, true, true, true}));
+            REQUIRE(
+                TestConstMatrix(im2x3_123456.CastScalar(ScalarKind::Bool), 2, 3, {true, true, true, true, true, true}));
         }
 
         SECTION("Error")

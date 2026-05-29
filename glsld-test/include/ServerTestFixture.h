@@ -1,14 +1,11 @@
 #pragma once
 
-#include "StringMaker.h"
+#include "Catch2Wrapper.h"
 
 #include "Basic/SourceInfo.h"
 #include "Support/StringMap.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Server/LanguageQueryInfo.h"
-
-#include <catch2/catch_message.hpp>
-#include <catch2/catch_test_macros.hpp>
 
 namespace glsld
 {

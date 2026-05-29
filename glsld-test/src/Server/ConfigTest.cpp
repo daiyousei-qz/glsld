@@ -1,6 +1,6 @@
-#include "Server/Config.h"
+#include "Catch2Wrapper.h"
 
-#include <catch2/catch_test_macros.hpp>
+#include "Server/Config.h"
 
 using namespace glsld;
 

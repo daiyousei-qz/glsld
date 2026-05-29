@@ -4,8 +4,6 @@
 #include "Support/SourceText.h"
 #include "Support/StringView.h"
 
-#include <catch2/catch_test_macros.hpp>
-
 #include <algorithm>
 #include <optional>
 
