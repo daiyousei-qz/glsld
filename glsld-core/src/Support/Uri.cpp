@@ -80,7 +80,7 @@ namespace glsld
         }
 
         // If authority part is present, the path part must start with a '/'.
-        StringView pathComponent = {remainingInput.begin(), 0};
+        StringView pathComponent;
         if (!authorityComponent.has_value() || remainingInput.StartWith('/')) {
             auto it  = remainingInput.begin();
             auto end = remainingInput.end();
