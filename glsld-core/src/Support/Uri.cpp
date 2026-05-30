@@ -111,6 +111,8 @@ namespace glsld
             return "";
         }
 
+        const bool isAbsolute = path.StartWith('/');
+
         std::vector<StringView> segments;
         std::optional<StringView> lastSegment;
         for (StringView segment : UriPathSegmentView{path}) {
@@ -118,16 +120,12 @@ namespace glsld
                 if (!segments.empty()) {
                     segments.pop_back();
                 }
-                if (segments.empty()) {
+                if (isAbsolute && segments.empty()) {
+                    // For absolute path, we should not pop the root segment.
                     segments.push_back("");
                 }
             }
-            else if (segment == ".") {
-                if (segments.empty()) {
-                    segments.push_back("");
-                }
-            }
-            else {
+            else if (segment != ".") {
                 segments.push_back(segment);
             }
 
@@ -190,8 +188,7 @@ namespace glsld
             }
 
             if (i + 2 >= component.size() || !IsHexDigit(component[i + 1]) || !IsHexDigit(component[i + 2])) {
-                result += component[i];
-                continue;
+                return std::nullopt;
             }
 
             auto decodedChar =
@@ -246,7 +243,7 @@ namespace glsld
 
     auto ParsedUri::ToFileSystemPath() const -> std::optional<std::filesystem::path>
     {
-        if (scheme != "file" || !authority.empty()) {
+        if (GetNormalizedScheme() != "file" || !authority.empty()) {
             return std::nullopt;
         }
 
@@ -285,7 +282,7 @@ namespace glsld
             }
         }
         else {
-            if (!mergedPath.starts_with('/')) {
+            if (!mergedPath.empty() && !mergedPath.starts_with('/')) {
                 // If there's an authority, the merged path must start with a '/'.
                 return std::nullopt;
             }

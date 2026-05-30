@@ -157,8 +157,17 @@ TEST_CASE("Support::ParsedUriTest")
     SECTION("ParsedUri::GetNormalizedPath")
     {
         // We should remove dot segments, but preserve multiple slashes.
-        auto parsed = ExpectParsed("scheme:/a/b/../c/./d//e", "scheme", "", "/a/b/../c/./d//e");
-        CHECK(parsed.GetNormalizedPath() == "/a/c/d//e");
+        CHECK(ExpectParsed("scheme:/a/b/../c/./d//e", "scheme", "", "/a/b/../c/./d//e").GetNormalizedPath() ==
+              "/a/c/d//e");
+        CHECK(ExpectParsed("scheme:relative/path/./to/../resource", "scheme", "", "relative/path/./to/../resource")
+                  .GetNormalizedPath() == "relative/path/resource");
+        CHECK(ExpectParsed("scheme:.", "scheme", "", ".").GetNormalizedPath() == "");
+        CHECK(ExpectParsed("scheme:..", "scheme", "", "..").GetNormalizedPath() == "");
+        CHECK(ExpectParsed("scheme:./", "scheme", "", "./").GetNormalizedPath() == "");
+        CHECK(ExpectParsed("scheme:../", "scheme", "", "../").GetNormalizedPath() == "");
+        CHECK(ExpectParsed("scheme:/./", "scheme", "", "/./").GetNormalizedPath() == "/");
+        CHECK(ExpectParsed("scheme:a/.", "scheme", "", "a/.").GetNormalizedPath() == "a/");
+        CHECK(ExpectParsed("scheme:a/..", "scheme", "", "a/..").GetNormalizedPath() == "");
     }
 
     SECTION("ParsedUri::ToFileSystemPath")
@@ -203,6 +212,14 @@ TEST_CASE("Support::ParsedUriTest")
             }
 
             {
+                auto upperCaseFile = ExpectParsed("FILE:/tmp/shader.glsl", "FILE", "", "/tmp/shader.glsl");
+                auto path          = upperCaseFile.ToFileSystemPath();
+                REQUIRE(path.has_value());
+                CHECK(path->has_root_path());
+                CHECK(path->string() == "/tmp/shader.glsl");
+            }
+
+            {
                 // '/' is not allowed in percent-encoding when converting to filesystem path.
                 CHECK(!ExpectParsed("file:/tmp/bad%2fpath.glsl", "file", "", "/tmp/bad%2fpath.glsl")
                            .ToFileSystemPath()
@@ -225,17 +242,15 @@ TEST_CASE("Support::ParsedUriTest")
             auto nonFile = ExpectParsed("untitled:shader.glsl", "untitled", "", "shader.glsl");
             auto fileWithAuthority =
                 ExpectParsed("file://example.com/tmp/shader.glsl", "file", "example.com", "/tmp/shader.glsl");
-            auto upperCaseFile = ExpectParsed("FILE:/tmp/shader.glsl", "FILE", "", "/tmp/shader.glsl");
 
             CHECK(!nonFile.ToFileSystemPath().has_value());
             CHECK(!fileWithAuthority.ToFileSystemPath().has_value());
-            CHECK(!upperCaseFile.ToFileSystemPath().has_value());
         }
     }
 
     SECTION("ParsedUri::MergePath")
     {
-        SECTION("Merges relative paths against the base directory")
+        SECTION("Without authority")
         {
             auto fileBase =
                 ExpectParsed("file:/workspace/shaders/main.glsl", "file", "", "/workspace/shaders/main.glsl");
@@ -256,6 +271,8 @@ TEST_CASE("Support::ParsedUriTest")
             ExpectParsed(directoryBase.MergePath("."), "file", "", "/workspace/shaders/");
             ExpectParsed(directoryBase.MergePath(".."), "file", "", "/workspace/");
             ExpectParsed(directoryBase.MergePath(".//"), "file", "", "/workspace/shaders//");
+            // Path cannot start with "//" if there's no authority, so merging with ".//" should fail.
+            REQUIRE(!directoryBase.MergePath("../..//").has_value());
 
             auto baseWithDotSegments = ExpectParsed("file:/workspace/shaders/./generated/../main.glsl", "file", "",
                                                     "/workspace/shaders/./generated/../main.glsl");
@@ -265,26 +282,28 @@ TEST_CASE("Support::ParsedUriTest")
 
             auto rootlessBase = ExpectParsed("untitled:main.glsl", "untitled", "", "main.glsl");
             ExpectParsed(rootlessBase.MergePath("common.glsl"), "untitled", "", "common.glsl");
-            ExpectParsed(rootlessBase.MergePath("."), "untitled", "", "/");
-            ExpectParsed(rootlessBase.MergePath(".."), "untitled", "", "/");
-            // Path cannot start with "//" if there's no authority, so merging with ".//" should fail.
-            REQUIRE(!rootlessBase.MergePath(".//").has_value());
+            ExpectParsed(rootlessBase.MergePath("."), "untitled", "", "");
+            ExpectParsed(rootlessBase.MergePath(".."), "untitled", "", "");
 
             auto emptyBase = ExpectParsed("untitled:", "untitled", "", "");
             ExpectParsed(emptyBase.MergePath("path/to/resource"), "untitled", "", "path/to/resource");
-            ExpectParsed(emptyBase.MergePath("."), "untitled", "", "/");
-            ExpectParsed(emptyBase.MergePath(".."), "untitled", "", "/");
+            ExpectParsed(emptyBase.MergePath("."), "untitled", "", "");
+            ExpectParsed(emptyBase.MergePath(".."), "untitled", "", "");
         }
 
         SECTION("Preserves authority while merging")
         {
             auto base =
                 ExpectParsed("cache://address/project/src/main.glsl", "cache", "address", "/project/src/main.glsl");
-            auto emptyBase = ExpectParsed("cache://address", "cache", "address", "");
-
             ExpectParsed(base.MergePath("include/common.glsl"), "cache", "address", "/project/src/include/common.glsl");
             ExpectParsed(base.MergePath("../include/common.glsl"), "cache", "address", "/project/include/common.glsl");
+
+            auto emptyBase = ExpectParsed("cache://address", "cache", "address", "");
             ExpectParsed(emptyBase.MergePath("main.glsl"), "cache", "address", "/main.glsl");
+            // TODO: should we produce "cache://address" or "cache://address/"?
+            ExpectParsed(emptyBase.MergePath("."), "cache", "address", "/");
+            ExpectParsed(emptyBase.MergePath(".."), "cache", "address", "/");
+            ExpectParsed(emptyBase.MergePath("./"), "cache", "address", "/");
         }
 
         SECTION("Rejects invalid path syntax")
@@ -338,7 +357,7 @@ TEST_CASE("Support::ParsedUriTest")
             ExpectParsed(base.ResolveReference("file:/tmp/../shader.glsl"), "file", "", "/shader.glsl");
             ExpectParsed(base.ResolveReference("file:///tmp/shader.glsl"), "file", "", "/tmp/shader.glsl");
             ExpectParsed(base.ResolveReference("mem://other/root/./shader.glsl"), "mem", "other", "/root/shader.glsl");
-            ExpectParsed(base.ResolveReference("untitled:relative/../shader.glsl"), "untitled", "", "/shader.glsl");
+            ExpectParsed(base.ResolveReference("untitled:relative/../shader.glsl"), "untitled", "", "shader.glsl");
             ExpectParsed(base.ResolveReference("FILE:/Case/Path.glsl"), "FILE", "", "/Case/Path.glsl");
         }
 
@@ -365,12 +384,12 @@ TEST_CASE("Support::ParsedUriTest")
         CHECK(DecodeUriComponent("%E4%B8%AD%20space") == "\xE4\xB8\xAD space");
         CHECK(DecodeUriComponent("%2Fslash") == "/slash");
         CHECK(DecodeUriComponent("mixed%20%2F%3Achars") == "mixed /:chars");
-        CHECK(DecodeUriComponent("%invalid%2Gencoding") == "%invalid%2Gencoding");
-        CHECK(DecodeUriComponent("incomplete%2") == "incomplete%2");
-        CHECK(DecodeUriComponent("incomplete%2G") == "incomplete%2G");
-        CHECK(DecodeUriComponent("%") == "%");
-        CHECK(DecodeUriComponent("%2") == "%2");
-        CHECK(DecodeUriComponent("%2G") == "%2G");
+
+        // Invalid percent-encoding should result in failure.
+        CHECK(DecodeUriComponent("%invalid%2Gencoding") == std::nullopt);
+        CHECK(DecodeUriComponent("incomplete%2") == std::nullopt);
+        CHECK(DecodeUriComponent("incomplete%2G") == std::nullopt);
+        CHECK(DecodeUriComponent("%") == std::nullopt);
 
         // With filter that disallows space character in percent-encoded characters.
         CHECK(DecodeUriComponent("with%20space", [](char ch) { return ch != ' '; }) == std::nullopt);

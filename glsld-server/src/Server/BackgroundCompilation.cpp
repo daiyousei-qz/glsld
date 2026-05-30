@@ -45,11 +45,6 @@ namespace glsld
             // FIXME: handle this case properly
             return;
         }
-        auto filePath = parsedUri->ToFileSystemPath();
-        if (!filePath) {
-            // FIXME: handle this case properly
-            return;
-        }
 
         // First pass:
         std::shared_ptr<PrecompiledPreamble> localPreamble = preamble;
@@ -71,8 +66,11 @@ namespace glsld
 
         auto compiler = std::make_unique<CompilerInvocation>(std::move(localPreamble));
         compiler->SetCountUtf16Characters(true);
-        compiler->AddIncludePath(filePath->parent_path());
         compiler->SetMainFileFromBuffer(sourceString);
+
+        if (auto filePath = parsedUri->ToFileSystemPath(); filePath) {
+            compiler->AddIncludePath(filePath->parent_path());
+        }
 
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);
