@@ -180,7 +180,7 @@ TEST_CASE("Support::ParsedUriTest")
                 auto path              = driveAbsoluteFile.ToFileSystemPath();
                 REQUIRE(path.has_value());
                 CHECK(path->is_absolute());
-                CHECK(path->string() == "C:\\tmp\\shader.glsl");
+                CHECK(path->string() == "C:/tmp/shader.glsl");
             }
 
             {
@@ -188,7 +188,7 @@ TEST_CASE("Support::ParsedUriTest")
                 auto path              = driveRelativeFile.ToFileSystemPath();
                 REQUIRE(path.has_value());
                 CHECK(path->is_absolute());
-                CHECK(path->string() == "C:\\tmp\\shader.glsl");
+                CHECK(path->string() == "C:/tmp/shader.glsl");
             }
 #endif
 
