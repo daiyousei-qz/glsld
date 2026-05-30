@@ -175,15 +175,24 @@ TEST_CASE("Support::ParsedUriTest")
         SECTION("Converts file URIs without authority to filesystem paths")
         {
 #if GLSLD_OS_WIN
-            auto driveAbsoluteFile   = ExpectParsed("file:/C:/tmp/shader.glsl", "file", "", "/C:/tmp/shader.glsl");
-            auto driveRelativeFile   = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
-            auto invalidAbsoluteFile = ExpectParsed("file:/tmp/shader.glsl", "file", "", "/tmp/shader.glsl");
+            {
+                auto driveAbsoluteFile = ExpectParsed("file:/C:/tmp/shader.glsl", "file", "", "/C:/tmp/shader.glsl");
+                auto path              = driveAbsoluteFile.ToFileSystemPath();
+                REQUIRE(path.has_value());
+                CHECK(path->has_root_path());
+                CHECK(path->string() == "C:\\tmp\\shader.glsl");
+            }
 
-            REQUIRE(driveAbsoluteFile.ToFileSystemPath().has_value());
-            REQUIRE(driveRelativeFile.ToFileSystemPath().has_value());
-            CHECK(driveAbsoluteFile.ToFileSystemPath()->string() == "C:\\tmp\\shader.glsl");
-            CHECK(driveRelativeFile.ToFileSystemPath()->string() == "C:\\tmp\\shader.glsl");
-            CHECK(!invalidAbsoluteFile.ToFileSystemPath().has_value());
+            {
+                auto driveRelativeFile = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
+                auto path              = driveRelativeFile.ToFileSystemPath();
+                REQUIRE(path.has_value());
+                CHECK(!path->has_root_path());
+                CHECK(path->string() == "C:\\tmp\\shader.glsl");
+            }
+
+            CHECK(
+                !ExpectParsed("file:/tmp/shader.glsl", "file", "", "/tmp/shader.glsl").ToFileSystemPath().has_value());
 #endif
 
             {

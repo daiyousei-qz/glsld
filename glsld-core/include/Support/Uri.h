@@ -221,8 +221,9 @@ namespace glsld
     // Decodes a percent-encoded Uri component. If the component contains invalid percent-encoding, returns nullopt.
     //
     // Note we don't validate the syntax of the component here.
+    // FIXME: use std::function_ref instead
     auto DecodeUriComponent(
-        StringView component, std::function_ref<bool(char ch)> filter = [](char) { return true; })
+        StringView component, std::function<bool(char ch)> filter = [](char) { return true; })
         -> std::optional<std::string>;
 
 } // namespace glsld

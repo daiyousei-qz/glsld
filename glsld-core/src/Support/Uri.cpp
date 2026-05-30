@@ -150,33 +150,51 @@ namespace glsld
     }
 
     // Assuming basePath and referencePath are both valid Uri path components.
-    static auto MergePathHelper(StringView basePath, StringView referencePath, bool hasAuthority) -> std::string
+    static auto MergePathHelper(StringView basePath, StringView referencePath, bool hasAuthority)
+        -> std::optional<std::string>
     {
+        std::string result;
         if (referencePath.StartWith('/')) {
             // If the reference path is absolute, base path is discarded.
-            return NormalizePath(referencePath);
+            result = NormalizePath(referencePath);
         }
-        else if (basePath.empty() && hasAuthority) {
-            // If there's an authority and the base path is empty, we treat it as if it were "/".
-            GLSLD_ASSERT(!referencePath.StartWith('/'));
-            return NormalizePath(fmt::format("/{}", referencePath));
-        }
-        else if (!basePath.StartWith('/')) {
-            // If neither base nor reference path is absolute, base path is discarded.
-            return NormalizePath(referencePath);
+        else if (basePath.empty()) {
+            // If base path is empty, we also just use the reference path.
+            if (hasAuthority) {
+                GLSLD_ASSERT(!referencePath.StartWith('/'));
+                result = NormalizePath(fmt::format("/{}", referencePath));
+            }
+            else {
+                result = NormalizePath(referencePath);
+            }
         }
         else if (basePath.EndWith('/')) {
-            // If the base path is a (absolute) directory, we simply concatenate the reference path to it.
-            return NormalizePath(fmt::format("{}{}", basePath, referencePath));
+            // If the base path is a directory, we simply concatenate the reference path to it.
+            result = NormalizePath(fmt::format("{}{}", basePath, referencePath));
         }
         else {
-            // Otherwise, base path is a (absolute) file.
+            // Otherwise, base path is a file.
             GLSLD_ASSERT(!basePath.EndWith('/') && !referencePath.StartWith('/'));
-            return NormalizePath(fmt::format("{}/../{}", basePath, referencePath));
+            result = NormalizePath(fmt::format("{}/../{}", basePath, referencePath));
         }
+
+        if (hasAuthority) {
+            if (!result.empty() && !result.starts_with('/')) {
+                // If there's an authority, the merged path must start with a '/'.
+                return std::nullopt;
+            }
+        }
+        else {
+            if (result.starts_with("//")) {
+                // Path cannot start with "//" if there's no authority.
+                return std::nullopt;
+            }
+        }
+
+        return result;
     }
 
-    auto DecodeUriComponent(StringView component, std::function_ref<bool(char ch)> filter) -> std::optional<std::string>
+    auto DecodeUriComponent(StringView component, std::function<bool(char ch)> filter) -> std::optional<std::string>
     {
         std::string result;
         result.reserve(component.size());
@@ -275,20 +293,11 @@ namespace glsld
         }
 
         auto mergedPath = MergePathHelper(GetRawPath(), pathPart, hasAuthority);
-        if (GetRawAuthority().empty()) {
-            if (mergedPath.starts_with("//")) {
-                // Path cannot start with "//" if there's no authority.
-                return std::nullopt;
-            }
-        }
-        else {
-            if (!mergedPath.empty() && !mergedPath.starts_with('/')) {
-                // If there's an authority, the merged path must start with a '/'.
-                return std::nullopt;
-            }
+        if (!mergedPath.has_value()) {
+            return std::nullopt;
         }
 
-        return Uri{ParsedUri{GetRawScheme(), GetRawAuthority(), mergedPath, hasAuthority}};
+        return Uri{ParsedUri{GetRawScheme(), GetRawAuthority(), *mergedPath, hasAuthority}};
     }
 
     auto ParsedUri::ResolveReference(StringView reference) const -> std::optional<Uri>
@@ -325,19 +334,10 @@ namespace glsld
         // Otherwise, it's a path-relative reference.
         // We have to merge it with the base Uri's path.
         const auto mergedPath = MergePathHelper(GetRawPath(), pathPart, hasAuthority);
-        if (GetRawAuthority().empty()) {
-            if (mergedPath.starts_with("//")) {
-                // Path cannot start with "//" if there's no authority.
-                return std::nullopt;
-            }
-        }
-        else {
-            if (!mergedPath.starts_with('/')) {
-                // If there's an authority, the merged path must start with a '/'.
-                return std::nullopt;
-            }
+        if (!mergedPath.has_value()) {
+            return std::nullopt;
         }
 
-        return Uri{ParsedUri{GetRawScheme(), GetRawAuthority(), mergedPath, hasAuthority}};
+        return Uri{ParsedUri{GetRawScheme(), GetRawAuthority(), *mergedPath, hasAuthority}};
     }
 } // namespace glsld
