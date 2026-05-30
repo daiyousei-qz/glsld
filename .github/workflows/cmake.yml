@@ -21,19 +21,20 @@ jobs:
         config:
           - name: Windows
             os: windows-2022
-            preinstall: |
-              choco install ninja --no-progress --yes
-              # choco install llvm --version=21.1.0 --no-progress --yes
+            compiler:
+              - llvm-22
           - name: Linux
             os: ubuntu-24.04
-            preinstall: |
-              sudo apt-get update && sudo apt-get install ninja-build
-              wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s 21
-              sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-21 100
-              sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-21 100
-              sudo update-alternatives --set clang /usr/bin/clang-21
-              sudo update-alternatives --set clang++ /usr/bin/clang++-21
+            compiler:
+              - llvm-22
+              - gcc-15
     steps:
+
+    - name: Install Toolchain
+      uses: aminya/setup-cpp@v1
+      with:
+        compiler: ${{ matrix.config.compiler }}
+        ninja: true
 
     - name: Checkout Repository
       uses: actions/checkout@v5
@@ -46,9 +47,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cpm-
 
-    - name: Install Toolchain
-      run: ${{ matrix.config.preinstall }}
-
     - name: Configure CMake
       run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ github.workspace }}/.cpm-cache
 
@@ -56,7 +54,7 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --parallel
 
     - name: Run Tests
-      run: ctest --test-dir ${{ github.workspace }}/build
+      run: ctest --test-dir ${{ github.workspace }}/build --rerun-failed --output-on-failure
 
     - name: Upload Artifacts
       if: github.ref_type == 'tag'
