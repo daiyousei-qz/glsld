@@ -10,7 +10,8 @@ on:
   create:
 
 env:
-  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+  CPM_BUILD_CACHE: ${{ github.workspace }}/.cache/CPM/build
 
 jobs:
   build:
@@ -43,21 +44,32 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v5
 
-    - name: Setup CPM Cache
+    - name: CPM Cache sources
       uses: actions/cache@v5
       with:
-        path: ${{ github.workspace }}/.cpm-cache
-        key: ${{ runner.os }}-cpm-${{ hashFiles('CMakeLists.txt') }}-${{ hashFiles('.github/workflows/cmake.yml') }}
+        path: ${{ env.CPM_SOURCE_CACHE }}
+        key: cpm-src-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', '.github/workflows/cmake.yml') }}
         restore-keys: |
-          ${{ runner.os }}-cpm-
+          cpm-src-${{ runner.os }}-
+
+    - name: CPM Cache build
+      uses: actions/cache@v5
+      with:
+        path: ${{ env.CPM_BUILD_CACHE }}
+        key: cpm-build-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', '.github/workflows/cmake.yml') }}
+        restore-keys: |
+          cpm-build-${{ runner.os }}-
 
     - name: Install Toolchain
       run: ${{ matrix.config.preinstall }}
 
     - name: Configure CMake
-      run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ github.workspace }}/.cpm-cache
+      run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ env.CPM_SOURCE_CACHE }} -DCPM_LIBRARY_BUILD_DIR=${{ env.CPM_BUILD_CACHE }}
 
-    - name: Build
+    - name: Build external dependencies
+      run: cmake --build ${{ github.workspace }}/build/CPM --parallel --target install
+
+    - name: Build Project
       run: cmake --build ${{ github.workspace }}/build --parallel
 
     - name: Run Tests
