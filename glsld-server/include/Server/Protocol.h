@@ -32,6 +32,26 @@ namespace glsld::lsp
     using Uri         = std::string;
     using DocumentUri = Uri;
 
+    struct ResponseError
+    {
+        // /**
+        //  * A number indicating the error type that occurred. This MUST be an
+        //  * integer.
+        //  */
+        integer code;
+
+        // /**
+        //  * A string providing a short description of the error. The message
+        //  * SHOULD be limited to a concise single line description of the error.
+        //  */
+        std::string message;
+
+        // /**
+        //  * A Primitive or Structured value that contains additional information
+        //  * about the error. Can be omitted.
+        // std::optional<nlohmann::json> data;
+    };
+
     struct Position
     {
         // /**

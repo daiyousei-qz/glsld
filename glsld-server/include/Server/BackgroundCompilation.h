@@ -3,6 +3,7 @@
 #include "Compiler/CompilerResult.h"
 #include "Server/LanguageQueryInfo.h"
 #include "Support/AsyncLatch.h"
+#include "Support/SourceText.h"
 
 #include <atomic>
 #include <memory>
@@ -61,26 +62,28 @@ namespace glsld
         // Once it is done, set the flag and release the latch to signal availability.
         auto Run() -> void;
 
-        auto AsyncWaitAvailable()
+        auto UpdateWithEdits(int newVersion, ArrayView<TextEdit> edits) -> std::shared_ptr<BackgroundCompilation>;
+
+        // Returns a sender that completes when the compilation is done.
+        // User still needs to check availability and expiration after the sender completes.
+        auto AsyncWaitReady()
         {
             return latchCompilation.AsyncWait();
         }
 
+        // If the preamble for the next compilation is available to be consumed.
         auto IsPreambleAvailable() const -> bool
         {
             return isPreambleAvailable.load(std::memory_order_acquire);
         }
 
+        // If the compilation result is available to be consumed.
         auto IsAvailable() const -> bool
         {
             return isAvailable.load(std::memory_order_acquire);
         }
 
-        auto SetExpired() -> void
-        {
-            isExpired.store(true, std::memory_order_relaxed);
-        }
-
+        // If the compilation is superseded by a newer version.
         auto IsExpired() const -> bool
         {
             return isExpired.load(std::memory_order_relaxed);
