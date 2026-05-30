@@ -218,14 +218,17 @@ namespace glsld
         }
 
         server.LogInfo("Editing document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
-        ctx->UpdateTextDocument(
-            params.textDocument.version,
-            params.contentChanges | std::views::transform([](const lsp::TextDocumentContentChangeEvent& change) {
-                return TextEdit{
-                    .range   = change.range.transform(&FromLspRange),
-                    .newText = change.text,
-                };
-            }) | std::ranges::to<std::vector>());
+
+        // FIXME: range::to is not available in CI environment yet :(
+        std::vector<TextEdit> edits;
+        edits.reserve(params.contentChanges.size());
+        for (const auto& change : params.contentChanges) {
+            edits.push_back(TextEdit{
+                .range   = change.range.transform(&FromLspRange),
+                .newText = change.text,
+            });
+        }
+        ctx->UpdateTextDocument(params.textDocument.version, edits);
         ScheduleBackgroundCompilation(*ctx);
         ScheduleBackgroundDiagnostic(*ctx);
 

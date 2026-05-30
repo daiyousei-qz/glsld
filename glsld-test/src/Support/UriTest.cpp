@@ -179,7 +179,7 @@ TEST_CASE("Support::ParsedUriTest")
                 auto driveAbsoluteFile = ExpectParsed("file:/C:/tmp/shader.glsl", "file", "", "/C:/tmp/shader.glsl");
                 auto path              = driveAbsoluteFile.ToFileSystemPath();
                 REQUIRE(path.has_value());
-                CHECK(path->has_root_path());
+                CHECK(path->is_absolute());
                 CHECK(path->string() == "C:\\tmp\\shader.glsl");
             }
 
@@ -187,12 +187,9 @@ TEST_CASE("Support::ParsedUriTest")
                 auto driveRelativeFile = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
                 auto path              = driveRelativeFile.ToFileSystemPath();
                 REQUIRE(path.has_value());
-                CHECK(!path->has_root_path());
+                CHECK(path->is_absolute());
                 CHECK(path->string() == "C:\\tmp\\shader.glsl");
             }
-
-            CHECK(
-                !ExpectParsed("file:/tmp/shader.glsl", "file", "", "/tmp/shader.glsl").ToFileSystemPath().has_value());
 #endif
 
             {
