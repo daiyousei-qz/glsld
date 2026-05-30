@@ -11,7 +11,6 @@ on:
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
-  CPM_BUILD_CACHE: ${{ github.workspace }}/.cache/CPM/build
 
 jobs:
   build:
@@ -52,22 +51,11 @@ jobs:
         restore-keys: |
           cpm-src-${{ runner.os }}-
 
-    - name: CPM Cache build
-      uses: actions/cache@v5
-      with:
-        path: ${{ env.CPM_BUILD_CACHE }}
-        key: cpm-build-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', '.github/workflows/cmake.yml') }}
-        restore-keys: |
-          cpm-build-${{ runner.os }}-
-
     - name: Install Toolchain
       run: ${{ matrix.config.preinstall }}
 
     - name: Configure CMake
-      run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ env.CPM_SOURCE_CACHE }} -DCPM_LIBRARY_BUILD_DIR=${{ env.CPM_BUILD_CACHE }}
-
-    - name: Build external dependencies
-      run: cmake --build ${{ github.workspace }}/build/CPM --parallel --target install
+      run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ env.CPM_SOURCE_CACHE }}
 
     - name: Build Project
       run: cmake --build ${{ github.workspace }}/build --parallel
