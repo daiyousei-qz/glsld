@@ -58,10 +58,7 @@ jobs:
       run: ${{ matrix.config.preinstall }}
 
     - name: Configure CMake
-      run: cmake --preset Release \
-                 -DCPM_SOURCE_CACHE=${{ env.CPM_SOURCE_CACHE }} \
-                 -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-                 -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+      run: cmake --preset Release -DCPM_SOURCE_CACHE=${{ env.CPM_SOURCE_CACHE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
     - name: Build Project
       run: cmake --build ${{ github.workspace }}/build --parallel
