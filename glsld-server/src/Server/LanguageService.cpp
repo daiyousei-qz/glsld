@@ -14,7 +14,6 @@
 #include "Server/LanguageQueryInfo.h"
 #include "Support/SimpleTimer.h"
 #include "Support/SourceText.h"
-#include "Support/Uri.h"
 
 namespace glsld
 {
@@ -48,43 +47,6 @@ namespace glsld
         }
 
         return GlslShaderStage::Unknown;
-    }
-
-    auto LanguageService::TextDocumentContext::InitializeTextDocument(const lsp::DidOpenTextDocumentParams& params)
-        -> void
-    {
-        backgroundCompilation = std::make_shared<BackgroundCompilation>(
-            params.textDocument.version, UnescapeHttp(params.textDocument.uri), params.textDocument.text,
-            LanguageConfig{.stage = InferShaderStageFromUri(params.textDocument.uri)}, nullptr);
-    }
-
-    auto LanguageService::TextDocumentContext::UpdateTextDocument(const lsp::DidChangeTextDocumentParams& params)
-        -> void
-    {
-        backgroundCompilation->SetExpired();
-
-        // TODO: Could have a buffer manager so we don't keep allocating new buffers if user types faster than
-        // compilation
-        // TODO: Research whether adding a line-offset hints vector speeds up editing
-        auto sourceBuffer = backgroundCompilation->GetBuffer().Str();
-        for (const auto& change : params.contentChanges) {
-            if (change.range) {
-                ApplySourceChange(sourceBuffer, FromLspRange(*change.range), StringView{change.text});
-            }
-            else {
-                sourceBuffer = std::move(change.text);
-            }
-        }
-
-        auto nextConfig   = backgroundCompilation->GetNextLanguageConfig();
-        auto nextPreamble = backgroundCompilation->GetNextPreamble();
-        if (nextPreamble && nextPreamble->GetLanguageConfig() != nextConfig) {
-            // Preamble is outdated, discard it
-            nextPreamble = nullptr;
-        }
-        backgroundCompilation =
-            std::make_shared<BackgroundCompilation>(params.textDocument.version, UnescapeHttp(params.textDocument.uri),
-                                                    std::move(sourceBuffer), nextConfig, nextPreamble);
     }
 
     auto LanguageService::ScheduleBackgroundCompilation(TextDocumentContext& ctx) -> void
@@ -237,11 +199,12 @@ namespace glsld
             return;
         }
 
-        ctx = std::make_unique<TextDocumentContext>(params);
+        server.LogInfo("Opening document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
+        ctx = std::make_unique<TextDocumentContext>(params.textDocument.uri, params.textDocument.version,
+                                                    std::move(params.textDocument.text));
         ScheduleBackgroundCompilation(*ctx);
         ScheduleBackgroundDiagnostic(*ctx);
 
-        server.LogInfo("Opened document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri,
                         ctx->GetBackgroundCompilation()->GetBuffer());
     }
@@ -254,11 +217,21 @@ namespace glsld
             return;
         }
 
-        ctx->UpdateTextDocument(params);
+        server.LogInfo("Editing document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
+
+        // FIXME: range::to is not available in CI environment yet :(
+        std::vector<TextEdit> edits;
+        edits.reserve(params.contentChanges.size());
+        for (const auto& change : params.contentChanges) {
+            edits.push_back(TextEdit{
+                .range   = change.range.transform(&FromLspRange),
+                .newText = change.text,
+            });
+        }
+        ctx->UpdateTextDocument(params.textDocument.version, edits);
         ScheduleBackgroundCompilation(*ctx);
         ScheduleBackgroundDiagnostic(*ctx);
 
-        server.LogInfo("Edited document: {}. New version is {}", params.textDocument.uri, params.textDocument.version);
         server.LogDebug("Document updated: {}\n{}", params.textDocument.uri,
                         ctx->GetBackgroundCompilation()->GetBuffer());
     }
@@ -272,10 +245,9 @@ namespace glsld
             return;
         }
 
+        server.LogInfo("Closing document: {}", params.textDocument.uri);
         ScheduleBackgroundClosingDocument(std::move(itCtx->second));
         documentContexts.Erase(itCtx);
-
-        server.LogInfo("Closing document: {}", params.textDocument.uri);
     }
 
 #pragma endregion
@@ -287,9 +259,17 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "documentSymbol", uri);
         ScheduleLanguageQuery<std::monostate>(uri, [&server = this->server, requestId, params = std::move(params)](
-                                                       const LanguageQueryInfo& queryInfo, std::monostate&) {
+                                                       const LanguageQueryInfo* queryInfo, std::monostate&) {
+            if (!queryInfo) {
+                server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                               "documentSymbol", params.textDocument.uri);
+                server.SendServerResponse(requestId,
+                                          lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                return;
+            }
+
             SimpleTimer timer;
-            auto result = HandleDocumentSymbol(server.GetConfig().languageService.documentSymbol, queryInfo, params);
+            auto result = HandleDocumentSymbol(server.GetConfig().languageService.documentSymbol, *queryInfo, params);
             server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "documentSymbol",
                            timer.GetElapsedMilliseconds());
@@ -300,18 +280,26 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensFull", uri);
-        ScheduleLanguageQuery<SemanticTokenState>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo,
-                                                               SemanticTokenState& state) {
-                SimpleTimer timer;
-                lsp::SemanticTokens result =
-                    HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, queryInfo, state, params);
-                server.SendServerResponse(requestId, result, false);
-                server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
-                               timer.GetElapsedMilliseconds());
+        ScheduleLanguageQuery<SemanticTokenState>(uri, [this, requestId,
+                                                        params = std::move(params)](const LanguageQueryInfo* queryInfo,
+                                                                                    SemanticTokenState& state) {
+            if (!queryInfo) {
+                server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                               "semanticTokensFull", params.textDocument.uri);
+                server.SendServerResponse(requestId,
+                                          lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                return;
+            }
 
-                PublishInactiveRegions(params.textDocument.uri, queryInfo);
-            });
+            SimpleTimer timer;
+            lsp::SemanticTokens result =
+                HandleSemanticTokens(server.GetConfig().languageService.semanticTokens, *queryInfo, state, params);
+            server.SendServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensFull",
+                           timer.GetElapsedMilliseconds());
+
+            PublishInactiveRegions(params.textDocument.uri, *queryInfo);
+        });
     }
 
     auto LanguageService::OnSemanticTokensDelta(int requestId, lsp::SemanticTokensDeltaParams params) -> void
@@ -319,17 +307,25 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "semanticTokensDelta", uri);
         ScheduleLanguageQuery<SemanticTokenState>(uri, [this, requestId,
-                                                        params = std::move(params)](const LanguageQueryInfo& queryInfo,
+                                                        params = std::move(params)](const LanguageQueryInfo* queryInfo,
                                                                                     SemanticTokenState& state) {
+            if (!queryInfo) {
+                server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                               "semanticTokensDelta", params.textDocument.uri);
+                server.SendServerResponse(requestId,
+                                          lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                return;
+            }
+
             SimpleTimer timer;
             std::variant<lsp::SemanticTokens, lsp::SemanticTokensDelta> result =
-                HandleSemanticTokensDelta(server.GetConfig().languageService.semanticTokens, queryInfo, state, params);
+                HandleSemanticTokensDelta(server.GetConfig().languageService.semanticTokens, *queryInfo, state, params);
             std::visit([&](auto&& arg) { server.SendServerResponse(requestId, arg, false); }, result);
 
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "semanticTokensDelta",
                            timer.GetElapsedMilliseconds());
 
-            PublishInactiveRegions(params.textDocument.uri, queryInfo);
+            PublishInactiveRegions(params.textDocument.uri, *queryInfo);
         });
     }
 
@@ -338,10 +334,18 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "completion", uri);
         ScheduleLanguageQuery<CompletionState>(uri, [this, requestId, params = std::move(params)](
-                                                        const LanguageQueryInfo& queryInfo, CompletionState& state) {
+                                                        const LanguageQueryInfo* queryInfo, CompletionState& state) {
+            if (!queryInfo) {
+                server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                               "completion", params.textDocument.uri);
+                server.SendServerResponse(requestId,
+                                          lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                return;
+            }
+
             SimpleTimer timer;
             lsp::CompletionList result =
-                HandleCompletion(server.GetConfig().languageService.completion, queryInfo, state, params);
+                HandleCompletion(server.GetConfig().languageService.completion, *queryInfo, state, params);
             server.SendServerResponse(requestId, result, false);
             server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "completion",
                            timer.GetElapsedMilliseconds());
@@ -352,30 +356,47 @@ namespace glsld
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "signatureHelp", uri);
-        ScheduleLanguageQuery<SignatureHelpState>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo,
-                                                               SignatureHelpState& state) {
-                SimpleTimer timer;
-                std::optional<lsp::SignatureHelp> result =
-                    HandleSignatureHelp(server.GetConfig().languageService.signatureHelp, queryInfo, state, params);
-                server.SendServerResponse(requestId, result, false);
-                server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "signatureHelp",
-                               timer.GetElapsedMilliseconds());
-            });
+        ScheduleLanguageQuery<SignatureHelpState>(uri, [this, requestId,
+                                                        params = std::move(params)](const LanguageQueryInfo* queryInfo,
+                                                                                    SignatureHelpState& state) {
+            if (!queryInfo) {
+                server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                               "signatureHelp", params.textDocument.uri);
+                server.SendServerResponse(requestId,
+                                          lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                return;
+            }
+
+            SimpleTimer timer;
+            std::optional<lsp::SignatureHelp> result =
+                HandleSignatureHelp(server.GetConfig().languageService.signatureHelp, *queryInfo, state, params);
+            server.SendServerResponse(requestId, result, false);
+            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "signatureHelp",
+                           timer.GetElapsedMilliseconds());
+        });
     }
 
     auto LanguageService::OnHover(int requestId, lsp::HoverParams params) -> void
     {
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "hover", uri);
-        ScheduleLanguageQuery<std::monostate>(uri, [this, requestId, params = std::move(params)](
-                                                       const LanguageQueryInfo& queryInfo, std::monostate&) {
-            SimpleTimer timer;
-            std::optional<lsp::Hover> result = HandleHover(server.GetConfig().languageService.hover, queryInfo, params);
-            server.SendServerResponse(requestId, result, false);
-            server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "hover",
-                           timer.GetElapsedMilliseconds());
-        });
+        ScheduleLanguageQuery<std::monostate>(
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo* queryInfo, std::monostate&) {
+                if (!queryInfo) {
+                    server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                                   "hover", params.textDocument.uri);
+                    server.SendServerResponse(
+                        requestId, lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                    return;
+                }
+
+                SimpleTimer timer;
+                std::optional<lsp::Hover> result =
+                    HandleHover(server.GetConfig().languageService.hover, *queryInfo, params);
+                server.SendServerResponse(requestId, result, false);
+                server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "hover",
+                               timer.GetElapsedMilliseconds());
+            });
     }
 
     auto LanguageService::OnDefinition(int requestId, lsp::DefinitionParams params) -> void
@@ -383,10 +404,18 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "definition", uri);
         ScheduleLanguageQuery<std::monostate>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo, std::monostate&) {
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo* queryInfo, std::monostate&) {
+                if (!queryInfo) {
+                    server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                                   "definition", params.textDocument.uri);
+                    server.SendServerResponse(
+                        requestId, lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                    return;
+                }
+
                 SimpleTimer timer;
                 std::vector<lsp::Location> result =
-                    HandleDefinition(server.GetConfig().languageService.definition, queryInfo, params);
+                    HandleDefinition(server.GetConfig().languageService.definition, *queryInfo, params);
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "definition",
                                timer.GetElapsedMilliseconds());
@@ -398,10 +427,18 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "references", uri);
         ScheduleLanguageQuery<std::monostate>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo, std::monostate&) {
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo* queryInfo, std::monostate&) {
+                if (!queryInfo) {
+                    server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                                   "references", params.textDocument.uri);
+                    server.SendServerResponse(
+                        requestId, lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                    return;
+                }
+
                 SimpleTimer timer;
                 std::vector<lsp::Location> result =
-                    HandleReferences(server.GetConfig().languageService.reference, queryInfo, params);
+                    HandleReferences(server.GetConfig().languageService.reference, *queryInfo, params);
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "references",
                                timer.GetElapsedMilliseconds());
@@ -413,10 +450,18 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "inlayHint", uri);
         ScheduleLanguageQuery<std::monostate>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo, std::monostate&) {
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo* queryInfo, std::monostate&) {
+                if (!queryInfo) {
+                    server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                                   "inlayHint", params.textDocument.uri);
+                    server.SendServerResponse(
+                        requestId, lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                    return;
+                }
+
                 SimpleTimer timer;
                 std::vector<lsp::InlayHint> result =
-                    HandleInlayHints(server.GetConfig().languageService.inlayHint, queryInfo, params);
+                    HandleInlayHints(server.GetConfig().languageService.inlayHint, *queryInfo, params);
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "inlayHint",
                                timer.GetElapsedMilliseconds());
@@ -428,10 +473,18 @@ namespace glsld
         auto uri = params.textDocument.uri;
         server.LogInfo("Received request {} {}: {}", requestId, "foldingRange", uri);
         ScheduleLanguageQuery<std::monostate>(
-            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo& queryInfo, std::monostate&) {
+            uri, [this, requestId, params = std::move(params)](const LanguageQueryInfo* queryInfo, std::monostate&) {
+                if (!queryInfo) {
+                    server.LogInfo("Failed to handle request {} {}: compilation failed for document {}", requestId,
+                                   "foldingRange", params.textDocument.uri);
+                    server.SendServerResponse(
+                        requestId, lsp::ResponseError{.code = -32803, .message = "Compilation failed."}, true);
+                    return;
+                }
+
                 SimpleTimer timer;
                 std::vector<lsp::FoldingRange> result =
-                    HandleFoldingRange(server.GetConfig().languageService.foldingRange, queryInfo, params);
+                    HandleFoldingRange(server.GetConfig().languageService.foldingRange, *queryInfo, params);
                 server.SendServerResponse(requestId, result, false);
                 server.LogInfo("Responded to request {} {}. Processing took {} ms", requestId, "foldingRange",
                                timer.GetElapsedMilliseconds());

@@ -58,12 +58,12 @@ namespace glsld
 
             auto InferShaderStageFromUri(StringView uri) -> GlslShaderStage;
 
-            auto InitializeTextDocument(const lsp::DidOpenTextDocumentParams& params) -> void;
-
         public:
-            TextDocumentContext(const lsp::DidOpenTextDocumentParams& params)
+            TextDocumentContext(StringView uri, int version, std::string text)
             {
-                InitializeTextDocument(params);
+                backgroundCompilation = std::make_shared<BackgroundCompilation>(
+                    version, uri.Str(), std::move(text), LanguageConfig{.stage = InferShaderStageFromUri(uri)},
+                    nullptr);
             }
 
             auto GetAsyncScope() -> exec::async_scope&
@@ -76,7 +76,10 @@ namespace glsld
                 return backgroundCompilation;
             }
 
-            auto UpdateTextDocument(const lsp::DidChangeTextDocumentParams& params) -> void;
+            auto UpdateTextDocument(int newVersion, ArrayView<TextEdit> edits) -> void
+            {
+                backgroundCompilation = backgroundCompilation->UpdateWithEdits(newVersion, edits);
+            }
 
             template <typename StateType>
             auto GetLanguageFeatureState() -> FeatureStateObject&
@@ -107,7 +110,7 @@ namespace glsld
         // runs the callback.
         template <typename StateType>
         auto ScheduleLanguageQuery(StringView uri,
-                                   std::move_only_function<auto(const LanguageQueryInfo&, StateType&)->void> callback)
+                                   std::move_only_function<auto(const LanguageQueryInfo*, StateType&)->void> callback)
             -> void
         {
             auto& ctx = documentContexts[uri];
@@ -124,7 +127,7 @@ namespace glsld
             FeatureStateObject& stateObject = ctx->GetLanguageFeatureState<StateType>();
             ctx->GetAsyncScope().spawn(
                 // Wait for the background compilation to finish
-                ctx->GetBackgroundCompilation()->AsyncWaitAvailable()
+                ctx->GetBackgroundCompilation()->AsyncWaitReady()
                 // Acquire the state lock if necessary
                 | stdexec::let_value([&stateObject] {
                       if constexpr (std::is_const_v<StateType> || std::is_same_v<StateType, std::monostate>) {
@@ -140,8 +143,14 @@ namespace glsld
                 // Finally handle the query
                 | stdexec::then([backgroundCompilation = ctx->GetBackgroundCompilation(), &stateObject,
                                  callback = std::move(callback)](std::unique_lock<AsyncMutex> /*lock*/) mutable {
-                      callback(backgroundCompilation->GetLanguageQueryInfo(),
-                               std::any_cast<StateType&>(stateObject.state));
+                      // FIXME: should we check expiration here and skip running the callback if it is expired? If so,
+                      // how to handle the response in that case?
+                      const LanguageQueryInfo* queryInfo = nullptr;
+                      if (backgroundCompilation->IsAvailable()) {
+                          queryInfo = &backgroundCompilation->GetLanguageQueryInfo();
+                      }
+
+                      callback(queryInfo, std::any_cast<StateType&>(stateObject.state));
                   }));
         }
 

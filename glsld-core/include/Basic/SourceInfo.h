@@ -5,6 +5,7 @@
 #include <compare>
 #include <cstring>
 #include <limits>
+#include <optional>
 
 namespace glsld
 {
@@ -151,6 +152,14 @@ namespace glsld
     {
         FileID fileID;
         TextRange range;
+    };
+
+    struct TextEdit
+    {
+        // If nullopt, the edit applies to the whole document.
+        std::optional<TextRange> range;
+
+        StringView newText;
     };
 
     // This class represents a readonly view to the source text.
