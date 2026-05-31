@@ -115,7 +115,7 @@ namespace glsld
             auto operator[](StringView key) -> decltype(auto)
                 requires IsMap
             {
-                // Since transparent operator[] needs c++26, we have to implement it manually
+                // FIXME: Since transparent operator[] needs c++26, we have to implement it manually
                 auto it = Find(key);
                 if (it == end()) {
                     return (Insert(ValueType{key.Str(), {}}).first->second);
