@@ -35,8 +35,8 @@ namespace glsld
 
         // Called when a `#include "header.h"` directive is encountered
         // - headerName is the name token of the header file, including quotes or angle brackets
-        // - resolvedPath is the resolved absolute path of the header file, or "" if not found
-        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+        // - resolvedUri is the resolved URI of the header file, or "" if not found
+        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedUri)
             -> void
         {
         }
@@ -139,11 +139,11 @@ namespace glsld
             second->OnUnknownPragmaDirective(tokens);
         }
 
-        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+        virtual auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedUri)
             -> void override
         {
-            first->OnIncludeDirective(tokens, headerName, resolvedPath);
-            second->OnIncludeDirective(tokens, headerName, resolvedPath);
+            first->OnIncludeDirective(tokens, headerName, resolvedUri);
+            second->OnIncludeDirective(tokens, headerName, resolvedUri);
         }
 
         virtual auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName,

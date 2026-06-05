@@ -19,10 +19,15 @@ namespace glsld
         this->preamble       = std::move(preamble);
     }
 
-    auto CompilerInvocation::SetMainFileFromFile(StringView path) -> void
+    auto CompilerInvocation::AddIncludeUri(ParsedUri uri) -> void
+    {
+        compilerConfig.includeUris.push_back(uri.NormalizeToDirectory());
+    }
+
+    auto CompilerInvocation::SetMainFileFromUri(ParsedUri uri) -> void
     {
         // FIXME: report error
-        mainFileId = sourceManager.OpenFromFile(path.StdStrView());
+        mainFileId = sourceManager.OpenFromUri(uri);
     }
 
     auto CompilerInvocation::SetMainFileFromBuffer(SourceTextView sourceText) -> void

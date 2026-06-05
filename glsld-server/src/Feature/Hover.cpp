@@ -93,7 +93,7 @@ namespace glsld
             return HoverContent{
                 .type        = SymbolDeclType::HeaderName,
                 .name        = symbolInfo.spelledText,
-                .description = fmt::format("See `{}`", headerNameInfo->headerAbsolutePath),
+                .description = fmt::format("See `{}`", headerNameInfo->headerResolvedUri),
                 .range       = symbolInfo.spelledRange,
             };
         }
@@ -207,9 +207,9 @@ namespace glsld
             .code        = std::move(reconstructedDecl),
             .range       = symbolInfo.spelledRange,
             .unknown     = !symbolInfo.symbolDecl && symbolInfo.symbolType != SymbolDeclType::Swizzle &&
-                       symbolInfo.symbolType != SymbolDeclType::LayoutQualifier,
-            .builtin = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
-                                                    TranslationUnitID::SystemPreamble,
+                           symbolInfo.symbolType != SymbolDeclType::LayoutQualifier,
+            .builtin     = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
+                                                        TranslationUnitID::SystemPreamble,
         };
     }
 

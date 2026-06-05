@@ -12,7 +12,7 @@
 #include <chrono>
 #include <memory>
 #include <vector>
-#include <filesystem>
+#include <utility>
 
 namespace glsld
 {
@@ -91,11 +91,12 @@ namespace glsld
             compilerConfig.countUtf16Character = value;
         }
 
-        auto AddIncludePath(const std::filesystem::path& path) -> void
+        auto SetVirtualFileSystem(std::shared_ptr<VirtualFileSystem> vfs) -> void
         {
-            // FIXME: Check if path is valid
-            compilerConfig.includePaths.push_back(path);
+            sourceManager.SetVirtualFileSystem(std::move(vfs));
         }
+
+        auto AddIncludeUri(ParsedUri uri) -> void;
 
         auto SetGlslVersion(GlslVersion version, GlslProfile profile) -> void
         {
@@ -140,7 +141,7 @@ namespace glsld
             sourceManager.SetUserPreamble(content);
         }
 
-        auto SetMainFileFromFile(StringView path) -> void;
+        auto SetMainFileFromUri(ParsedUri uri) -> void;
 
         // User should ensure that the source text outlive the CompilerInvocation
         auto SetMainFileFromBuffer(SourceTextView sourceText) -> void;

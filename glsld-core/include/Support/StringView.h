@@ -197,6 +197,11 @@ namespace glsld
 
         // Predicates
 
+        [[nodiscard]] constexpr auto Equals(StringView other) const noexcept -> bool
+        {
+            return view == other.view;
+        }
+
         [[nodiscard]] constexpr auto EqualsIgnoreCase(StringView other) const noexcept -> bool
         {
             if (view.size() != other.view.size()) {

@@ -2,9 +2,11 @@
 #include "Basic/Print.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
+#include "Support/Uri.h"
 
 #include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 
@@ -137,7 +139,9 @@ namespace glsld
             compiler->SetNoStdlib(true);
         }
 
-        compiler->AddIncludePath(inputFilePath.parent_path());
+        if (auto includeUri = FileSystemPathToUri(inputFilePath.parent_path(), true); includeUri) {
+            compiler->AddIncludeUri(includeUri->GetParsedUri());
+        }
         if (args.dumpTokens) {
             compiler->SetDumpTokens(true);
         }
@@ -146,7 +150,11 @@ namespace glsld
         }
 
         compiler->SetShaderStage(ParseShaderStage(args));
-        compiler->SetMainFileFromFile(args.inputFile);
+        auto mainFileUri = FileSystemPathToUri(inputFilePath);
+        if (!mainFileUri) {
+            return;
+        }
+        compiler->SetMainFileFromUri(mainFileUri->GetParsedUri());
 
         VersionExtensionCollector ppCallback{*compiler};
         compiler->ScanVersionAndExtension(&ppCallback);

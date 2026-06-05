@@ -1,5 +1,11 @@
 #include "Compiler/PPEval.h"
 #include "CompilerTestFixture.h"
+#include "Support/Uri.h"
+#include "Support/VirtualFileSystem.h"
+
+#include <chrono>
+#include <filesystem>
+#include <fstream>
 
 using namespace glsld;
 
@@ -66,6 +72,65 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
         TestPPCallback testCallback;
         Compile(sourceText, CompileMode::PreprocessOnly, &testCallback);
+    }
+
+    SECTION("Include")
+    {
+        struct IncludeDirectiveCallback : public PPCallback
+        {
+            std::vector<std::string> resolvedUris;
+
+            auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedUri)
+                -> void override
+            {
+                resolvedUris.push_back(resolvedUri.Str());
+            }
+        };
+
+        SECTION("MemoryFile")
+        {
+            auto vfs = std::make_shared<InMemoryFileSystem>();
+            REQUIRE(vfs->AddFile("mem:/shader/main.glsl", R"(
+                #include "include/header.glsl"
+                HEADER_VALUE
+            )")
+                        .has_value());
+            REQUIRE(vfs->AddFile("mem:/shader/include/header.glsl", R"(
+                #define HEADER_VALUE vfs_token
+            )")
+                        .has_value());
+
+            auto mainUri = ParsedUri::Parse("mem:/shader/main.glsl");
+            REQUIRE(mainUri.has_value());
+
+            IncludeDirectiveCallback callback;
+            auto result = CompileWithVfs(*mainUri, vfs, CompileMode::PreprocessOnly, &callback);
+
+            REQUIRE(result != nullptr);
+            REQUIRE(callback.resolvedUris == std::vector<std::string>{"mem:/shader/include/header.glsl"});
+            CheckTokens(result->GetUserFileArtifacts().GetTokens(), {IdTok("vfs_token"), EofTok()});
+        }
+
+        SECTION("Unresolved")
+        {
+            auto vfs = std::make_shared<InMemoryFileSystem>();
+            REQUIRE(vfs->AddFile("mem:/shader/main.glsl", R"(
+                #include "missing.glsl"
+            )")
+                        .has_value());
+
+            auto mainUri = ParsedUri::Parse("mem:/shader/main.glsl");
+            REQUIRE(mainUri.has_value());
+
+            IncludeDirectiveCallback callback;
+            auto result = CompileWithVfs(*mainUri, vfs, CompileMode::PreprocessOnly, &callback);
+
+            REQUIRE(result != nullptr);
+            REQUIRE(callback.resolvedUris == std::vector<std::string>{""});
+            CheckTokens(result->GetUserFileArtifacts().GetTokens(), {EofTok()});
+        }
+
+        // FIXME: Should also test custom include uris
     }
 
     SECTION("Macro")

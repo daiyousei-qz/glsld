@@ -15,7 +15,7 @@ struct MacroSymbolExpectedResult
 
 struct HeaderSymbolExpectedResult
 {
-    std::string headerAbsolutePath;
+    std::string headerResolvedUri;
 };
 
 struct AstSymbolExpectedResult
@@ -58,7 +58,7 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::SymbolQueryTest")
             REQUIRE(queryResult->ppSymbolOccurrence->GetHeaderNameInfo() != nullptr);
 
             const auto& headerNameInfo = *queryResult->ppSymbolOccurrence->GetHeaderNameInfo();
-            REQUIRE(headerNameInfo.headerAbsolutePath == expectedHeader->headerAbsolutePath);
+            REQUIRE(headerNameInfo.headerResolvedUri == expectedHeader->headerResolvedUri);
         }
         else if (auto expectedAst = std::get_if<AstSymbolExpectedResult>(&expectedResult.symbolOccurrence)) {
             REQUIRE(queryResult->astSymbolOccurrence != nullptr);
@@ -80,7 +80,7 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::SymbolQueryTest")
                                          .spelledRangeLabels = {"header1.begin", "header1.end"},
                                          .symbolOccurrence =
                                              HeaderSymbolExpectedResult{
-                                                 .headerAbsolutePath = "",
+                                                 .headerResolvedUri = "",
                                              },
                                      });
         checkSymbol("header2.begin", SymbolQueryExpectedResult{
@@ -89,7 +89,7 @@ TEST_CASE_METHOD(ServerTestFixture, "Server::SymbolQueryTest")
                                          .spelledRangeLabels = {"header2.begin", "header2.end"},
                                          .symbolOccurrence =
                                              HeaderSymbolExpectedResult{
-                                                 .headerAbsolutePath = "",
+                                                 .headerResolvedUri = "",
                                              },
                                      });
     }

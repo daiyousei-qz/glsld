@@ -12,7 +12,7 @@ namespace glsld
     struct PPHeaderNameSymbol
     {
         PPToken headerName;
-        std::string headerAbsolutePath;
+        std::string headerResolvedUri;
     };
 
     enum class PPMacroOccurrenceType

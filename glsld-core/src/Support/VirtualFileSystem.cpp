@@ -135,7 +135,7 @@ namespace glsld
                 return nullptr;
             }
 
-            auto it = currentEntry->children.Find(*DecodeUriComponent(component));
+            auto it = currentEntry->children.Find(*PercentDecodeUriComponent(component));
             if (it == currentEntry->children.end()) {
                 return nullptr;
             }
@@ -162,7 +162,7 @@ namespace glsld
                 return nullptr;
             }
 
-            currentEntry = &currentEntry->children[*DecodeUriComponent(component)];
+            currentEntry = &currentEntry->children[*PercentDecodeUriComponent(component)];
         }
 
         return currentEntry;

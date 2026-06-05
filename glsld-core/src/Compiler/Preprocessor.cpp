@@ -4,6 +4,7 @@
 #include "Compiler/SyntaxToken.h"
 #include "Language/ShaderTarget.h"
 #include "Support/ScopeExit.h"
+#include "Support/Uri.h"
 
 #include <string>
 
@@ -540,21 +541,29 @@ namespace glsld
                 // FIXME: report warning, extra tokens after the header file name
             }
 
-            // Search for the header file in the include paths and load the source text.
+            // Search for the header file in the include URI roots and load the source text.
             StringView headerName = headerNameToken->text.StrView().Drop(1).DropBack(1);
             FileID includeFile;
-            for (const auto& includePath : compilerConfig.includePaths) {
+            StringView resolvedUri;
+            // FIXME: header name may be a windows path. We should transform that to a URI-compatible path.
+            auto encodedHeaderName = PercentEncodeUriComponent(headerName);
+            for (const auto& includeUri : compilerConfig.includeUris) {
                 // TODO: distinguish between system include and user include
-                includeFile = sourceManager.OpenFromFile(includePath / headerName.StdStrView());
+                auto resolvedIncludeUri = includeUri.GetParsedUri().MergePath(encodedHeaderName);
+                if (!resolvedIncludeUri) {
+                    continue;
+                }
+
+                includeFile = sourceManager.OpenFromUri(resolvedIncludeUri->GetParsedUri());
                 if (includeFile.IsValid()) {
+                    resolvedUri = sourceManager.GetUri(includeFile);
                     break;
                 }
             }
 
             // Run PP callback event if any
             if (callback) {
-                callback->OnIncludeDirective(scanner.AllTokens(), *headerNameToken,
-                                             sourceManager.GetAbsolutePath(includeFile));
+                callback->OnIncludeDirective(scanner.AllTokens(), *headerNameToken, resolvedUri);
             }
 
             if (!includeFile.IsValid()) {
