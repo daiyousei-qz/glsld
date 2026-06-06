@@ -139,9 +139,12 @@ namespace glsld
             compiler->SetNoStdlib(true);
         }
 
-        if (auto includeUri = FileSystemPathToUri(inputFilePath.parent_path(), true); includeUri) {
-            compiler->AddIncludeUri(includeUri->GetParsedUri());
+        auto inputFileUri = FileSystemPathToUri(inputFilePath);
+        if (!inputFileUri) {
+            Print("Error: Failed to convert input file path to URI: {}\n", inputFilePath.string());
+            return;
         }
+
         if (args.dumpTokens) {
             compiler->SetDumpTokens(true);
         }
@@ -150,11 +153,8 @@ namespace glsld
         }
 
         compiler->SetShaderStage(ParseShaderStage(args));
-        auto mainFileUri = FileSystemPathToUri(inputFilePath);
-        if (!mainFileUri) {
-            return;
-        }
-        compiler->SetMainFileFromUri(mainFileUri->GetParsedUri());
+        compiler->AddIncludeUri(inputFileUri->GetParsedUri());
+        compiler->SetMainFileFromUri(inputFileUri->GetParsedUri());
 
         VersionExtensionCollector ppCallback{*compiler};
         compiler->ScanVersionAndExtension(&ppCallback);

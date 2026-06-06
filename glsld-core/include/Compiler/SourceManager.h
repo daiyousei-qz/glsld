@@ -33,7 +33,7 @@ namespace glsld
 
         SourceTextView userPreamble;
 
-        std::vector<SourceFileEntry> entries;
+        std::deque<SourceFileEntry> entries;
 
         std::deque<std::string> ownedFileContents;
 
