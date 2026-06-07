@@ -117,7 +117,7 @@ namespace glsld
 
     auto InMemoryFileSystem::GetPathEntry(const ParsedUri& uri) -> DirectoryOrFile*
     {
-        auto rootKey = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority());
+        auto rootKey = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority().GetText());
         auto rootIt  = uriRoots.Find(StringView{rootKey});
         if (rootIt == uriRoots.end()) {
             return nullptr;
@@ -135,7 +135,12 @@ namespace glsld
                 return nullptr;
             }
 
-            auto it = currentEntry->children.Find(*PercentDecodeUriComponent(component));
+            auto decodedComponent = PercentEncodedView{component}.DecodeAll();
+            if (!decodedComponent) {
+                return nullptr;
+            }
+
+            auto it = currentEntry->children.Find(*decodedComponent);
             if (it == currentEntry->children.end()) {
                 return nullptr;
             }
@@ -147,7 +152,7 @@ namespace glsld
 
     auto InMemoryFileSystem::GetOrCreatePathEntry(const ParsedUri& uri) -> DirectoryOrFile*
     {
-        auto rootKey   = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority());
+        auto rootKey   = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority().GetText());
         auto rootEntry = &uriRoots[StringView{rootKey}];
 
         auto normalizedPath = uri.GetNormalizedPath();
@@ -162,7 +167,12 @@ namespace glsld
                 return nullptr;
             }
 
-            currentEntry = &currentEntry->children[*PercentDecodeUriComponent(component)];
+            auto decodedComponent = PercentEncodedView{component}.DecodeAll();
+            if (!decodedComponent) {
+                return nullptr;
+            }
+
+            currentEntry = &currentEntry->children[*decodedComponent];
         }
 
         return currentEntry;

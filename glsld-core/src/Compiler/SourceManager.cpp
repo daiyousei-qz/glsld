@@ -11,6 +11,7 @@ namespace glsld
 
     auto SourceManager::OpenFromUri(ParsedUri uri) -> FileID
     {
+        // FIXME: this will fail miserably for symlink :(
         const auto normalizedUri     = uri.Normalize();
         const auto normalizedUriText = normalizedUri.GetRawText();
         if (auto it = lookupUriToEntries.Find(normalizedUriText); it != lookupUriToEntries.end()) {

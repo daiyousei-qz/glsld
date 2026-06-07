@@ -546,7 +546,7 @@ namespace glsld
             FileID includeFile;
             StringView resolvedUri;
             // FIXME: header name may be a windows path. We should transform that to a URI-compatible path.
-            auto encodedHeaderName = PercentEncodeUriComponent(headerName);
+            auto encodedHeaderName = PercentEncode(headerName);
             for (const auto& includeUri : compilerConfig.includeUris) {
                 // TODO: distinguish between system include and user include
                 auto resolvedIncludeUri = includeUri.GetParsedUri().MergePath(encodedHeaderName);
