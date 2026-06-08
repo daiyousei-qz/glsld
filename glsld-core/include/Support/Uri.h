@@ -169,20 +169,26 @@ namespace glsld
     private:
         StringView scheme;
         // Percent-encoded authority.
+        // As an optimization, we assume nullptr means authority is not present.
         StringView authority;
         // Percent-encoded path.
         StringView path;
-        bool hasAuthority;
 
-        ParsedUri(StringView scheme, StringView authority, StringView path, bool hasAuthority)
-            : scheme(scheme), authority(authority), path(path), hasAuthority(hasAuthority)
+        ParsedUri(StringView scheme, std::optional<StringView> authority, StringView path)
+            : scheme(scheme), authority(authority.value_or(StringView{})), path(path)
         {
+            static_assert(StringView{}.data() == nullptr);
         }
 
         friend class Uri;
 
     public:
         static auto Parse(StringView uri) -> std::optional<ParsedUri>;
+
+        auto HasAuthority() const -> bool
+        {
+            return authority.data() != nullptr;
+        }
 
         auto GetRawScheme() const -> StringView
         {
@@ -277,9 +283,13 @@ namespace glsld
 
         auto GetParsedUri() const -> ParsedUri
         {
-            return ParsedUri{StringView{rawUri.data() + schemeRange.offset, schemeRange.length},
-                             StringView{rawUri.data() + authorityRange.offset, authorityRange.length},
-                             StringView{rawUri.data() + pathRange.offset, pathRange.length}, authorityPresent};
+            auto scheme    = StringView{rawUri.data() + schemeRange.offset, schemeRange.length};
+            auto authority = authorityPresent ? std::optional<StringView>{StringView{
+                                                    rawUri.data() + authorityRange.offset, authorityRange.length}}
+                                              : std::nullopt;
+            auto path      = StringView{rawUri.data() + pathRange.offset, pathRange.length};
+
+            return ParsedUri{scheme, authority, path};
         }
     };
 

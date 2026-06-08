@@ -310,19 +310,19 @@ namespace glsld
 
     auto ParsedUri::Parse(StringView uri) -> std::optional<ParsedUri>
     {
-        auto [schemePart, inputAfterScheme] = ParseUriScheme(uri);
-        if (schemePart.empty()) {
+        auto [parsedScheme, inputAfterScheme] = ParseUriScheme(uri);
+        if (parsedScheme.empty()) {
             // Scheme is required for a valid Uri.
             return std::nullopt;
         }
 
-        auto [authorityPart, pathPart, remainingInput] = ParseUriComponentsAfterScheme(inputAfterScheme, false);
+        auto [parsedAuthority, parsedPath, remainingInput] = ParseUriComponentsAfterScheme(inputAfterScheme, false);
         if (!remainingInput.empty()) {
             // We don't support query and fragment part, so the remaining input must be empty for a valid Uri.
             return std::nullopt;
         }
 
-        return ParsedUri{schemePart, authorityPart.value_or(StringView{}), pathPart, authorityPart.has_value()};
+        return ParsedUri{parsedScheme, parsedAuthority, parsedPath};
     }
 
     auto ParsedUri::GetNormalizedScheme() const -> std::string
@@ -337,7 +337,7 @@ namespace glsld
 
     auto ParsedUri::Normalize() const -> Uri
     {
-        return Uri{NormalizeScheme(scheme), authority, NormalizePath(path), hasAuthority};
+        return Uri{NormalizeScheme(scheme), authority, NormalizePath(path), HasAuthority()};
     }
 
     auto ParsedUri::NormalizeToDirectory() const -> Uri
@@ -346,7 +346,7 @@ namespace glsld
         while (!normalizedPath.empty() && normalizedPath.back() != '/') {
             normalizedPath.pop_back();
         }
-        return Uri{NormalizeScheme(scheme), authority, normalizedPath, hasAuthority};
+        return Uri{NormalizeScheme(scheme), authority, normalizedPath, HasAuthority()};
     }
 
     auto ParsedUri::ToFileSystemPath() const -> std::optional<std::filesystem::path>
@@ -398,12 +398,12 @@ namespace glsld
             return std::nullopt;
         }
 
-        const auto mergedPath = MergePathHelper(path, parsedRefPath, hasAuthority);
+        const auto mergedPath = MergePathHelper(path, parsedRefPath, HasAuthority());
         if (!mergedPath.has_value()) {
             return std::nullopt;
         }
 
-        return Uri{scheme, authority, *mergedPath, hasAuthority};
+        return Uri{scheme, authority, *mergedPath, HasAuthority()};
     }
 
     auto ParsedUri::ResolveReference(StringView reference) const -> std::optional<Uri>
@@ -434,17 +434,17 @@ namespace glsld
         }
 
         if (parsedRefPath.empty()) {
-            return Uri{scheme, authority, path, hasAuthority};
+            return Uri{scheme, authority, path, HasAuthority()};
         }
 
         // Otherwise, it's a path-relative reference.
         // We have to merge it with the base Uri's path.
-        const auto mergedPath = MergePathHelper(path, parsedRefPath, hasAuthority);
+        const auto mergedPath = MergePathHelper(path, parsedRefPath, HasAuthority());
         if (!mergedPath.has_value()) {
             return std::nullopt;
         }
 
-        return Uri{scheme, authority, *mergedPath, hasAuthority};
+        return Uri{scheme, authority, *mergedPath, HasAuthority()};
     }
 
     auto FileSystemPathToUri(const std::filesystem::path& path, bool directory) -> std::optional<Uri>
