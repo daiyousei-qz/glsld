@@ -3,21 +3,6 @@
 
 namespace glsld
 {
-    static auto IsAscii(char ch) noexcept -> bool
-    {
-        return (ch & 0x80) == 0;
-    }
-
-    static auto IsAlpha(char ch) noexcept -> bool
-    {
-        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-    }
-
-    static auto IsDigit(char ch) noexcept -> bool
-    {
-        return ch >= '0' && ch <= '9';
-    }
-
     auto Tokenizer::TryConsumeLineContinuation() -> bool
     {
         bool consumed = false;

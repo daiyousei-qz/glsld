@@ -13,6 +13,61 @@ namespace glsld
     class ParsedUri;
     class Uri;
 
+    struct PercentDecodeResult
+    {
+        // The decoded character. It is '\0' if the input is empty or invalid for decoding.
+        char decodedChar;
+
+        // The number of characters that decoded character consumes. It is:
+        // - 0 if the input is empty or invalid for decoding.
+        // - 1 for a normal character
+        // - 3 for a percent-encoded character (e.g. "%20")
+        size_t consumedLength;
+    };
+
+    // A view to a percent-encoded string. It provides utilities to decode the string in a streaming way.
+    // Note validation of encoding is lazy, so decoding may fail and returns '\0'.
+    class PercentEncodedView
+    {
+    private:
+        const char* data;
+        size_t length;
+
+    public:
+        explicit PercentEncodedView(StringView encodedText) : data(encodedText.data()), length(encodedText.size())
+        {
+        }
+
+        auto Empty() const -> bool
+        {
+            return length == 0;
+        }
+
+        auto GetText() const -> StringView
+        {
+            return StringView{data, length};
+        }
+
+        // Decodes the first percent-encoded character.
+        auto DecodeFront() const -> PercentDecodeResult;
+
+        // Decodes the first percent-encoded character and drops it from the view.
+        auto DecodeFrontAndDrop() -> PercentDecodeResult;
+
+        auto DecodeAll() const -> std::optional<std::string>;
+
+        // Compares decoded text of this view and another percent-encoded view for equality.
+        // If any of the two views contains invalid percent-encoding, returns false.
+        auto Equals(PercentEncodedView other) const -> bool;
+
+        // Compares decoded text of this view and a normal string for equality.
+        // If this view contains invalid percent-encoding, returns false.
+        auto Equals(StringView other) const -> bool;
+    };
+
+    // Percent-encodes a path-like string for use as a URI path or path-relative reference.
+    auto PercentEncode(StringView text) -> std::string;
+
     // A lazy view to split a Uri path into segments. A segment is a substring between '/' characters or start/end of
     // the path. For example, the path "/a//b/c" will have ["", "a", "", "b", "c"] segments.
     //
@@ -54,9 +109,6 @@ namespace glsld
             using difference_type = std::ptrdiff_t;
             using value_type      = StringView;
 
-            SegmentIterator() : path(), segmentLength(0), nextSegmentOffset(0), finished(true)
-            {
-            }
             explicit SegmentIterator(StringView path) : path(path), segmentLength(0), nextSegmentOffset(0)
             {
                 if (path.empty()) {
@@ -96,7 +148,7 @@ namespace glsld
 
         auto begin() const -> SegmentIterator
         {
-            return path.empty() ? SegmentIterator{} : SegmentIterator{path};
+            return SegmentIterator{path};
         }
 
         auto end() const -> std::default_sentinel_t
@@ -116,7 +168,9 @@ namespace glsld
     {
     private:
         StringView scheme;
+        // Percent-encoded authority.
         StringView authority;
+        // Percent-encoded path.
         StringView path;
         bool hasAuthority;
 
@@ -134,14 +188,18 @@ namespace glsld
         {
             return scheme;
         }
-
-        auto GetRawAuthority() const -> StringView
+        auto GetRawAuthority() const -> PercentEncodedView
         {
-            return authority;
+            return PercentEncodedView{authority};
         }
-        auto GetRawPath() const -> StringView
+        auto GetRawPath() const -> PercentEncodedView
         {
-            return path;
+            return PercentEncodedView{path};
+        }
+
+        auto TestScheme(StringView scheme) const -> bool
+        {
+            return GetRawScheme().EqualsIgnoreCase(scheme);
         }
 
         // The scheme is case-insensitive, we normalize it to lower case when returning.
@@ -161,8 +219,14 @@ namespace glsld
         // Even if we return a path, it doesn't necessarily mean the path is valid or exists in the filesystem.
         auto ToFileSystemPath() const -> std::optional<std::filesystem::path>;
 
+        auto Normalize() const -> Uri;
+
+        auto NormalizeToDirectory() const -> Uri;
+
+        // Merges a path reference without removing dot segments.
         auto MergePath(StringView path) const -> std::optional<Uri>;
 
+        // Resolves a URI reference without removing dot segments.
         auto ResolveReference(StringView reference) const -> std::optional<Uri>;
     };
 
@@ -183,28 +247,29 @@ namespace glsld
         StringViewIndexPair pathRange;
         bool authorityPresent;
 
-    public:
-        explicit Uri(const ParsedUri& uri)
-        {
-            rawUri.reserve(uri.GetRawScheme().size() + uri.GetRawAuthority().size() + uri.GetRawPath().size() + 3);
+        friend class ParsedUri;
 
-            schemeRange = {0, static_cast<uint32_t>(uri.GetRawScheme().size())};
-            rawUri += uri.GetRawScheme();
+        explicit Uri(StringView normalizedScheme, StringView authorityText, StringView pathText, bool hasAuthority)
+        {
+            rawUri.reserve(normalizedScheme.size() + authorityText.size() + pathText.size() + 3);
+
+            schemeRange = {0, static_cast<uint32_t>(normalizedScheme.size())};
+            rawUri += normalizedScheme;
             rawUri += ':';
 
-            authorityPresent = uri.hasAuthority;
+            authorityPresent = hasAuthority;
             if (authorityPresent) {
                 rawUri += "//";
             }
 
-            authorityRange = {static_cast<uint32_t>(rawUri.size()),
-                              static_cast<uint32_t>(uri.GetRawAuthority().size())};
-            rawUri += uri.GetRawAuthority();
+            authorityRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(authorityText.size())};
+            rawUri += authorityText;
 
-            pathRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(uri.GetRawPath().size())};
-            rawUri += uri.GetRawPath();
+            pathRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(pathText.size())};
+            rawUri += pathText;
         }
 
+    public:
         auto GetRawText() const -> StringView
         {
             return rawUri;
@@ -218,12 +283,8 @@ namespace glsld
         }
     };
 
-    // Decodes a percent-encoded Uri component. If the component contains invalid percent-encoding, returns nullopt.
-    //
-    // Note we don't validate the syntax of the component here.
-    // FIXME: use std::function_ref instead
-    auto DecodeUriComponent(
-        StringView component, std::function<bool(char ch)> filter = [](char) { return true; })
-        -> std::optional<std::string>;
+    // Converts a native filesystem path to a file URI. If `directory` is true, the URI path is made directory-like by
+    // appending a trailing slash unless the path is empty.
+    auto FileSystemPathToUri(const std::filesystem::path& path, bool directory = false) -> std::optional<Uri>;
 
 } // namespace glsld

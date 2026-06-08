@@ -13,8 +13,8 @@ namespace
                               StringView expectedPath) -> void
     {
         CHECK(parsed.GetRawScheme() == expectedScheme);
-        CHECK(parsed.GetRawAuthority() == expectedAuthority);
-        CHECK(parsed.GetRawPath() == expectedPath);
+        CHECK(parsed.GetRawAuthority().GetText() == expectedAuthority);
+        CHECK(parsed.GetRawPath().GetText() == expectedPath);
     }
 
     auto ExpectParsed(StringView uri, StringView expectedScheme, StringView expectedAuthority, StringView expectedPath)
@@ -40,6 +40,19 @@ namespace
         return std::move(*uri);
     }
 
+    auto ExpectNormalized(std::optional<Uri> uri, StringView expectedScheme, StringView expectedAuthority,
+                          StringView expectedPath) -> Uri
+    {
+        REQUIRE(uri.has_value());
+
+        auto normalized = uri->GetParsedUri().Normalize();
+        INFO(fmt::format("Seeing normalized URI: {}", normalized.GetRawText()));
+
+        CheckParsedUriHelper(normalized.GetParsedUri(), expectedScheme, expectedAuthority, expectedPath);
+
+        return normalized;
+    }
+
     auto ExpectInvalidUri(StringView uri) -> void
     {
         INFO(fmt::format("Parsing URI: {}", uri));
@@ -47,13 +60,63 @@ namespace
         auto parsed = ParsedUri::Parse(uri);
         if (parsed.has_value()) {
             FAIL(fmt::format("Expected parsing to fail, but got scheme: '{}', authority: '{}', path: '{}'",
-                             parsed->GetRawScheme(), parsed->GetRawAuthority(), parsed->GetRawPath()));
+                             parsed->GetRawScheme(), parsed->GetRawAuthority().GetText(),
+                             parsed->GetRawPath().GetText()));
         }
     }
 } // namespace
 
 TEST_CASE("Support::ParsedUriTest")
 {
+    SECTION("PercentEncodedView")
+    {
+        auto decodeResult = PercentEncodedView{"simple"}.DecodeFront();
+        CHECK(decodeResult.decodedChar == 's');
+        CHECK(decodeResult.consumedLength == 1);
+
+        decodeResult = PercentEncodedView{"%20space"}.DecodeFront();
+        CHECK(decodeResult.decodedChar == ' ');
+        CHECK(decodeResult.consumedLength == 3);
+
+        decodeResult = PercentEncodedView{"%1"}.DecodeFront();
+        CHECK(decodeResult.decodedChar == '\0');
+        CHECK(decodeResult.consumedLength == 0);
+
+        decodeResult = PercentEncodedView{"%"}.DecodeFront();
+        CHECK(decodeResult.decodedChar == '\0');
+        CHECK(decodeResult.consumedLength == 0);
+
+        decodeResult = PercentEncodedView{""}.DecodeFront();
+        CHECK(decodeResult.decodedChar == '\0');
+        CHECK(decodeResult.consumedLength == 0);
+
+        CHECK(PercentEncodedView{"simple"}.DecodeAll() == "simple");
+        CHECK(PercentEncodedView{"with%20space"}.DecodeAll() == "with space");
+        CHECK(PercentEncodedView{"%E4%B8%AD%20space"}.DecodeAll() == "\xE4\xB8\xAD space");
+        CHECK(PercentEncodedView{"%2Fslash"}.DecodeAll() == "/slash");
+        CHECK(PercentEncodedView{"mixed%20%2F%3Achars"}.DecodeAll() == "mixed /:chars");
+
+        // Invalid percent-encoding should result in failure.
+        CHECK(PercentEncodedView{"%invalid%2Gencoding"}.DecodeAll() == std::nullopt);
+        CHECK(PercentEncodedView{"incomplete%2"}.DecodeAll() == std::nullopt);
+        CHECK(PercentEncodedView{"incomplete%2G"}.DecodeAll() == std::nullopt);
+        CHECK(PercentEncodedView{"%"}.DecodeAll() == std::nullopt);
+
+        CHECK(PercentEncodedView{"with%20space"}.Equals("with space"));
+        CHECK(PercentEncodedView{"mixed%20%2F%3Achars"}.Equals(PercentEncodedView{"mixed%20/%3Achars"}));
+
+        // Invalid syntax should result in non-equality even if the text is the same.
+        CHECK(!PercentEncodedView{"with%space"}.Equals("with%space"));
+    }
+
+    SECTION("PercentEncode")
+    {
+        CHECK(PercentEncode("simple") == "simple");
+        CHECK(PercentEncode("with space") == "with%20space");
+        CHECK(PercentEncode("percent% hash#") == "percent%25%20hash%23");
+        CHECK(PercentEncode("啊") == "%E5%95%8A");
+    }
+
     SECTION("UriPathSegmentView")
     {
         REQUIRE(std::vector<StringView>{std::from_range, UriPathSegmentView("")} == std::vector<StringView>{});
@@ -263,38 +326,38 @@ TEST_CASE("Support::ParsedUriTest")
             ExpectParsed(fileBase.MergePath("common.glsl"), "file", "", "/workspace/shaders/common.glsl");
             ExpectParsed(fileBase.MergePath("includes/lighting.glsl"), "file", "",
                          "/workspace/shaders/includes/lighting.glsl");
-            ExpectParsed(fileBase.MergePath("."), "file", "", "/workspace/shaders/");
-            ExpectParsed(fileBase.MergePath(".."), "file", "", "/workspace/");
-            ExpectParsed(fileBase.MergePath("./"), "file", "", "/workspace/shaders/");
-            ExpectParsed(fileBase.MergePath("../"), "file", "", "/workspace/");
-            ExpectParsed(fileBase.MergePath("../../test.glsl"), "file", "", "/test.glsl");
-            ExpectParsed(fileBase.MergePath("/shared/./include/../common.glsl"), "file", "", "/shared/common.glsl");
+            ExpectParsed(fileBase.MergePath("."), "file", "", "/workspace/shaders/.");
+            ExpectParsed(fileBase.MergePath(".."), "file", "", "/workspace/shaders/..");
+            ExpectParsed(fileBase.MergePath("./"), "file", "", "/workspace/shaders/./");
+            ExpectParsed(fileBase.MergePath("../"), "file", "", "/workspace/shaders/../");
+            ExpectParsed(fileBase.MergePath("../../test.glsl"), "file", "", "/workspace/shaders/../../test.glsl");
+            ExpectParsed(fileBase.MergePath("/shared/./include/../common.glsl"), "file", "",
+                         "/shared/./include/../common.glsl");
             // Empty path should be preserved for URI handling.
-            ExpectParsed(fileBase.MergePath(".///test.glsl"), "file", "", "/workspace/shaders///test.glsl");
+            ExpectParsed(fileBase.MergePath(".///test.glsl"), "file", "", "/workspace/shaders/.///test.glsl");
 
             auto directoryBase = ExpectParsed("file:/workspace/shaders/", "file", "", "/workspace/shaders/");
             ExpectParsed(directoryBase.MergePath("lighting.glsl"), "file", "", "/workspace/shaders/lighting.glsl");
-            ExpectParsed(directoryBase.MergePath("."), "file", "", "/workspace/shaders/");
-            ExpectParsed(directoryBase.MergePath(".."), "file", "", "/workspace/");
-            ExpectParsed(directoryBase.MergePath(".//"), "file", "", "/workspace/shaders//");
-            // Path cannot start with "//" if there's no authority, so merging with ".//" should fail.
-            REQUIRE(!directoryBase.MergePath("../..//").has_value());
+            ExpectParsed(directoryBase.MergePath("."), "file", "", "/workspace/shaders/.");
+            ExpectParsed(directoryBase.MergePath(".."), "file", "", "/workspace/shaders/..");
+            ExpectParsed(directoryBase.MergePath(".//"), "file", "", "/workspace/shaders/.//");
+            ExpectParsed(directoryBase.MergePath("../..//"), "file", "", "/workspace/shaders/../..//");
 
             auto baseWithDotSegments = ExpectParsed("file:/workspace/shaders/./generated/../main.glsl", "file", "",
                                                     "/workspace/shaders/./generated/../main.glsl");
-            // Merging path dot segments removal.
+            // MergePath appends to all but the last base path segment and leaves dot-segment removal to Normalize().
             ExpectParsed(baseWithDotSegments.MergePath("../include/common.glsl"), "file", "",
-                         "/workspace/include/common.glsl");
+                         "/workspace/shaders/./generated/../../include/common.glsl");
 
             auto rootlessBase = ExpectParsed("untitled:main.glsl", "untitled", "", "main.glsl");
             ExpectParsed(rootlessBase.MergePath("common.glsl"), "untitled", "", "common.glsl");
-            ExpectParsed(rootlessBase.MergePath("."), "untitled", "", "");
-            ExpectParsed(rootlessBase.MergePath(".."), "untitled", "", "");
+            ExpectParsed(rootlessBase.MergePath("."), "untitled", "", ".");
+            ExpectParsed(rootlessBase.MergePath(".."), "untitled", "", "..");
 
             auto emptyBase = ExpectParsed("untitled:", "untitled", "", "");
             ExpectParsed(emptyBase.MergePath("path/to/resource"), "untitled", "", "path/to/resource");
-            ExpectParsed(emptyBase.MergePath("."), "untitled", "", "");
-            ExpectParsed(emptyBase.MergePath(".."), "untitled", "", "");
+            ExpectParsed(emptyBase.MergePath("."), "untitled", "", ".");
+            ExpectParsed(emptyBase.MergePath(".."), "untitled", "", "..");
         }
 
         SECTION("Preserves authority while merging")
@@ -302,14 +365,15 @@ TEST_CASE("Support::ParsedUriTest")
             auto base =
                 ExpectParsed("cache://address/project/src/main.glsl", "cache", "address", "/project/src/main.glsl");
             ExpectParsed(base.MergePath("include/common.glsl"), "cache", "address", "/project/src/include/common.glsl");
-            ExpectParsed(base.MergePath("../include/common.glsl"), "cache", "address", "/project/include/common.glsl");
+            ExpectParsed(base.MergePath("../include/common.glsl"), "cache", "address",
+                         "/project/src/../include/common.glsl");
 
             auto emptyBase = ExpectParsed("cache://address", "cache", "address", "");
             ExpectParsed(emptyBase.MergePath("main.glsl"), "cache", "address", "/main.glsl");
             // TODO: should we produce "cache://address" or "cache://address/"?
-            ExpectParsed(emptyBase.MergePath("."), "cache", "address", "/");
-            ExpectParsed(emptyBase.MergePath(".."), "cache", "address", "/");
-            ExpectParsed(emptyBase.MergePath("./"), "cache", "address", "/");
+            ExpectParsed(emptyBase.MergePath("."), "cache", "address", "/.");
+            ExpectParsed(emptyBase.MergePath(".."), "cache", "address", "/..");
+            ExpectParsed(emptyBase.MergePath("./"), "cache", "address", "/./");
         }
 
         SECTION("Rejects invalid path syntax")
@@ -334,11 +398,11 @@ TEST_CASE("Support::ParsedUriTest")
                 ExpectParsed("cache://workspace/project/src/main.glsl", "cache", "workspace", "/project/src/main.glsl");
 
             ExpectParsed(base.ResolveReference("common.glsl"), "cache", "workspace", "/project/src/common.glsl");
-            ExpectParsed(base.ResolveReference("./common.glsl"), "cache", "workspace", "/project/src/common.glsl");
+            ExpectParsed(base.ResolveReference("./common.glsl"), "cache", "workspace", "/project/src/./common.glsl");
             ExpectParsed(base.ResolveReference("../include/common.glsl"), "cache", "workspace",
-                         "/project/include/common.glsl");
+                         "/project/src/../include/common.glsl");
             ExpectParsed(base.ResolveReference("/shared/./include/../common.glsl"), "cache", "workspace",
-                         "/shared/common.glsl");
+                         "/shared/./include/../common.glsl");
             ExpectParsed(base.ResolveReference("generated//common.glsl"), "cache", "workspace",
                          "/project/src/generated//common.glsl");
             ExpectParsed(base.ResolveReference(""), "cache", "workspace", "/project/src/main.glsl");
@@ -352,7 +416,8 @@ TEST_CASE("Support::ParsedUriTest")
             ExpectParsed(base.ResolveReference("//other/project/main.glsl"), "cache", "other", "/project/main.glsl");
             ExpectParsed(base.ResolveReference("//other"), "cache", "other", "");
             ExpectParsed(base.ResolveReference("///absolute/path.glsl"), "cache", "", "/absolute/path.glsl");
-            ExpectParsed(base.ResolveReference("//other/./path/../main.glsl"), "cache", "other", "/main.glsl");
+            ExpectParsed(base.ResolveReference("//other/./path/../main.glsl"), "cache", "other",
+                         "/./path/../main.glsl");
         }
 
         SECTION("Uses absolute URI references directly")
@@ -360,11 +425,39 @@ TEST_CASE("Support::ParsedUriTest")
             auto base =
                 ExpectParsed("cache://workspace/project/src/main.glsl", "cache", "workspace", "/project/src/main.glsl");
 
-            ExpectParsed(base.ResolveReference("file:/tmp/../shader.glsl"), "file", "", "/shader.glsl");
+            ExpectParsed(base.ResolveReference("file:/tmp/../shader.glsl"), "file", "", "/tmp/../shader.glsl");
             ExpectParsed(base.ResolveReference("file:///tmp/shader.glsl"), "file", "", "/tmp/shader.glsl");
-            ExpectParsed(base.ResolveReference("mem://other/root/./shader.glsl"), "mem", "other", "/root/shader.glsl");
-            ExpectParsed(base.ResolveReference("untitled:relative/../shader.glsl"), "untitled", "", "shader.glsl");
+            ExpectParsed(base.ResolveReference("mem://other/root/./shader.glsl"), "mem", "other",
+                         "/root/./shader.glsl");
+            ExpectParsed(base.ResolveReference("untitled:relative/../shader.glsl"), "untitled", "",
+                         "relative/../shader.glsl");
             ExpectParsed(base.ResolveReference("FILE:/Case/Path.glsl"), "FILE", "", "/Case/Path.glsl");
+        }
+
+        SECTION("Normalizes supported RFC 3986 reference-resolution examples")
+        {
+            // Query and fragment are intentionally unsupported, so this mirrors the RFC 3986 examples without "?q".
+            auto base = ExpectParsed("http://a/b/c/d;p", "http", "a", "/b/c/d;p");
+
+            ExpectNormalized(base.ResolveReference("g:h"), "g", "", "h");
+            ExpectNormalized(base.ResolveReference("g"), "http", "a", "/b/c/g");
+            ExpectNormalized(base.ResolveReference("./g"), "http", "a", "/b/c/g");
+            ExpectNormalized(base.ResolveReference("g/"), "http", "a", "/b/c/g/");
+            ExpectNormalized(base.ResolveReference("/g"), "http", "a", "/g");
+            ExpectNormalized(base.ResolveReference("//g"), "http", "g", "");
+            ExpectNormalized(base.ResolveReference(";x"), "http", "a", "/b/c/;x");
+            ExpectNormalized(base.ResolveReference("g;x"), "http", "a", "/b/c/g;x");
+            ExpectNormalized(base.ResolveReference(""), "http", "a", "/b/c/d;p");
+            ExpectNormalized(base.ResolveReference("."), "http", "a", "/b/c/");
+            ExpectNormalized(base.ResolveReference("./"), "http", "a", "/b/c/");
+            ExpectNormalized(base.ResolveReference(".."), "http", "a", "/b/");
+            ExpectNormalized(base.ResolveReference("../"), "http", "a", "/b/");
+            ExpectNormalized(base.ResolveReference("../g"), "http", "a", "/b/g");
+            ExpectNormalized(base.ResolveReference("../.."), "http", "a", "/");
+            ExpectNormalized(base.ResolveReference("../../"), "http", "a", "/");
+            ExpectNormalized(base.ResolveReference("../../g"), "http", "a", "/g");
+            ExpectNormalized(base.ResolveReference("../../../g"), "http", "a", "/g");
+            ExpectNormalized(base.ResolveReference("../../../../g"), "http", "a", "/g");
         }
 
         SECTION("Rejects invalid reference syntax")
@@ -381,25 +474,5 @@ TEST_CASE("Support::ParsedUriTest")
             CHECK(base.ResolveReference("scheme:/bad path").has_value() == false);
             CHECK(base.ResolveReference("scheme:/bad%2").has_value() == false);
         }
-    }
-
-    SECTION("DecodeUriComponent")
-    {
-        CHECK(DecodeUriComponent("simple") == "simple");
-        CHECK(DecodeUriComponent("with%20space") == "with space");
-        CHECK(DecodeUriComponent("%E4%B8%AD%20space") == "\xE4\xB8\xAD space");
-        CHECK(DecodeUriComponent("%2Fslash") == "/slash");
-        CHECK(DecodeUriComponent("mixed%20%2F%3Achars") == "mixed /:chars");
-
-        // Invalid percent-encoding should result in failure.
-        CHECK(DecodeUriComponent("%invalid%2Gencoding") == std::nullopt);
-        CHECK(DecodeUriComponent("incomplete%2") == std::nullopt);
-        CHECK(DecodeUriComponent("incomplete%2G") == std::nullopt);
-        CHECK(DecodeUriComponent("%") == std::nullopt);
-
-        // With filter that disallows space character in percent-encoded characters.
-        CHECK(DecodeUriComponent("with%20space", [](char ch) { return ch != ' '; }) == std::nullopt);
-        CHECK(DecodeUriComponent("%E4%B8%AD%20space", [](char ch) { return ch != ' '; }) == std::nullopt);
-        CHECK(DecodeUriComponent("simple", [](char) { return false; }) == "simple");
     }
 }

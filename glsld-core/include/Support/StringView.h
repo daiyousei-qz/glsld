@@ -1,4 +1,6 @@
 #pragma once
+#include "Support/CharUtils.h"
+
 #include <fmt/format.h>
 
 #include <concepts>
@@ -103,7 +105,7 @@ namespace glsld
         [[nodiscard]] constexpr auto TrimFront() const noexcept -> StringView
         {
             for (size_t i = 0; i < view.size(); ++i) {
-                if (!isspace(view[i])) {
+                if (!IsWhitespace(view[i])) {
                     return Drop(i);
                 }
             }
@@ -113,7 +115,7 @@ namespace glsld
         [[nodiscard]] constexpr auto TrimBack() const noexcept -> StringView
         {
             for (size_t n = view.size(); n > 0; --n) {
-                if (!isspace(view[n - 1])) {
+                if (!IsWhitespace(view[n - 1])) {
                     return Take(n);
                 }
             }
@@ -194,6 +196,21 @@ namespace glsld
         }
 
         // Predicates
+
+        [[nodiscard]] constexpr auto EqualsIgnoreCase(StringView other) const noexcept -> bool
+        {
+            if (view.size() != other.view.size()) {
+                return false;
+            }
+
+            for (size_t i = 0; i < view.size(); ++i) {
+                if (ToLower(view[i]) != ToLower(other.view[i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         [[nodiscard]] constexpr auto Contains(char ch) const noexcept -> bool
         {
