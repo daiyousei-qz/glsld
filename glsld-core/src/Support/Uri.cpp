@@ -115,7 +115,7 @@ namespace glsld
     }
 
     // Assuming path is a valid Uri path component.
-    static auto NormalizePath(StringView path) -> std::string
+    static auto RemoveDotSegments(StringView path) -> std::string
     {
         if (path.empty()) {
             return "";
@@ -332,12 +332,12 @@ namespace glsld
 
     auto ParsedUri::GetNormalizedPath() const -> std::string
     {
-        return NormalizePath(path);
+        return RemoveDotSegments(path);
     }
 
     auto ParsedUri::Normalize() const -> Uri
     {
-        return Uri{NormalizeScheme(scheme), authority, NormalizePath(path), HasAuthority()};
+        return Uri{NormalizeScheme(scheme), authority, RemoveDotSegments(path), HasAuthority()};
     }
 
     auto ParsedUri::NormalizeToDirectory() const -> Uri

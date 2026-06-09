@@ -221,6 +221,11 @@ namespace glsld
             return UriPathSegmentView{path};
         }
 
+        auto RemoveFileName() const -> ParsedUri
+        {
+            return ParsedUri{scheme, authority, path.DropBackWhile([](char ch) { return ch != '/'; })};
+        }
+
         // Converts the uri to a filesystem path. We only promise we don't change the semantics of a valid path.
         // Even if we return a path, it doesn't necessarily mean the path is valid or exists in the filesystem.
         auto ToFileSystemPath() const -> std::optional<std::filesystem::path>;
@@ -255,12 +260,12 @@ namespace glsld
 
         friend class ParsedUri;
 
-        explicit Uri(StringView normalizedScheme, StringView authorityText, StringView pathText, bool hasAuthority)
+        Uri(StringView scheme, StringView authority, StringView path, bool hasAuthority)
         {
-            rawUri.reserve(normalizedScheme.size() + authorityText.size() + pathText.size() + 3);
+            rawUri.reserve(scheme.size() + authority.size() + path.size() + 3);
 
-            schemeRange = {0, static_cast<uint32_t>(normalizedScheme.size())};
-            rawUri += normalizedScheme;
+            schemeRange = {0, static_cast<uint32_t>(scheme.size())};
+            rawUri += scheme;
             rawUri += ':';
 
             authorityPresent = hasAuthority;
@@ -268,11 +273,11 @@ namespace glsld
                 rawUri += "//";
             }
 
-            authorityRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(authorityText.size())};
-            rawUri += authorityText;
+            authorityRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(authority.size())};
+            rawUri += authority;
 
-            pathRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(pathText.size())};
-            rawUri += pathText;
+            pathRange = {static_cast<uint32_t>(rawUri.size()), static_cast<uint32_t>(path.size())};
+            rawUri += path;
         }
 
     public:
@@ -283,11 +288,12 @@ namespace glsld
 
         auto GetParsedUri() const -> ParsedUri
         {
-            auto scheme    = StringView{rawUri.data() + schemeRange.offset, schemeRange.length};
-            auto authority = authorityPresent ? std::optional<StringView>{StringView{
-                                                    rawUri.data() + authorityRange.offset, authorityRange.length}}
-                                              : std::nullopt;
-            auto path      = StringView{rawUri.data() + pathRange.offset, pathRange.length};
+            auto scheme = StringView{rawUri.data() + schemeRange.offset, schemeRange.length};
+            auto authority =
+                authorityPresent
+                    ? std::optional{StringView{rawUri.data() + authorityRange.offset, authorityRange.length}}
+                    : std::nullopt;
+            auto path = StringView{rawUri.data() + pathRange.offset, pathRange.length};
 
             return ParsedUri{scheme, authority, path};
         }
