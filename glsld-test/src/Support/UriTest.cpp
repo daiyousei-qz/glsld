@@ -108,6 +108,7 @@ TEST_CASE("Support::ParsedUriTest")
 
         // Invalid syntax should result in non-equality even if the text is the same.
         CHECK(!PercentEncodedView{"with%space"}.Equals("with%space"));
+        CHECK(!PercentEncodedView{"%GG"}.Equals(PercentEncodedView{"%GG"}));
     }
 
     SECTION("PercentEncode")

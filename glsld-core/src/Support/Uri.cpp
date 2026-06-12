@@ -228,10 +228,14 @@ namespace glsld
     static auto EqualPercentDecodedHelper(const char* lhsData, size_t lhsLength, const char* rhsData, size_t rhsLength)
         -> bool
     {
-        while (lhsLength > 0 && rhsLength > 0) {
+        while (true) {
             PercentDecodeResult lhsDecoded = DecodePercentEncodedHelper<LhsIsPercentEncoded>(lhsData, lhsLength);
             PercentDecodeResult rhsDecoded = DecodePercentEncodedHelper<RhsIsPercentEncoded>(rhsData, rhsLength);
 
+            if (lhsDecoded.consumedLength == 0 || rhsDecoded.consumedLength == 0) {
+                // Invalid percent-encoding should halt the comparison.
+                break;
+            }
             if (lhsDecoded.decodedChar != rhsDecoded.decodedChar) {
                 return false;
             }
@@ -425,7 +429,14 @@ namespace glsld
             }
 
             if (decodeResult.consumedLength == 0) {
-                break;
+                if (pathDecodingView.Empty()) {
+                    // We have decoded the whole path successfully.
+                    break;
+                }
+                else {
+                    // Invalid percent-encoding in the middle of the path.
+                    return std::nullopt;
+                }
             }
             percentDecodedPath += decodeResult.decodedChar;
         }
