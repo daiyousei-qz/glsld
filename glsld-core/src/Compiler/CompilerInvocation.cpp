@@ -21,7 +21,8 @@ namespace glsld
 
     auto CompilerInvocation::AddIncludeUri(ParsedUri uri) -> void
     {
-        compilerConfig.includeUris.push_back(uri.NormalizeToDirectory());
+        // FIXME: "file:/tmp/.." would be simplified into "file:/tmp/", which is incorrect.
+        compilerConfig.includeUris.push_back(uri.RemoveFileName().ToUri());
     }
 
     auto CompilerInvocation::SetMainFileFromUri(ParsedUri uri) -> void

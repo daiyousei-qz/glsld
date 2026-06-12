@@ -132,16 +132,14 @@ namespace glsld
 
     static auto DoMain(ProgramArgs args) -> void
     {
-        std::filesystem::path inputFilePath = args.inputFile;
-
         auto compiler = std::make_unique<CompilerInvocation>();
         if (args.noStdlib) {
             compiler->SetNoStdlib(true);
         }
 
-        auto inputFileUri = FileSystemPathToUri(inputFilePath);
+        auto inputFileUri = FileSystemPathToUri(args.inputFile);
         if (!inputFileUri) {
-            Print("Error: Failed to convert input file path to URI: {}\n", inputFilePath.string());
+            Print("Error: Failed to convert input file path to URI: {}\n", args.inputFile);
             return;
         }
 

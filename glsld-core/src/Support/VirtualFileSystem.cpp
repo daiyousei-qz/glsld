@@ -56,7 +56,7 @@ namespace glsld
 
     auto NativeFileSystem::ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError>
     {
-        auto path = uri.ToFileSystemPath();
+        auto path = UriToFileSystemPath(uri);
         if (!path) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
@@ -75,17 +75,17 @@ namespace glsld
 
     auto NativeFileSystem::ReadAllTextImpl(const ParsedUri& uri) -> std::expected<std::string, FileSystemError>
     {
-        auto path = uri.ToFileSystemPath();
+        auto path = UriToFileSystemPath(uri);
         if (!path) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
 
-        auto file = std::fopen(path->string().c_str(), "rb");
+        auto file = std::fopen(path->c_str(), "rb");
         if (!file) {
             return std::unexpected(TranslateFileSystemError(errno));
         }
 
-        ScopeExit fileCloser([file]() { std::fclose(file); });
+        ScopeExit _{[file]() { std::fclose(file); }};
 
         if (std::fseek(file, 0, SEEK_END) != 0) {
             return std::unexpected(TranslateFileSystemError(errno));

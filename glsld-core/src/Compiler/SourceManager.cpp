@@ -12,23 +12,23 @@ namespace glsld
     auto SourceManager::OpenFromUri(ParsedUri uri) -> FileID
     {
         // FIXME: this will fail miserably for symlink :(
-        const auto normalizedUri     = uri.Normalize();
-        const auto normalizedUriText = normalizedUri.GetRawText();
-        if (auto it = lookupUriToEntries.Find(normalizedUriText); it != lookupUriToEntries.end()) {
+        const auto persistUri = uri.ToUri();
+        const auto uriText    = persistUri.GetRawText();
+        if (auto it = lookupUriToEntries.Find(uriText); it != lookupUriToEntries.end()) {
             return it->second;
         }
 
-        auto fileContent = vfs->ReadAllText(normalizedUri.GetParsedUri());
+        auto fileContent = vfs->ReadAllText(persistUri.GetParsedUri());
         if (!fileContent) {
-            lookupUriToEntries[normalizedUriText] = {};
+            lookupUriToEntries[uriText] = {};
             return {};
         }
 
         ownedFileContents.push_back(std::move(*fileContent));
         const auto& result =
-            entries.emplace_back(GetNextFileID(), normalizedUriText.Str(), SourceTextView{ownedFileContents.back()});
+            entries.emplace_back(GetNextFileID(), uriText.Str(), SourceTextView{ownedFileContents.back()});
 
-        lookupUriToEntries[normalizedUriText] = result.id;
+        lookupUriToEntries[uriText] = result.id;
         return result.id;
     }
 } // namespace glsld
