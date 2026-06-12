@@ -335,59 +335,14 @@ namespace glsld
         return RemoveDotSegments(path);
     }
 
-    auto ParsedUri::Normalize() const -> Uri
+    auto ParsedUri::ToUri() const -> Uri
+    {
+        return Uri{scheme, authority, path, HasAuthority()};
+    }
+
+    auto ParsedUri::ToNormalizedUri() const -> Uri
     {
         return Uri{NormalizeScheme(scheme), authority, RemoveDotSegments(path), HasAuthority()};
-    }
-
-    auto ParsedUri::NormalizeToDirectory() const -> Uri
-    {
-        auto normalizedPath = GetNormalizedPath();
-        while (!normalizedPath.empty() && normalizedPath.back() != '/') {
-            normalizedPath.pop_back();
-        }
-        return Uri{NormalizeScheme(scheme), authority, normalizedPath, HasAuthority()};
-    }
-
-    auto ParsedUri::ToFileSystemPath() const -> std::optional<std::filesystem::path>
-    {
-        if (!TestScheme("file") || !authority.empty()) {
-            return std::nullopt;
-        }
-
-        std::string percentDecodedPathBuffer;
-        percentDecodedPathBuffer.reserve(path.size());
-        for (PercentEncodedView pathDecodingView{path};;) {
-            PercentDecodeResult decodeResult = pathDecodingView.DecodeFrontAndDrop();
-            if (decodeResult.consumedLength > 1) {
-                switch (decodeResult.decodedChar) {
-                case '\0':
-                case '\\':
-                case '/':
-                    // We should reject these characters in file path for security reason.
-                    return std::nullopt;
-                default:
-                    break;
-                }
-            }
-
-            if (decodeResult.consumedLength == 0) {
-                break;
-            }
-            percentDecodedPathBuffer += decodeResult.decodedChar;
-        }
-
-        StringView percentDecodedPath = percentDecodedPathBuffer;
-#if GLSLD_OS_WIN
-        // On Windows, absolute path in uri looks like "/C:/path/to/file"
-        // We need to remove the leading '/'.
-        if (percentDecodedPath.size() >= 3 && percentDecodedPath[0] == '/' && IsAlpha(percentDecodedPath[1]) &&
-            percentDecodedPath[2] == ':') {
-            percentDecodedPath = percentDecodedPath.Drop(1);
-        }
-#endif
-
-        return std::filesystem::path{percentDecodedPath.StdStrView()};
     }
 
     auto ParsedUri::MergePath(StringView referencePath) const -> std::optional<Uri>
@@ -447,30 +402,98 @@ namespace glsld
         return Uri{scheme, authority, *mergedPath, HasAuthority()};
     }
 
-    auto FileSystemPathToUri(const std::filesystem::path& path, bool directory) -> std::optional<Uri>
+    auto UriToFileSystemPath(const ParsedUri& uri) -> std::optional<std::string>
     {
-        std::string uriPath;
-        try {
-            uriPath = path.generic_string();
-        }
-        catch (const std::filesystem::filesystem_error&) {
+        if (!uri.TestScheme("file") || !uri.GetRawAuthority().Empty()) {
             return std::nullopt;
         }
-#if GLSLD_OS_WIN
-        if (path.is_absolute() && uriPath.size() >= 2 && IsAlpha(uriPath[0]) && uriPath[1] == ':') {
-            uriPath.insert(uriPath.begin(), '/');
-        }
-        // FIXME: Properly handle Windows UNC path.
-#endif
-        if (directory && !uriPath.empty() && !StringView{uriPath}.EndWith('/')) {
-            uriPath.push_back('/');
+
+        std::string percentDecodedPath;
+        percentDecodedPath.reserve(uri.GetRawPath().GetText().size());
+        for (PercentEncodedView pathDecodingView = uri.GetRawPath();;) {
+            PercentDecodeResult decodeResult = pathDecodingView.DecodeFrontAndDrop();
+            if (decodeResult.consumedLength > 1) {
+                switch (decodeResult.decodedChar) {
+                case '\0':
+                case '\\':
+                case '/':
+                    // We should reject these characters in file path for security reason.
+                    return std::nullopt;
+                default:
+                    break;
+                }
+            }
+
+            if (decodeResult.consumedLength == 0) {
+                break;
+            }
+            percentDecodedPath += decodeResult.decodedChar;
         }
 
-        auto uriText   = fmt::format("file:{}", PercentEncode(uriPath));
-        auto parsedUri = ParsedUri::Parse(uriText);
+#if GLSLD_OS_WIN
+        // On Windows, absolute path in uri looks like "/C:/path/to/file"
+        // We need to remove the leading '/'.
+        if (percentDecodedPath.size() >= 3 && percentDecodedPath[0] == '/' && IsAlpha(percentDecodedPath[1]) &&
+            percentDecodedPath[2] == ':') {
+            percentDecodedPath.erase(percentDecodedPath.begin());
+        }
+#endif
+
+        return percentDecodedPath;
+    }
+
+    static auto IsAbsolutePath(StringView path) -> bool
+    {
+#if GLSLD_OS_WIN
+        if (path.size() < 3) {
+            return false;
+        }
+        if (!IsAlpha(path[0]) || path[1] != ':' || !(path[2] == '/' || path[2] == '\\')) {
+            return false;
+        }
+        return true;
+#else
+        return path.StartWith('/');
+#endif
+    }
+
+    auto FileSystemPathToUri(StringView path, bool directory) -> std::optional<Uri>
+    {
+        if (!IsAbsolutePath(path)) {
+            return std::nullopt;
+        }
+
+        std::string uriBuffer;
+        uriBuffer.reserve(6 + path.size() + (directory ? 1 : 0));
+
+        uriBuffer = "file:";
+
+#if GLSLD_OS_WIN
+        // Drive-absolute paths are written as "/C:/path" in file URIs.
+        uriBuffer += '/';
+#endif
+
+        for (char ch : path) {
+            if (ch == '\0') {
+                return std::nullopt;
+            }
+
+#if GLSLD_OS_WIN
+            uriBuffer += ch == '\\' ? '/' : ch;
+#else
+            uriBuffer += ch;
+#endif
+        }
+
+        if (directory && !uriBuffer.empty() && uriBuffer.back() != '/') {
+            uriBuffer += '/';
+        }
+
+        auto encodedPath = PercentEncode(uriBuffer);
+        auto parsedUri   = ParsedUri::Parse(encodedPath);
         if (!parsedUri) {
             return std::nullopt;
         }
-        return parsedUri->Normalize();
+        return parsedUri->ToUri();
     }
 } // namespace glsld

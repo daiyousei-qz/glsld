@@ -6,6 +6,8 @@
 #include "Support/ScopeExit.h"
 #include "Support/Uri.h"
 
+#include <filesystem>
+
 namespace glsld
 {
     class LanguageConfigCollector : public PPCallback
@@ -68,8 +70,8 @@ namespace glsld
         compiler->SetCountUtf16Characters(true);
         compiler->SetMainFileFromBuffer(sourceString);
 
-        if (auto filePath = parsedUri->ToFileSystemPath(); filePath) {
-            compiler->AddIncludePath(filePath->parent_path());
+        if (auto filePath = UriToFileSystemPath(*parsedUri); filePath) {
+            compiler->AddIncludePath(std::filesystem::path{*filePath}.parent_path());
         }
 
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};

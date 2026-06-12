@@ -226,13 +226,16 @@ namespace glsld
             return ParsedUri{scheme, authority, path.DropBackWhile([](char ch) { return ch != '/'; })};
         }
 
-        // Converts the uri to a filesystem path. We only promise we don't change the semantics of a valid path.
-        // Even if we return a path, it doesn't necessarily mean the path is valid or exists in the filesystem.
-        auto ToFileSystemPath() const -> std::optional<std::filesystem::path>;
+        // Converts this view to a Uri object that owns the full uri string.
+        auto ToUri() const -> Uri;
 
-        auto Normalize() const -> Uri;
-
-        auto NormalizeToDirectory() const -> Uri;
+        // Converts this view to a lexically normal Uri object with that owns the full uri string.
+        // The normalization includes:
+        // - Scheme is lower-cased.
+        // - Dot segments in the path are removed.
+        // Note that this transformation is purely lexical and may cause the semantics of the Uri to change in certain
+        // scheme. So caller may want to avoid this as much as possible.
+        auto ToNormalizedUri() const -> Uri;
 
         // Merges a path reference without removing dot segments.
         auto MergePath(StringView path) const -> std::optional<Uri>;
@@ -299,8 +302,12 @@ namespace glsld
         }
     };
 
+    // Converts the uri to a filesystem path. We only promise we don't change the semantics of a valid path.
+    // Even if we return a path, it doesn't necessarily mean the path is valid or exists in the filesystem.
+    auto UriToFileSystemPath(const ParsedUri& uri) -> std::optional<std::string>;
+
     // Converts a native filesystem path to a file URI. If `directory` is true, the URI path is made directory-like by
     // appending a trailing slash unless the path is empty.
-    auto FileSystemPathToUri(const std::filesystem::path& path, bool directory = false) -> std::optional<Uri>;
+    auto FileSystemPathToUri(StringView path, bool directory = false) -> std::optional<Uri>;
 
 } // namespace glsld

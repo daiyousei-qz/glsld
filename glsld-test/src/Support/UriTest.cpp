@@ -2,6 +2,7 @@
 
 #include "Support/Uri.h"
 
+#include <filesystem>
 #include <optional>
 #include <vector>
 
@@ -45,7 +46,7 @@ namespace
     {
         REQUIRE(uri.has_value());
 
-        auto normalized = uri->GetParsedUri().Normalize();
+        auto normalized = uri->GetParsedUri().ToNormalizedUri();
         INFO(fmt::format("Seeing normalized URI: {}", normalized.GetRawText()));
 
         CheckParsedUriHelper(normalized.GetParsedUri(), expectedScheme, expectedAuthority, expectedPath);
@@ -233,90 +234,6 @@ TEST_CASE("Support::ParsedUriTest")
         CHECK(ExpectParsed("scheme:a/..", "scheme", "", "a/..").GetNormalizedPath() == "");
     }
 
-    SECTION("ParsedUri::ToFileSystemPath")
-    {
-        SECTION("Converts file URIs without authority to filesystem paths")
-        {
-#if GLSLD_OS_WIN
-            {
-                auto driveAbsoluteFile = ExpectParsed("file:/C:/tmp/shader.glsl", "file", "", "/C:/tmp/shader.glsl");
-                auto path              = driveAbsoluteFile.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(path->is_absolute());
-                CHECK(path->string() == "C:/tmp/shader.glsl");
-            }
-
-            {
-                auto driveRelativeFile = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
-                auto path              = driveRelativeFile.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(path->is_absolute());
-                CHECK(path->string() == "C:/tmp/shader.glsl");
-            }
-#endif
-
-            {
-                auto absoluteFile = ExpectParsed("file:/tmp/shader.glsl", "file", "", "/tmp/shader.glsl");
-                auto path         = absoluteFile.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(path->has_root_path());
-                CHECK(path->string() == "/tmp/shader.glsl");
-            }
-
-            {
-                auto relativeFile = ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl");
-                auto path         = relativeFile.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(!path->has_root_path());
-                CHECK(path->string() == "relative/shader.glsl");
-            }
-
-            {
-                // We don't collapse multiple slashes in the path. We expect OS to handle it correctly.
-                auto multipleSlashes = ExpectParsed("file:////tmp///shader.glsl", "file", "", "//tmp///shader.glsl");
-                auto path            = multipleSlashes.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(path->has_root_path());
-                CHECK(path->string() == "//tmp///shader.glsl");
-            }
-
-            {
-                auto upperCaseFile = ExpectParsed("FILE:/tmp/shader.glsl", "FILE", "", "/tmp/shader.glsl");
-                auto path          = upperCaseFile.ToFileSystemPath();
-                REQUIRE(path.has_value());
-                CHECK(path->has_root_path());
-                CHECK(path->string() == "/tmp/shader.glsl");
-            }
-
-            {
-                // '/' is not allowed in percent-encoding when converting to filesystem path.
-                CHECK(!ExpectParsed("file:/tmp/bad%2fpath.glsl", "file", "", "/tmp/bad%2fpath.glsl")
-                           .ToFileSystemPath()
-                           .has_value());
-                // '\\' is not allowed in percent-encoding when converting to filesystem path.
-                CHECK(!ExpectParsed("file:/tmp/bad%5cpath.glsl", "file", "", "/tmp/bad%5cpath.glsl")
-                           .ToFileSystemPath()
-                           .has_value());
-                // '\0' is not allowed in percent-encoding when converting to filesystem path.
-                CHECK(!ExpectParsed("file:/tmp/bad%00path.glsl", "file", "", "/tmp/bad%00path.glsl")
-                           .ToFileSystemPath()
-                           .has_value());
-
-                // FIXME: what about percent-decoded '.'?
-            }
-        }
-
-        SECTION("Rejects filesystem conversion for non-file or authority URIs")
-        {
-            auto nonFile = ExpectParsed("untitled:shader.glsl", "untitled", "", "shader.glsl");
-            auto fileWithAuthority =
-                ExpectParsed("file://example.com/tmp/shader.glsl", "file", "example.com", "/tmp/shader.glsl");
-
-            CHECK(!nonFile.ToFileSystemPath().has_value());
-            CHECK(!fileWithAuthority.ToFileSystemPath().has_value());
-        }
-    }
-
     SECTION("ParsedUri::MergePath")
     {
         SECTION("Without authority")
@@ -345,7 +262,7 @@ TEST_CASE("Support::ParsedUriTest")
 
             auto baseWithDotSegments = ExpectParsed("file:/workspace/shaders/./generated/../main.glsl", "file", "",
                                                     "/workspace/shaders/./generated/../main.glsl");
-            // MergePath appends to all but the last base path segment and leaves dot-segment removal to Normalize().
+            // MergePath appends to all but the last base path segment.
             ExpectParsed(baseWithDotSegments.MergePath("../include/common.glsl"), "file", "",
                          "/workspace/shaders/./generated/../../include/common.glsl");
 
@@ -473,6 +390,159 @@ TEST_CASE("Support::ParsedUriTest")
             CHECK(base.ResolveReference("//bad authority/path").has_value() == false);
             CHECK(base.ResolveReference("scheme:/bad path").has_value() == false);
             CHECK(base.ResolveReference("scheme:/bad%2").has_value() == false);
+        }
+    }
+
+    SECTION("UriToFileSystemPath")
+    {
+        SECTION("Converts file URIs without authority to filesystem paths")
+        {
+#if GLSLD_OS_WIN
+            {
+                auto driveAbsoluteFile = ExpectParsed("file:/C:/tmp/shader.glsl", "file", "", "/C:/tmp/shader.glsl");
+                auto path              = UriToFileSystemPath(driveAbsoluteFile);
+                REQUIRE(path.has_value());
+                CHECK(std::filesystem::path{*path}.is_absolute());
+                CHECK(std::filesystem::path{*path}.string() == "C:/tmp/shader.glsl");
+            }
+
+            {
+                auto driveRelativeFile = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
+                auto path              = UriToFileSystemPath(driveRelativeFile);
+                REQUIRE(path.has_value());
+                CHECK(std::filesystem::path{*path}.is_absolute());
+                CHECK(std::filesystem::path{*path}.string() == "C:/tmp/shader.glsl");
+            }
+#endif
+
+            {
+                auto absoluteFile = ExpectParsed("file:/tmp/shader.glsl", "file", "", "/tmp/shader.glsl");
+                auto path         = UriToFileSystemPath(absoluteFile);
+                REQUIRE(path.has_value());
+                CHECK(std::filesystem::path{*path}.has_root_path());
+                CHECK(std::filesystem::path{*path}.string() == "/tmp/shader.glsl");
+            }
+
+            {
+                auto relativeFile = ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl");
+                auto path         = UriToFileSystemPath(relativeFile);
+                REQUIRE(path.has_value());
+                CHECK(!std::filesystem::path{*path}.has_root_path());
+                CHECK(std::filesystem::path{*path}.string() == "relative/shader.glsl");
+            }
+
+            {
+                // We don't collapse multiple slashes in the path. We expect OS to handle it correctly.
+                auto multipleSlashes = ExpectParsed("file:////tmp///shader.glsl", "file", "", "//tmp///shader.glsl");
+                auto path            = UriToFileSystemPath(multipleSlashes);
+                REQUIRE(path.has_value());
+                CHECK(std::filesystem::path{*path}.has_root_path());
+                CHECK(std::filesystem::path{*path}.string() == "//tmp///shader.glsl");
+            }
+
+            {
+                auto upperCaseFile = ExpectParsed("FILE:/tmp/shader.glsl", "FILE", "", "/tmp/shader.glsl");
+                auto path          = UriToFileSystemPath(upperCaseFile);
+                REQUIRE(path.has_value());
+                CHECK(std::filesystem::path{*path}.has_root_path());
+                CHECK(std::filesystem::path{*path}.string() == "/tmp/shader.glsl");
+            }
+
+            {
+                // '/' is not allowed in percent-encoding when converting to filesystem path.
+                CHECK(
+                    !UriToFileSystemPath(ExpectParsed("file:/tmp/bad%2fpath.glsl", "file", "", "/tmp/bad%2fpath.glsl"))
+                         .has_value());
+                // '\\' is not allowed in percent-encoding when converting to filesystem path.
+                CHECK(
+                    !UriToFileSystemPath(ExpectParsed("file:/tmp/bad%5cpath.glsl", "file", "", "/tmp/bad%5cpath.glsl"))
+                         .has_value());
+                // '\0' is not allowed in percent-encoding when converting to filesystem path.
+                CHECK(
+                    !UriToFileSystemPath(ExpectParsed("file:/tmp/bad%00path.glsl", "file", "", "/tmp/bad%00path.glsl"))
+                         .has_value());
+
+                // FIXME: what about percent-decoded '.'?
+            }
+        }
+
+        SECTION("Rejects filesystem conversion for non-file or authority URIs")
+        {
+            auto nonFile = ExpectParsed("untitled:shader.glsl", "untitled", "", "shader.glsl");
+            auto fileWithAuthority =
+                ExpectParsed("file://example.com/tmp/shader.glsl", "file", "example.com", "/tmp/shader.glsl");
+
+            CHECK(!UriToFileSystemPath(nonFile).has_value());
+            CHECK(!UriToFileSystemPath(fileWithAuthority).has_value());
+        }
+    }
+
+    SECTION("FileSystemPathToUri")
+    {
+        SECTION("Converts filesystem paths to file URIs")
+        {
+#if GLSLD_OS_WIN
+            ExpectParsed(FileSystemPathToUri("C:\\tmp\\shader.glsl"), "file", "", "/C:/tmp/shader.glsl");
+            ExpectParsed(FileSystemPathToUri("C:/tmp/shader.glsl"), "file", "", "/C:/tmp/shader.glsl");
+            auto escaped          = ExpectParsed(FileSystemPathToUri("C:\\tmp\\with space\\%#?.glsl"), "file", "",
+                                                 "/C:/tmp/with%20space/%25%23%3F.glsl");
+            auto roundTrippedPath = UriToFileSystemPath(escaped.GetParsedUri());
+            REQUIRE(roundTrippedPath.has_value());
+            CHECK(std::filesystem::path{*roundTrippedPath}.string() == "C:/tmp/with space/%#?.glsl");
+#else
+            auto absoluteFile = ExpectParsed(FileSystemPathToUri("/tmp/shader.glsl"), "file", "", "/tmp/shader.glsl");
+            CHECK(absoluteFile.GetRawText() == "file:/tmp/shader.glsl");
+
+            auto escaped          = ExpectParsed(FileSystemPathToUri("/tmp/with space/%#?.glsl"), "file", "",
+                                                 "/tmp/with%20space/%25%23%3F.glsl");
+            auto roundTrippedPath = UriToFileSystemPath(escaped.GetParsedUri());
+            REQUIRE(roundTrippedPath.has_value());
+            CHECK(*roundTrippedPath == "/tmp/with space/%#?.glsl");
+#endif
+        }
+
+        SECTION("Appends trailing slash for directories")
+        {
+#if GLSLD_OS_WIN
+            ExpectParsed(FileSystemPathToUri("C:\\tmp\\path", true), "file", "", "/C:/tmp/path/");
+            ExpectParsed(FileSystemPathToUri("C:\\tmp\\path\\", true), "file", "", "/C:/tmp/path/");
+            ExpectParsed(FileSystemPathToUri("C:\\", true), "file", "", "/C:/");
+#else
+            ExpectParsed(FileSystemPathToUri("/tmp/path", true), "file", "", "/tmp/path/");
+            ExpectParsed(FileSystemPathToUri("/tmp/path/", true), "file", "", "/tmp/path/");
+            ExpectParsed(FileSystemPathToUri("/", true), "file", "", "/");
+#endif
+        }
+
+        SECTION("Preserves dot segments")
+        {
+#if GLSLD_OS_WIN
+            ExpectParsed(FileSystemPathToUri("C:\\workspace\\.\\shaders\\..\\main.glsl"), "file", "",
+                         "/C:/workspace/./shaders/../main.glsl");
+            ExpectParsed(FileSystemPathToUri("C:\\workspace\\.\\shaders\\..", true), "file", "",
+                         "/C:/workspace/./shaders/../");
+#else
+            ExpectParsed(FileSystemPathToUri("/workspace/./shaders/../main.glsl"), "file", "",
+                         "/workspace/./shaders/../main.glsl");
+            ExpectParsed(FileSystemPathToUri("/workspace/./shaders/..", true), "file", "", "/workspace/./shaders/../");
+#endif
+        }
+
+        SECTION("Rejects relative paths")
+        {
+#if GLSLD_OS_WIN
+            CHECK(!FileSystemPathToUri("C:relative\\shader.glsl").has_value());
+            CHECK(!FileSystemPathToUri("relative\\shader.glsl").has_value());
+#else
+            CHECK(!FileSystemPathToUri("relative/shader.glsl").has_value());
+#endif
+            CHECK(!FileSystemPathToUri("", true).has_value());
+        }
+
+        SECTION("Rejects embedded null characters")
+        {
+            std::string badPath{"bad\0path.glsl", sizeof("bad\0path.glsl") - 1};
+            CHECK(!FileSystemPathToUri(StringView{badPath}).has_value());
         }
     }
 }
