@@ -33,6 +33,22 @@ namespace glsld
         return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
     }
 
+    inline constexpr auto ToLower(char ch) noexcept -> char
+    {
+        if (ch >= 'A' && ch <= 'Z') {
+            return ch - 'A' + 'a';
+        }
+        return ch;
+    }
+
+    inline constexpr auto ToUpper(char ch) noexcept -> char
+    {
+        if (ch >= 'a' && ch <= 'z') {
+            return ch - 'a' + 'A';
+        }
+        return ch;
+    }
+
     inline constexpr auto HexDigitToInt(char ch) noexcept -> int
     {
         GLSLD_ASSERT(IsHexDigit(ch));
