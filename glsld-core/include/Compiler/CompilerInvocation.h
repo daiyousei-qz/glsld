@@ -136,9 +136,6 @@ namespace glsld
 
         auto SetMainFileFromUri(ParsedUri uri) -> void;
 
-        // User should ensure that the source text outlive the CompilerInvocation
-        auto SetMainFileFromBuffer(SourceTextView sourceText) -> void;
-
         // Scan the starting part of the main file to get the version and extensions.
         // Scanning should end at the first non-comment, non-preprocessor token.
         auto ScanVersionAndExtension(PPCallback* ppCallback) -> void;

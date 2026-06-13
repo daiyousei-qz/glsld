@@ -408,7 +408,7 @@ namespace glsld
 
     auto UriToFileSystemPath(const ParsedUri& uri) -> std::optional<std::string>
     {
-        if (!uri.TestScheme("file") || !uri.GetRawAuthority().Empty()) {
+        if (!uri.TestScheme("file") || !uri.GetRawAuthority().Empty() || uri.HasRootlessPath()) {
             return std::nullopt;
         }
 

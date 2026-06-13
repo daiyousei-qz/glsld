@@ -425,14 +425,6 @@ TEST_CASE("Support::ParsedUriTest")
             }
 
             {
-                auto relativeFile = ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl");
-                auto path         = UriToFileSystemPath(relativeFile);
-                REQUIRE(path.has_value());
-                CHECK(!std::filesystem::path{*path}.has_root_path());
-                CHECK(std::filesystem::path{*path}.string() == "relative/shader.glsl");
-            }
-
-            {
                 // We don't collapse multiple slashes in the path. We expect OS to handle it correctly.
                 auto multipleSlashes = ExpectParsed("file:////tmp///shader.glsl", "file", "", "//tmp///shader.glsl");
                 auto path            = UriToFileSystemPath(multipleSlashes);
@@ -450,6 +442,11 @@ TEST_CASE("Support::ParsedUriTest")
             }
 
             {
+                // Rootless paths are not allowed to be converted to filesystem paths.
+                CHECK(
+                    !UriToFileSystemPath(ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl"))
+                         .has_value());
+
                 // '/' is not allowed in percent-encoding when converting to filesystem path.
                 CHECK(
                     !UriToFileSystemPath(ExpectParsed("file:/tmp/bad%2fpath.glsl", "file", "", "/tmp/bad%2fpath.glsl"))

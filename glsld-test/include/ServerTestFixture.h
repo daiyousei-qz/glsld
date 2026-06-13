@@ -4,6 +4,7 @@
 
 #include "Basic/SourceInfo.h"
 #include "Support/StringMap.h"
+#include "Support/VirtualFileSystem.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Server/LanguageQueryInfo.h"
 
@@ -96,9 +97,18 @@ namespace glsld
         {
             auto [sourceText, labels] = ParseLabelledSource(labeledSourceText);
             auto ppInfoStore          = std::make_unique<PreprocessInfoStore>();
-            auto compiler             = std::make_unique<CompilerInvocation>();
+            auto mainFileUri          = ParsedUri::Parse("mem:/__test/main.glsl");
+            GLSLD_ASSERT(mainFileUri.has_value());
+
+            auto vfs = InMemoryFileSystem::Create("mem:");
+            GLSLD_ASSERT(vfs != nullptr);
+            SinkFileSystemError(vfs->AddFileNoOwn(*mainFileUri, sourceText));
+
+            auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
-            compiler->SetMainFileFromBuffer(sourceText);
+            compiler->SetVirtualFileSystem(std::move(vfs));
+            compiler->AddIncludeUri(*mainFileUri);
+            compiler->SetMainFileFromUri(*mainFileUri);
 
             auto ppCallback = ppInfoStore->CreateCollectionCallback(nullptr);
             auto result     = compiler->CompileMainFile(ppCallback.get(), CompileMode::ParseOnly);

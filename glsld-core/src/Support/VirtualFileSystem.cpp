@@ -6,10 +6,19 @@
 
 namespace glsld
 {
+    // We require URIs used by VFS to be absolute.
+    static auto ParseUriHelper(StringView uri) -> std::optional<ParsedUri>
+    {
+        auto parsedUri = ParsedUri::Parse(uri);
+        if (!parsedUri || parsedUri->HasRootlessPath()) {
+            return std::nullopt;
+        }
+        return parsedUri;
+    }
 
     auto VirtualFileSystem::Exists(StringView uri) -> std::expected<std::monostate, FileSystemError>
     {
-        auto parsedUri = ParsedUri::Parse(uri);
+        auto parsedUri = ParseUriHelper(uri);
         if (!parsedUri) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
@@ -22,7 +31,7 @@ namespace glsld
     }
     auto VirtualFileSystem::ReadAllText(StringView uri) -> std::expected<std::string, FileSystemError>
     {
-        auto parsedUri = ParsedUri::Parse(uri);
+        auto parsedUri = ParseUriHelper(uri);
         if (!parsedUri) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
@@ -35,6 +44,11 @@ namespace glsld
     }
 
 #pragma region NativeFileSystem
+
+    auto NativeFileSystem::Create() -> std::shared_ptr<NativeFileSystem>
+    {
+        return std::make_shared<NativeFileSystem>();
+    }
 
     static auto TranslateFileSystemError(int err) -> FileSystemError
     {
@@ -115,6 +129,15 @@ namespace glsld
 
 #pragma region InMemoryFileSystem
 
+    auto InMemoryFileSystem::Create(StringView mountPoint) -> std::shared_ptr<InMemoryFileSystem>
+    {
+        auto parsedMountPoint = ParseUriHelper(mountPoint);
+        if (!parsedMountPoint || !parsedMountPoint->HasEmptyPath()) {
+            return nullptr;
+        }
+        return std::make_shared<InMemoryFileSystem>(*parsedMountPoint);
+    }
+
     auto InMemoryFileSystem::GetPathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*
     {
         auto currentEntry = &root;
@@ -188,7 +211,7 @@ namespace glsld
 
     auto InMemoryFileSystem::AddFile(StringView uri, std::string content) -> std::expected<void, FileSystemError>
     {
-        auto parsedUri = ParsedUri::Parse(uri);
+        auto parsedUri = ParseUriHelper(uri);
         if (!parsedUri) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
@@ -219,7 +242,7 @@ namespace glsld
 
     auto InMemoryFileSystem::AddFileNoOwn(StringView uri, StringView content) -> std::expected<void, FileSystemError>
     {
-        auto parsedUri = ParsedUri::Parse(uri);
+        auto parsedUri = ParseUriHelper(uri);
         if (!parsedUri) {
             return std::unexpected(FileSystemError::InvalidUri);
         }
@@ -281,6 +304,15 @@ namespace glsld
 #pragma endregion
 
 #pragma region OverlayFileSystem
+
+    auto OverlayFileSystem::Create(std::vector<std::shared_ptr<VirtualFileSystem>> layerList)
+        -> std::shared_ptr<OverlayFileSystem>
+    {
+        if (std::ranges::find(layerList, nullptr) != layerList.end()) {
+            return nullptr;
+        }
+        return std::make_shared<OverlayFileSystem>(std::move(layerList));
+    }
 
     auto OverlayFileSystem::ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError>
     {

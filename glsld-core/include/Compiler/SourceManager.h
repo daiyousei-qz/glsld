@@ -21,7 +21,9 @@ namespace glsld
         {
             FileID id;
 
-            // The canonical URI of the file. Empty if the file came from an unmanaged buffer.
+            // FIXME: It is not canonical at this point but whatever provided by the user. We should let VFS handle the
+            // canonicalization.
+            // The canonical URI of the file.
             std::string canonicalUri;
 
             SourceTextView content;
@@ -87,8 +89,6 @@ namespace glsld
                 return GetUserFileEntry(fileId).content;
             }
         }
-
-        auto OpenFromBuffer(SourceTextView sourceText) -> FileID;
 
         // TODO: we should pass an Uri here instead of ParsedUri to require being normalized.
         //       this avoids us repeatedly normalizing the same Uri.

@@ -31,11 +31,6 @@ namespace glsld
         mainFileId = sourceManager.OpenFromUri(uri);
     }
 
-    auto CompilerInvocation::SetMainFileFromBuffer(SourceTextView sourceText) -> void
-    {
-        mainFileId = sourceManager.OpenFromBuffer(sourceText);
-    }
-
     auto CompilerInvocation::ScanVersionAndExtension(PPCallback* ppCallback) -> void
     {
         if (!mainFileId.IsValid()) {

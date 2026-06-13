@@ -4,6 +4,7 @@
 #include "Catch2Wrapper.h"
 
 #include "Support/StringView.h"
+#include "Support/VirtualFileSystem.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 
@@ -105,9 +106,18 @@ namespace glsld
         auto Compile(SourceTextView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
             -> std::unique_ptr<CompilerResult>
         {
+            auto mainFileUri = ParsedUri::Parse("mem:/__test/main.glsl");
+            GLSLD_ASSERT(mainFileUri.has_value());
+
+            auto vfs = InMemoryFileSystem::Create("mem:");
+            GLSLD_ASSERT(vfs != nullptr);
+            SinkFileSystemError(vfs->AddFileNoOwn(*mainFileUri, sourceText));
+
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
-            compiler->SetMainFileFromBuffer(sourceText);
+            compiler->SetVirtualFileSystem(std::move(vfs));
+            compiler->AddIncludeUri(*mainFileUri);
+            compiler->SetMainFileFromUri(*mainFileUri);
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
@@ -133,7 +143,7 @@ namespace glsld
 
         //     auto preamble = preambleCompiler->CompilePreamble(ppCallback);
         //     auto compiler = std::make_unique<CompilerInvocation>(preamble);
-        //     compiler->SetMainFileFromBuffer(mainFile);
+        //     // Set the main file through a VFS-backed URI.
         //     return compiler->CompileMainFile(ppCallback, compileMode);
         // }
 

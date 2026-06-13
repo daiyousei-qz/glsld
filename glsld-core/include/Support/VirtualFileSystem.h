@@ -59,10 +59,7 @@ namespace glsld
     public:
         NativeFileSystem() = default;
 
-        static auto Create() -> std::shared_ptr<NativeFileSystem>
-        {
-            return std::make_shared<NativeFileSystem>();
-        }
+        static auto Create() -> std::shared_ptr<NativeFileSystem>;
 
     protected:
         auto ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError> override;
@@ -90,7 +87,7 @@ namespace glsld
         auto CheckMountPoint(const ParsedUri& uri) -> bool
         {
             return uri.TestScheme(mountScheme) && uri.GetRawAuthority().Equals(mountAuthority) &&
-                   uri.GetRawPath().GetText().StartWith('/');
+                   !uri.HasRootlessPath();
         }
 
         auto GetPathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*;
@@ -103,14 +100,7 @@ namespace glsld
         {
         }
 
-        static auto Create(StringView mountPoint) -> std::shared_ptr<InMemoryFileSystem>
-        {
-            auto parsedMountPoint = ParsedUri::Parse(mountPoint);
-            if (!parsedMountPoint || !parsedMountPoint->GetRawPath().GetText().empty()) {
-                return nullptr;
-            }
-            return std::make_shared<InMemoryFileSystem>(*parsedMountPoint);
-        }
+        static auto Create(StringView mountPoint) -> std::shared_ptr<InMemoryFileSystem>;
 
         // Adds a file with the given content to the specified path.
         auto AddFile(StringView uri, std::string content) -> std::expected<void, FileSystemError>;
@@ -138,13 +128,7 @@ namespace glsld
         }
 
         static auto Create(std::vector<std::shared_ptr<VirtualFileSystem>> layerList)
-            -> std::shared_ptr<OverlayFileSystem>
-        {
-            if (std::ranges::find(layerList, nullptr) != layerList.end()) {
-                return nullptr;
-            }
-            return std::make_shared<OverlayFileSystem>(std::move(layerList));
-        }
+            -> std::shared_ptr<OverlayFileSystem>;
 
     protected:
         auto ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError> override;
