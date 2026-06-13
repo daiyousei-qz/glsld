@@ -140,6 +140,9 @@ namespace glsld
         static auto Create(std::vector<std::shared_ptr<VirtualFileSystem>> layerList)
             -> std::shared_ptr<OverlayFileSystem>
         {
+            if (std::ranges::find(layerList, nullptr) != layerList.end()) {
+                return nullptr;
+            }
             return std::make_shared<OverlayFileSystem>(std::move(layerList));
         }
 

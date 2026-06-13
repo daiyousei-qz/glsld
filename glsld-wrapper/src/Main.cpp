@@ -137,10 +137,10 @@ namespace glsld
             compiler->SetNoStdlib(true);
         }
 
-        auto inputFileUri = FileSystemPathToUri(args.inputFile);
+        auto inputFileUri = FileSystemPathToUri(std::filesystem::absolute(args.inputFile).string());
         if (!inputFileUri) {
             Print("Error: Failed to convert input file path to URI: {}\n", args.inputFile);
-            return;
+            std::exit(1);
         }
 
         if (args.dumpTokens) {

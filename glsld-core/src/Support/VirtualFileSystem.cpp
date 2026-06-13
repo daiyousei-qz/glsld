@@ -206,7 +206,7 @@ namespace glsld
         if (!currentEntry) {
             return std::unexpected(FileSystemError::NotADirectory);
         }
-        if (!currentEntry->children.Empty()) {
+        if (currentEntry == &root || !currentEntry->children.Empty()) {
             return std::unexpected(FileSystemError::IsADirectory);
         }
         if (currentEntry->fileContent.has_value()) {
@@ -236,7 +236,7 @@ namespace glsld
         if (!currentEntry) {
             return std::unexpected(FileSystemError::NotADirectory);
         }
-        if (!currentEntry->children.Empty()) {
+        if (currentEntry == &root || !currentEntry->children.Empty()) {
             return std::unexpected(FileSystemError::IsADirectory);
         }
         if (currentEntry->fileContent.has_value()) {

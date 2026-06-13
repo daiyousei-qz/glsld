@@ -21,6 +21,8 @@ TEST_CASE("Support::VirtualFileSystemTest")
     SECTION("InMemoryFileSystem")
     {
         auto vfs = InMemoryFileSystem::Create("mem:");
+        REQUIRE(vfs);
+
         REQUIRE(vfs->AddFile("mem:/tmp/test1.txt", "TestData").has_value());
         std::array<char, 5> localBuffer = {'H', 'e', 'l', 'l', 'o'};
         REQUIRE(
