@@ -9,8 +9,6 @@ namespace glsld
     class CompilerArtifact
     {
     private:
-        TranslationUnitID id;
-
         std::vector<RawSyntaxToken> syntaxTokenBuffer;
         std::vector<RawCommentToken> commentTokenBuffer;
         std::vector<PreprocessedFile> preprocessedFiles;
@@ -20,10 +18,6 @@ namespace glsld
         const AstTranslationUnit* ast = nullptr;
 
     public:
-        CompilerArtifact(TranslationUnitID id) : id(id)
-        {
-        }
-
         auto UpdatePreprocessingArtifact(std::vector<RawSyntaxToken> lexedTokens,
                                          std::vector<RawCommentToken> lexedComments,
                                          std::vector<PreprocessedFile> files) -> void
@@ -44,7 +38,7 @@ namespace glsld
 
         auto CreateReference() const noexcept -> std::unique_ptr<CompilerArtifact>
         {
-            auto artifact      = std::make_unique<CompilerArtifact>(id);
+            auto artifact      = std::make_unique<CompilerArtifact>();
             artifact->tokens   = tokens;
             artifact->comments = comments;
             artifact->ast      = ast;
@@ -52,10 +46,6 @@ namespace glsld
             return artifact;
         }
 
-        auto GetID() const noexcept -> TranslationUnitID
-        {
-            return id;
-        }
         auto GetTokens() const noexcept -> ArrayView<RawSyntaxToken>
         {
             return tokens;

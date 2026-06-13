@@ -112,16 +112,10 @@ namespace glsld
             return *ppInfoStore;
         }
 
-        auto LookupArtifact(TranslationUnitID id) const -> const CompilerArtifact*
+        auto LookupArtifact(bool isPreamble) const -> const CompilerArtifact*
         {
-            switch (id) {
-            case TranslationUnitID::SystemPreamble:
-                return &compilerResult->GetSystemPreambleArtifacts();
-            case TranslationUnitID::UserFile:
-                return &compilerResult->GetUserFileArtifacts();
-            }
-
-            return nullptr;
+            return isPreamble ? &compilerResult->GetSystemPreambleArtifacts()
+                              : &compilerResult->GetUserFileArtifacts();
         }
 
         // Returns the token entry of the specified token.

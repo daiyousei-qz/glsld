@@ -194,8 +194,8 @@ namespace glsld
 
         PreprocessedTokens& outputStream;
 
-        // The current translation unit ID.
-        TranslationUnitID tuId = TranslationUnitID::UserFile;
+        // True when emitting into the preamble artifact stream.
+        bool isPreamble = false;
 
         // The callback interface for the preprocessor.
         PPCallback* callback = nullptr;
@@ -362,11 +362,11 @@ namespace glsld
 
     public:
         PreprocessStateMachine(CompilerInvocationState& compiler, PreprocessedTokens& outputStream,
-                               TranslationUnitID tuId, PPCallback* callback,
-                               std::optional<TextRange> includeExpansionRange, size_t includeDepth)
+                               PPCallback* callback, std::optional<TextRange> includeExpansionRange,
+                               size_t includeDepth, bool isPreamble)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
               macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
-              outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
+              outputStream(outputStream), isPreamble(isPreamble), callback(callback), macroExpansionProcessor(*this),
               includeExpansionRange(includeExpansionRange), includeDepth(includeDepth), atoms(compiler.GetAtomTable())
         {
         }
@@ -378,7 +378,7 @@ namespace glsld
 
         auto GetNextTokenId() const noexcept -> SyntaxTokenID
         {
-            return SyntaxTokenID{tuId, GetNextTokenIndex()};
+            return SyntaxTokenID{GetNextTokenIndex(), isPreamble};
         }
 
         auto GetAtomTable() const noexcept -> AtomTable&
@@ -625,21 +625,16 @@ namespace glsld
         FileID sourceFile;
         PreprocessedTokens outputStream;
 
-        static auto GetTUId(FileID sourceFile) -> TranslationUnitID
+        static auto IsPreambleSourceFile(FileID sourceFile) -> bool
         {
-            if (sourceFile.IsPreamble()) {
-                return TranslationUnitID::SystemPreamble;
-            }
-            else {
-                return TranslationUnitID::UserFile;
-            }
+            return sourceFile.IsPreamble();
         }
 
     public:
         Preprocessor(CompilerInvocationState& compiler, FileID sourceFile, PPCallback* callback,
                      bool versionScanningMode)
-            : pp(std::make_unique<PreprocessStateMachine>(compiler, outputStream, GetTUId(sourceFile), callback,
-                                                          std::nullopt, 0)),
+            : pp(std::make_unique<PreprocessStateMachine>(compiler, outputStream, callback, std::nullopt, 0,
+                                                          IsPreambleSourceFile(sourceFile))),
               sourceFile(sourceFile), compiler(compiler)
         {
             if (versionScanningMode) {
@@ -655,8 +650,8 @@ namespace glsld
             pp->PreprocessSourceFile(sourceFile);
 
             if (!pp->IsVersionScanningMode()) {
-                compiler.UpdatePreprocessingArtifact(GetTUId(sourceFile), std::move(outputStream.tokens),
-                                                     std::move(outputStream.comments), std::move(outputStream.files));
+                compiler.UpdatePreprocessingArtifact(std::move(outputStream.tokens), std::move(outputStream.comments),
+                                                     std::move(outputStream.files), IsPreambleSourceFile(sourceFile));
             }
         }
     };

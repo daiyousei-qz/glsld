@@ -7,7 +7,7 @@ namespace glsld
 {
     auto LanguageQueryInfo::LookupToken(SyntaxTokenID id) const -> const RawSyntaxToken*
     {
-        return &LookupArtifact(id.GetTU())->GetTokens()[id.GetTokenIndex()];
+        return &LookupArtifact(id.IsPreambleToken())->GetTokens()[id.GetTokenIndex()];
     }
     auto LanguageQueryInfo::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxToken>
     {
@@ -45,7 +45,7 @@ namespace glsld
     }
     auto LanguageQueryInfo::LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentToken>
     {
-        auto comments         = LookupArtifact(id.GetTU())->GetComments();
+        auto comments         = LookupArtifact(id.IsPreambleToken())->GetComments();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             comments, id.GetTokenIndex(), {}, [](const RawCommentToken& token) { return token.nextTokenIndex; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
@@ -60,7 +60,7 @@ namespace glsld
     }
     auto LanguageQueryInfo::IsSpelledInMainFile(SyntaxTokenID id) const -> bool
     {
-        if (id.GetTU() != TranslationUnitID::UserFile) {
+        if (id.IsPreambleToken()) {
             return false;
         }
 

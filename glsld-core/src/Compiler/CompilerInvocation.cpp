@@ -64,9 +64,9 @@ namespace glsld
 
         auto compiler = InitializeCompilation();
 
-        if (compiler->GetArtifact(TranslationUnitID::SystemPreamble)->GetAst() == nullptr) {
+        if (compiler->GetArtifact(true)->GetAst() == nullptr) {
             DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoParse(*compiler, TranslationUnitID::SystemPreamble);
+            DoParse(*compiler, true);
         }
 
         return compiler->CreatePreamble();
@@ -97,9 +97,9 @@ namespace glsld
         }
 
         if (!preamble) {
-            DoParse(*compiler, TranslationUnitID::SystemPreamble);
+            DoParse(*compiler, true);
         }
-        DoParse(*compiler, TranslationUnitID::UserFile);
+        DoParse(*compiler, false);
 
         return compiler->CreateCompileResult();
     }
@@ -130,14 +130,14 @@ namespace glsld
 
         Preprocessor{compiler, file, callback, false}.DoPreprocess();
     }
-    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void
+    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, bool isPreamble) -> void
     {
         ScopeExit _{[this, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.mainFileParsing += elapsedTime;
         }};
 
-        Parser{compiler, id, compiler.GetArtifact(id)->GetTokens()}.DoParse();
+        Parser{compiler, compiler.GetArtifact(isPreamble)->GetTokens(), isPreamble}.DoParse();
     }
 
 } // namespace glsld

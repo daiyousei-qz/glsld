@@ -24,12 +24,12 @@ namespace glsld
             macroTable  = std::make_unique<MacroTable>(nullptr);
             symbolTable = std::make_unique<SymbolTable>(nullptr);
 
-            systemPreambleArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::SystemPreamble);
+            systemPreambleArtifacts = std::make_unique<CompilerArtifact>();
         }
 
         astContext        = std::make_unique<AstContext>();
         diagStream        = std::make_unique<DiagnosticStream>();
-        userFileArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::UserFile);
+        userFileArtifacts = std::make_unique<CompilerArtifact>();
     }
 
     auto CompilerInvocationState::InitializeStdlib() -> void
@@ -124,12 +124,10 @@ namespace glsld
         defineFeatureMacro("__GLSLD_FEATURE_ENABLE_RAY_TRACING_NV");
     }
 
-    auto CompilerInvocationState::TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
+    auto CompilerInvocationState::TryDumpTokens(ArrayView<RawSyntaxToken> tokens, bool isPreamble) const -> void
     {
-        if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserFile) {
-                Print("=====Tokens of User File=====\n");
-            }
+        if (compilerConfig.dumpTokens && !isPreamble) {
+            Print("=====Tokens of User File=====\n");
 
             for (const auto& token : tokens) {
                 const auto& expanedRange = token.expandedRange;
@@ -140,12 +138,10 @@ namespace glsld
         }
     }
 
-    auto CompilerInvocationState::TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
+    auto CompilerInvocationState::TryDumpAst(const AstTranslationUnit* ast, bool isPreamble) const -> void
     {
-        if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserFile) {
-                Print("=====AST of User File=====\n");
-            }
+        if (compilerConfig.dumpAst && !isPreamble) {
+            Print("=====AST of User File=====\n");
 
             Print("{}", ast->ToString());
         }

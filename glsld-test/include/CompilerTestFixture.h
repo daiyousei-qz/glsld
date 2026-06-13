@@ -162,7 +162,7 @@ namespace glsld
 
             for (uint32_t i = 0; i < tokens.size(); ++i) {
                 auto token = AstSyntaxToken{
-                    .id    = SyntaxTokenID{TranslationUnitID::UserFile, i},
+                    .id    = SyntaxTokenID{i, false},
                     .klass = tokens[i].klass,
                     .text  = tokens[i].text,
                 };

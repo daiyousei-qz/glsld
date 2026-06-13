@@ -55,8 +55,8 @@ namespace glsld
         auto Initialize() -> void;
         auto InitializeStdlib() -> void;
 
-        auto TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void;
-        auto TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void;
+        auto TryDumpTokens(ArrayView<RawSyntaxToken> tokens, bool isPreamble) const -> void;
+        auto TryDumpAst(const AstTranslationUnit* ast, bool isPreamble) const -> void;
 
     public:
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
@@ -117,23 +117,24 @@ namespace glsld
         }
 #endif
 
-        auto GetArtifact(TranslationUnitID id) noexcept -> CompilerArtifact*
+        auto GetArtifact(bool isPreamble) noexcept -> CompilerArtifact*
         {
-            return id == TranslationUnitID::SystemPreamble ? systemPreambleArtifacts.get() : userFileArtifacts.get();
+            return isPreamble ? systemPreambleArtifacts.get() : userFileArtifacts.get();
         }
 
-        auto UpdatePreprocessingArtifact(TranslationUnitID id, std::vector<RawSyntaxToken> tokens,
-                                         std::vector<RawCommentToken> comments, std::vector<PreprocessedFile> files)
+        auto UpdatePreprocessingArtifact(std::vector<RawSyntaxToken> tokens, std::vector<RawCommentToken> comments,
+                                         std::vector<PreprocessedFile> files, bool isPreamble)
             -> void
         {
-            TryDumpTokens(id, tokens);
-            GetArtifact(id)->UpdatePreprocessingArtifact(std::move(tokens), std::move(comments), std::move(files));
+            TryDumpTokens(tokens, isPreamble);
+            GetArtifact(isPreamble)->UpdatePreprocessingArtifact(std::move(tokens), std::move(comments),
+                                                                 std::move(files));
         }
 
-        auto UpdateAstArtifact(TranslationUnitID id, const AstTranslationUnit* ast) -> void
+        auto UpdateAstArtifact(const AstTranslationUnit* ast, bool isPreamble) -> void
         {
-            TryDumpAst(id, ast);
-            GetArtifact(id)->UpdateAstArtifact(ast);
+            TryDumpAst(ast, isPreamble);
+            GetArtifact(isPreamble)->UpdateAstArtifact(ast);
         }
 
         auto CreatePreamble() noexcept -> std::shared_ptr<PrecompiledPreamble>

@@ -580,9 +580,9 @@ namespace glsld
             }
 
             auto nextPP = std::make_unique<PreprocessStateMachine>(
-                compiler, outputStream, tuId, callback,
+                compiler, outputStream, callback,
                 includeExpansionRange ? includeExpansionRange : TextRange{headerNameToken->spelledRange.start},
-                includeDepth + 1);
+                includeDepth + 1, isPreamble);
             nextPP->PreprocessSourceFile(includeFile);
 
             if (callback) {
