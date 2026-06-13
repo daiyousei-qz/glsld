@@ -69,10 +69,7 @@ namespace glsld
         auto compiler = std::make_unique<CompilerInvocation>(std::move(localPreamble));
         compiler->SetCountUtf16Characters(true);
         compiler->SetMainFileFromBuffer(sourceString);
-
-        if (auto filePath = UriToFileSystemPath(*parsedUri); filePath) {
-            compiler->AddIncludePath(std::filesystem::path{*filePath}.parent_path());
-        }
+        compiler->AddIncludeUri(*parsedUri);
 
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);

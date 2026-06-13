@@ -1,11 +1,14 @@
 #pragma once
 #include "Basic/Common.h"
-#include "Basic/FileSystemProvider.h"
 #include "Basic/SourceInfo.h"
 #include "Compiler/CompilerResult.h"
+#include "Support/VirtualFileSystem.h"
+#include "Support/StringMap.h"
 
-#include <unordered_map>
-#include <filesystem>
+#include <deque>
+#include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace glsld
@@ -18,27 +21,23 @@ namespace glsld
         {
             FileID id;
 
-            // The absolute path of file. Could be empty if the file is not on disk.
-            std::string canonicalPath;
+            // The canonical URI of the file. Empty if the file came from an unmanaged buffer.
+            std::string canonicalUri;
 
             SourceTextView content;
         };
 
-        FileSystemProvider& fileSystemProvider = DefaultFileSystemProvider::GetInstance();
+        std::shared_ptr<VirtualFileSystem> vfs = std::make_shared<NativeFileSystem>();
 
         SourceTextView systemPreamble;
 
         SourceTextView userPreamble;
 
-        std::vector<SourceFileEntry> entries;
+        std::deque<SourceFileEntry> entries;
 
-        //
-        std::unordered_map<std::filesystem::path, FileID> lookupPathToEntries;
+        std::deque<std::string> ownedFileContents;
 
-        //
-        std::unordered_map<std::filesystem::path, FileID> canonicalPathToEntries;
-
-        std::vector<const FileHandle*> openedFiles;
+        StringMap<FileID> lookupUriToEntries;
 
     public:
         SourceManager(const PrecompiledPreamble* preamble = nullptr)
@@ -46,13 +45,6 @@ namespace glsld
             if (preamble) {
                 systemPreamble = preamble->GetSystemPreamble();
                 userPreamble   = preamble->GetUserPreamble();
-            }
-        }
-
-        ~SourceManager()
-        {
-            for (const auto& handle : openedFiles) {
-                fileSystemProvider.Close(handle);
             }
         }
 
@@ -76,19 +68,26 @@ namespace glsld
             return userPreamble;
         }
 
-        auto GetAbsolutePath(FileID fileId) -> StringView
+        auto SetVirtualFileSystem(std::shared_ptr<VirtualFileSystem> newVfs) -> void
+        {
+            GLSLD_REQUIRE(entries.empty());
+            GLSLD_REQUIRE(newVfs != nullptr);
+            vfs = std::move(newVfs);
+        }
+
+        auto GetUri(FileID fileId) -> StringView
         {
             if (!fileId.IsValid()) {
                 return "";
             }
             else if (fileId.IsSystemPreamble()) {
-                return "system_preamble";
+                return "glsld-internal:/system_preamble";
             }
             else if (fileId.IsUserPreamble()) {
-                return "user_preamble";
+                return "glsld-internal:/user_preamble";
             }
             else {
-                return GetUserFileEntry(fileId).canonicalPath;
+                return GetUserFileEntry(fileId).canonicalUri;
             }
         }
 
@@ -110,7 +109,9 @@ namespace glsld
 
         auto OpenFromBuffer(SourceTextView sourceText) -> FileID;
 
-        auto OpenFromFile(const std::filesystem::path& path) -> FileID;
+        // TODO: we should pass an Uri here instead of ParsedUri to require being normalized.
+        //       this avoids us repeatedly normalizing the same Uri.
+        auto OpenFromUri(ParsedUri uri) -> FileID;
 
     private:
         auto GetUserFileEntry(FileID fileId) -> const SourceFileEntry&

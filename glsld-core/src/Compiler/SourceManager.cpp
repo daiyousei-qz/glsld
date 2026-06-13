@@ -1,4 +1,5 @@
 #include "Compiler/SourceManager.h"
+#include "Support/Uri.h"
 
 namespace glsld
 {
@@ -8,34 +9,26 @@ namespace glsld
         return result.id;
     }
 
-    auto SourceManager::OpenFromFile(const std::filesystem::path& path) -> FileID
+    auto SourceManager::OpenFromUri(ParsedUri uri) -> FileID
     {
-        if (auto it = lookupPathToEntries.find(path); it != lookupPathToEntries.end()) {
+        // FIXME: this will fail miserably for symlink :(
+        const auto persistUri = uri.ToUri();
+        const auto uriText    = persistUri.GetRawText();
+        if (auto it = lookupUriToEntries.Find(uriText); it != lookupUriToEntries.end()) {
             return it->second;
         }
 
-        std::error_code ec;
-        auto canonicalPath = std::filesystem::canonical(path, ec);
-        if (ec) {
-            lookupPathToEntries[path] = {};
-            return {};
-        }
-        if (auto it = canonicalPathToEntries.find(canonicalPath); it != canonicalPathToEntries.end()) {
-            lookupPathToEntries[path] = it->second;
-            return it->second;
-        }
-
-        auto canonicalPathStr = canonicalPath.string();
-        auto fileHandle       = fileSystemProvider.Open(canonicalPathStr);
-        if (!fileHandle) {
-            lookupPathToEntries[path]             = {};
-            canonicalPathToEntries[canonicalPath] = {};
+        auto fileContent = vfs->ReadAllText(persistUri.GetParsedUri());
+        if (!fileContent) {
+            lookupUriToEntries[uriText] = {};
             return {};
         }
 
-        auto result = entries.emplace_back(GetNextFileID(), std::move(canonicalPathStr), fileHandle->GetContent());
-        lookupPathToEntries[path]             = result.id;
-        canonicalPathToEntries[canonicalPath] = result.id;
+        ownedFileContents.push_back(std::move(*fileContent));
+        const auto& result =
+            entries.emplace_back(GetNextFileID(), uriText.Str(), SourceTextView{ownedFileContents.back()});
+
+        lookupUriToEntries[uriText] = result.id;
         return result.id;
     }
 } // namespace glsld

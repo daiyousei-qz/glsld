@@ -36,7 +36,7 @@ namespace glsld
     inline constexpr auto ToLower(char ch) noexcept -> char
     {
         if (ch >= 'A' && ch <= 'Z') {
-            return ch - 'A' + 'a';
+            return static_cast<char>(ch - 'A' + 'a');
         }
         return ch;
     }
@@ -44,7 +44,7 @@ namespace glsld
     inline constexpr auto ToUpper(char ch) noexcept -> char
     {
         if (ch >= 'a' && ch <= 'z') {
-            return ch - 'a' + 'A';
+            return static_cast<char>(ch - 'a' + 'A');
         }
         return ch;
     }

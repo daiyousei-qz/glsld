@@ -2,9 +2,11 @@
 #include "Basic/Print.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
+#include "Support/Uri.h"
 
 #include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 
@@ -130,14 +132,17 @@ namespace glsld
 
     static auto DoMain(ProgramArgs args) -> void
     {
-        std::filesystem::path inputFilePath = args.inputFile;
-
         auto compiler = std::make_unique<CompilerInvocation>();
         if (args.noStdlib) {
             compiler->SetNoStdlib(true);
         }
 
-        compiler->AddIncludePath(inputFilePath.parent_path());
+        auto inputFileUri = FileSystemPathToUri(std::filesystem::absolute(args.inputFile).string());
+        if (!inputFileUri) {
+            Print("Error: Failed to convert input file path to URI: {}\n", args.inputFile);
+            std::exit(1);
+        }
+
         if (args.dumpTokens) {
             compiler->SetDumpTokens(true);
         }
@@ -146,7 +151,8 @@ namespace glsld
         }
 
         compiler->SetShaderStage(ParseShaderStage(args));
-        compiler->SetMainFileFromFile(args.inputFile);
+        compiler->AddIncludeUri(inputFileUri->GetParsedUri());
+        compiler->SetMainFileFromUri(inputFileUri->GetParsedUri());
 
         VersionExtensionCollector ppCallback{*compiler};
         compiler->ScanVersionAndExtension(&ppCallback);

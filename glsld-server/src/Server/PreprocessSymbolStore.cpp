@@ -61,12 +61,12 @@ namespace glsld
                 }
             }
 
-            auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedPath)
+            auto OnIncludeDirective(ArrayView<PPToken> tokens, const PPToken& headerName, StringView resolvedUri)
                 -> void override
             {
                 if (includeDepth == 0) {
-                    store.occurrences.push_back(PPSymbolOccurrence{headerName.spelledRange,
-                                                                   PPHeaderNameSymbol{headerName, resolvedPath.Str()}});
+                    store.occurrences.push_back(
+                        PPSymbolOccurrence{headerName.spelledRange, PPHeaderNameSymbol{headerName, resolvedUri.Str()}});
                 }
             }
             auto OnDefineDirective(ArrayView<PPToken> tokens, const PPToken& macroName, ArrayView<PPToken> paramTokens,

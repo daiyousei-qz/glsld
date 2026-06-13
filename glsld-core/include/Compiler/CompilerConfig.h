@@ -3,8 +3,8 @@
 #include "Language/ShaderTarget.h"
 #include "Language/Extension.h"
 #include "Support/Hash.h"
+#include "Support/Uri.h"
 
-#include <filesystem>
 #include <type_traits>
 #include <vector>
 #include <string>
@@ -32,8 +32,8 @@ namespace glsld
         // The maximum number of nested include levels.
         int maxIncludeDepth = 32;
 
-        // The include paths to search for included files.
-        std::vector<std::filesystem::path> includePaths;
+        // The include URI roots to search for included files.
+        std::vector<Uri> includeUris;
 
         // The preprocessor definitions.
         std::vector<std::string> defines;

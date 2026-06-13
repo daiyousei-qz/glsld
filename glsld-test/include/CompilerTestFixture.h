@@ -111,6 +111,18 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
+        auto CompileWithVfs(const ParsedUri& mainFileUri, std::shared_ptr<VirtualFileSystem> vfs,
+                            CompileMode compileMode, PPCallback* ppCallback = nullptr) const
+            -> std::unique_ptr<CompilerResult>
+        {
+            auto compiler = std::make_unique<CompilerInvocation>();
+            compiler->SetNoStdlib(true);
+            compiler->SetVirtualFileSystem(vfs);
+            compiler->AddIncludeUri(mainFileUri);
+            compiler->SetMainFileFromUri(mainFileUri);
+            return compiler->CompileMainFile(ppCallback, compileMode);
+        }
+
         auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
                                      PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
         {
