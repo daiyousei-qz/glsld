@@ -123,18 +123,19 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
-        auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
-                                     PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
-        {
-            auto preambleCompiler = std::make_unique<CompilerInvocation>();
-            preambleCompiler->SetNoStdlib(true);
-            preambleCompiler->SetUserPreamble(userPreamble);
+        // FIXME: re-enable after refactoring the preamble to be more testable.
+        // auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
+        //                              PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
+        // {
+        //     auto preambleCompiler = std::make_unique<CompilerInvocation>();
+        //     preambleCompiler->SetNoStdlib(true);
+        //     preambleCompiler->SetUserPreamble(userPreamble);
 
-            auto preamble = preambleCompiler->CompilePreamble(ppCallback);
-            auto compiler = std::make_unique<CompilerInvocation>(preamble);
-            compiler->SetMainFileFromBuffer(mainFile);
-            return compiler->CompileMainFile(ppCallback, compileMode);
-        }
+        //     auto preamble = preambleCompiler->CompilePreamble(ppCallback);
+        //     auto compiler = std::make_unique<CompilerInvocation>(preamble);
+        //     compiler->SetMainFileFromBuffer(mainFile);
+        //     return compiler->CompileMainFile(ppCallback, compileMode);
+        // }
 
         auto CheckTokens(ArrayView<RawSyntaxToken> tokens, std::vector<TokenMatcher*> matchers) -> void
         {

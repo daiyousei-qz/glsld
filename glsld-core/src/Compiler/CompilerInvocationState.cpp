@@ -18,7 +18,6 @@ namespace glsld
             symbolTable = std::make_unique<SymbolTable>(&preamble->GetSymbolTable());
 
             systemPreambleArtifacts = preamble->GetSystemPreambleArtifacts().CreateReference();
-            userPreambleArtifacts   = preamble->GetUserPreambleArtifacts().CreateReference();
         }
         else {
             atomTable   = std::make_unique<AtomTable>(nullptr);
@@ -26,7 +25,6 @@ namespace glsld
             symbolTable = std::make_unique<SymbolTable>(nullptr);
 
             systemPreambleArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::SystemPreamble);
-            userPreambleArtifacts   = std::make_unique<CompilerArtifact>(TranslationUnitID::UserPreamble);
         }
 
         astContext        = std::make_unique<AstContext>();
@@ -129,10 +127,7 @@ namespace glsld
     auto CompilerInvocationState::TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
     {
         if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserPreamble) {
-                Print("=====Tokens of User Preamble=====\n");
-            }
-            else if (id == TranslationUnitID::UserFile) {
+            if (id == TranslationUnitID::UserFile) {
                 Print("=====Tokens of User File=====\n");
             }
 
@@ -148,10 +143,7 @@ namespace glsld
     auto CompilerInvocationState::TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
     {
         if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserPreamble) {
-                Print("=====AST of User Preamble=====\n");
-            }
-            else if (id == TranslationUnitID::UserFile) {
+            if (id == TranslationUnitID::UserFile) {
                 Print("=====AST of User File=====\n");
             }
 

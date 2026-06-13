@@ -124,8 +124,7 @@ namespace glsld
     enum class TranslationUnitID
     {
         SystemPreamble = 0,
-        UserPreamble   = 1,
-        UserFile       = 2,
+        UserFile       = 1,
     };
 
     class SyntaxTokenID

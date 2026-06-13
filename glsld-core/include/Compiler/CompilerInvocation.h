@@ -134,13 +134,6 @@ namespace glsld
             }
         }
 
-        // User should ensure that the preamble text outlive the CompilerInvocation
-        auto SetUserPreamble(SourceTextView content) -> void
-        {
-            GLSLD_REQUIRE(preamble == nullptr);
-            sourceManager.SetUserPreamble(content);
-        }
-
         auto SetMainFileFromUri(ParsedUri uri) -> void;
 
         // User should ensure that the source text outlive the CompilerInvocation
@@ -150,8 +143,8 @@ namespace glsld
         // Scanning should end at the first non-comment, non-preprocessor token.
         auto ScanVersionAndExtension(PPCallback* ppCallback) -> void;
 
-        // Compile the system preamble, user preamble and optionally main file into a precompiled preamble for reuse.
-        auto CompilePreamble(PPCallback* ppCallback) -> std::shared_ptr<PrecompiledPreamble>;
+        // Compile as a precompiled preamble for reuse.
+        auto CompilePreamble(PPCallback* ppCallback = nullptr) -> std::shared_ptr<PrecompiledPreamble>;
 
         auto CompileMainFile(PPCallback* ppCallback, CompileMode mode = CompileMode::ParseOnly)
             -> std::unique_ptr<CompilerResult>;

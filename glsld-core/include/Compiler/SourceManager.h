@@ -31,8 +31,6 @@ namespace glsld
 
         SourceTextView systemPreamble;
 
-        SourceTextView userPreamble;
-
         std::deque<SourceFileEntry> entries;
 
         std::deque<std::string> ownedFileContents;
@@ -44,7 +42,6 @@ namespace glsld
         {
             if (preamble) {
                 systemPreamble = preamble->GetSystemPreamble();
-                userPreamble   = preamble->GetUserPreamble();
             }
         }
 
@@ -53,19 +50,9 @@ namespace glsld
             systemPreamble = content;
         }
 
-        auto SetUserPreamble(SourceTextView content) -> void
-        {
-            userPreamble = content;
-        }
-
         auto GetSystemPreamble() const noexcept -> SourceTextView
         {
             return systemPreamble;
-        }
-
-        auto GetUserPreamble() const noexcept -> SourceTextView
-        {
-            return userPreamble;
         }
 
         auto SetVirtualFileSystem(std::shared_ptr<VirtualFileSystem> newVfs) -> void
@@ -80,11 +67,8 @@ namespace glsld
             if (!fileId.IsValid()) {
                 return "";
             }
-            else if (fileId.IsSystemPreamble()) {
+            else if (fileId.IsPreamble()) {
                 return "glsld-internal:/system_preamble";
-            }
-            else if (fileId.IsUserPreamble()) {
-                return "glsld-internal:/user_preamble";
             }
             else {
                 return GetUserFileEntry(fileId).canonicalUri;
@@ -96,11 +80,8 @@ namespace glsld
             if (!fileId.IsValid()) {
                 return {};
             }
-            else if (fileId.IsSystemPreamble()) {
+            else if (fileId.IsPreamble()) {
                 return systemPreamble;
-            }
-            else if (fileId.IsUserPreamble()) {
-                return userPreamble;
             }
             else {
                 return GetUserFileEntry(fileId).content;

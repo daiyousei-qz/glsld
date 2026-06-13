@@ -69,11 +69,6 @@ namespace glsld
             DoParse(*compiler, TranslationUnitID::SystemPreamble);
         }
 
-        if (compiler->GetArtifact(TranslationUnitID::UserPreamble)->GetAst() == nullptr) {
-            DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
-            DoParse(*compiler, TranslationUnitID::UserPreamble);
-        }
-
         return compiler->CreatePreamble();
     }
 
@@ -94,7 +89,6 @@ namespace glsld
 
         if (!preamble) {
             DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
         }
 
         DoPreprocess(*compiler, mainFileId, ppCallback);
@@ -104,7 +98,6 @@ namespace glsld
 
         if (!preamble) {
             DoParse(*compiler, TranslationUnitID::SystemPreamble);
-            DoParse(*compiler, TranslationUnitID::UserPreamble);
         }
         DoParse(*compiler, TranslationUnitID::UserFile);
 

@@ -117,8 +117,6 @@ namespace glsld
             switch (id) {
             case TranslationUnitID::SystemPreamble:
                 return &compilerResult->GetSystemPreambleArtifacts();
-            case TranslationUnitID::UserPreamble:
-                return &compilerResult->GetUserPreambleArtifacts();
             case TranslationUnitID::UserFile:
                 return &compilerResult->GetUserFileArtifacts();
             }

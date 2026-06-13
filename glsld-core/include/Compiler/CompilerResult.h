@@ -18,7 +18,6 @@ namespace glsld
         LanguageConfig languageConfig;
 
         std::string systemPreambleText;
-        std::string userPreambleText;
 
         std::unique_ptr<const AtomTable> atomTable;
         std::unique_ptr<const MacroTable> macroTable;
@@ -26,18 +25,15 @@ namespace glsld
         std::unique_ptr<const AstContext> astContext;
 
         std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts;
-        std::unique_ptr<const CompilerArtifact> userPreambleArtifacts;
 
     public:
-        PrecompiledPreamble(LanguageConfig languageConfig, StringView systemPreamble, StringView userPreamble,
+        PrecompiledPreamble(LanguageConfig languageConfig, StringView systemPreamble,
                             std::unique_ptr<const AtomTable> atomTable, std::unique_ptr<const MacroTable> macroTable,
                             std::unique_ptr<SymbolTable> symbolTable, std::unique_ptr<const AstContext> astContext,
-                            std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts,
-                            std::unique_ptr<const CompilerArtifact> userPreambleArtifacts)
-            : languageConfig(languageConfig), systemPreambleText(systemPreamble), userPreambleText(userPreamble),
+                            std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts)
+            : languageConfig(languageConfig), systemPreambleText(systemPreamble),
               atomTable(std::move(atomTable)), macroTable(std::move(macroTable)), symbolTable(std::move(symbolTable)),
-              astContext(std::move(astContext)), systemPreambleArtifacts(std::move(systemPreambleArtifacts)),
-              userPreambleArtifacts(std::move(userPreambleArtifacts))
+              astContext(std::move(astContext)), systemPreambleArtifacts(std::move(systemPreambleArtifacts))
         {
         }
 
@@ -49,11 +45,6 @@ namespace glsld
         auto GetSystemPreamble() const noexcept -> SourceTextView
         {
             return systemPreambleText;
-        }
-
-        auto GetUserPreamble() const noexcept -> SourceTextView
-        {
-            return userPreambleText;
         }
 
         auto GetAstContext() const noexcept -> const AstContext&
@@ -77,10 +68,6 @@ namespace glsld
         {
             return *systemPreambleArtifacts;
         }
-        auto GetUserPreambleArtifacts() const noexcept -> const CompilerArtifact&
-        {
-            return *userPreambleArtifacts;
-        }
     };
 
     class CompilerResult
@@ -92,18 +79,16 @@ namespace glsld
         std::unique_ptr<const AstContext> astContext = nullptr;
 
         std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts = nullptr;
-        std::unique_ptr<const CompilerArtifact> userPreambleArtifacts   = nullptr;
         std::unique_ptr<const CompilerArtifact> userFileArtifacts       = nullptr;
 
     public:
         CompilerResult(std::shared_ptr<PrecompiledPreamble> preamble, std::unique_ptr<const AtomTable> atomTable,
                        std::unique_ptr<const AstContext> astContext,
                        std::unique_ptr<const CompilerArtifact> systemPreambleArtifacts,
-                       std::unique_ptr<const CompilerArtifact> userPreambleArtifacts,
                        std::unique_ptr<const CompilerArtifact> userFileArtifacts)
             : preamble(std::move(preamble)), atomTable(std::move(atomTable)), astContext(std::move(astContext)),
               systemPreambleArtifacts(std::move(systemPreambleArtifacts)),
-              userPreambleArtifacts(std::move(userPreambleArtifacts)), userFileArtifacts(std::move(userFileArtifacts))
+              userFileArtifacts(std::move(userFileArtifacts))
         {
         }
 
@@ -115,10 +100,6 @@ namespace glsld
         auto GetSystemPreambleArtifacts() const noexcept -> const CompilerArtifact&
         {
             return *systemPreambleArtifacts;
-        }
-        auto GetUserPreambleArtifacts() const noexcept -> const CompilerArtifact&
-        {
-            return *userPreambleArtifacts;
         }
         auto GetUserFileArtifacts() const noexcept -> const CompilerArtifact&
         {

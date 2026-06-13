@@ -627,11 +627,8 @@ namespace glsld
 
         static auto GetTUId(FileID sourceFile) -> TranslationUnitID
         {
-            if (sourceFile.IsSystemPreamble()) {
+            if (sourceFile.IsPreamble()) {
                 return TranslationUnitID::SystemPreamble;
-            }
-            else if (sourceFile.IsUserPreamble()) {
-                return TranslationUnitID::UserPreamble;
             }
             else {
                 return TranslationUnitID::UserFile;

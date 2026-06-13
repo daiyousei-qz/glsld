@@ -46,7 +46,6 @@ namespace glsld
         std::unique_ptr<DiagnosticStream> diagStream;
 
         std::unique_ptr<CompilerArtifact> systemPreambleArtifacts;
-        std::unique_ptr<CompilerArtifact> userPreambleArtifacts;
         std::unique_ptr<CompilerArtifact> userFileArtifacts;
 
 #if defined(GLSLD_DEBUG)
@@ -120,9 +119,7 @@ namespace glsld
 
         auto GetArtifact(TranslationUnitID id) noexcept -> CompilerArtifact*
         {
-            return id == TranslationUnitID::SystemPreamble ? systemPreambleArtifacts.get()
-                   : id == TranslationUnitID::UserPreamble ? userPreambleArtifacts.get()
-                                                           : userFileArtifacts.get();
+            return id == TranslationUnitID::SystemPreamble ? systemPreambleArtifacts.get() : userFileArtifacts.get();
         }
 
         auto UpdatePreprocessingArtifact(TranslationUnitID id, std::vector<RawSyntaxToken> tokens,
@@ -142,15 +139,14 @@ namespace glsld
         auto CreatePreamble() noexcept -> std::shared_ptr<PrecompiledPreamble>
         {
             return std::make_shared<PrecompiledPreamble>(
-                languageConfig, sourceManager.GetSystemPreamble(), sourceManager.GetUserPreamble(),
+                languageConfig, sourceManager.GetSystemPreamble(),
                 std::move(atomTable), std::move(macroTable), std::move(symbolTable), std::move(astContext),
-                std::move(systemPreambleArtifacts), std::move(userPreambleArtifacts));
+                std::move(systemPreambleArtifacts));
         }
         auto CreateCompileResult() noexcept -> std::unique_ptr<CompilerResult>
         {
             return std::make_unique<CompilerResult>(std::move(preamble), std::move(atomTable), std::move(astContext),
-                                                    std::move(systemPreambleArtifacts),
-                                                    std::move(userPreambleArtifacts), std::move(userFileArtifacts));
+                                                    std::move(systemPreambleArtifacts), std::move(userFileArtifacts));
         }
     };
 } // namespace glsld
