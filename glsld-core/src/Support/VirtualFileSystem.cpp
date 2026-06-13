@@ -115,17 +115,10 @@ namespace glsld
 
 #pragma region InMemoryFileSystem
 
-    auto InMemoryFileSystem::GetPathEntry(const ParsedUri& uri) -> DirectoryOrFile*
+    auto InMemoryFileSystem::GetPathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*
     {
-        auto rootKey = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority().GetText());
-        auto rootIt  = uriRoots.Find(StringView{rootKey});
-        if (rootIt == uriRoots.end()) {
-            return nullptr;
-        }
-
-        auto normalizedPath = uri.GetNormalizedPath();
-        auto currentEntry   = &rootIt->second;
-        for (StringView component : UriPathSegmentView{normalizedPath}) {
+        auto currentEntry = &root;
+        for (StringView component : pathSegments) {
             if (component.empty()) {
                 // Collapse consecutive '/'
                 continue;
@@ -140,24 +133,28 @@ namespace glsld
                 return nullptr;
             }
 
-            auto it = currentEntry->children.Find(*decodedComponent);
-            if (it == currentEntry->children.end()) {
-                return nullptr;
+            if (decodedComponent == ".") {
+                continue;
             }
-            currentEntry = &it->second;
+            if (decodedComponent == "..") {
+                currentEntry = currentEntry->parent;
+                continue;
+            }
+            if (auto it = currentEntry->children.Find(*decodedComponent); it != currentEntry->children.end()) {
+                currentEntry = &it->second;
+                continue;
+            }
+
+            return nullptr;
         }
 
         return currentEntry;
     }
 
-    auto InMemoryFileSystem::GetOrCreatePathEntry(const ParsedUri& uri) -> DirectoryOrFile*
+    auto InMemoryFileSystem::GetOrCreatePathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*
     {
-        auto rootKey   = fmt::format("{}:{}", uri.GetNormalizedScheme(), uri.GetRawAuthority().GetText());
-        auto rootEntry = &uriRoots[StringView{rootKey}];
-
-        auto normalizedPath = uri.GetNormalizedPath();
-        auto currentEntry   = rootEntry;
-        for (StringView component : UriPathSegmentView{normalizedPath}) {
+        auto currentEntry = &root;
+        for (StringView component : pathSegments) {
             if (component.empty()) {
                 // Collapse consecutive '/'
                 continue;
@@ -172,7 +169,18 @@ namespace glsld
                 return nullptr;
             }
 
-            currentEntry = &currentEntry->children[*decodedComponent];
+            if (*decodedComponent == ".") {
+                continue;
+            }
+            if (*decodedComponent == "..") {
+                currentEntry = currentEntry->parent;
+                continue;
+            }
+            auto child = &currentEntry->children[*decodedComponent];
+            if (child->parent == nullptr) {
+                child->parent = currentEntry;
+            }
+            currentEntry = child;
         }
 
         return currentEntry;
@@ -190,7 +198,11 @@ namespace glsld
 
     auto InMemoryFileSystem::AddFile(ParsedUri uri, std::string content) -> std::expected<void, FileSystemError>
     {
-        auto currentEntry = GetOrCreatePathEntry(uri);
+        if (!CheckMountPoint(uri)) {
+            return std::unexpected(FileSystemError::InvalidUri);
+        }
+
+        auto currentEntry = GetOrCreatePathEntry(uri.GetPathSegments());
         if (!currentEntry) {
             return std::unexpected(FileSystemError::NotADirectory);
         }
@@ -216,7 +228,11 @@ namespace glsld
     }
     auto InMemoryFileSystem::AddFileNoOwn(ParsedUri uri, StringView content) -> std::expected<void, FileSystemError>
     {
-        auto currentEntry = GetOrCreatePathEntry(uri);
+        if (!CheckMountPoint(uri)) {
+            return std::unexpected(FileSystemError::InvalidUri);
+        }
+
+        auto currentEntry = GetOrCreatePathEntry(uri.GetPathSegments());
         if (!currentEntry) {
             return std::unexpected(FileSystemError::NotADirectory);
         }
@@ -233,7 +249,11 @@ namespace glsld
 
     auto InMemoryFileSystem::ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError>
     {
-        if (auto entry = GetPathEntry(uri); entry != nullptr) {
+        if (!CheckMountPoint(uri)) {
+            return std::unexpected(FileSystemError::InvalidUri);
+        }
+
+        if (auto entry = GetPathEntry(uri.GetPathSegments()); entry != nullptr) {
             return std::monostate{};
         }
         else {
@@ -243,7 +263,11 @@ namespace glsld
 
     auto InMemoryFileSystem::ReadAllTextImpl(const ParsedUri& uri) -> std::expected<std::string, FileSystemError>
     {
-        auto entry = GetPathEntry(uri);
+        if (!CheckMountPoint(uri)) {
+            return std::unexpected(FileSystemError::InvalidUri);
+        }
+
+        auto entry = GetPathEntry(uri.GetPathSegments());
         if (entry == nullptr) {
             return std::unexpected(FileSystemError::NotFound);
         }
@@ -267,6 +291,11 @@ namespace glsld
             }
             else {
                 lastError = result.error();
+                if (lastError != FileSystemError::InvalidUri && lastError != FileSystemError::NotFound) {
+                    // Other errors indicate the resource exists but there's some issue accessing it.
+                    // So we should stop searching other layers and return the error instead.
+                    break;
+                }
             }
         }
 
@@ -282,6 +311,11 @@ namespace glsld
             }
             else {
                 lastError = result.error();
+                if (lastError != FileSystemError::InvalidUri && lastError != FileSystemError::NotFound) {
+                    // Other errors indicate the resource exists but there's some issue accessing it.
+                    // So we should stop searching other layers and return the error instead.
+                    break;
+                }
             }
         }
 

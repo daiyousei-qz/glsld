@@ -89,7 +89,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
         SECTION("MemoryFile")
         {
-            auto vfs = std::make_shared<InMemoryFileSystem>();
+            auto vfs = InMemoryFileSystem::Create("mem:");
+            REQUIRE(vfs);
             REQUIRE(vfs->AddFile("mem:/shader/main.glsl", R"(
                 #include "include/header.glsl"
                 HEADER_VALUE
@@ -113,7 +114,8 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
         SECTION("Unresolved")
         {
-            auto vfs = std::make_shared<InMemoryFileSystem>();
+            auto vfs = InMemoryFileSystem::Create("mem:");
+            REQUIRE(vfs);
             REQUIRE(vfs->AddFile("mem:/shader/main.glsl", R"(
                 #include "missing.glsl"
             )")

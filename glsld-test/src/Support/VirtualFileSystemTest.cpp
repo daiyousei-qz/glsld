@@ -4,110 +4,104 @@
 
 using namespace glsld;
 
-namespace
-{
-    auto ParseUri(StringView uri) -> ParsedUri
-    {
-        auto parsedUri = ParsedUri::Parse(uri);
-        REQUIRE(parsedUri.has_value());
-        return *parsedUri;
-    }
-} // namespace
-
 TEST_CASE("Support::VirtualFileSystemTest")
 {
     SECTION("NativeFileSystem")
     {
-        NativeFileSystem vfs;
+        auto vfs = NativeFileSystem::Create();
+        REQUIRE(vfs);
 
         // FIXME: we should also add positive tests
-        CHECK(vfs.Exists("invalid_uri") == std::unexpected(FileSystemError::InvalidUri));
-        CHECK(vfs.Exists("file:/_____nonexistent_file.txt") == std::unexpected(FileSystemError::NotFound));
-        CHECK(vfs.ReadAllText("invalid_uri") == std::unexpected(FileSystemError::InvalidUri));
-        CHECK(vfs.ReadAllText("file:/nonexistent_file.txt") == std::unexpected(FileSystemError::NotFound));
+        CHECK(vfs->Exists("invalid_uri") == std::unexpected(FileSystemError::InvalidUri));
+        CHECK(vfs->Exists("file:/_____nonexistent_file.txt") == std::unexpected(FileSystemError::NotFound));
+        CHECK(vfs->ReadAllText("invalid_uri") == std::unexpected(FileSystemError::InvalidUri));
+        CHECK(vfs->ReadAllText("file:/nonexistent_file.txt") == std::unexpected(FileSystemError::NotFound));
     }
 
     SECTION("InMemoryFileSystem")
     {
-        SECTION("POSIX")
+        auto vfs = InMemoryFileSystem::Create("mem:");
+        REQUIRE(vfs->AddFile("mem:/tmp/test1.txt", "TestData").has_value());
+        std::array<char, 5> localBuffer = {'H', 'e', 'l', 'l', 'o'};
+        REQUIRE(
+            vfs->AddFileNoOwn("mem:/tmp/test2.txt", StringView{localBuffer.data(), localBuffer.size()}).has_value());
+
+        SECTION("Basic")
         {
-            InMemoryFileSystem vfs;
-            REQUIRE(vfs.AddFile("mem:/tmp/test1.txt", "TestData").has_value());
-            std::array<char, 5> localBuffer = {'H', 'e', 'l', 'l', 'o'};
-            REQUIRE(
-                vfs.AddFileNoOwn("mem:/tmp/test2.txt", StringView{localBuffer.data(), localBuffer.size()}).has_value());
+            CHECK(vfs->Exists("mem:/tmp"));
+            CHECK(vfs->Exists("mem:/tmp/test1.txt"));
+            CHECK(vfs->Exists("mem:/tmp/test2.txt"));
+            CHECK(vfs->Exists("mem:/tmp/nonexistent.txt") == std::unexpected(FileSystemError::NotFound));
+            CHECK(vfs->Exists("relative/test.txt") == std::unexpected(FileSystemError::InvalidUri));
 
-            CHECK(vfs.Exists("mem:/tmp/test1.txt"));
-            CHECK(vfs.Exists("mem:/tmp/test2.txt"));
-            CHECK(!vfs.Exists("mem:/tmp/nonexistent.txt"));
-            CHECK(!vfs.Exists("relative/test.txt"));
+            CHECK(vfs->ReadAllText("mem:/tmp/test1.txt") == "TestData");
 
-            auto content1 = vfs.ReadAllText("mem:/tmp/test1.txt");
-            REQUIRE(content1.has_value());
-            CHECK(content1.value() == "TestData");
+            localBuffer = {'W', 'o', 'r', 'l', 'd'};
+            CHECK(vfs->ReadAllText("mem:/tmp/test2.txt") == "World");
 
-            localBuffer   = {'W', 'o', 'r', 'l', 'd'};
-            auto content2 = vfs.ReadAllText("mem:/tmp/test2.txt");
-            REQUIRE(content2.has_value());
-            CHECK(content2.value() == "World");
-
-            auto content3 = vfs.ReadAllText("mem:/tmp/nonexistent.txt");
-            REQUIRE(!content3.has_value());
-            CHECK(content3.error() == FileSystemError::NotFound);
-
-            auto content4 = vfs.ReadAllText("mem:/tmp");
-            REQUIRE(!content4.has_value());
-            CHECK(content4.error() == FileSystemError::IsADirectory);
+            CHECK(vfs->ReadAllText("mem:/tmp/nonexistent.txt") == std::unexpected(FileSystemError::NotFound));
+            CHECK(vfs->ReadAllText("mem:/tmp") == std::unexpected(FileSystemError::IsADirectory));
         }
 
-        SECTION("NonFileUri")
+        SECTION("PathVariations")
         {
-            InMemoryFileSystem vfs;
-            REQUIRE(vfs.AddFile(ParseUri("untitled:tmp/test1.txt"), "TestData").has_value());
-            REQUIRE(vfs.AddFile(ParseUri("glsld-cache://main/include/test.glsl"), "CachedData").has_value());
+            CHECK(vfs->Exists("mem:///tmp///./////"));
+            CHECK(vfs->Exists("mem:/tmp/./test1.txt"));
+            CHECK(vfs->Exists("mem:/tmp/../tmp/test1.txt"));
+            CHECK(vfs->Exists("mem:/tmp/./../tmp/./test1.txt"));
+            CHECK(vfs->Exists("mem:/tmp//test1.txt"));
 
-            CHECK(vfs.Exists("untitled:tmp/test1.txt"));
-            CHECK(vfs.Exists("glsld-cache://main/include/test.glsl"));
-            CHECK(!vfs.Exists("untitled:tmp/nonexistent.txt"));
-            CHECK(!vfs.Exists("glsld-cache://other/include/test.glsl"));
+            CHECK(vfs->ReadAllText("mem:/tmp//./test1.txt") == "TestData");
 
-            auto content1 = vfs.ReadAllText("untitled:tmp/test1.txt");
-            REQUIRE(content1.has_value());
-            CHECK(content1.value() == "TestData");
+            // Even though this should resolve to the correct file, inexistent intermediate directories should cause it
+            // to fail.
+            CHECK(vfs->ReadAllText("mem:/tmp/include/../test1.txt") == std::unexpected(FileSystemError::NotFound));
+        }
 
-            auto content2 = vfs.ReadAllText("glsld-cache://main/include/test.glsl");
-            REQUIRE(content2.has_value());
-            CHECK(content2.value() == "CachedData");
+        SECTION("BadMountPoint")
+        {
 
-            auto content3 = vfs.ReadAllText("untitled:tmp");
-            REQUIRE(!content3.has_value());
-            CHECK(content3.error() == FileSystemError::IsADirectory);
+            CHECK(InMemoryFileSystem::Create("invalid_scheme") == nullptr);
+            CHECK(InMemoryFileSystem::Create("tmp:/path_must_be_empty") == nullptr);
+
+            CHECK(vfs->AddFile("mem:relative/test1.txt", "TestData") == std::unexpected(FileSystemError::InvalidUri));
+            CHECK(vfs->AddFile("bad-scheme:/include/test.glsl", "CachedData") ==
+                  std::unexpected(FileSystemError::InvalidUri));
+            CHECK(vfs->AddFile("mem://bad_authority/include/test.glsl", "CachedData") ==
+                  std::unexpected(FileSystemError::InvalidUri));
+
+            CHECK(vfs->Exists("untitled:/tmp/test1.txt") == std::unexpected(FileSystemError::InvalidUri));
+            CHECK(vfs->ReadAllText("untitled:tmp/test1.txt") == std::unexpected(FileSystemError::InvalidUri));
         }
     }
 
     SECTION("OverlayFileSystem")
     {
-        OverlayFileSystem overlayVfs;
-        overlayVfs.AddLayerWithInit<InMemoryFileSystem>(
-            [](InMemoryFileSystem& vfs) { REQUIRE(vfs.AddFile("mem:/base/file.txt", "BaseContent1").has_value()); });
-        overlayVfs.AddLayerWithInit<InMemoryFileSystem>([](InMemoryFileSystem& vfs) {
-            REQUIRE(vfs.AddFile("mem:/base/file.txt", "BaseContent2").has_value());
-            REQUIRE(vfs.AddFile("mem:/tmp/otherFile.txt", "BaseContent2").has_value());
-        });
+        auto inMemoryVfs1 = InMemoryFileSystem::Create("mem:");
+        REQUIRE(inMemoryVfs1);
+        REQUIRE(inMemoryVfs1->AddFile("mem:/base/file.txt", "BaseContent1").has_value());
 
-        CHECK(overlayVfs.Exists("mem:/base/file.txt"));
-        CHECK(overlayVfs.Exists("mem:/tmp/otherFile.txt"));
-        CHECK(!overlayVfs.Exists("mem:/nonexistent.txt"));
+        auto inMemoryVfs2 = InMemoryFileSystem::Create("mem:");
+        REQUIRE(inMemoryVfs2);
+        REQUIRE(inMemoryVfs2->AddFile("mem:/base/file.txt", "BaseContent2").has_value());
+        REQUIRE(inMemoryVfs2->AddFile("mem:/tmp/otherFile.txt", "BaseContent2").has_value());
 
-        auto content1 = overlayVfs.ReadAllText("mem:/base/file.txt");
+        auto overlayVfs = OverlayFileSystem::Create({inMemoryVfs1, inMemoryVfs2});
+        REQUIRE(overlayVfs);
+
+        CHECK(overlayVfs->Exists("mem:/base/file.txt"));
+        CHECK(overlayVfs->Exists("mem:/tmp/otherFile.txt"));
+        CHECK(!overlayVfs->Exists("mem:/nonexistent.txt"));
+
+        auto content1 = overlayVfs->ReadAllText("mem:/base/file.txt");
         REQUIRE(content1.has_value());
         CHECK(content1.value() == "BaseContent1");
 
-        auto content2 = overlayVfs.ReadAllText("mem:/tmp/otherFile.txt");
+        auto content2 = overlayVfs->ReadAllText("mem:/tmp/otherFile.txt");
         REQUIRE(content2.has_value());
         CHECK(content2.value() == "BaseContent2");
 
-        auto content3 = overlayVfs.ReadAllText("mem:/nonexistent.txt");
+        auto content3 = overlayVfs->ReadAllText("mem:/nonexistent.txt");
         REQUIRE(!content3.has_value());
     }
 }

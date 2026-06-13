@@ -16,11 +16,17 @@ namespace glsld
     enum class FileSystemError
     {
         Unknown,
+        // Indicates the URI is malformed or not supported by the file system.
         InvalidUri,
+        // Indicates the specified resource doesn't exist.
         NotFound,
+        // Indicates that the specified resource could not be accessed due to insufficient permissions.
         PermissionDenied,
+        // Indicates that the specified resource is a directory, but a file was expected.
         IsADirectory,
+        // Indicates that the specified resource is a file, but a directory was expected.
         NotADirectory,
+        // Indicates an input/output error occurred while accessing the resource.
         IOError,
     };
 
@@ -30,6 +36,10 @@ namespace glsld
     public:
         VirtualFileSystem()          = default;
         virtual ~VirtualFileSystem() = default;
+
+        // VFS should be pined in the same location to ensure the pointer stability.
+        VirtualFileSystem(const VirtualFileSystem&)            = delete;
+        VirtualFileSystem& operator=(const VirtualFileSystem&) = delete;
 
         auto Exists(StringView uri) -> std::expected<std::monostate, FileSystemError>;
 
@@ -49,6 +59,11 @@ namespace glsld
     public:
         NativeFileSystem() = default;
 
+        static auto Create() -> std::shared_ptr<NativeFileSystem>
+        {
+            return std::make_shared<NativeFileSystem>();
+        }
+
     protected:
         auto ExistsImpl(const ParsedUri& uri) -> std::expected<std::monostate, FileSystemError> override;
         auto ReadAllTextImpl(const ParsedUri& uri) -> std::expected<std::string, FileSystemError> override;
@@ -59,6 +74,8 @@ namespace glsld
     private:
         struct DirectoryOrFile
         {
+            DirectoryOrFile* parent = nullptr;
+
             UnorderedStringMap<DirectoryOrFile> children = {};
 
             std::optional<StringView> fileContent = {};
@@ -66,15 +83,34 @@ namespace glsld
 
         std::deque<std::string> ownedFiles;
 
-        // Maps normalized (scheme, authority) to the root directory of the path
-        UnorderedStringMap<DirectoryOrFile> uriRoots;
+        std::string mountScheme;
+        std::string mountAuthority;
+        DirectoryOrFile root{.parent = &root};
 
-        auto GetPathEntry(const ParsedUri& uri) -> DirectoryOrFile*;
+        auto CheckMountPoint(const ParsedUri& uri) -> bool
+        {
+            return uri.TestScheme(mountScheme) && uri.GetRawAuthority().Equals(mountAuthority) &&
+                   uri.GetRawPath().GetText().StartWith('/');
+        }
 
-        auto GetOrCreatePathEntry(const ParsedUri& uri) -> DirectoryOrFile*;
+        auto GetPathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*;
+
+        auto GetOrCreatePathEntry(UriPathSegmentView pathSegments) -> DirectoryOrFile*;
 
     public:
-        InMemoryFileSystem() = default;
+        InMemoryFileSystem(const ParsedUri& mountPoint)
+            : mountScheme(mountPoint.GetNormalizedScheme()), mountAuthority(mountPoint.GetRawAuthority().GetText())
+        {
+        }
+
+        static auto Create(StringView mountPoint) -> std::shared_ptr<InMemoryFileSystem>
+        {
+            auto parsedMountPoint = ParsedUri::Parse(mountPoint);
+            if (!parsedMountPoint || !parsedMountPoint->GetRawPath().GetText().empty()) {
+                return nullptr;
+            }
+            return std::make_shared<InMemoryFileSystem>(*parsedMountPoint);
+        }
 
         // Adds a file with the given content to the specified path.
         auto AddFile(StringView uri, std::string content) -> std::expected<void, FileSystemError>;
@@ -101,19 +137,10 @@ namespace glsld
         {
         }
 
-        template <typename VfsType>
-        auto AddLayer() -> void
+        static auto Create(std::vector<std::shared_ptr<VirtualFileSystem>> layerList)
+            -> std::shared_ptr<OverlayFileSystem>
         {
-            layers.push_back(std::make_shared<VfsType>());
-        }
-
-        // TODO: use std::function_ref
-        template <typename VfsType, typename Fn>
-        auto AddLayerWithInit(Fn initFn) -> void
-        {
-            auto layer = std::make_shared<VfsType>();
-            initFn(*layer);
-            layers.push_back(std::move(layer));
+            return std::make_shared<OverlayFileSystem>(std::move(layerList));
         }
 
     protected:
