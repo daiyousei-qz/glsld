@@ -192,7 +192,7 @@ namespace glsld
                              sourceText));
 
             auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
-            CheckTokens(compilerResult->GetUserFileArtifacts().GetTokens(), std::move(matchers));
+            CheckTokens(compilerResult->GetTokens(), std::move(matchers));
         }
 
         auto CheckAst(const AstNode* ast, AstMatcher* matcher) -> void
@@ -224,7 +224,7 @@ namespace glsld
                              wrappedSourceText));
 
             auto compilerResult = Compile(wrappedSourceText, CompileMode::ParseOnly);
-            CheckAst(compilerResult->GetUserFileArtifacts().GetAst(), matcher);
+            CheckAst(compilerResult->GetAst(), matcher);
         }
 
         auto CheckAst(SourceTextView sourceText, AstMatcher* matcher) -> void

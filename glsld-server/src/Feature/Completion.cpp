@@ -376,7 +376,7 @@ namespace glsld
     {
         std::vector<lsp::CompletionItem> result;
         std::unordered_set<AtomString> seenIds;
-        for (const AstDecl* decl : preamble.GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
+        for (const AstDecl* decl : preamble.GetPreambleAst()->GetGlobalDecls()) {
             CollectCompletionFromDecl(
                 [&](const AstSyntaxToken& declTok, lsp::CompletionItemKind kind) {
                     if (seenIds.find(declTok.text) == seenIds.end()) {

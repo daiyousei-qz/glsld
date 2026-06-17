@@ -16,7 +16,7 @@ namespace glsld
     {
         auto ast = ParseTranslationUnit();
         GLSLD_ASSERT(ast->GetSyntaxRange().GetEndID().GetTokenIndex() == tokens.size() - 1);
-        compiler.UpdateAstArtifact(ast, isPreamble);
+        compiler.GetAstContext().SetAst(*ast);
     }
 
     auto Parser::ParseTranslationUnit() -> const AstTranslationUnit*

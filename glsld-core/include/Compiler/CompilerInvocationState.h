@@ -3,7 +3,6 @@
 #include "Basic/AtomTable.h"
 #include "Basic/Common.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/CompilerConfig.h"
 #include "Compiler/CompilerResult.h"
 #include "Compiler/CompilerTrace.h"
@@ -38,15 +37,13 @@ namespace glsld
         CompilerConfig compilerConfig;
         LanguageConfig languageConfig;
         std::shared_ptr<PrecompiledPreamble> preamble = nullptr;
+        bool isPreambleCompilation                    = false;
 
         std::unique_ptr<AtomTable> atomTable;
         std::unique_ptr<MacroTable> macroTable;
         std::unique_ptr<SymbolTable> symbolTable;
         std::unique_ptr<AstContext> astContext;
         std::unique_ptr<DiagnosticStream> diagStream;
-
-        std::unique_ptr<CompilerArtifact> systemPreambleArtifacts;
-        std::unique_ptr<CompilerArtifact> userFileArtifacts;
 
 #if defined(GLSLD_DEBUG)
         mutable CompilerTrace trace;
@@ -62,18 +59,24 @@ namespace glsld
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
                                 std::shared_ptr<PrecompiledPreamble> preamble)
             : sourceManager(sourceManager), compilerConfig(compilerConfig),
-              languageConfig(preamble->GetLanguageConfig()), preamble(std::move(preamble))
+              languageConfig(preamble->GetLanguageConfig()), preamble(std::move(preamble)), isPreambleCompilation(false)
         {
             GLSLD_ASSERT(this->preamble != nullptr);
             Initialize();
             // stdlib imported from preamble if any.
         }
         CompilerInvocationState(SourceManager& sourceManager, CompilerConfig compilerConfig,
-                                LanguageConfig languageConfig)
-            : sourceManager(sourceManager), compilerConfig(compilerConfig), languageConfig(languageConfig)
+                                LanguageConfig languageConfig, bool isPreambleCompilation)
+            : sourceManager(sourceManager), compilerConfig(compilerConfig), languageConfig(languageConfig),
+              isPreambleCompilation(isPreambleCompilation)
         {
             Initialize();
             InitializeStdlib();
+        }
+
+        auto IsPreambleCompilation() const noexcept -> bool
+        {
+            return isPreambleCompilation;
         }
 
         auto GetSourceManager() noexcept -> SourceManager&
@@ -117,37 +120,14 @@ namespace glsld
         }
 #endif
 
-        auto GetArtifact(bool isPreamble) noexcept -> CompilerArtifact*
-        {
-            return isPreamble ? systemPreambleArtifacts.get() : userFileArtifacts.get();
-        }
-
-        auto UpdatePreprocessingArtifact(std::vector<RawSyntaxToken> tokens, std::vector<RawCommentToken> comments,
-                                         std::vector<PreprocessedFile> files, bool isPreamble)
-            -> void
-        {
-            TryDumpTokens(tokens, isPreamble);
-            GetArtifact(isPreamble)->UpdatePreprocessingArtifact(std::move(tokens), std::move(comments),
-                                                                 std::move(files));
-        }
-
-        auto UpdateAstArtifact(const AstTranslationUnit* ast, bool isPreamble) -> void
-        {
-            TryDumpAst(ast, isPreamble);
-            GetArtifact(isPreamble)->UpdateAstArtifact(ast);
-        }
-
         auto CreatePreamble() noexcept -> std::shared_ptr<PrecompiledPreamble>
         {
-            return std::make_shared<PrecompiledPreamble>(
-                languageConfig, sourceManager.GetSystemPreamble(),
-                std::move(atomTable), std::move(macroTable), std::move(symbolTable), std::move(astContext),
-                std::move(systemPreambleArtifacts));
+            return std::make_shared<PrecompiledPreamble>(languageConfig, std::move(atomTable), std::move(macroTable),
+                                                         std::move(symbolTable), std::move(astContext));
         }
         auto CreateCompileResult() noexcept -> std::unique_ptr<CompilerResult>
         {
-            return std::make_unique<CompilerResult>(std::move(preamble), std::move(atomTable), std::move(astContext),
-                                                    std::move(systemPreambleArtifacts), std::move(userFileArtifacts));
+            return std::make_unique<CompilerResult>(std::move(preamble), std::move(atomTable), std::move(astContext));
         }
     };
 } // namespace glsld

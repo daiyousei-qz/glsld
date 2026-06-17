@@ -1,10 +1,8 @@
 #include "Basic/AtomTable.h"
 #include "Compiler/CompilerInvocationState.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/MacroTable.h"
 #include "Compiler/SymbolTable.h"
-#include "Language/Stdlib.Generated.h"
 
 #include <memory>
 
@@ -16,31 +14,21 @@ namespace glsld
             atomTable   = std::make_unique<AtomTable>(&preamble->GetAtomTable());
             macroTable  = std::make_unique<MacroTable>(&preamble->GetMacroTable());
             symbolTable = std::make_unique<SymbolTable>(&preamble->GetSymbolTable());
-
-            systemPreambleArtifacts = preamble->GetSystemPreambleArtifacts().CreateReference();
         }
         else {
             atomTable   = std::make_unique<AtomTable>(nullptr);
             macroTable  = std::make_unique<MacroTable>(nullptr);
             symbolTable = std::make_unique<SymbolTable>(nullptr);
-
-            systemPreambleArtifacts = std::make_unique<CompilerArtifact>();
         }
 
-        astContext        = std::make_unique<AstContext>();
-        diagStream        = std::make_unique<DiagnosticStream>();
-        userFileArtifacts = std::make_unique<CompilerArtifact>();
+        astContext = std::make_unique<AstContext>();
+        diagStream = std::make_unique<DiagnosticStream>();
     }
 
     auto CompilerInvocationState::InitializeStdlib() -> void
     {
         // FIXME: don't run this when scanning for version and extensions
         GLSLD_ASSERT(preamble == nullptr);
-
-        // Initialize system preamble
-        if (!languageConfig.noStdlib) {
-            sourceManager.SetSystemPreamble(GlslStdlibText);
-        }
 
         // Initialize feature macros
         auto defineFeatureMacro = [this, one = atomTable->GetAtom("1")](StringView name) {

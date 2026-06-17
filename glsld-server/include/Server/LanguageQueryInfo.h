@@ -3,7 +3,6 @@
 #include "Ast/Expr.h"
 #include "Ast/Misc.h"
 #include "Basic/Common.h"
-#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/CompilerResult.h"
 #include "Compiler/SyntaxToken.h"
 #include "Server/PreprocessSymbolStore.h"
@@ -104,18 +103,12 @@ namespace glsld
 
         auto GetUserFileAst() const -> const AstTranslationUnit&
         {
-            return *compilerResult->GetUserFileArtifacts().GetAst();
+            return *compilerResult->GetAst();
         }
 
         auto GetPreprocessInfo() const -> const PreprocessInfoStore&
         {
             return *ppInfoStore;
-        }
-
-        auto LookupArtifact(bool isPreamble) const -> const CompilerArtifact*
-        {
-            return isPreamble ? &compilerResult->GetSystemPreambleArtifacts()
-                              : &compilerResult->GetUserFileArtifacts();
         }
 
         // Returns the token entry of the specified token.

@@ -26,9 +26,6 @@ namespace glsld
         // Time spent on scanning #version and #extension
         Duration versionScanning;
 
-        // Time spent on lexing preamble
-        Duration preambleLexing;
-
         // Time spent on lexing main file
         Duration mainFileLexing;
 
@@ -147,9 +144,8 @@ namespace glsld
             -> std::unique_ptr<CompilerResult>;
 
     private:
-        auto InitializeCompilation() -> std::unique_ptr<CompilerInvocationState>;
         auto DoPreprocess(CompilerInvocationState& compiler, FileID file, PPCallback* callback) -> void;
-        auto DoParse(CompilerInvocationState& compiler, bool isPreamble) -> void;
+        auto DoParse(CompilerInvocationState& compiler) -> void;
     };
 
 } // namespace glsld

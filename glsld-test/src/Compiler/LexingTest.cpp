@@ -124,7 +124,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::LexingTest")
         CheckTokens(sourceText, {IdTok("foo"), KeywordTok(TokenKlass::Plus), IdTok("bar"), EofTok()});
 
         auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
-        auto comments       = compilerResult->GetUserFileArtifacts().GetComments();
+        auto comments       = compilerResult->GetComments();
 
         REQUIRE(comments.size() == 2);
         CHECK(comments[0].text.StrView() == "/*block*/");

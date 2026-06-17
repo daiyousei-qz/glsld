@@ -1,5 +1,4 @@
 #include "Server/LanguageQueryInfo.h"
-#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/SyntaxToken.h"
 #include "Server/LanguageQueryVisitor.h"
 
@@ -7,7 +6,12 @@ namespace glsld
 {
     auto LanguageQueryInfo::LookupToken(SyntaxTokenID id) const -> const RawSyntaxToken*
     {
-        return &LookupArtifact(id.IsPreambleToken())->GetTokens()[id.GetTokenIndex()];
+        if (id.IsPreambleToken()) {
+            return &compilerResult->GetPreambleTokens()[id.GetTokenIndex()];
+        }
+        else {
+            return &compilerResult->GetTokens()[id.GetTokenIndex()];
+        }
     }
     auto LanguageQueryInfo::LookupTokens(AstSyntaxRange range) const -> ArrayView<RawSyntaxToken>
     {
@@ -31,21 +35,21 @@ namespace glsld
     }
     auto LanguageQueryInfo::LookupTokenByPosition(TextPosition position) const -> ArrayView<RawSyntaxToken>
     {
-        auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
+        auto tokens           = compilerResult->GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             tokens, position, {}, [](const RawSyntaxToken& tok) { return tok.expandedRange.start; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
     auto LanguageQueryInfo::LookupTokenByLine(uint32_t lineNum) const -> ArrayView<RawSyntaxToken>
     {
-        auto tokens           = compilerResult->GetUserFileArtifacts().GetTokens();
+        auto tokens           = compilerResult->GetTokens();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             tokens, lineNum, {}, [](const RawSyntaxToken& tok) { return tok.expandedRange.start.line; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
     }
     auto LanguageQueryInfo::LookupPreceedingComment(SyntaxTokenID id) const -> ArrayView<RawCommentToken>
     {
-        auto comments         = LookupArtifact(id.IsPreambleToken())->GetComments();
+        auto comments = id.IsPreambleToken() ? compilerResult->GetPreambleComments() : compilerResult->GetComments();
         auto [itBegin, itEnd] = std::ranges::equal_range(
             comments, id.GetTokenIndex(), {}, [](const RawCommentToken& token) { return token.nextTokenIndex; });
         return {std::to_address(itBegin), std::to_address(itEnd)};
@@ -56,7 +60,7 @@ namespace glsld
     }
     auto LanguageQueryInfo::IsMainFile(FileID file) const -> bool
     {
-        return file == compilerResult->GetUserFileArtifacts().GetTokens().back().spelledFile;
+        return file == compilerResult->GetTokens().back().spelledFile;
     }
     auto LanguageQueryInfo::IsSpelledInMainFile(SyntaxTokenID id) const -> bool
     {
@@ -64,7 +68,7 @@ namespace glsld
             return false;
         }
 
-        return LookupSpelledFile(id) == compilerResult->GetUserFileArtifacts().GetTokens().back().spelledFile;
+        return LookupSpelledFile(id) == compilerResult->GetTokens().back().spelledFile;
     }
     auto LanguageQueryInfo::LookupSpelledTextRange(SyntaxTokenID id) const -> FileTextRange
     {

@@ -133,9 +133,9 @@ namespace glsld
         };
 
     public:
-        Parser(CompilerInvocationState& compiler, ArrayView<RawSyntaxToken> tokens, bool isPreamble)
+        Parser(CompilerInvocationState& compiler)
             : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()),
-              isPreamble(isPreamble), tokens(tokens)
+              isPreamble(compiler.IsPreambleCompilation()), tokens(compiler.GetAstContext().GetTokens())
         {
             GLSLD_ASSERT(!tokens.empty() && tokens.back().klass == TokenKlass::Eof);
             currentTok = tokens.data();

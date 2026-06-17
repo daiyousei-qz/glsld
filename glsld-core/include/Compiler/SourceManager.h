@@ -19,42 +19,25 @@ namespace glsld
     private:
         struct SourceFileEntry
         {
+            // A monolithic unique ID for the file.
             FileID id;
 
-            // FIXME: It is not canonical at this point but whatever provided by the user. We should let VFS handle the
-            // canonicalization.
-            // The canonical URI of the file.
+            // URI that is used to open the file.
             std::string canonicalUri;
 
-            SourceTextView content;
+            // The content of the file read from VFS
+            std::string content;
         };
 
         std::shared_ptr<VirtualFileSystem> vfs = std::make_shared<NativeFileSystem>();
 
-        SourceTextView systemPreamble;
-
         std::deque<SourceFileEntry> entries;
-
-        std::deque<std::string> ownedFileContents;
 
         StringMap<FileID> lookupUriToEntries;
 
     public:
         SourceManager(const PrecompiledPreamble* preamble = nullptr)
         {
-            if (preamble) {
-                systemPreamble = preamble->GetSystemPreamble();
-            }
-        }
-
-        auto SetSystemPreamble(SourceTextView content) -> void
-        {
-            systemPreamble = content;
-        }
-
-        auto GetSystemPreamble() const noexcept -> SourceTextView
-        {
-            return systemPreamble;
         }
 
         auto SetVirtualFileSystem(std::shared_ptr<VirtualFileSystem> newVfs) -> void
@@ -64,31 +47,9 @@ namespace glsld
             vfs = std::move(newVfs);
         }
 
-        auto GetUri(FileID fileId) -> StringView
-        {
-            if (!fileId.IsValid()) {
-                return "";
-            }
-            else if (fileId.IsPreamble()) {
-                return "glsld-internal:/system_preamble";
-            }
-            else {
-                return GetUserFileEntry(fileId).canonicalUri;
-            }
-        }
+        auto GetUri(FileID fileId) -> StringView;
 
-        auto GetSourceText(FileID fileId) -> SourceTextView
-        {
-            if (!fileId.IsValid()) {
-                return {};
-            }
-            else if (fileId.IsPreamble()) {
-                return systemPreamble;
-            }
-            else {
-                return GetUserFileEntry(fileId).content;
-            }
-        }
+        auto GetSourceText(FileID fileId) -> SourceTextView;
 
         // TODO: we should pass an Uri here instead of ParsedUri to require being normalized.
         //       this avoids us repeatedly normalizing the same Uri.
