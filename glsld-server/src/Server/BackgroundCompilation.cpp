@@ -68,10 +68,15 @@ namespace glsld
         auto configCollectorCallback = LanguageConfigCollector{nextConfig};
 
         auto interceptingVfs = InMemoryFileSystem::Create(parsedUri->RemovePath().ToString());
-        GLSLD_ASSERT(interceptingVfs != nullptr);
-        SinkFileSystemError(interceptingVfs->AddFileNoOwn(*parsedUri, sourceString));
+        if (!interceptingVfs || !interceptingVfs->AddFileNoOwn(*parsedUri, sourceString)) {
+            // FIXME: handle this case properly
+            return;
+        }
         auto vfs = OverlayFileSystem::Create({interceptingVfs, NativeFileSystem::Create()});
-        GLSLD_ASSERT(vfs != nullptr);
+        if (!vfs) {
+            // FIXME: handle this case properly
+            return;
+        }
 
         auto compiler = std::make_unique<CompilerInvocation>(std::move(localPreamble));
         compiler->SetCountUtf16Characters(true);
