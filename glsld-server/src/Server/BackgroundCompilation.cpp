@@ -5,8 +5,9 @@
 #include "Language/Extension.h"
 #include "Support/ScopeExit.h"
 #include "Support/Uri.h"
+#include "Support/VirtualFileSystem.h"
 
-#include <filesystem>
+#include <vector>
 
 namespace glsld
 {
@@ -66,10 +67,22 @@ namespace glsld
         nextConfig                   = localPreamble->GetLanguageConfig();
         auto configCollectorCallback = LanguageConfigCollector{nextConfig};
 
+        auto interceptingVfs = InMemoryFileSystem::Create(parsedUri->RemovePath().ToString());
+        if (!interceptingVfs || !interceptingVfs->AddFileNoOwn(*parsedUri, sourceString)) {
+            // FIXME: handle this case properly
+            return;
+        }
+        auto vfs = OverlayFileSystem::Create({interceptingVfs, NativeFileSystem::Create()});
+        if (!vfs) {
+            // FIXME: handle this case properly
+            return;
+        }
+
         auto compiler = std::make_unique<CompilerInvocation>(std::move(localPreamble));
         compiler->SetCountUtf16Characters(true);
-        compiler->SetMainFileFromBuffer(sourceString);
+        compiler->SetVirtualFileSystem(std::move(vfs));
         compiler->AddIncludeUri(*parsedUri);
+        compiler->SetMainFileFromUri(*parsedUri);
 
         auto combinedCallback = CombinedPPCallback{&configCollectorCallback, ppInfoCallback.get()};
         auto result           = compiler->CompileMainFile(&combinedCallback);

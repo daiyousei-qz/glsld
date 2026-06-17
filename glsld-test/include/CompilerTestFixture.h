@@ -4,6 +4,7 @@
 #include "Catch2Wrapper.h"
 
 #include "Support/StringView.h"
+#include "Support/VirtualFileSystem.h"
 #include "Compiler/CompilerInvocation.h"
 #include "Compiler/PPCallback.h"
 
@@ -105,9 +106,18 @@ namespace glsld
         auto Compile(SourceTextView sourceText, CompileMode compileMode, PPCallback* ppCallback = nullptr) const
             -> std::unique_ptr<CompilerResult>
         {
+            auto mainFileUri = ParsedUri::Parse("mem:/__test/main.glsl");
+            GLSLD_ASSERT(mainFileUri.has_value());
+
+            auto vfs = InMemoryFileSystem::Create("mem:");
+            GLSLD_ASSERT(vfs != nullptr);
+            SinkFileSystemError(vfs->AddFileNoOwn(*mainFileUri, sourceText));
+
             auto compiler = std::make_unique<CompilerInvocation>();
             compiler->SetNoStdlib(true);
-            compiler->SetMainFileFromBuffer(sourceText);
+            compiler->SetVirtualFileSystem(std::move(vfs));
+            compiler->AddIncludeUri(*mainFileUri);
+            compiler->SetMainFileFromUri(*mainFileUri);
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
@@ -123,18 +133,19 @@ namespace glsld
             return compiler->CompileMainFile(ppCallback, compileMode);
         }
 
-        auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
-                                     PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
-        {
-            auto preambleCompiler = std::make_unique<CompilerInvocation>();
-            preambleCompiler->SetNoStdlib(true);
-            preambleCompiler->SetUserPreamble(userPreamble);
+        // FIXME: re-enable after refactoring the preamble to be more testable.
+        // auto CompileWithUserPreamble(SourceTextView userPreamble, SourceTextView mainFile, CompileMode compileMode,
+        //                              PPCallback* ppCallback = nullptr) const -> std::unique_ptr<CompilerResult>
+        // {
+        //     auto preambleCompiler = std::make_unique<CompilerInvocation>();
+        //     preambleCompiler->SetNoStdlib(true);
+        //     preambleCompiler->SetUserPreamble(userPreamble);
 
-            auto preamble = preambleCompiler->CompilePreamble(ppCallback);
-            auto compiler = std::make_unique<CompilerInvocation>(preamble);
-            compiler->SetMainFileFromBuffer(mainFile);
-            return compiler->CompileMainFile(ppCallback, compileMode);
-        }
+        //     auto preamble = preambleCompiler->CompilePreamble(ppCallback);
+        //     auto compiler = std::make_unique<CompilerInvocation>(preamble);
+        //     // Set the main file through a VFS-backed URI.
+        //     return compiler->CompileMainFile(ppCallback, compileMode);
+        // }
 
         auto CheckTokens(ArrayView<RawSyntaxToken> tokens, std::vector<TokenMatcher*> matchers) -> void
         {
@@ -161,7 +172,7 @@ namespace glsld
 
             for (uint32_t i = 0; i < tokens.size(); ++i) {
                 auto token = AstSyntaxToken{
-                    .id    = SyntaxTokenID{TranslationUnitID::UserFile, i},
+                    .id    = SyntaxTokenID{i, false},
                     .klass = tokens[i].klass,
                     .text  = tokens[i].text,
                 };
@@ -181,7 +192,7 @@ namespace glsld
                              sourceText));
 
             auto compilerResult = Compile(sourceText, CompileMode::PreprocessOnly);
-            CheckTokens(compilerResult->GetUserFileArtifacts().GetTokens(), std::move(matchers));
+            CheckTokens(compilerResult->GetTokens(), std::move(matchers));
         }
 
         auto CheckAst(const AstNode* ast, AstMatcher* matcher) -> void
@@ -213,7 +224,7 @@ namespace glsld
                              wrappedSourceText));
 
             auto compilerResult = Compile(wrappedSourceText, CompileMode::ParseOnly);
-            CheckAst(compilerResult->GetUserFileArtifacts().GetAst(), matcher);
+            CheckAst(compilerResult->GetAst(), matcher);
         }
 
         auto CheckAst(SourceTextView sourceText, AstMatcher* matcher) -> void

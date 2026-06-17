@@ -311,8 +311,8 @@ namespace glsld
             return;
         }
 
-        auto beginTokenIndex   = outputStream.tokens.size();
-        auto beginCommentIndex = outputStream.comments.size();
+        auto beginTokenIndex   = astContext.GetNextTokenIndex();
+        auto beginCommentIndex = astContext.GetNextCommentIndex();
         auto sourceText        = sourceManager.GetSourceText(sourceFile);
 
         Tokenizer tokenizer{*this, sourceFile, sourceText, compiler.GetCompilerConfig().countUtf16Character};
@@ -338,12 +338,12 @@ namespace glsld
             }
         }
 
-        outputStream.files.push_back(PreprocessedFile{
+        astContext.AddPreprocessedFile(PreprocessedFile{
             .fileID            = sourceFile,
             .beginTokenIndex   = beginTokenIndex,
-            .endTokenIndex     = outputStream.tokens.size(),
+            .endTokenIndex     = astContext.GetNextTokenIndex(),
             .beginCommentIndex = beginCommentIndex,
-            .endCommentIndex   = outputStream.comments.size(),
+            .endCommentIndex   = astContext.GetNextCommentIndex(),
         });
     }
 
@@ -580,7 +580,7 @@ namespace glsld
             }
 
             auto nextPP = std::make_unique<PreprocessStateMachine>(
-                compiler, outputStream, tuId, callback,
+                compiler, callback,
                 includeExpansionRange ? includeExpansionRange : TextRange{headerNameToken->spelledRange.start},
                 includeDepth + 1);
             nextPP->PreprocessSourceFile(includeFile);

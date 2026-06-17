@@ -31,11 +31,6 @@ namespace glsld
         mainFileId = sourceManager.OpenFromUri(uri);
     }
 
-    auto CompilerInvocation::SetMainFileFromBuffer(SourceTextView sourceText) -> void
-    {
-        mainFileId = sourceManager.OpenFromBuffer(sourceText);
-    }
-
     auto CompilerInvocation::ScanVersionAndExtension(PPCallback* ppCallback) -> void
     {
         if (!mainFileId.IsValid()) {
@@ -49,7 +44,7 @@ namespace glsld
             statistics.versionScanning += elapsedTime;
         }};
 
-        CompilerInvocationState compiler{sourceManager, compilerConfig, languageConfig};
+        CompilerInvocationState compiler{sourceManager, compilerConfig, languageConfig, false};
         Preprocessor{compiler, mainFileId, ppCallback, true}.DoPreprocess();
     }
 
@@ -62,16 +57,10 @@ namespace glsld
             statistics.totalCompileTime += elapsedTime;
         }};
 
-        auto compiler = InitializeCompilation();
-
-        if (compiler->GetArtifact(TranslationUnitID::SystemPreamble)->GetAst() == nullptr) {
+        auto compiler = std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, languageConfig, true);
+        if (!languageConfig.noStdlib) {
             DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoParse(*compiler, TranslationUnitID::SystemPreamble);
-        }
-
-        if (compiler->GetArtifact(TranslationUnitID::UserPreamble)->GetAst() == nullptr) {
-            DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
-            DoParse(*compiler, TranslationUnitID::UserPreamble);
+            DoParse(*compiler);
         }
 
         return compiler->CreatePreamble();
@@ -90,11 +79,21 @@ namespace glsld
             statistics.totalCompileTime += elapsedTime;
         }};
 
-        auto compiler = InitializeCompilation();
+        std::shared_ptr<PrecompiledPreamble> usedPreamble = preamble;
+        if (!usedPreamble && !languageConfig.noStdlib) {
+            auto preambleCompiler =
+                std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, languageConfig, true);
+            DoPreprocess(*preambleCompiler, FileID::SystemPreamble(), nullptr);
+            DoParse(*preambleCompiler);
+            usedPreamble = preambleCompiler->CreatePreamble();
+        }
 
-        if (!preamble) {
-            DoPreprocess(*compiler, FileID::SystemPreamble(), nullptr);
-            DoPreprocess(*compiler, FileID::UserPreamble(), ppCallback);
+        std::unique_ptr<CompilerInvocationState> compiler;
+        if (usedPreamble) {
+            compiler = std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, usedPreamble);
+        }
+        else {
+            compiler = std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, languageConfig, false);
         }
 
         DoPreprocess(*compiler, mainFileId, ppCallback);
@@ -102,23 +101,9 @@ namespace glsld
             return compiler->CreateCompileResult();
         }
 
-        if (!preamble) {
-            DoParse(*compiler, TranslationUnitID::SystemPreamble);
-            DoParse(*compiler, TranslationUnitID::UserPreamble);
-        }
-        DoParse(*compiler, TranslationUnitID::UserFile);
+        DoParse(*compiler);
 
         return compiler->CreateCompileResult();
-    }
-
-    auto CompilerInvocation::InitializeCompilation() -> std::unique_ptr<CompilerInvocationState>
-    {
-        if (preamble) {
-            return std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, preamble);
-        }
-        else {
-            return std::make_unique<CompilerInvocationState>(sourceManager, compilerConfig, languageConfig);
-        }
     }
 
     auto CompilerInvocation::DoPreprocess(CompilerInvocationState& compiler, FileID file, PPCallback* callback) -> void
@@ -127,24 +112,19 @@ namespace glsld
 
         ScopeExit _{[this, file, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
-            if (file.IsPreamble()) {
-                statistics.preambleLexing += elapsedTime;
-            }
-            else {
-                statistics.mainFileLexing += elapsedTime;
-            }
+            statistics.mainFileLexing += elapsedTime;
         }};
 
         Preprocessor{compiler, file, callback, false}.DoPreprocess();
     }
-    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler, TranslationUnitID id) -> void
+    auto CompilerInvocation::DoParse(CompilerInvocationState& compiler) -> void
     {
         ScopeExit _{[this, timer = SimpleTimer{}]() {
             auto elapsedTime = timer.GetElapsedTime<CompilerInvocationStatistics::Duration>();
             statistics.mainFileParsing += elapsedTime;
         }};
 
-        Parser{compiler, id, compiler.GetArtifact(id)->GetTokens()}.DoParse();
+        Parser{compiler}.DoParse();
     }
 
 } // namespace glsld

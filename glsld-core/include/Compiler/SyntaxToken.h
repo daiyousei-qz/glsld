@@ -121,40 +121,22 @@ namespace glsld
         bool hasLeadingWhitespace;
     };
 
-    enum class TranslationUnitID
-    {
-        SystemPreamble = 0,
-        UserPreamble   = 1,
-        UserFile       = 2,
-    };
-
     class SyntaxTokenID
     {
     private:
-        static constexpr uint32_t InvalidTokenID = static_cast<uint32_t>(-1);
-        // this must be a power of 2 for best performance
-        static constexpr uint32_t MaxTranslationUnitTokenCount = 1u << 28;
-        static constexpr uint32_t MaxTranslationUnitCount      = 15;
+        static constexpr uint32_t InvalidTokenID    = static_cast<uint32_t>(-1);
+        static constexpr uint32_t PreambleTokenMask = 1u << 31;
+        static constexpr uint32_t TokenIndexMask    = PreambleTokenMask - 1;
+        static constexpr uint32_t MaxTokenCount     = TokenIndexMask;
 
-        union
-        {
-            struct
-            {
-                uint32_t tokIndex : 28;
-                TranslationUnitID tuID : 4;
-            };
-            uint32_t value;
-        };
+        uint32_t value = InvalidTokenID;
 
     public:
-        constexpr SyntaxTokenID()
+        constexpr SyntaxTokenID() = default;
+        constexpr explicit SyntaxTokenID(uint32_t tokIndex, bool isPreamble)
         {
-        }
-        constexpr explicit SyntaxTokenID(TranslationUnitID tuID, uint32_t tokIndex)
-        {
-            GLSLD_ASSERT(tokIndex < MaxTranslationUnitTokenCount);
-            this->tuID     = tuID;
-            this->tokIndex = tokIndex;
+            GLSLD_ASSERT(tokIndex < MaxTokenCount);
+            this->value = (isPreamble ? PreambleTokenMask : 0) | tokIndex;
         }
 
         auto IsValid() const noexcept -> bool
@@ -162,14 +144,14 @@ namespace glsld
             return value != InvalidTokenID;
         }
 
-        auto GetTU() const noexcept -> TranslationUnitID
+        auto IsPreambleToken() const noexcept -> bool
         {
-            return tuID;
+            return (value & PreambleTokenMask) != 0;
         }
 
         auto GetTokenIndex() const noexcept -> uint32_t
         {
-            return tokIndex;
+            return value & TokenIndexMask;
         }
 
         auto operator==(const SyntaxTokenID& other) const noexcept -> bool
@@ -179,22 +161,22 @@ namespace glsld
 
         auto operator++() noexcept -> SyntaxTokenID&
         {
-            ++tokIndex;
+            ++value;
             return *this;
         }
         auto operator--() noexcept -> SyntaxTokenID&
         {
-            --tokIndex;
+            --value;
             return *this;
         }
         auto operator+=(uint32_t diff) noexcept -> SyntaxTokenID&
         {
-            tokIndex += diff;
+            value += diff;
             return *this;
         }
         auto operator-=(uint32_t diff) noexcept -> SyntaxTokenID&
         {
-            tokIndex -= diff;
+            value -= diff;
             return *this;
         }
         auto operator+(uint32_t diff) const noexcept -> SyntaxTokenID
@@ -211,10 +193,10 @@ namespace glsld
         }
         auto operator-(SyntaxTokenID other) const noexcept -> int32_t
         {
-            GLSLD_ASSERT(tuID == other.tuID);
-            uint32_t diff = std::max(tokIndex, other.tokIndex) - std::min(tokIndex, other.tokIndex);
-            int32_t sign  = tokIndex > other.tokIndex ? 1 : -1;
-            return sign * static_cast<int32_t>(diff);
+            GLSLD_ASSERT(IsPreambleToken() == other.IsPreambleToken());
+            uint32_t tokIndex      = GetTokenIndex();
+            uint32_t otherTokIndex = other.GetTokenIndex();
+            return static_cast<int32_t>(tokIndex) - static_cast<int32_t>(otherTokIndex);
         }
     };
 
@@ -265,7 +247,8 @@ namespace glsld
         }
         AstSyntaxRange(SyntaxTokenID beginTokID, SyntaxTokenID endTokID) : beginID(beginTokID), endID(endTokID)
         {
-            GLSLD_ASSERT(beginTokID.GetTU() == endID.GetTU() && beginTokID.GetTokenIndex() <= endTokID.GetTokenIndex());
+            GLSLD_ASSERT(beginTokID.IsPreambleToken() == endID.IsPreambleToken() &&
+                         beginTokID.GetTokenIndex() <= endTokID.GetTokenIndex());
         }
 
         auto Empty() const noexcept -> bool
@@ -278,9 +261,9 @@ namespace glsld
             return endID - beginID;
         }
 
-        auto GetTranslationUnit() const noexcept -> TranslationUnitID
+        auto IsInPreamble() const noexcept -> bool
         {
-            return endID.GetTU();
+            return endID.IsPreambleToken();
         }
 
         auto GetBeginID() const noexcept -> SyntaxTokenID

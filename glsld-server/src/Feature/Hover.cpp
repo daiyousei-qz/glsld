@@ -208,8 +208,7 @@ namespace glsld
             .range       = symbolInfo.spelledRange,
             .unknown     = !symbolInfo.symbolDecl && symbolInfo.symbolType != SymbolDeclType::Swizzle &&
                            symbolInfo.symbolType != SymbolDeclType::LayoutQualifier,
-            .builtin     = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().GetTranslationUnit() ==
-                                                        TranslationUnitID::SystemPreamble,
+            .builtin     = symbolInfo.symbolDecl && symbolInfo.symbolDecl->GetSyntaxRange().IsInPreamble(),
         };
     }
 

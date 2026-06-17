@@ -109,7 +109,41 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
             REQUIRE(result != nullptr);
             REQUIRE(callback.resolvedUris == std::vector<std::string>{"mem:/shader/include/header.glsl"});
-            CheckTokens(result->GetUserFileArtifacts().GetTokens(), {IdTok("vfs_token"), EofTok()});
+            CheckTokens(result->GetTokens(), {IdTok("vfs_token"), EofTok()});
+        }
+
+        SECTION("SourceFileOverlay")
+        {
+            auto sourceVfs = InMemoryFileSystem::Create("mem:");
+            REQUIRE(sourceVfs);
+            REQUIRE(sourceVfs
+                        ->AddFile("mem:/shader/main.glsl", R"(
+                #include "include/header.glsl"
+                HEADER_VALUE
+            )")
+                        .has_value());
+
+            auto includeVfs = InMemoryFileSystem::Create("mem:");
+            REQUIRE(includeVfs);
+            REQUIRE(includeVfs
+                        ->AddFile("mem:/shader/include/header.glsl", R"(
+                #define HEADER_VALUE fallback_token
+            )")
+                        .has_value());
+
+            auto vfs =
+                OverlayFileSystem::Create(std::vector<std::shared_ptr<VirtualFileSystem>>{sourceVfs, includeVfs});
+            REQUIRE(vfs);
+
+            auto mainUri = ParsedUri::Parse("mem:/shader/main.glsl");
+            REQUIRE(mainUri.has_value());
+
+            IncludeDirectiveCallback callback;
+            auto result = CompileWithVfs(*mainUri, vfs, CompileMode::PreprocessOnly, &callback);
+
+            REQUIRE(result != nullptr);
+            REQUIRE(callback.resolvedUris == std::vector<std::string>{"mem:/shader/include/header.glsl"});
+            CheckTokens(result->GetTokens(), {IdTok("fallback_token"), EofTok()});
         }
 
         SECTION("Unresolved")
@@ -129,7 +163,7 @@ TEST_CASE_METHOD(CompilerTestFixture, "Compiler::PreprocessingTest")
 
             REQUIRE(result != nullptr);
             REQUIRE(callback.resolvedUris == std::vector<std::string>{""});
-            CheckTokens(result->GetUserFileArtifacts().GetTokens(), {EofTok()});
+            CheckTokens(result->GetTokens(), {EofTok()});
         }
 
         // FIXME: Should also test custom include uris

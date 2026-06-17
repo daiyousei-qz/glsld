@@ -1,10 +1,8 @@
 #include "Basic/AtomTable.h"
 #include "Compiler/CompilerInvocationState.h"
 #include "Compiler/AstContext.h"
-#include "Compiler/CompilerArtifacts.h"
 #include "Compiler/MacroTable.h"
 #include "Compiler/SymbolTable.h"
-#include "Language/Stdlib.Generated.h"
 
 #include <memory>
 
@@ -16,33 +14,21 @@ namespace glsld
             atomTable   = std::make_unique<AtomTable>(&preamble->GetAtomTable());
             macroTable  = std::make_unique<MacroTable>(&preamble->GetMacroTable());
             symbolTable = std::make_unique<SymbolTable>(&preamble->GetSymbolTable());
-
-            systemPreambleArtifacts = preamble->GetSystemPreambleArtifacts().CreateReference();
-            userPreambleArtifacts   = preamble->GetUserPreambleArtifacts().CreateReference();
         }
         else {
             atomTable   = std::make_unique<AtomTable>(nullptr);
             macroTable  = std::make_unique<MacroTable>(nullptr);
             symbolTable = std::make_unique<SymbolTable>(nullptr);
-
-            systemPreambleArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::SystemPreamble);
-            userPreambleArtifacts   = std::make_unique<CompilerArtifact>(TranslationUnitID::UserPreamble);
         }
 
-        astContext        = std::make_unique<AstContext>();
-        diagStream        = std::make_unique<DiagnosticStream>();
-        userFileArtifacts = std::make_unique<CompilerArtifact>(TranslationUnitID::UserFile);
+        astContext = std::make_unique<AstContext>();
+        diagStream = std::make_unique<DiagnosticStream>();
     }
 
     auto CompilerInvocationState::InitializeStdlib() -> void
     {
         // FIXME: don't run this when scanning for version and extensions
         GLSLD_ASSERT(preamble == nullptr);
-
-        // Initialize system preamble
-        if (!languageConfig.noStdlib) {
-            sourceManager.SetSystemPreamble(GlslStdlibText);
-        }
 
         // Initialize feature macros
         auto defineFeatureMacro = [this, one = atomTable->GetAtom("1")](StringView name) {
@@ -126,15 +112,10 @@ namespace glsld
         defineFeatureMacro("__GLSLD_FEATURE_ENABLE_RAY_TRACING_NV");
     }
 
-    auto CompilerInvocationState::TryDumpTokens(TranslationUnitID id, ArrayView<RawSyntaxToken> tokens) const -> void
+    auto CompilerInvocationState::TryDumpTokens(ArrayView<RawSyntaxToken> tokens, bool isPreamble) const -> void
     {
-        if (compilerConfig.dumpTokens && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserPreamble) {
-                Print("=====Tokens of User Preamble=====\n");
-            }
-            else if (id == TranslationUnitID::UserFile) {
-                Print("=====Tokens of User File=====\n");
-            }
+        if (compilerConfig.dumpTokens && !isPreamble) {
+            Print("=====Tokens of User File=====\n");
 
             for (const auto& token : tokens) {
                 const auto& expanedRange = token.expandedRange;
@@ -145,15 +126,10 @@ namespace glsld
         }
     }
 
-    auto CompilerInvocationState::TryDumpAst(TranslationUnitID id, const AstTranslationUnit* ast) const -> void
+    auto CompilerInvocationState::TryDumpAst(const AstTranslationUnit* ast, bool isPreamble) const -> void
     {
-        if (compilerConfig.dumpAst && id != TranslationUnitID::SystemPreamble) {
-            if (id == TranslationUnitID::UserPreamble) {
-                Print("=====AST of User Preamble=====\n");
-            }
-            else if (id == TranslationUnitID::UserFile) {
-                Print("=====AST of User File=====\n");
-            }
+        if (compilerConfig.dumpAst && !isPreamble) {
+            Print("=====AST of User File=====\n");
 
             Print("{}", ast->ToString());
         }

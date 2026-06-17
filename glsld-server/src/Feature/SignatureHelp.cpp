@@ -53,7 +53,7 @@ namespace glsld
         -> std::unordered_multimap<AtomString, const AstFunctionDecl*>
     {
         std::unordered_multimap<AtomString, const AstFunctionDecl*> builtinFunctionDeclMap;
-        for (auto decl : preamble.GetSystemPreambleArtifacts().GetAst()->GetGlobalDecls()) {
+        for (auto decl : preamble.GetPreambleAst()->GetGlobalDecls()) {
             if (auto funcDecl = decl->As<AstFunctionDecl>()) {
                 builtinFunctionDeclMap.emplace(funcDecl->GetNameToken().text, funcDecl);
             }

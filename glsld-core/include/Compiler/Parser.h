@@ -36,7 +36,7 @@ namespace glsld
 
         AstBuilder astBuilder;
 
-        TranslationUnitID tuID;
+        bool isPreamble = false;
 
         ArrayView<RawSyntaxToken> tokens;
 
@@ -133,9 +133,9 @@ namespace glsld
         };
 
     public:
-        Parser(CompilerInvocationState& compiler, TranslationUnitID tuID, ArrayView<RawSyntaxToken> tokens)
-            : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()), tuID(tuID),
-              tokens(tokens)
+        Parser(CompilerInvocationState& compiler)
+            : compiler(compiler), astBuilder(compiler), diagReporter(compiler.GetDiagnosticStream()),
+              isPreamble(compiler.IsPreambleCompilation()), tokens(compiler.GetAstContext().GetTokens())
         {
             GLSLD_ASSERT(!tokens.empty() && tokens.back().klass == TokenKlass::Eof);
             currentTok = tokens.data();
@@ -799,7 +799,7 @@ namespace glsld
         auto GetCurrentTokenID() const noexcept -> SyntaxTokenID
         {
             GLSLD_ASSERT(currentTok != nullptr);
-            return SyntaxTokenID{tuID, static_cast<uint32_t>(currentTok - tokens.data())};
+            return SyntaxTokenID{static_cast<uint32_t>(currentTok - tokens.data()), isPreamble};
         }
 
         auto GetCurrentToken() const noexcept -> AstSyntaxToken

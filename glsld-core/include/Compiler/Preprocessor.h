@@ -132,13 +132,6 @@ namespace glsld
         }
     };
 
-    struct PreprocessedTokens
-    {
-        std::vector<RawSyntaxToken> tokens;
-        std::vector<RawCommentToken> comments;
-        std::vector<PreprocessedFile> files;
-    };
-
     enum class PreprocessorState
     {
         // The lexing should be performed normally.
@@ -190,12 +183,12 @@ namespace glsld
 
         MacroTable& macroTable;
 
+        AstContext& astContext;
+
         DiagnosticReportor diagReporter;
 
-        PreprocessedTokens& outputStream;
-
-        // The current translation unit ID.
-        TranslationUnitID tuId = TranslationUnitID::UserFile;
+        // True when emitting into the preamble artifact stream.
+        bool isPreamble = false;
 
         // The callback interface for the preprocessor.
         PPCallback* callback = nullptr;
@@ -361,13 +354,13 @@ namespace glsld
         LanguageAtoms atoms;
 
     public:
-        PreprocessStateMachine(CompilerInvocationState& compiler, PreprocessedTokens& outputStream,
-                               TranslationUnitID tuId, PPCallback* callback,
+        PreprocessStateMachine(CompilerInvocationState& compiler, PPCallback* callback,
                                std::optional<TextRange> includeExpansionRange, size_t includeDepth)
             : compiler(compiler), sourceManager(compiler.GetSourceManager()), atomTable(compiler.GetAtomTable()),
-              macroTable(compiler.GetMacroTable()), diagReporter(compiler.GetDiagnosticStream()),
-              outputStream(outputStream), tuId(tuId), callback(callback), macroExpansionProcessor(*this),
-              includeExpansionRange(includeExpansionRange), includeDepth(includeDepth), atoms(compiler.GetAtomTable())
+              macroTable(compiler.GetMacroTable()), astContext(compiler.GetAstContext()),
+              diagReporter(compiler.GetDiagnosticStream()), isPreamble(compiler.IsPreambleCompilation()),
+              callback(callback), macroExpansionProcessor(*this), includeExpansionRange(includeExpansionRange),
+              includeDepth(includeDepth), atoms(compiler.GetAtomTable())
         {
         }
 
@@ -378,7 +371,7 @@ namespace glsld
 
         auto GetNextTokenId() const noexcept -> SyntaxTokenID
         {
-            return SyntaxTokenID{tuId, GetNextTokenIndex()};
+            return SyntaxTokenID{astContext.GetNextTokenIndex(), isPreamble};
         }
 
         auto GetAtomTable() const noexcept -> AtomTable&
@@ -477,11 +470,6 @@ namespace glsld
             return nullptr;
         }
 
-        auto GetNextTokenIndex() const noexcept -> uint32_t
-        {
-            return static_cast<uint32_t>(outputStream.tokens.size());
-        }
-
         auto OutputToken(const PPToken& token, TextRange expandedRange) -> void
         {
             GLSLD_ASSERT(token.klass != TokenKlass::Comment && "Comment is handled separately");
@@ -498,7 +486,7 @@ namespace glsld
             compiler.GetCompilerTrace().TraceLexTokenIssued(token, expandedRange);
 #endif
 
-            outputStream.tokens.push_back(RawSyntaxToken{
+            astContext.AddToken(RawSyntaxToken{
                 .klass         = klass,
                 .spelledFile   = token.spelledFile,
                 .spelledRange  = token.spelledRange,
@@ -510,13 +498,13 @@ namespace glsld
         auto OutputCommentToken(const PPToken& token, uint32_t frontAttachmentLine) -> void
         {
             GLSLD_ASSERT(token.klass == TokenKlass::Comment);
-            outputStream.comments.push_back(RawCommentToken{
+            astContext.AddCommentToken(RawCommentToken{
                 .spelledFile         = token.spelledFile,
                 .spelledRange        = token.spelledRange,
                 .text                = token.text,
                 .frontAttachmentLine = frontAttachmentLine,
                 .backAttachmentLine  = triviaAttachmentLine,
-                .nextTokenIndex      = GetNextTokenIndex(),
+                .nextTokenIndex      = astContext.GetNextTokenIndex(),
             });
         }
 
@@ -623,27 +611,12 @@ namespace glsld
         CompilerInvocationState& compiler;
         std::unique_ptr<PreprocessStateMachine> pp;
         FileID sourceFile;
-        PreprocessedTokens outputStream;
-
-        static auto GetTUId(FileID sourceFile) -> TranslationUnitID
-        {
-            if (sourceFile.IsSystemPreamble()) {
-                return TranslationUnitID::SystemPreamble;
-            }
-            else if (sourceFile.IsUserPreamble()) {
-                return TranslationUnitID::UserPreamble;
-            }
-            else {
-                return TranslationUnitID::UserFile;
-            }
-        }
 
     public:
         Preprocessor(CompilerInvocationState& compiler, FileID sourceFile, PPCallback* callback,
                      bool versionScanningMode)
-            : pp(std::make_unique<PreprocessStateMachine>(compiler, outputStream, GetTUId(sourceFile), callback,
-                                                          std::nullopt, 0)),
-              sourceFile(sourceFile), compiler(compiler)
+            : pp(std::make_unique<PreprocessStateMachine>(compiler, callback, std::nullopt, 0)), sourceFile(sourceFile),
+              compiler(compiler)
         {
             if (versionScanningMode) {
                 pp->InitializeForVersionScanning();
@@ -656,11 +629,6 @@ namespace glsld
         auto DoPreprocess() -> void
         {
             pp->PreprocessSourceFile(sourceFile);
-
-            if (!pp->IsVersionScanningMode()) {
-                compiler.UpdatePreprocessingArtifact(GetTUId(sourceFile), std::move(outputStream.tokens),
-                                                     std::move(outputStream.comments), std::move(outputStream.files));
-            }
         }
     };
 

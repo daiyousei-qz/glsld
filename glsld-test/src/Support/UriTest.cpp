@@ -406,14 +406,6 @@ TEST_CASE("Support::ParsedUriTest")
                 CHECK(std::filesystem::path{*path}.is_absolute());
                 CHECK(std::filesystem::path{*path}.string() == "C:/tmp/shader.glsl");
             }
-
-            {
-                auto driveRelativeFile = ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl");
-                auto path              = UriToFileSystemPath(driveRelativeFile);
-                REQUIRE(path.has_value());
-                CHECK(std::filesystem::path{*path}.is_absolute());
-                CHECK(std::filesystem::path{*path}.string() == "C:/tmp/shader.glsl");
-            }
 #endif
 
             {
@@ -422,14 +414,6 @@ TEST_CASE("Support::ParsedUriTest")
                 REQUIRE(path.has_value());
                 CHECK(std::filesystem::path{*path}.has_root_path());
                 CHECK(std::filesystem::path{*path}.string() == "/tmp/shader.glsl");
-            }
-
-            {
-                auto relativeFile = ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl");
-                auto path         = UriToFileSystemPath(relativeFile);
-                REQUIRE(path.has_value());
-                CHECK(!std::filesystem::path{*path}.has_root_path());
-                CHECK(std::filesystem::path{*path}.string() == "relative/shader.glsl");
             }
 
             {
@@ -450,6 +434,15 @@ TEST_CASE("Support::ParsedUriTest")
             }
 
             {
+                // Rootless paths are not allowed to be converted to filesystem paths.
+                CHECK(
+                    !UriToFileSystemPath(ExpectParsed("file:relative/shader.glsl", "file", "", "relative/shader.glsl"))
+                         .has_value());
+#if GLSLD_OS_WIN
+                CHECK(!UriToFileSystemPath(ExpectParsed("file:C:/tmp/shader.glsl", "file", "", "C:/tmp/shader.glsl"))
+                           .has_value());
+#endif
+
                 // '/' is not allowed in percent-encoding when converting to filesystem path.
                 CHECK(
                     !UriToFileSystemPath(ExpectParsed("file:/tmp/bad%2fpath.glsl", "file", "", "/tmp/bad%2fpath.glsl"))

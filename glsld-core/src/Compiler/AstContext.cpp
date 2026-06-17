@@ -27,7 +27,7 @@ namespace glsld
             StructTypeDesc{
                 .name = typeName.Str(),
                 .linkageName =
-                    fmt::format("{}@{}_{}", typeName, std::to_underlying(decl.GetSyntaxRange().GetTranslationUnit()),
+                    fmt::format("{}@{}_{}", typeName, decl.GetSyntaxRange().IsInPreamble(),
                                 decl.GetSyntaxRange().GetBeginID().GetTokenIndex()),
                 .decl    = &decl,
                 .members = std::move(members),
@@ -59,7 +59,7 @@ namespace glsld
             StructTypeDesc{
                 .name = typeName.Str(),
                 .linkageName =
-                    fmt::format("{}@{}_{}", typeName, std::to_underlying(decl.GetSyntaxRange().GetTranslationUnit()),
+                    fmt::format("{}@{}_{}", typeName, decl.GetSyntaxRange().IsInPreamble(),
                                 decl.GetSyntaxRange().GetBeginID().GetTokenIndex()),
                 .decl    = &decl,
                 .members = std::move(members),

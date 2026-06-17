@@ -208,6 +208,16 @@ namespace glsld
             return GetRawScheme().EqualsIgnoreCase(scheme);
         }
 
+        auto HasEmptyPath() const -> bool
+        {
+            return path.empty();
+        }
+
+        auto HasRootlessPath() const -> bool
+        {
+            return !path.empty() && path[0] != '/';
+        }
+
         // The scheme is case-insensitive, we normalize it to lower case when returning.
         auto GetNormalizedScheme() const -> std::string;
 
@@ -219,6 +229,11 @@ namespace glsld
         auto GetPathSegments() const -> UriPathSegmentView
         {
             return UriPathSegmentView{path};
+        }
+
+        auto RemovePath() const -> ParsedUri
+        {
+            return ParsedUri{scheme, HasAuthority() ? std::optional{authority} : std::nullopt, StringView{}};
         }
 
         auto RemoveFileName() const -> ParsedUri
@@ -242,6 +257,21 @@ namespace glsld
 
         // Resolves a URI reference without removing dot segments.
         auto ResolveReference(StringView reference) const -> std::optional<Uri>;
+
+        auto ToString() const -> std::string
+        {
+            std::string result;
+            result.reserve(scheme.size() + authority.size() + path.size() + 3);
+
+            result += scheme;
+            result += ':';
+            if (HasAuthority()) {
+                result += "//";
+                result += authority;
+            }
+            result += path;
+            return result;
+        }
     };
 
     // A thin wrapper around ParsedUri that also stores the raw Uri text.
@@ -306,8 +336,8 @@ namespace glsld
     // Even if we return a path, it doesn't necessarily mean the path is valid or exists in the filesystem.
     auto UriToFileSystemPath(const ParsedUri& uri) -> std::optional<std::string>;
 
-    // Converts a native filesystem path to a file URI. If `directory` is true, the URI path is made directory-like by
-    // appending a trailing slash unless the path is empty.
+    // Converts a native filesystem path to a file URI. If `directory` is true, the URI path is made directory-like
+    // by appending a trailing slash unless the path is empty.
     auto FileSystemPathToUri(StringView path, bool directory = false) -> std::optional<Uri>;
 
 } // namespace glsld

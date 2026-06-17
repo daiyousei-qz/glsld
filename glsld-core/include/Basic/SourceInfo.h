@@ -12,7 +12,6 @@ namespace glsld
     // An opaque identifier for a file.
     // -  0: Invalid file ID.
     // - -1: System preamble file ID.
-    // - -2: User preamble file ID.
     // - Others: User file ID.
     class FileID
     {
@@ -20,7 +19,6 @@ namespace glsld
         uint32_t id = 0;
 
         static constexpr uint32_t SystemPreambleID = static_cast<uint32_t>(-1);
-        static constexpr uint32_t UserPreambleID   = static_cast<uint32_t>(-2);
 
     public:
         FileID() = default;
@@ -34,17 +32,9 @@ namespace glsld
         {
             return id != 0;
         }
-        auto IsSystemPreamble() const noexcept -> bool
-        {
-            return id == SystemPreambleID;
-        }
-        auto IsUserPreamble() const noexcept -> bool
-        {
-            return id == UserPreambleID;
-        }
         auto IsPreamble() const noexcept -> bool
         {
-            return IsSystemPreamble() || IsUserPreamble();
+            return id == SystemPreambleID;
         }
         auto IsUserFile() const noexcept -> bool
         {
@@ -65,10 +55,6 @@ namespace glsld
         static auto SystemPreamble() noexcept -> FileID
         {
             return FromIndex(SystemPreambleID);
-        }
-        static auto UserPreamble() noexcept -> FileID
-        {
-            return FromIndex(UserPreambleID);
         }
     };
 

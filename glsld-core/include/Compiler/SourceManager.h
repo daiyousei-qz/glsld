@@ -19,53 +19,25 @@ namespace glsld
     private:
         struct SourceFileEntry
         {
+            // A monolithic unique ID for the file.
             FileID id;
 
-            // The canonical URI of the file. Empty if the file came from an unmanaged buffer.
+            // URI that is used to open the file.
             std::string canonicalUri;
 
-            SourceTextView content;
+            // The content of the file read from VFS
+            std::string content;
         };
 
         std::shared_ptr<VirtualFileSystem> vfs = std::make_shared<NativeFileSystem>();
 
-        SourceTextView systemPreamble;
-
-        SourceTextView userPreamble;
-
         std::deque<SourceFileEntry> entries;
-
-        std::deque<std::string> ownedFileContents;
 
         StringMap<FileID> lookupUriToEntries;
 
     public:
         SourceManager(const PrecompiledPreamble* preamble = nullptr)
         {
-            if (preamble) {
-                systemPreamble = preamble->GetSystemPreamble();
-                userPreamble   = preamble->GetUserPreamble();
-            }
-        }
-
-        auto SetSystemPreamble(SourceTextView content) -> void
-        {
-            systemPreamble = content;
-        }
-
-        auto SetUserPreamble(SourceTextView content) -> void
-        {
-            userPreamble = content;
-        }
-
-        auto GetSystemPreamble() const noexcept -> SourceTextView
-        {
-            return systemPreamble;
-        }
-
-        auto GetUserPreamble() const noexcept -> SourceTextView
-        {
-            return userPreamble;
         }
 
         auto SetVirtualFileSystem(std::shared_ptr<VirtualFileSystem> newVfs) -> void
@@ -75,39 +47,9 @@ namespace glsld
             vfs = std::move(newVfs);
         }
 
-        auto GetUri(FileID fileId) -> StringView
-        {
-            if (!fileId.IsValid()) {
-                return "";
-            }
-            else if (fileId.IsSystemPreamble()) {
-                return "glsld-internal:/system_preamble";
-            }
-            else if (fileId.IsUserPreamble()) {
-                return "glsld-internal:/user_preamble";
-            }
-            else {
-                return GetUserFileEntry(fileId).canonicalUri;
-            }
-        }
+        auto GetUri(FileID fileId) -> StringView;
 
-        auto GetSourceText(FileID fileId) -> SourceTextView
-        {
-            if (!fileId.IsValid()) {
-                return {};
-            }
-            else if (fileId.IsSystemPreamble()) {
-                return systemPreamble;
-            }
-            else if (fileId.IsUserPreamble()) {
-                return userPreamble;
-            }
-            else {
-                return GetUserFileEntry(fileId).content;
-            }
-        }
-
-        auto OpenFromBuffer(SourceTextView sourceText) -> FileID;
+        auto GetSourceText(FileID fileId) -> SourceTextView;
 
         // TODO: we should pass an Uri here instead of ParsedUri to require being normalized.
         //       this avoids us repeatedly normalizing the same Uri.
